@@ -342,28 +342,21 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 </div>
 
 <script>
-/* ── DATA ──────────────────────────────────────────────── */
-const DB=[
-  {num:'ALM-0001',name:'Maria Ferreira',initials:'MF',age:17,lang:'English',level:'B2',course:'exam',branch:'Funchal · Sede',nationality:'Portuguesa',email:'m.ferreira@mail.pt',phone:'912 345 678'},
-  {num:'ALM-0002',name:'João Sousa',initials:'JS',age:34,lang:'English',level:'A2',course:'adults',branch:'Machico',nationality:'Português',email:'j.sousa@mail.pt',phone:'965 432 100'},
-  {num:'ALM-0003',name:'Ana Rodrigues',initials:'AR',age:28,lang:'Français',level:'B1',course:'adults',branch:'S. Cruz',nationality:'Portuguesa',email:'ana.r@mail.pt',phone:'927 111 222'},
-  {num:'ALM-0004',name:'Lucas Mendes',initials:'LM',age:9,lang:'Español',level:'A1',course:'kids',branch:'Funchal · Sede',nationality:'Português',email:'pai.mendes@mail.pt',phone:'938 000 111'},
-  {num:'ALM-0005',name:'Sofia Nunes',initials:'SN',age:22,lang:'Deutsch',level:'C1',course:'exam',branch:'Calheta',nationality:'Portuguesa',email:'s.nunes@mail.pt',phone:'961 777 333'}
-];
+/* ── SUPABASE CONFIG ───────────────────────────────────── */
+const SUPA_URL='https://oapygbeliocdvitbdjbq.supabase.co';
+const SUPA_KEY='sb_publishable_Y0wPq5Zx44emOn-_-F0Rqg_oAt7Js0W';
+const headers={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
 
-/* Simulated already-submitted record: ALM-0002 has a prior request */
-const PRIOR_SUBMISSIONS={
-  'ALM-0002':{
-    ref:'ALM-REF-0047',
-    date:'2026-04-10',
-    sessions:[
-      {di:0,dayName:'Seg',start:'09:00',end:'10:20',sm:540,em:620,exam:false,id:1001},
-      {di:2,dayName:'Qua',start:'10:00',end:'11:20',sm:600,em:680,exam:false,id:1002},
-      {di:4,dayName:'Sex',start:'14:00',end:'15:20',sm:840,em:920,exam:false,id:1003}
-    ],
-    notes:'Prefiro as manhãs. Não disponível às terças.'
-  }
-};
+async function sbGet(table,params=''){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}?${params}`,{headers});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbPost(table,body){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}`,{method:'POST',headers:{...headers,'Prefer':'return=representation'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
 
 const DAYS_PT=['Seg','Ter','Qua','Qui','Sex','Sáb'];
 const DAYS_EN=['Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -424,21 +417,27 @@ function onNumInput(){
 }
 
 /* ── AUTOCOMPLETE NAME ────────────────────────────────── */
-function onNameInput(){
-  const q=document.getElementById('inp-name').value.trim().toLowerCase();
+let acTimer=null;
+async function onNameInput(){
+  const q=document.getElementById('inp-name').value.trim();
   const drop=document.getElementById('ac-drop');
-  if(q.length<1){drop.classList.remove('open');return}
-  const matches=DB.filter(s=>s.name.toLowerCase().includes(q)).slice(0,5);
-  if(!matches.length){drop.classList.remove('open');return}
-  drop.innerHTML=matches.map(s=>`
-    <div class="ac-item" onclick="selectAc('${s.num}')">
-      <div class="ac-initials">${s.initials}</div>
-      <div class="ac-info">
-        <div class="ac-name">${highlight(s.name,q)}</div>
-        <div class="ac-num">${s.num}</div>
-      </div>
-    </div>`).join('');
-  drop.classList.add('open');
+  if(q.length<2){drop.classList.remove('open');return}
+  clearTimeout(acTimer);
+  acTimer=setTimeout(async()=>{
+    try{
+      const rows=await sbGet('students',`name=ilike.*${encodeURIComponent(q)}*&select=num,name,initials&limit=5`);
+      if(!rows.length){drop.classList.remove('open');return}
+      drop.innerHTML=rows.map(s=>`
+        <div class="ac-item" onclick="selectAc('${s.num}')">
+          <div class="ac-initials">${s.initials||'?'}</div>
+          <div class="ac-info">
+            <div class="ac-name">${highlight(s.name,q)}</div>
+            <div class="ac-num">${s.num}</div>
+          </div>
+        </div>`).join('');
+      drop.classList.add('open');
+    }catch(e){drop.classList.remove('open')}
+  },280);
 }
 function highlight(name,q){
   const i=name.toLowerCase().indexOf(q);
@@ -462,34 +461,50 @@ document.addEventListener('click',e=>{
 });
 
 /* ── LOOKUP ───────────────────────────────────────────── */
-function doLookup(){
+async function doLookup(){
   closeAcDrop();
   const rawNum=document.getElementById('inp-num').value.trim();
-  const num=rawNum?'ALM-'+rawNum.padStart(4,'0').replace(/^ALM-/i,''):'';
-  const nameQ=document.getElementById('inp-name').value.trim().toLowerCase();
+  const num=rawNum?'ALM-'+rawNum.padStart(4,'0'):'';
+  const nameQ=document.getElementById('inp-name').value.trim();
   const nf=document.getElementById('not-found');
-  let found=null;
-  if(num)found=DB.find(s=>s.num===num.toUpperCase());
-  if(!found&&nameQ.length>1)found=DB.find(s=>s.name.toLowerCase().includes(nameQ));
-  if(!found){
-    nf.textContent=lang==='pt'?'Registo não encontrado. Verifique o número ou o nome.':'Record not found. Please check the number or name.';
+
+  /* show loading state */
+  const btn=document.getElementById('btn-find');
+  btn.textContent=lang==='pt'?'A procurar…':'Searching…';
+  btn.disabled=true;
+
+  try{
+    let rows=[];
+    if(num){
+      rows=await sbGet('students',`num=eq.${encodeURIComponent(num)}&limit=1`);
+    }
+    if(!rows.length&&nameQ.length>1){
+      rows=await sbGet('students',`name=ilike.*${encodeURIComponent(nameQ)}*&limit=1`);
+    }
+    if(!rows.length){
+      nf.textContent=lang==='pt'?'Registo não encontrado. Verifique o número ou o nome.':'Record not found. Please check the number or name.';
+      nf.classList.add('visible');
+      document.getElementById('profile-bar').classList.remove('visible');
+      currentStudent=null;gridLocked=true;isReadonly=false;buildGrid();updateSummary();
+    } else {
+      nf.classList.remove('visible');
+      await loadProfile(rows[0],true);
+    }
+  }catch(e){
+    nf.textContent='Erro de ligação. Tente novamente.';
     nf.classList.add('visible');
-    document.getElementById('profile-bar').classList.remove('visible');
-    currentStudent=null;gridLocked=true;isReadonly=false;buildGrid();updateSummary();
-    return;
+  } finally {
+    btn.textContent=lang==='pt'?'Localizar':'Find';
+    btn.disabled=false;
   }
-  nf.classList.remove('visible');
-  loadProfile(found,true);
 }
 
 /* ── LOAD PROFILE ─────────────────────────────────────── */
-function loadProfile(s,doCheck){
+async function loadProfile(s,doCheck){
   currentStudent=s;
-  /* fill lookup fields */
   document.getElementById('inp-num').value=s.num.replace('ALM-','');
   document.getElementById('inp-name').value=s.name;
-
-  document.getElementById('p-avatar').textContent=s.initials;
+  document.getElementById('p-avatar').textContent=s.initials||s.name.slice(0,2).toUpperCase();
   document.getElementById('p-name').textContent=s.name;
   document.getElementById('p-num').textContent=s.num;
   const courseLabel={kids:'Kids',adults:lang==='pt'?'Adultos':'Adults',exam:lang==='pt'?'Exame':'Exam'};
@@ -506,24 +521,29 @@ function loadProfile(s,doCheck){
     <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h3l1.5 3.5-2 1.2c1 2 2.3 3.3 4.3 4.3l1.2-2L14.5 11V14c-6.5 1-12-4.5-11-11z"/></svg><span class="pmeta-val">${s.phone}</span></div>`;
   document.getElementById('profile-bar').classList.add('visible');
 
-  /* check prior submission */
-  const prior=PRIOR_SUBMISSIONS[s.num];
-  if(prior&&doCheck){
-    sessions=[...prior.sessions];
-    document.getElementById('notes-field').value=prior.notes||'';
-    updateNotesCount();
-    isReadonly=true;gridLocked=false;
-    buildGrid();updateSummary();
-    showSubmittedModal(prior);
-    document.getElementById('readonly-banner').classList.add('show');
-    lockSubmitDone();
-  } else if(!prior){
-    sessions=[];isReadonly=false;gridLocked=false;
-    buildGrid();updateSummary();
-    document.getElementById('readonly-banner').classList.remove('show');
-    document.getElementById('btn-sub').className='btn-sub';
-    document.getElementById('btn-sub').textContent=lang==='pt'?'Enviar pedido':'Submit request';
+  /* check prior submission in Supabase */
+  if(doCheck){
+    try{
+      const prior=await sbGet('timetable_requests',`student_num=eq.${s.num}&limit=1`);
+      if(prior.length){
+        const p=prior[0];
+        sessions=(p.sessions||[]).map((x,i)=>({...x,id:Date.now()+i}));
+        document.getElementById('notes-field').value=p.notes||'';
+        updateNotesCount();
+        isReadonly=true;gridLocked=false;
+        buildGrid();updateSummary();
+        showSubmittedModal({ref:p.ref,date:p.submitted_at});
+        document.getElementById('readonly-banner').classList.add('show');
+        lockSubmitDone();
+        return;
+      }
+    }catch(e){console.warn('Prior check failed',e)}
   }
+  sessions=[];isReadonly=false;gridLocked=false;
+  buildGrid();updateSummary();
+  document.getElementById('readonly-banner').classList.remove('show');
+  document.getElementById('btn-sub').className='btn-sub';
+  document.getElementById('btn-sub').textContent=lang==='pt'?'Enviar pedido':'Submit request';
   document.getElementById('grid-hint').textContent=lang==='pt'?'Toque numa coluna para marcar a sessão · deslize →':'Tap a column to mark your session · scroll →';
 }
 
@@ -718,13 +738,30 @@ function appendChip(t){
   updateNotesCount();f.focus();
 }
 
-function submitForm(){
+async function submitForm(){
   if(!document.getElementById('btn-sub').classList.contains('on'))return;
-  document.getElementById('warn-box').style.display='none';
-  lockSubmitDone();
-  isReadonly=true;
-  document.getElementById('readonly-banner').classList.add('show');
-  buildGrid();
+  const btn=document.getElementById('btn-sub');
+  btn.textContent=lang==='pt'?'A enviar…':'Sending…';
+  btn.disabled=true;
+  try{
+    const ref='ALM-REF-'+String(Math.floor(Math.random()*9999)+1).padStart(4,'0');
+    await sbPost('timetable_requests',{
+      student_id:currentStudent.id,
+      student_num:currentStudent.num,
+      sessions:sessions.map(({di,dayName,start,end,sm,em,exam})=>({di,dayName,start,end,sm,em,exam})),
+      notes:document.getElementById('notes-field').value,
+      ref
+    });
+    document.getElementById('warn-box').style.display='none';
+    lockSubmitDone();
+    isReadonly=true;
+    document.getElementById('readonly-banner').classList.add('show');
+    buildGrid();
+  }catch(e){
+    btn.textContent=lang==='pt'?'Erro — tente novamente':'Error — please retry';
+    btn.disabled=false;
+    setTimeout(()=>{btn.textContent=lang==='pt'?'Enviar pedido':'Submit request';btn.className='btn-sub on';btn.disabled=false;},3000);
+  }
 }
 
 /* ── INIT ─────────────────────────────────────────────── */
