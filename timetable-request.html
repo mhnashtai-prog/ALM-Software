@@ -1,0 +1,475 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.shell{background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%);min-height:680px;display:flex;align-items:flex-start;justify-content:center;padding:20px 12px 28px;font-family:'Inter',system-ui,sans-serif}
+.form{width:100%;max-width:540px;display:flex;flex-direction:column;gap:12px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+.tb-logo{font-size:13px;font-weight:700;color:#E8C97A;letter-spacing:2px}
+.lang-toggle{display:flex;background:rgba(0,0,0,0.3);border:0.5px solid rgba(210,180,100,0.2);border-radius:999px;padding:2px}
+.lang-btn{padding:3px 12px;border-radius:999px;font-size:10px;font-weight:600;color:rgba(210,180,100,0.4);cursor:pointer;border:none;background:transparent;letter-spacing:0.06em;transition:all 0.15s}
+.lang-btn.active{background:rgba(210,180,100,0.18);color:#E8C97A}
+.card{background:rgba(22,15,35,0.92);border:0.5px solid rgba(210,180,100,0.22);border-radius:16px;overflow:hidden}
+
+.lookup-section{padding:16px 16px 14px;border-bottom:0.5px solid rgba(210,180,100,0.1)}
+.lookup-title{font-size:9px;font-weight:600;color:rgba(210,180,100,0.35);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px}
+.lookup-row{display:flex;gap:8px;align-items:flex-end}
+.lookup-field{display:flex;flex-direction:column;gap:3px}
+.lookup-field.num{width:110px;flex-shrink:0}
+.lookup-field.name{flex:1}
+.lookup-label{font-size:9px;font-weight:600;color:rgba(210,180,100,0.35);letter-spacing:0.1em;text-transform:uppercase}
+.lookup-input{background:rgba(255,255,255,0.05);border:0.5px solid rgba(210,180,100,0.2);border-radius:8px;padding:8px 10px;font-size:12px;color:#E8C97A;outline:none;font-family:inherit;width:100%}
+.lookup-input::placeholder{color:rgba(210,180,100,0.22)}
+.lookup-input:focus{border-color:rgba(210,180,100,0.5);background:rgba(255,255,255,0.07)}
+.btn-find{padding:8px 14px;background:rgba(210,180,100,0.14);border:0.5px solid rgba(210,180,100,0.38);border-radius:8px;font-size:11px;font-weight:600;color:#E8C97A;cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0}
+.btn-find:hover{background:rgba(210,180,100,0.24)}
+
+.profile-bar{display:none;padding:12px 16px;border-bottom:0.5px solid rgba(210,180,100,0.1);background:rgba(210,180,100,0.04)}
+.profile-bar.visible{display:block}
+.profile-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.p-avatar{width:36px;height:36px;border-radius:50%;background:rgba(210,180,100,0.18);border:0.5px solid rgba(210,180,100,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#E8C97A;flex-shrink:0}
+.p-name{font-size:14px;font-weight:600;color:#E8C97A;line-height:1.2}
+.p-num{font-size:9px;color:rgba(210,180,100,0.4);letter-spacing:0.08em;margin-top:1px}
+.p-badge-row{display:flex;gap:5px;flex-wrap:wrap}
+.pbadge{padding:2px 8px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.05em}
+.pb-lang{background:rgba(55,138,221,0.15);color:#85B7EB;border:0.5px solid rgba(55,138,221,0.25)}
+.pb-level{background:rgba(201,168,76,0.15);color:#E8C97A;border:0.5px solid rgba(201,168,76,0.28)}
+.pb-course{background:rgba(93,202,165,0.13);color:#5DCAA5;border:0.5px solid rgba(93,202,165,0.25)}
+.pb-branch{background:rgba(175,169,236,0.15);color:#AFA9EC;border:0.5px solid rgba(175,169,236,0.25)}
+.profile-meta{display:flex;gap:0;flex-wrap:wrap;margin-top:6px;border-top:0.5px solid rgba(210,180,100,0.08);padding-top:7px}
+.pmeta-item{display:flex;align-items:center;gap:5px;padding:2px 10px 2px 0;margin-right:4px}
+.pmeta-icon{width:12px;height:12px;opacity:0.35;flex-shrink:0}
+.pmeta-val{font-size:10px;color:rgba(210,180,100,0.55)}
+.not-found{display:none;padding:10px 12px;background:rgba(232,100,100,0.08);border:0.5px solid rgba(232,100,100,0.2);border-radius:8px;font-size:11px;color:rgba(232,150,150,0.8);margin-top:8px}
+.not-found.visible{display:block}
+
+.grid-section{padding:12px 0 4px}
+.grid-hint{font-size:9px;color:rgba(210,180,100,0.32);letter-spacing:0.07em;padding:0 14px;margin-bottom:8px}
+.grid-outer{display:flex}
+.day-col{flex-shrink:0;width:38px}
+.day-spacer{height:20px}
+.day-cell{height:34px;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;font-size:9px;font-weight:600;color:rgba(210,180,100,0.5);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px}
+.day-cell.sat{color:rgba(201,168,76,0.8)}
+.scroll-area{flex:1;overflow-x:auto;padding-right:12px;padding-bottom:4px}
+.scroll-area::-webkit-scrollbar{height:3px}
+.scroll-area::-webkit-scrollbar-thumb{background:rgba(210,180,100,0.18);border-radius:999px}
+.time-header{display:flex;margin-bottom:4px;height:20px;align-items:flex-end}
+.time-lbl{font-size:9px;font-weight:600;color:rgba(210,180,100,0.45);text-align:center;flex-shrink:0}
+.gap-hdr{flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.gap-hdr-txt{font-size:8px;color:rgba(210,180,100,0.18)}
+.day-row{display:flex;margin-bottom:3px;position:relative;height:34px}
+.tcell{height:34px;border-radius:5px;border:0.5px solid rgba(210,180,100,0.11);background:rgba(255,255,255,0.025);cursor:pointer;flex-shrink:0;transition:border-color 0.12s,background 0.12s}
+.tcell:hover{border-color:rgba(210,180,100,0.35);background:rgba(210,180,100,0.09)}
+.tcell.gap-cell{background:rgba(0,0,0,0.28);border-color:transparent;cursor:default;pointer-events:none}
+.tcell.sat-cell{border-color:rgba(201,168,76,0.2)}
+.tcell.locked{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.tband{position:absolute;top:2px;bottom:2px;border-radius:5px;pointer-events:all;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;overflow:hidden}
+.tband-normal{background:rgba(93,202,165,0.28);border:0.5px solid rgba(93,202,165,0.6)}
+.tband-exam{background:rgba(201,168,76,0.33);border:0.5px solid rgba(201,168,76,0.68)}
+.tband-lbl{font-size:8px;font-weight:700;white-space:nowrap;padding:0 4px}
+.lbl-normal{color:#4dcaa5}.lbl-exam{color:#E8C97A}
+.popup{position:absolute;background:rgba(14,9,26,0.99);border:0.5px solid rgba(210,180,100,0.35);border-radius:12px;padding:13px;width:216px;z-index:300;pointer-events:all}
+.popup-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:9px}
+.ptitle-normal{color:#5DCAA5}.ptitle-exam{color:#E8C97A}
+.popup-row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.popup-label{font-size:9px;color:rgba(210,180,100,0.4);letter-spacing:0.06em}
+.popup-input{background:rgba(255,255,255,0.07);border:0.5px solid rgba(210,180,100,0.25);border-radius:7px;padding:7px 10px;font-size:13px;color:#E8C97A;outline:none;font-family:inherit;width:100%}
+.popup-input:focus{border-color:rgba(210,180,100,0.6)}
+.popup-dur{font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;margin-bottom:9px;text-align:center}
+.dur-normal{background:rgba(93,202,165,0.1);color:#5DCAA5;border:0.5px solid rgba(93,202,165,0.22)}
+.dur-exam{background:rgba(201,168,76,0.1);color:#E8C97A;border:0.5px solid rgba(201,168,76,0.22)}
+.popup-btns{display:flex;gap:5px}
+.pbtn{flex:1;padding:6px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:0.5px solid;transition:all 0.12s}
+.pbtn-save-n{background:rgba(93,202,165,0.15);border-color:rgba(93,202,165,0.38);color:#5DCAA5}
+.pbtn-save-e{background:rgba(201,168,76,0.16);border-color:rgba(201,168,76,0.42);color:#E8C97A}
+.pbtn-del{background:rgba(232,80,80,0.1);border-color:rgba(232,80,80,0.28);color:rgba(232,130,130,0.9)}
+.pbtn-cancel{background:rgba(255,255,255,0.04);border-color:rgba(210,180,100,0.14);color:rgba(210,180,100,0.4)}
+.popup-err{font-size:10px;color:rgba(232,120,120,0.9);margin-top:5px;display:none}
+
+.summary-section{padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;border-top:0.5px solid rgba(210,180,100,0.08)}
+.progress-bar{height:4px;background:rgba(210,180,100,0.1);border-radius:999px;overflow:hidden}
+.progress-fill{height:100%;border-radius:999px;transition:width 0.3s,background 0.3s}
+.summary-row{display:flex;gap:8px}
+.sum-pill{flex:1;background:rgba(210,180,100,0.06);border:0.5px solid rgba(210,180,100,0.12);border-radius:8px;padding:6px 8px;text-align:center}
+.sum-num{font-size:14px;font-weight:700;color:#E8C97A}
+.sum-lbl{font-size:8px;color:rgba(210,180,100,0.38);letter-spacing:0.05em;margin-top:1px}
+.sel-list{display:flex;flex-direction:column;gap:4px}
+.sel-item{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:7px;cursor:pointer;transition:opacity 0.12s}
+.sel-item:hover{opacity:0.8}
+.sel-item-n{background:rgba(93,202,165,0.07);border:0.5px solid rgba(93,202,165,0.18)}
+.sel-item-e{background:rgba(201,168,76,0.07);border:0.5px solid rgba(201,168,76,0.18)}
+.sel-item-left{display:flex;flex-direction:column;gap:1px}
+.sel-txt{font-size:11px;color:rgba(235,210,155,0.85)}
+.sel-mins{font-size:9px;color:rgba(210,180,100,0.38)}
+.sel-edit-ic{font-size:11px;color:rgba(210,180,100,0.3);padding:0 3px}
+.notes-section{display:flex;flex-direction:column;gap:4px}
+.notes-header{display:flex;justify-content:space-between;align-items:center}
+.notes-label{font-size:9px;font-weight:600;color:rgba(210,180,100,0.35);letter-spacing:0.1em;text-transform:uppercase}
+.notes-count{font-size:9px;color:rgba(210,180,100,0.22)}
+.notes-textarea{width:100%;background:rgba(255,255,255,0.04);border:0.5px solid rgba(210,180,100,0.13);border-radius:10px;padding:9px 12px;font-size:12px;color:rgba(235,210,155,0.82);outline:none;font-family:inherit;resize:none;line-height:1.5;transition:border-color 0.15s;font-style:italic}
+.notes-textarea::placeholder{color:rgba(210,180,100,0.18);font-style:italic}
+.notes-textarea:focus{border-color:rgba(210,180,100,0.35);background:rgba(255,255,255,0.05);font-style:normal}
+.notes-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.chip{padding:3px 9px;border-radius:999px;font-size:9px;color:rgba(210,180,100,0.38);border:0.5px solid rgba(210,180,100,0.1);background:rgba(210,180,100,0.04);cursor:pointer;transition:all 0.12s;white-space:nowrap}
+.chip:hover{background:rgba(210,180,100,0.1);color:rgba(210,180,100,0.7);border-color:rgba(210,180,100,0.22)}
+.warn{background:rgba(232,100,100,0.1);border:0.5px solid rgba(232,100,100,0.28);border-radius:8px;padding:6px 10px;font-size:11px;color:rgba(232,160,160,0.88);display:none}
+.action-row{display:flex;gap:8px}
+.btn-edit{flex:1;padding:10px;background:rgba(210,180,100,0.07);border:0.5px solid rgba(210,180,100,0.18);border-radius:10px;font-size:12px;font-weight:600;color:rgba(210,180,100,0.3);cursor:default;letter-spacing:0.04em;transition:all 0.2s}
+.btn-edit.on{background:rgba(210,180,100,0.11);border-color:rgba(210,180,100,0.35);color:rgba(210,180,100,0.72);cursor:pointer}
+.btn-sub{flex:2;padding:10px;background:rgba(201,168,76,0.05);border:0.5px solid rgba(201,168,76,0.13);border-radius:10px;font-size:13px;font-weight:600;color:rgba(201,168,76,0.28);cursor:default;letter-spacing:0.04em;transition:all 0.2s}
+.btn-sub.on{background:rgba(201,168,76,0.2);border-color:rgba(201,168,76,0.48);color:#E8C97A;cursor:pointer}
+</style>
+
+<div class="shell">
+<div class="form">
+  <div class="topbar">
+    <span class="tb-logo">ALM</span>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('pt',this)">PT</button>
+      <button class="lang-btn" onclick="setLang('en',this)">EN</button>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <div class="lookup-section">
+      <div class="lookup-title" id="lk-title">Identificação do aluno</div>
+      <div class="lookup-row">
+        <div class="lookup-field num">
+          <div class="lookup-label" id="lk-num-lbl">N.º aluno</div>
+          <input class="lookup-input" id="inp-num" placeholder="ALM-0000" onkeydown="if(event.key==='Enter')doLookup()"/>
+        </div>
+        <div class="lookup-field name">
+          <div class="lookup-label" id="lk-name-lbl">Nome completo</div>
+          <input class="lookup-input" id="inp-name" data-pt-ph="ou pesquisar por nome…" data-en-ph="or search by name…" placeholder="ou pesquisar por nome…" onkeydown="if(event.key==='Enter')doLookup()"/>
+        </div>
+        <button class="btn-find" onclick="doLookup()" id="btn-find">Localizar</button>
+      </div>
+      <div class="not-found" id="not-found"></div>
+    </div>
+
+    <div class="profile-bar" id="profile-bar">
+      <div class="profile-top">
+        <div class="p-avatar" id="p-avatar">—</div>
+        <div>
+          <div class="p-name" id="p-name">—</div>
+          <div class="p-num" id="p-num">—</div>
+        </div>
+        <div class="p-badge-row" id="p-badges" style="margin-left:auto"></div>
+      </div>
+      <div class="profile-meta" id="p-meta"></div>
+    </div>
+
+    <div class="grid-section">
+      <div class="grid-hint" id="grid-hint">Localize o seu registo para activar o formulário</div>
+      <div class="grid-outer">
+        <div class="day-col" id="day-col"></div>
+        <div class="scroll-area" id="scroll-area">
+          <div class="time-header" id="time-header"></div>
+          <div id="grid-rows"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-section">
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="summary-row">
+        <div class="sum-pill"><div class="sum-num" id="sel-count">0</div><div class="sum-lbl" id="lbl-sessions">Sessões</div></div>
+        <div class="sum-pill"><div class="sum-num" id="sel-mins">0</div><div class="sum-lbl" id="lbl-mins">Min / sem</div></div>
+        <div class="sum-pill"><div class="sum-num" id="req-mins">—</div><div class="sum-lbl" id="lbl-req">Necessário</div></div>
+      </div>
+      <div class="warn" id="warn-box"></div>
+      <div class="sel-list" id="sel-list"></div>
+      <div class="notes-section">
+        <div class="notes-header">
+          <div class="notes-label" id="lbl-notes">Nota para a direcção</div>
+          <div class="notes-count" id="notes-count">0 / 200</div>
+        </div>
+        <textarea class="notes-textarea" id="notes-field" rows="2" maxlength="200"
+          data-pt-ph="Ex: tenho de sair 10 min mais cedo; só disponível após as 17h às quartas…"
+          data-en-ph="Ex: I need to leave 10 min early each lesson; only available after 5pm Wed…"
+          placeholder="Ex: tenho de sair 10 min mais cedo; só disponível após as 17h às quartas…"
+          oninput="updateNotesCount()"></textarea>
+        <div class="notes-chips" id="notes-chips"></div>
+      </div>
+      <div class="action-row">
+        <button class="btn-edit" id="btn-edit" id="lbl-edit">Editar</button>
+        <button class="btn-sub" id="btn-sub" onclick="submitForm()">Enviar pedido</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+const DAYS_PT=['Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DAYS_EN=['Mon','Tue','Wed','Thu','Fri','Sat'];
+const ALL_HOURS=[8,9,10,11,null,14,15,16,17,18,19];
+const CELL_W=34,GAP_W=14;
+const DURATION={kids:80,adults:80,exam:110};
+const REQUIRED={kids:160,adults:160,exam:220};
+
+const DB=[
+  {num:'ALM-2241',name:'Maria Ferreira',initials:'MF',age:17,lang:'English',level:'B2',course:'exam',branch:'Funchal · Sede',nationality:'Portuguesa',email:'m.ferreira@mail.pt',phone:'912 345 678'},
+  {num:'ALM-1087',name:'João Sousa',initials:'JS',age:34,lang:'English',level:'A2',course:'adults',branch:'Machico',nationality:'Português',email:'j.sousa@mail.pt',phone:'965 432 100'},
+  {num:'ALM-0934',name:'Ana Rodrigues',initials:'AR',age:28,lang:'Français',level:'B1',course:'adults',branch:'S. Cruz',nationality:'Portuguesa',email:'ana.r@mail.pt',phone:'927 111 222'},
+  {num:'ALM-1563',name:'Lucas Mendes',initials:'LM',age:9,lang:'Español',level:'A1',course:'kids',branch:'Funchal · Sede',nationality:'Português',email:'pai.mendes@mail.pt',phone:'938 000 111'},
+  {num:'ALM-2089',name:'Sofia Nunes',initials:'SN',age:22,lang:'Deutsch',level:'C1',course:'exam',branch:'Calheta',nationality:'Portuguesa',email:'s.nunes@mail.pt',phone:'961 777 333'}
+];
+
+const CHIPS_PT=['Saio 10 min mais cedo','Só após as 17h','Prefiro manhãs','Prefiro tardes','Mesmo professor','Não às sextas','Exame em junho'];
+const CHIPS_EN=['Leave 10 min early','Only after 5pm','Prefer mornings','Prefer afternoons','Same teacher','Not Fridays','Exam in June'];
+
+let lang='pt',sessions=[],editingId=null,currentStudent=null,gridLocked=true;
+
+function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+(m||0)}
+function fromMins(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function getDur(){return currentStudent?DURATION[currentStudent.course]||80:80}
+function isExam(){return currentStudent&&currentStudent.course==='exam'}
+
+function doLookup(){
+  const num=document.getElementById('inp-num').value.trim().toUpperCase();
+  const name=document.getElementById('inp-name').value.trim().toLowerCase();
+  const nf=document.getElementById('not-found');
+  let found=null;
+  if(num)found=DB.find(s=>s.num===num);
+  if(!found&&name.length>1)found=DB.find(s=>s.name.toLowerCase().includes(name));
+  if(!found){
+    nf.textContent=lang==='pt'?'Registo não encontrado. Verifique o número ou o nome.':'Record not found. Please check the number or name.';
+    nf.classList.add('visible');
+    document.getElementById('profile-bar').classList.remove('visible');
+    currentStudent=null;gridLocked=true;buildGrid();updateSummary();
+    return;
+  }
+  nf.classList.remove('visible');
+  loadProfile(found);
+}
+
+function loadProfile(s){
+  currentStudent=s;gridLocked=false;
+  document.getElementById('p-avatar').textContent=s.initials;
+  document.getElementById('p-name').textContent=s.name;
+  document.getElementById('p-num').textContent=s.num;
+  const courseLabel={kids:'Kids',adults:lang==='pt'?'Adultos':'Adults',exam:lang==='pt'?'Exame':'Exam'};
+  document.getElementById('p-badges').innerHTML=`
+    <span class="pbadge pb-lang">${s.lang}</span>
+    <span class="pbadge pb-level">${s.level}</span>
+    <span class="pbadge pb-course">${courseLabel[s.course]}</span>
+    <span class="pbadge pb-branch">${s.branch}</span>`;
+  const ageLbl=lang==='pt'?'anos':'yrs';
+  const natLbl=lang==='pt'?'Nac.':'Nat.';
+  document.getElementById('p-meta').innerHTML=`
+    <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg><span class="pmeta-val">${s.age} ${ageLbl}</span></div>
+    <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2c0 0-3 2-3 6s3 6 3 6M8 2c0 0 3 2 3 6s-3 6-3 6M2 8h12"/></svg><span class="pmeta-val">${s.nationality}</span></div>
+    <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12v9H2z"/><path d="M2 4l6 5 6-5"/></svg><span class="pmeta-val">${s.email}</span></div>
+    <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h3l1.5 3.5-2 1.2c1 2 2.3 3.3 4.3 4.3l1.2-2L14.5 11V14c-6.5 1-12-4.5-11-11z"/></svg><span class="pmeta-val">${s.phone}</span></div>`;
+  document.getElementById('profile-bar').classList.add('visible');
+  sessions=[];buildGrid();updateSummary();
+  document.getElementById('grid-hint').textContent=lang==='pt'?'Toque numa coluna para marcar a sessão · deslize →':'Tap a column to mark your session · scroll →';
+}
+
+function buildGrid(){
+  const days=lang==='pt'?DAYS_PT:DAYS_EN;
+  const dayCol=document.getElementById('day-col');
+  const timeHeader=document.getElementById('time-header');
+  const gridRows=document.getElementById('grid-rows');
+  dayCol.innerHTML='<div class="day-spacer"></div>';
+  timeHeader.innerHTML='';gridRows.innerHTML='';
+  ALL_HOURS.forEach(h=>{
+    if(h===null){
+      timeHeader.innerHTML+=`<div class="gap-hdr" style="width:${GAP_W}px;flex-shrink:0"><div class="gap-hdr-txt">·</div></div><div style="width:3px;flex-shrink:0"></div>`;
+    } else {
+      timeHeader.innerHTML+=`<div class="time-lbl" style="width:${CELL_W}px">${h}h</div><div style="width:3px;flex-shrink:0"></div>`;
+    }
+  });
+  days.forEach((day,di)=>{
+    const dc=document.createElement('div');
+    dc.className='day-cell'+(di===5?' sat':'');
+    dc.textContent=day;dayCol.appendChild(dc);
+    const row=document.createElement('div');
+    row.className='day-row';row.id='row-'+di;
+    ALL_HOURS.forEach(h=>{
+      const el=document.createElement('div');
+      if(h===null){
+        el.className='tcell gap-cell';el.style.cssText=`width:${GAP_W}px;margin-right:3px`;
+      } else {
+        el.className='tcell'+(di===5?' sat-cell':'')+(gridLocked?' locked':'');
+        el.style.cssText=`width:${CELL_W}px;margin-right:3px`;
+        if(!gridLocked)el.onclick=(e)=>openPopup(e,di,day,h);
+      }
+      row.appendChild(el);
+    });
+    gridRows.appendChild(row);
+  });
+  redrawBands();
+}
+
+function minsToX(mins){
+  const h=Math.floor(mins/60),m=mins%60;
+  let x=0;
+  for(let i=0;i<ALL_HOURS.length;i++){
+    const hr=ALL_HOURS[i];
+    if(hr===null){x+=GAP_W+3;continue}
+    if(hr===h)return x+(m/60)*CELL_W;
+    x+=CELL_W+3;
+  }
+  return x;
+}
+
+function openPopup(e,di,dayName,clickedHour,existingId){
+  closePopup();
+  const dur=getDur(),exam=isExam();
+  let startVal,endVal,isEdit=false;
+  if(existingId){
+    const s=sessions.find(x=>x.id===existingId);
+    if(!s)return;
+    startVal=s.start;endVal=s.end;isEdit=true;editingId=existingId;
+  } else {
+    startVal=fromMins(clickedHour*60);endVal=fromMins(clickedHour*60+dur);
+  }
+  const L=lang==='pt'?{
+    title:dayName+(isEdit?' · Editar':' · Nova sessão'),
+    start:'Início',end:'Fim',
+    dur:`${dur} min · ${exam?'exame':'normal'}`,
+    save:isEdit?'Guardar':'Confirmar',cancel:'Cancelar',del:'Eliminar',err:'Hora inválida ou sobreposição'
+  }:{
+    title:dayName+(isEdit?' · Edit':' · New session'),
+    start:'Start',end:'End',
+    dur:`${dur} min · ${exam?'exam':'standard'}`,
+    save:isEdit?'Save':'Confirm',cancel:'Cancel',del:'Delete',err:'Invalid time or overlap'
+  };
+  const pop=document.createElement('div');
+  pop.className='popup';pop.id='active-popup';
+  pop.innerHTML=`
+    <div class="popup-title ${exam?'ptitle-exam':'ptitle-normal'}">${L.title}</div>
+    <div class="popup-row"><div class="popup-label">${L.start}</div>
+      <input class="popup-input" id="pop-start" type="time" value="${startVal}" oninput="syncEnd(${dur})"/></div>
+    <div class="popup-row"><div class="popup-label">${L.end}</div>
+      <input class="popup-input" id="pop-end" type="time" value="${endVal}"/></div>
+    <div class="popup-dur ${exam?'dur-exam':'dur-normal'}">${L.dur}</div>
+    <div class="popup-btns">
+      <button class="pbtn ${exam?'pbtn-save-e':'pbtn-save-n'}" onclick="confirmSlot(${di},'${dayName}')">${L.save}</button>
+      ${isEdit?`<button class="pbtn pbtn-del" onclick="deleteSess()">${L.del}</button>`:''}
+      <button class="pbtn pbtn-cancel" onclick="closePopup()">${L.cancel}</button>
+    </div>
+    <div class="popup-err" id="pop-err">${L.err}</div>`;
+  const scroll=document.getElementById('scroll-area');
+  const sRect=scroll.getBoundingClientRect();
+  const cRect=e.currentTarget.getBoundingClientRect();
+  let left=cRect.left-sRect.left+scroll.scrollLeft;
+  let top=cRect.top-sRect.top+scroll.scrollTop+36;
+  if(left+220>scroll.scrollWidth)left=Math.max(0,scroll.scrollWidth-224);
+  pop.style.cssText=`position:absolute;left:${left}px;top:${top}px`;
+  document.getElementById('grid-rows').appendChild(pop);
+  setTimeout(()=>document.getElementById('pop-start').focus(),40);
+}
+
+function syncEnd(dur){const s=document.getElementById('pop-start').value;if(s)document.getElementById('pop-end').value=fromMins(toMins(s)+dur)}
+function confirmSlot(di,dayName){
+  const start=document.getElementById('pop-start').value,end=document.getElementById('pop-end').value;
+  const sm=toMins(start),em=toMins(end);
+  const err=document.getElementById('pop-err');
+  if(!start||!end||em<=sm||sm<480||em>1260){err.style.display='block';return}
+  if(sessions.some(s=>s.di===di&&s.id!==editingId&&!(em<=s.sm||sm>=s.em))){err.style.display='block';return}
+  if(editingId)sessions=sessions.filter(s=>s.id!==editingId);
+  sessions.push({di,dayName,start,end,sm,em,exam:isExam(),id:Date.now()});
+  editingId=null;closePopup();redrawBands();updateSummary();
+}
+function deleteSess(){if(editingId)sessions=sessions.filter(s=>s.id!==editingId);editingId=null;closePopup();redrawBands();updateSummary()}
+function closePopup(){const p=document.getElementById('active-popup');if(p)p.remove();editingId=null}
+
+function redrawBands(){
+  document.querySelectorAll('.tband').forEach(b=>b.remove());
+  sessions.forEach(s=>{
+    const row=document.getElementById('row-'+s.di);if(!row)return;
+    const left=Math.round(minsToX(s.sm));
+    const width=Math.max(18,Math.round(minsToX(s.em)-minsToX(s.sm)));
+    const band=document.createElement('div');
+    band.className='tband '+(s.exam?'tband-exam':'tband-normal');
+    band.style.cssText=`left:${left}px;width:${width}px`;
+    band.innerHTML=`<span class="tband-lbl ${s.exam?'lbl-exam':'lbl-normal'}">${s.start}–${s.end}</span>`;
+    band.onclick=(ev)=>{ev.stopPropagation();editingId=s.id;openPopup({currentTarget:{getBoundingClientRect:()=>({left:ev.clientX-108,top:ev.clientY-70})}},s.di,s.dayName,null,s.id)};
+    row.appendChild(band);
+  });
+}
+
+function updateSummary(){
+  const c=currentStudent?currentStudent.course:'';
+  const req=REQUIRED[c]||0;
+  const total=sessions.reduce((a,s)=>a+(s.em-s.sm),0);
+  const pct=req?Math.min(100,Math.round(total/req*100)):0;
+  document.getElementById('sel-count').textContent=sessions.length;
+  document.getElementById('sel-mins').textContent=total;
+  document.getElementById('req-mins').textContent=req||'—';
+  const fill=document.getElementById('prog-fill');
+  fill.style.width=pct+'%';
+  fill.style.background=pct>=100?'#5DCAA5':pct>55?'#E8C97A':'rgba(201,168,76,0.4)';
+  document.getElementById('sel-list').innerHTML=sessions.map(s=>`
+    <div class="sel-item ${s.exam?'sel-item-e':'sel-item-n'}" onclick="editById(${s.id})">
+      <div class="sel-item-left">
+        <span class="sel-txt">${s.dayName} · ${s.start} – ${s.end}</span>
+        <span class="sel-mins">${s.em-s.sm} min · ${s.exam?(lang==='pt'?'exame':'exam'):(lang==='pt'?'normal':'standard')}</span>
+      </div><span class="sel-edit-ic">✎</span></div>`).join('');
+  const ready=c&&total>=req&&sessions.length>0;
+  const hasAny=sessions.length>0;
+  if(c&&total>0&&total<req)showWarn(lang==='pt'?`Faltam ${req-total} min.`:`${req-total} min still needed.`);
+  else document.getElementById('warn-box').style.display='none';
+  document.getElementById('btn-sub').className=ready?'btn-sub on':'btn-sub';
+  document.getElementById('btn-edit').className=hasAny?'btn-edit on':'btn-edit';
+}
+
+function editById(id){
+  const s=sessions.find(x=>x.id===id);if(!s)return;
+  editingId=id;
+  openPopup({currentTarget:{getBoundingClientRect:()=>({left:150,top:280})}},s.di,s.dayName,null,id);
+}
+
+function updateNotesCount(){document.getElementById('notes-count').textContent=document.getElementById('notes-field').value.length+' / 200'}
+
+function buildChips(){
+  const chips=lang==='pt'?CHIPS_PT:CHIPS_EN;
+  document.getElementById('notes-chips').innerHTML=chips.map(c=>`<div class="chip" onclick="appendChip('${c}')">${c}</div>`).join('');
+}
+function appendChip(t){
+  const f=document.getElementById('notes-field');
+  f.value=f.value.trim()?(f.value.trim()+'. '+t):t;
+  updateNotesCount();f.focus();
+}
+
+function showWarn(msg){const w=document.getElementById('warn-box');w.textContent=msg;w.style.display='block'}
+
+function submitForm(){
+  if(!document.getElementById('btn-sub').classList.contains('on'))return;
+  document.getElementById('warn-box').style.display='none';
+  const btn=document.getElementById('btn-sub');
+  btn.textContent=lang==='pt'?'Pedido enviado ✓':'Request sent ✓';
+  btn.style.cssText='flex:2;padding:10px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(93,202,165,0.18);border:0.5px solid rgba(93,202,165,0.4);color:#5DCAA5;cursor:default;letter-spacing:0.04em';
+}
+
+function setLang(l,btn){
+  lang=l;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('lk-title').textContent=l==='pt'?'Identificação do aluno':'Student identification';
+  document.getElementById('lk-num-lbl').textContent=l==='pt'?'N.º aluno':'Student no.';
+  document.getElementById('lk-name-lbl').textContent=l==='pt'?'Nome completo':'Full name';
+  document.getElementById('btn-find').textContent=l==='pt'?'Localizar':'Find';
+  document.getElementById('inp-name').placeholder=l==='pt'?'ou pesquisar por nome…':'or search by name…';
+  document.getElementById('lbl-sessions').textContent=l==='pt'?'Sessões':'Sessions';
+  document.getElementById('lbl-mins').textContent=l==='pt'?'Min / sem':'Min / wk';
+  document.getElementById('lbl-req').textContent=l==='pt'?'Necessário':'Required';
+  document.getElementById('lbl-notes').textContent=l==='pt'?'Nota para a direcção':'Note to director';
+  document.getElementById('notes-field').placeholder=l==='pt'?'Ex: tenho de sair 10 min mais cedo; só disponível após as 17h às quartas…':'Ex: I need to leave 10 min early each lesson; only available after 5pm Wed…';
+  document.getElementById('btn-edit').textContent=l==='pt'?'Editar':'Edit';
+  document.getElementById('btn-sub').textContent=l==='pt'?'Enviar pedido':'Submit request';
+  if(!gridLocked)document.getElementById('grid-hint').textContent=l==='pt'?'Toque numa coluna para marcar a sessão · deslize →':'Tap a column to mark your session · scroll →';
+  else document.getElementById('grid-hint').textContent=l==='pt'?'Localize o seu registo para activar o formulário':'Find your record to activate the form';
+  buildChips();
+  if(currentStudent)loadProfile(currentStudent);
+  else buildGrid();
+}
+
+buildGrid();buildChips();
+document.getElementById('grid-rows').addEventListener('click',e=>{
+  if(!e.target.closest('#active-popup')&&!e.target.closest('.tcell')&&!e.target.closest('.tband'))closePopup();
+});
+</script>
