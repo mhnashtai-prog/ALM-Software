@@ -224,7 +224,7 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 
 <!-- ── HEADER ──────────────────────────────────────────── -->
 <header class="site-header">
-  <a class="hdr-back" href="index.html" title="Voltar ao painel">
+  <a class="hdr-back" id="hdr-back-link" href="index.html" title="Voltar ao painel">
     <svg viewBox="0 0 16 16"><polyline points="10 3 5 8 10 13"/></svg>
     <span id="hdr-back-lbl">Painel</span>
   </a>
@@ -400,8 +400,6 @@ function applyStaticLang(){
   document.getElementById('rb-txt').textContent=pt?'Pedido submetido — horário apenas de leitura':'Request submitted — timetable is read-only';
   if(!gridLocked)document.getElementById('grid-hint').textContent=pt?'Toque numa coluna para marcar a sessão · deslize →':'Tap a column to mark your session · scroll →';
   else document.getElementById('grid-hint').textContent=pt?'Localize o seu registo para activar o formulário':'Find your record to activate the form';
-
-  /* modal strings */
   document.getElementById('sm-title').textContent=pt?'Pedido já submetido':'Request already submitted';
   document.getElementById('sm-body').textContent=pt
     ?'Este aluno já enviou o pedido de horário para o ano lectivo 2026/2027. O seu horário está apresentado abaixo.'
@@ -445,9 +443,7 @@ function highlight(name,q){
   return name.slice(0,i)+'<strong style="color:var(--gold)">'+name.slice(i,i+q.length)+'</strong>'+name.slice(i+q.length);
 }
 function selectAc(num){
-  const s=DB.find(x=>x.num===num);if(!s)return;
-  document.getElementById('inp-num').value=s.num.replace('ALM-','');
-  document.getElementById('inp-name').value=s.name;
+  document.getElementById('inp-num').value=num.replace('ALM-','');
   closeAcDrop();
   doLookup();
 }
@@ -467,12 +463,9 @@ async function doLookup(){
   const num=rawNum?'ALM-'+rawNum.padStart(4,'0'):'';
   const nameQ=document.getElementById('inp-name').value.trim();
   const nf=document.getElementById('not-found');
-
-  /* show loading state */
   const btn=document.getElementById('btn-find');
   btn.textContent=lang==='pt'?'A procurar…':'Searching…';
   btn.disabled=true;
-
   try{
     let rows=[];
     if(num){
@@ -521,7 +514,6 @@ async function loadProfile(s,doCheck){
     <div class="pmeta-item"><svg class="pmeta-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h3l1.5 3.5-2 1.2c1 2 2.3 3.3 4.3 4.3l1.2-2L14.5 11V14c-6.5 1-12-4.5-11-11z"/></svg><span class="pmeta-val">${s.phone}</span></div>`;
   document.getElementById('profile-bar').classList.add('visible');
 
-  /* check prior submission in Supabase */
   if(doCheck){
     try{
       const prior=await sbGet('timetable_requests',`student_num=eq.${s.num}&limit=1`);
@@ -766,6 +758,25 @@ async function submitForm(){
 
 /* ── INIT ─────────────────────────────────────────────── */
 buildGrid();buildChips();applyStaticLang();
+
+/* ── AUTO-LOOKUP FROM URL PARAMS (passed by student portal) ── */
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  const num=p.get('num');   /* e.g. ALM-0042 */
+  const nome=p.get('nome');
+  /* preserve URL params in the back link so portal also keeps them */
+  const backParams=p.toString();
+  if(backParams){
+    const back=document.getElementById('hdr-back-link');
+    if(back)back.href='index.html?'+backParams;
+  }
+  if(num){
+    document.getElementById('inp-num').value=num.replace('ALM-','');
+    if(nome)document.getElementById('inp-name').value=nome;
+    doLookup();
+  }
+})();
+
 document.getElementById('grid-rows').addEventListener('click',e=>{
   if(!e.target.closest('#active-popup')&&!e.target.closest('.tcell')&&!e.target.closest('.tband'))closePopup();
 });
