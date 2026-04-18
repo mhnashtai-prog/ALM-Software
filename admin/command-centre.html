@@ -1,1 +1,604 @@
 
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Painel Operacional</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --yellow:#E8B84B;--yellow-dim:rgba(232,184,75,0.18);--yellow-faint:rgba(232,184,75,0.07);
+  --red:#E8455A;--red-dim:rgba(232,69,90,0.2);--red-faint:rgba(232,69,90,0.07);
+  --teal:#3EC9A7;
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.2);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(12,8,22,0.95);backdrop-filter:blur(16px);
+  border-bottom:0.5px solid var(--border);
+  display:flex;align-items:center;gap:0;padding:0 20px;height:48px;
+}
+/* ── HOME BUTTON ── */
+.tb-home{display:flex;align-items:center;gap:6px;color:var(--text2);font-size:10px;font-weight:600;letter-spacing:0.08em;text-decoration:none;cursor:pointer;transition:color .15s;flex-shrink:0}
+.tb-home:hover{color:var(--gold-hi)}
+.tb-home svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-divider{width:0.5px;height:20px;background:var(--border);margin:0 14px;flex-shrink:0}
+.tb-brand{font-family:var(--display);font-size:16px;color:var(--gold-hi);letter-spacing:3px;flex-shrink:0}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-year{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:0.08em;margin-left:16px}
+.tb-status{display:flex;align-items:center;gap:5px;margin-left:16px;padding:3px 10px;border-radius:999px;background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25)}
+.tb-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.tb-status-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.08em}
+.tb-nav{display:flex;align-items:center;gap:4px;margin-left:20px}
+.nav-ico{width:32px;height:32px;border-radius:8px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;text-decoration:none}
+.nav-ico:hover{background:rgba(201,168,76,0.14);border-color:var(--border2)}
+.nav-ico.active{background:rgba(201,168,76,0.18);border-color:var(--gold-dim)}
+.nav-ico svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── BRANCH FILTER BANNER ── (shown when arriving from a branch) */
+.branch-banner{
+  background:rgba(201,168,76,0.06);border-bottom:0.5px solid var(--gold-dim);
+  padding:6px 20px;display:flex;align-items:center;gap:10px;
+  font-size:10px;color:var(--gold);position:relative;z-index:1;
+}
+.branch-banner.hidden{display:none}
+.bb-label{font-weight:600;letter-spacing:0.06em}
+.bb-clear{margin-left:auto;font-size:9px;color:var(--text3);cursor:pointer;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border);transition:all .12s}
+.bb-clear:hover{color:var(--gold);border-color:var(--gold-dim)}
+
+.shell{padding:16px 20px 40px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+.headline{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;cursor:default;transition:border-color 0.15s}
+.hcard:hover{border-color:var(--border2)}
+.hcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.hcard.c-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hcard.c-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.hcard.c-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hcard.c-gold::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hcard.c-teal::after{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hcard-lbl{font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+.hcard-val{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--gold-hi);line-height:1;letter-spacing:-0.5px}
+.hcard-val.green{color:var(--green)}
+.hcard-val.red{color:var(--red)}
+.hcard-val.yellow{color:var(--yellow)}
+.hcard-sub{font-size:9px;color:var(--text3);margin-top:2px}
+.hcard-delta{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px}
+.delta-up{color:var(--green);background:var(--green-faint)}
+.delta-dn{color:var(--red);background:var(--red-faint)}
+.sec-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+.branch-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.bcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.bcard:hover{border-color:var(--border2);background:var(--bg3)}
+.bcard.alert-red{border-color:rgba(232,69,90,0.35)}
+.bcard.alert-yellow{border-color:rgba(232,184,75,0.3)}
+.bcard.highlighted{border-color:var(--gold-dim);background:rgba(201,168,76,0.06);box-shadow:0 0 0 1px var(--gold-dim)}
+.bcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.bcard-name{font-size:10px;font-weight:600;color:var(--gold-hi);letter-spacing:0.04em}
+.bcard-alert{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.alert-dot-red{background:var(--red);box-shadow:0 0 5px var(--red)}
+.alert-dot-yellow{background:var(--yellow);box-shadow:0 0 5px var(--yellow)}
+.alert-dot-green{background:var(--green)}
+.bcard-stats{display:flex;flex-direction:column;gap:3px}
+.bstat{display:flex;justify-content:space-between;align-items:center}
+.bstat-lbl{font-size:8px;color:var(--text3);letter-spacing:0.04em}
+.bstat-val{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text)}
+.bstat-val.g{color:var(--green)}.bstat-val.r{color:var(--red)}.bstat-val.y{color:var(--yellow)}
+.bcard-bar{height:2px;background:rgba(201,168,76,0.1);border-radius:999px;margin-top:8px;overflow:hidden}
+.bcard-bar-fill{height:100%;border-radius:999px;transition:width 1s ease}
+.main-grid{display:grid;grid-template-columns:1fr 340px;gap:12px}
+.pipeline{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15)}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.panel-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.filter-row{display:flex;gap:4px;padding:10px 14px;border-bottom:0.5px solid var(--border);overflow-x:auto}
+.filter-row::-webkit-scrollbar{display:none}
+.ftab{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);white-space:nowrap;transition:all 0.12s}
+.ftab:hover{border-color:var(--border2);color:var(--text2)}
+.ftab.active{background:rgba(201,168,76,0.15);border-color:var(--gold-dim);color:var(--gold-hi)}
+.level-table{width:100%;border-collapse:collapse}
+.level-table th{font-size:7px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:0.5px solid var(--border);white-space:nowrap}
+.level-table th:not(:first-child){text-align:center}
+.level-table td{padding:5px 10px;border-bottom:0.5px solid rgba(201,168,76,0.04);font-size:11px;vertical-align:middle}
+.level-table tr:last-child td{border-bottom:none}
+.level-table tr:hover td{background:rgba(201,168,76,0.03)}
+.lang-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--gold-hi)}
+.lang-flag{font-size:12px}
+.lvl-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(201,168,76,0.08);color:var(--gold);display:inline-block}
+.group-cluster{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.gpill{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;cursor:pointer;transition:all 0.12s;border:0.5px solid;display:flex;align-items:center;gap:3px}
+.gpill:hover{transform:translateY(-1px);filter:brightness(1.15)}
+.gpill.gn{background:var(--green-faint);border-color:rgba(46,204,138,0.3);color:var(--green)}
+.gpill.gy{background:var(--yellow-faint);border-color:rgba(232,184,75,0.3);color:var(--yellow)}
+.gpill.gr{background:var(--red-faint);border-color:rgba(232,69,90,0.3);color:var(--red)}
+.gpill.gp{background:rgba(201,168,76,0.06);border-color:var(--border);color:var(--text3)}
+.band-tag{font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,0.3);color:inherit;opacity:0.7}
+.reg-bar-wrap{display:flex;align-items:center;gap:5px}
+.reg-bar{flex:1;height:4px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;min-width:40px}
+.reg-bar-fill{height:100%;border-radius:999px}
+.reg-pct{font-family:var(--mono);font-size:9px;color:var(--text3);width:28px;text-align:right}
+.right-panel{display:flex;flex-direction:column;gap:10px}
+.cases-panel{background:var(--bg2);border:0.5px solid rgba(232,69,90,0.25);border-radius:12px;overflow:hidden;flex-shrink:0}
+.cases-panel .panel-header{border-bottom-color:rgba(232,69,90,0.15)}
+.case-list{display:flex;flex-direction:column;gap:0}
+.case-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:0.5px solid rgba(232,69,90,0.08);cursor:pointer;transition:background 0.12s}
+.case-row:last-child{border-bottom:none}
+.case-row:hover{background:rgba(232,69,90,0.05)}
+.case-avatar{width:26px;height:26px;border-radius:50%;background:rgba(232,69,90,0.12);border:0.5px solid rgba(232,69,90,0.25);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--red);flex-shrink:0;font-family:var(--mono)}
+.case-info{flex:1;min-width:0}
+.case-name{font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.case-reason{font-size:9px;color:rgba(232,69,90,0.7);margin-top:1px}
+.case-badge{font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:4px;background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.2);color:var(--red);flex-shrink:0}
+.algo-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.algo-stages{display:flex;flex-direction:column;gap:0}
+.algo-stage{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:0.5px solid var(--border)}
+.algo-stage:last-child{border-bottom:none}
+.stage-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.si-done{background:var(--green-dim);border:0.5px solid rgba(46,204,138,0.35)}
+.si-run{background:var(--yellow-dim);border:0.5px solid rgba(232,184,75,0.35);animation:spinpulse 1.5s infinite}
+.si-wait{background:rgba(201,168,76,0.06);border:0.5px solid var(--border)}
+@keyframes spinpulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0.2)}50%{box-shadow:0 0 0 4px rgba(232,184,75,0)}}
+.stage-icon svg{width:11px;height:11px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.si-done svg{stroke:var(--green)}.si-run svg{stroke:var(--yellow)}.si-wait svg{stroke:var(--text3)}
+.stage-info{flex:1}
+.stage-name{font-size:10px;font-weight:500;color:var(--text)}
+.stage-meta{font-size:8px;color:var(--text3);margin-top:1px}
+.stage-count{font-family:var(--mono);font-size:10px;font-weight:600}
+.sc-done{color:var(--green)}.sc-run{color:var(--yellow)}.sc-wait{color:var(--text3)}
+.confirm-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.confirm-list{display:flex;flex-direction:column;gap:0}
+.confirm-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background 0.12s}
+.confirm-row:last-child{border-bottom:none}
+.confirm-row:hover{background:var(--gold-faint)}
+.cr-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cr-info{flex:1}
+.cr-name{font-size:10px;font-weight:500;color:var(--text)}
+.cr-sub{font-size:8px;color:var(--text3);margin-top:1px}
+.cr-btn{font-size:8px;font-weight:600;padding:3px 8px;border-radius:5px;background:rgba(201,168,76,0.12);border:0.5px solid var(--gold-dim);color:var(--gold);cursor:pointer;white-space:nowrap;transition:all 0.12s}
+.cr-btn:hover{background:rgba(201,168,76,0.22)}
+.legend{display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(--bg2);border:0.5px solid var(--border);border-radius:8px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--text3)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hcard{animation:fadeUp 0.4s ease both}
+.hcard:nth-child(1){animation-delay:0.05s}.hcard:nth-child(2){animation-delay:0.1s}
+.hcard:nth-child(3){animation-delay:0.15s}.hcard:nth-child(4){animation-delay:0.2s}
+.hcard:nth-child(5){animation-delay:0.25s}.hcard:nth-child(6){animation-delay:0.3s}
+.tooltip{position:fixed;background:rgba(12,8,22,0.98);border:0.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--text);z-index:999;pointer-events:none;display:none;max-width:200px}
+.tooltip.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <!-- Home button -->
+  <a class="tb-home" href="index.html">
+    <svg viewBox="0 0 16 16"><path d="M2 6L8 1l6 5v8a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M6 15V9h4v6"/></svg>
+    Início
+  </a>
+  <div class="tb-divider"></div>
+  <span class="tb-brand">ALM</span>
+  <span class="tb-page">Painel Operacional</span>
+  <div class="tb-nav" style="margin-left:16px">
+    <a class="nav-ico active" href="command-centre.html" title="Dashboard"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg></a>
+    <a class="nav-ico" href="timetable-request.html" title="Horários"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg></a>
+    <a class="nav-ico" href="enrollment.html" title="Nova Inscrição"><svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg></a>
+  </div>
+  <span class="tb-year">Ano Lectivo 2026 / 2027</span>
+  <div class="tb-status"><div class="tb-status-dot"></div><span class="tb-status-lbl">SISTEMA ACTIVO</span></div>
+  <span class="tb-clock" id="clock">--:--:--</span>
+</div>
+
+<!-- Branch filter banner — shown when arriving from a specific branch -->
+<div class="branch-banner hidden" id="branch-banner">
+  <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 5v3M7 9.5v.5"/></svg>
+  <span class="bb-label">A filtrar por filial:</span>
+  <span id="bb-branch-name" style="color:var(--gold-hi);font-weight:600;font-size:10px">—</span>
+  <span class="bb-clear" onclick="clearBranchFilter()">✕ Limpar filtro</span>
+</div>
+
+<div class="shell">
+
+  <!-- HEADLINE -->
+  <div class="headline">
+    <div class="hcard c-gold">
+      <div class="hcard-lbl">Total Alunos</div>
+      <div class="hcard-val">1 287</div>
+      <div class="hcard-sub">Meta: 1 300</div>
+      <span class="hcard-delta delta-up">+4.2%</span>
+    </div>
+    <div class="hcard c-green">
+      <div class="hcard-lbl">Inscrições Recebidas</div>
+      <div class="hcard-val green">1 041</div>
+      <div class="hcard-sub">80.9% da base</div>
+      <span class="hcard-delta delta-up">↑ hoje +23</span>
+    </div>
+    <div class="hcard c-yellow">
+      <div class="hcard-lbl">Em Falta</div>
+      <div class="hcard-val yellow">246</div>
+      <div class="hcard-sub">sem horário submetido</div>
+      <span class="hcard-delta delta-dn">−18.9%</span>
+    </div>
+    <div class="hcard c-green">
+      <div class="hcard-lbl">Turmas Formadas</div>
+      <div class="hcard-val green">94</div>
+      <div class="hcard-sub">de ~120 estimadas</div>
+    </div>
+    <div class="hcard c-red">
+      <div class="hcard-lbl">Casos Difíceis</div>
+      <div class="hcard-val red">31</div>
+      <div class="hcard-sub">aguardam intervenção</div>
+      <span class="hcard-delta delta-dn">urgente</span>
+    </div>
+    <div class="hcard c-teal">
+      <div class="hcard-lbl">A Confirmar</div>
+      <div class="hcard-val" style="color:var(--teal)">18</div>
+      <div class="hcard-sub">prof · sala · data</div>
+    </div>
+  </div>
+
+  <!-- BRANCH STRIP -->
+  <div class="sec-label">Filiais</div>
+  <div class="branch-strip">
+    <div class="bcard" id="bc-funchal" onclick="filterBranch('Funchal')">
+      <div class="bcard-top"><span class="bcard-name">Funchal · Sede</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">412</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">38</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">89%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">4</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:89%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-yellow" id="bc-machico" onclick="filterBranch('Machico')">
+      <div class="bcard-top"><span class="bcard-name">Machico</span><div class="bcard-alert alert-dot-yellow"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">198</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val y">14</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">74%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val y">8</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:74%;background:var(--yellow)"></div></div>
+    </div>
+    <div class="bcard" id="bc-scruz" onclick="filterBranch('S. Cruz')">
+      <div class="bcard-top"><span class="bcard-name">Santa Cruz</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">221</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">18</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">83%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">5</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:83%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-red" id="bc-rbrava" onclick="filterBranch('R. Brava')">
+      <div class="bcard-top"><span class="bcard-name">Ribeira Brava</span><div class="bcard-alert alert-dot-red"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">156</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val r">9</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">61%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val r">9</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:61%;background:var(--red)"></div></div>
+    </div>
+    <div class="bcard" id="bc-calheta" onclick="filterBranch('Calheta')">
+      <div class="bcard-top"><span class="bcard-name">Calheta</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">178</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">13</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">86%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">3</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:86%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-yellow" id="bc-estreito" onclick="filterBranch('Estreito')">
+      <div class="bcard-top"><span class="bcard-name">Estreito</span><div class="bcard-alert alert-dot-yellow"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">122</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val y">7</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">70%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val y">2</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:70%;background:var(--yellow)"></div></div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span style="font-size:8px;font-weight:600;color:var(--text3);letter-spacing:0.1em;margin-right:4px">TURMAS:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>≥ 8 alunos · viável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>5–7 · sustentável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>&lt; 5 · alerta financeiro</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(201,168,76,0.2);border:0.5px solid var(--border2)"></div>pendente · sem turma</div>
+    <span style="margin-left:auto;font-size:8px;color:var(--text3)">Clique numa filial para filtrar · Clique novamente para limpar</span>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="sec-label">Mapa de Turmas por Língua e Nível</div>
+  <div class="main-grid">
+    <div class="pipeline">
+      <div class="panel-header">
+        <div class="panel-title">Mapa Operacional</div>
+        <div class="filter-row" style="padding:0;border:none;margin-left:12px">
+          <div class="ftab active" onclick="setFilter('all',this)">Todas</div>
+          <div class="ftab" onclick="setFilter('EN',this)">🇬🇧 English</div>
+          <div class="ftab" onclick="setFilter('PT',this)">🇵🇹 Português</div>
+          <div class="ftab" onclick="setFilter('ES',this)">🇪🇸 Español</div>
+          <div class="ftab" onclick="setFilter('DE',this)">🇩🇪 Deutsch</div>
+          <div class="ftab" onclick="setFilter('FR',this)">🇫🇷 Français</div>
+        </div>
+        <div class="panel-meta" id="map-meta">94 turmas · 1 041 alunos colocados</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="level-table">
+          <thead><tr>
+            <th>Língua</th><th>Nível</th><th>Manhã</th><th>Tarde</th><th>Noite</th><th>Pendentes</th><th>Inscrição</th>
+          </tr></thead>
+          <tbody id="map-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="algo-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 4v3l2 1.5"/></svg>
+          <div class="panel-title" style="margin-left:4px">Motor de Alocação</div>
+          <div class="panel-meta">a correr</div>
+        </div>
+        <div class="algo-stages">
+          <div class="algo-stage">
+            <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Agrupamento por nível</div><div class="stage-meta">Language + level clusters</div></div>
+            <div class="stage-count sc-done">1 041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Separação por período</div><div class="stage-meta">Manhã / Tarde / Noite</div></div>
+            <div class="stage-count sc-done">1 041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-run"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4"/><path d="M6 3v3l2 1"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Refinamento de hora exacta</div><div class="stage-meta">Sobreposição de slots…</div></div>
+            <div class="stage-count sc-run">847 / 1041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="M5 5h2M5 7h2"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Formação de turmas</div><div class="stage-meta">min 5 · máx 12 por turma</div></div>
+            <div class="stage-count sc-wait">—</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><path d="M6 2v3l2 1M2 10c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Atribuição de turma</div><div class="stage-meta">Aguarda etapa anterior</div></div>
+            <div class="stage-count sc-wait">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cases-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--red);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>
+          <div class="panel-title" style="margin-left:4px;color:var(--red)">Casos Difíceis</div>
+          <div class="panel-meta">31 pendentes</div>
+        </div>
+        <div class="case-list" id="case-list"></div>
+        <div style="padding:8px 14px;border-top:0.5px solid rgba(232,69,90,0.1)">
+          <a href="timetable-request.html?filter=conflict" style="font-size:9px;color:var(--red);cursor:pointer;text-align:center;opacity:0.7;display:block;text-decoration:none">Ver todos os 31 casos →</a>
+        </div>
+      </div>
+
+      <div class="confirm-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><polyline points="2 7 5.5 10.5 12 4"/></svg>
+          <div class="panel-title" style="margin-left:4px">A Confirmar</div>
+          <div class="panel-meta">18 turmas</div>
+        </div>
+        <div class="confirm-list" id="confirm-list"></div>
+        <div style="padding:8px 14px;border-top:0.5px solid var(--border)">
+          <div style="font-size:9px;color:var(--text3);cursor:pointer;text-align:center">Ver todas as 18 turmas →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
+
+/* ── BRANCH ID → display name mapping ── */
+const BRANCH_MAP={
+  funchal:'Funchal',machico:'Machico',scruz:'S. Cruz',
+  rbrava:'R. Brava',calheta:'Calheta',estreito:'Estreito',psol:'P. do Sol'
+};
+const BRANCH_CARD_MAP={
+  'Funchal':'bc-funchal','Machico':'bc-machico','S. Cruz':'bc-scruz',
+  'R. Brava':'bc-rbrava','Calheta':'bc-calheta','Estreito':'bc-estreito'
+};
+
+/* ── READ URL PARAMS ON LOAD ── */
+const urlParams=new URLSearchParams(window.location.search);
+const branchParam=urlParams.get('branch');
+let activeBranch=null;
+
+if(branchParam&&BRANCH_MAP[branchParam]){
+  activeBranch=BRANCH_MAP[branchParam];
+  const banner=document.getElementById('branch-banner');
+  banner.classList.remove('hidden');
+  document.getElementById('bb-branch-name').textContent=activeBranch;
+  // Highlight the card
+  const cardId=BRANCH_CARD_MAP[activeBranch];
+  if(cardId)document.getElementById(cardId)?.classList.add('highlighted');
+}
+
+function clearBranchFilter(){
+  activeBranch=null;
+  document.getElementById('branch-banner').classList.add('hidden');
+  document.querySelectorAll('.bcard').forEach(c=>c.classList.remove('highlighted'));
+  // Remove param from URL without reloading
+  history.replaceState({},'',window.location.pathname);
+  renderMap();
+}
+
+/* ── MAP DATA ── */
+const MAP_DATA=[
+  {lang:'EN',level:'Kids',morning:[{n:11,br:'Funchal'},{n:9,br:'S.Cruz'}],afternoon:[{n:10,br:'Funchal'},{n:8,br:'Machico'}],evening:[],pending:4,reg:87},
+  {lang:'EN',level:'A1',morning:[{n:9,br:'Funchal'}],afternoon:[{n:12,br:'Funchal'},{n:7,br:'Machico'}],evening:[{n:8,br:'Funchal'}],pending:6,reg:82},
+  {lang:'EN',level:'A2',morning:[{n:10,br:'Funchal'},{n:6,br:'S.Cruz'}],afternoon:[{n:11,br:'Funchal'},{n:8,br:'Calheta'}],evening:[{n:9,br:'Funchal'},{n:5,br:'R.Brava'}],pending:3,reg:91},
+  {lang:'EN',level:'B1',morning:[{n:9,br:'Funchal'},{n:4,br:'Machico'}],afternoon:[{n:10,br:'Funchal'},{n:7,br:'S.Cruz'}],evening:[{n:8,br:'Funchal'},{n:6,br:'Estreito'}],pending:8,reg:78},
+  {lang:'EN',level:'B2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'},{n:5,br:'Machico'}],evening:[{n:7,br:'Funchal'}],pending:5,reg:85},
+  {lang:'EN',level:'C1',morning:[{n:6,br:'Funchal'}],afternoon:[{n:8,br:'Funchal'}],evening:[{n:3,br:'R.Brava'}],pending:7,reg:70},
+  {lang:'EN',level:'C2',morning:[],afternoon:[{n:5,br:'Funchal'}],evening:[],pending:2,reg:65},
+  {lang:'PT',level:'A1',morning:[{n:10,br:'Funchal'},{n:8,br:'S.Cruz'}],afternoon:[{n:9,br:'Funchal'}],evening:[],pending:3,reg:88},
+  {lang:'PT',level:'A2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'},{n:6,br:'Calheta'}],evening:[{n:4,br:'R.Brava'}],pending:2,reg:84},
+  {lang:'PT',level:'B1',morning:[{n:7,br:'Funchal'}],afternoon:[{n:8,br:'Funchal'}],evening:[],pending:4,reg:79},
+  {lang:'PT',level:'B2',morning:[{n:5,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:1,reg:76},
+  {lang:'ES',level:'A1',morning:[{n:9,br:'Funchal'},{n:7,br:'Machico'}],afternoon:[{n:10,br:'Funchal'}],evening:[{n:6,br:'Funchal'}],pending:4,reg:86},
+  {lang:'ES',level:'A2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'}],evening:[],pending:3,reg:81},
+  {lang:'ES',level:'B1',morning:[{n:4,br:'Funchal'}],afternoon:[{n:7,br:'Funchal'}],evening:[],pending:5,reg:72},
+  {lang:'DE',level:'A1',morning:[{n:8,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:3,reg:80},
+  {lang:'DE',level:'A2',morning:[{n:3,br:'Funchal'}],afternoon:[{n:5,br:'Funchal'}],evening:[],pending:2,reg:68},
+  {lang:'DE',level:'B1',morning:[],afternoon:[{n:4,br:'Funchal'}],evening:[],pending:6,reg:60},
+  {lang:'FR',level:'A1',morning:[{n:7,br:'Funchal'},{n:5,br:'S.Cruz'}],afternoon:[{n:8,br:'Funchal'}],evening:[],pending:2,reg:83},
+  {lang:'FR',level:'A2',morning:[{n:5,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:3,reg:75},
+];
+
+const LANGS=[
+  {code:'EN',flag:'🇬🇧',name:'English'},{code:'PT',flag:'🇵🇹',name:'Português'},
+  {code:'ES',flag:'🇪🇸',name:'Español'},{code:'DE',flag:'🇩🇪',name:'Deutsch'},
+  {code:'FR',flag:'🇫🇷',name:'Français'},
+];
+
+const CASES=[
+  {init:'MR',name:'Maria Rodrigues',reason:'Só disponível Sab 09h · EN B2 · R.Brava',br:'R.Brava'},
+  {init:'JF',name:'João Ferreira',reason:'Única aluna C2 Deutsch na filial',br:'Funchal'},
+  {init:'AS',name:'Ana Silva',reason:'Conflito 3 horários sobrepostos · ES B1',br:'Machico'},
+  {init:'PL',name:'Paulo Lima',reason:'Grupo <5 · EN C1 · Estreito',br:'Estreito'},
+  {init:'CM',name:'Clara Melo',reason:'Sem sobreposição · PT B2 · Calheta',br:'Calheta'},
+  {init:'RG',name:'Rui Gouveia',reason:'Exame jun. obrigatório · EN B1 · R.Brava',br:'R.Brava'},
+  {init:'IS',name:'Inês Santos',reason:'Kids · só manhã quarta · Machico',br:'Machico'},
+];
+const CONFIRMS=[
+  {name:'EN · B2 · Tarde 16h',sub:'Funchal · 9 alunos · sala livre'},
+  {name:'ES · A1 · Manhã 09h',sub:'S.Cruz · 10 alunos · sala 3'},
+  {name:'PT · A2 · Noite 19h',sub:'Funchal · 4 alunos · alerta <5'},
+  {name:'FR · A1 · Tarde 15h',sub:'Funchal · 7 alunos'},
+  {name:'DE · B1 · Tarde 17h',sub:'Funchal · 4 alunos · alerta <5'},
+];
+
+function pillClass(n){return n>=8?'gn':n>=5?'gy':'gr'}
+function groupPills(groups,band){
+  if(!groups.length)return'<span style="color:var(--text3);font-size:9px">—</span>';
+  return'<div class="group-cluster">'+groups.map(g=>{
+    const cls=pillClass(g.n);
+    return`<div class="gpill ${cls}" data-tip="${g.br} · ${g.n} alunos · ${band}" onmouseenter="showTip(event,this)" onmouseleave="hideTip()">${g.n}<span class="band-tag">${g.br.slice(0,3)}</span></div>`;
+  }).join('')+'</div>';
+}
+function regBar(pct){
+  const col=pct>=80?'var(--green)':pct>=65?'var(--yellow)':'var(--red)';
+  return`<div class="reg-bar-wrap"><div class="reg-bar"><div class="reg-bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="reg-pct">${pct}%</span></div>`;
+}
+
+/* branch short name matching */
+function branchMatches(brShort,activeFull){
+  if(!activeFull)return true;
+  const map={'R.Brava':'R. Brava','S.Cruz':'S. Cruz','Funchal':'Funchal','Machico':'Machico','Calheta':'Calheta','Estreito':'Estreito'};
+  return (map[brShort]||brShort)===activeFull;
+}
+
+let activeFilter='all';
+
+function renderMap(){
+  const tbody=document.getElementById('map-body');
+  const filtered=MAP_DATA.filter(r=>{
+    if(activeFilter!=='all'&&r.lang!==activeFilter)return false;
+    if(activeBranch){
+      const all=[...r.morning,...r.afternoon,...r.evening];
+      if(!all.some(g=>branchMatches(g.br,activeBranch)))return false;
+    }
+    return true;
+  });
+
+  let rows='',lastLang='';
+  filtered.forEach(r=>{
+    const langObj=LANGS.find(l=>l.code===r.lang)||{flag:'',name:r.lang};
+    // For branch filtering, only show groups from that branch
+    const filterGroup=groups=>activeBranch?groups.filter(g=>branchMatches(g.br,activeBranch)):groups;
+    const langCell=r.lang!==lastLang
+      ?`<td rowspan="${filtered.filter(x=>x.lang===r.lang).length}" style="border-right:0.5px solid var(--border);vertical-align:middle"><div class="lang-badge"><span class="lang-flag">${langObj.flag}</span>${langObj.name}</div></td>`:'';
+    if(r.lang!==lastLang)lastLang=r.lang;
+    const pendPill=r.pending>0?`<div class="gpill gp" style="opacity:0.8">${r.pending}</div>`:'<span style="color:var(--text3);font-size:9px">—</span>';
+    rows+=`<tr>${langCell}<td><span class="lvl-badge">${r.level}</span></td><td>${groupPills(filterGroup(r.morning),'Manhã')}</td><td>${groupPills(filterGroup(r.afternoon),'Tarde')}</td><td>${groupPills(filterGroup(r.evening),'Noite')}</td><td style="text-align:center">${pendPill}</td><td style="min-width:80px">${regBar(r.reg)}</td></tr>`;
+  });
+  tbody.innerHTML=rows||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-size:11px">Nenhum resultado</td></tr>';
+  const total=filtered.reduce((a,r)=>a+r.morning.length+r.afternoon.length+r.evening.length,0);
+  const students=filtered.reduce((a,r)=>a+[...r.morning,...r.afternoon,...r.evening].reduce((b,g)=>b+g.n,0),0);
+  document.getElementById('map-meta').textContent=`${total} turmas · ${students} alunos colocados`;
+}
+
+function setFilter(f,el){
+  activeFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderMap();
+}
+
+function filterBranch(b){
+  if(activeBranch===b){
+    clearBranchFilter();
+    return;
+  }
+  activeBranch=b;
+  document.getElementById('branch-banner').classList.remove('hidden');
+  document.getElementById('bb-branch-name').textContent=b;
+  document.querySelectorAll('.bcard').forEach(c=>c.classList.remove('highlighted'));
+  const cardId=BRANCH_CARD_MAP[b];
+  if(cardId)document.getElementById(cardId)?.classList.add('highlighted');
+  renderMap();
+}
+
+function renderCases(){
+  document.getElementById('case-list').innerHTML=CASES.slice(0,6).map(c=>`
+    <div class="case-row" onclick="window.location='timetable-request.html?filter=conflict'">
+      <div class="case-avatar">${c.init}</div>
+      <div class="case-info"><div class="case-name">${c.name}</div><div class="case-reason">${c.reason}</div></div>
+      <div class="case-badge">${c.br}</div>
+    </div>`).join('');
+}
+
+function renderConfirms(){
+  document.getElementById('confirm-list').innerHTML=CONFIRMS.map(c=>{
+    const isAlert=c.sub.includes('alerta');
+    const dot=isAlert?'var(--red)':c.sub.includes('7')||c.sub.includes('6')?'var(--yellow)':'var(--green)';
+    return`<div class="confirm-row"><div class="cr-dot" style="background:${dot}"></div><div class="cr-info"><div class="cr-name">${c.name}</div><div class="cr-sub">${c.sub}</div></div><div class="cr-btn">Confirmar</div></div>`;
+  }).join('');
+}
+
+const tip=document.getElementById('tooltip');
+function showTip(e,el){tip.textContent=el.dataset.tip;tip.classList.add('show');moveTip(e)}
+function hideTip(){tip.classList.remove('show')}
+document.addEventListener('mousemove',e=>{if(tip.classList.contains('show'))moveTip(e)});
+function moveTip(e){tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-28)+'px'}
+
+renderMap();
+renderCases();
+renderConfirms();
+</script>
+</body>
+</html>
