@@ -1,1 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Portal do Professor</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --gold-border:rgba(201,168,76,0.18);--gold-border-hover:rgba(201,168,76,0.42);
+  --teal:#2ECC8A;--teal-dim:rgba(46,204,138,0.18);--teal-faint:rgba(46,204,138,0.07);
+  --amber:#E8B84B;--amber-dim:rgba(232,184,75,0.18);
+  --red:#E8455A;--red-faint:rgba(232,69,90,0.07);
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mod-from:#EEE0C0;--mod-to:#D9C490;--mod-stroke:#4A3560;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
 
+/* scanline */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+
+/* ── BACKGROUND ── */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%)}
+.bg svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ── SHELL ── */
+.shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:48px;flex-shrink:0;
+  background:rgba(12,8,20,0.78);
+  border-bottom:0.5px solid var(--gold-border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;
+  position:sticky;top:0;z-index:100;backdrop-filter:blur(14px)
+}
+.tb-logo{font-family:var(--display);font-size:15px;font-weight:700;color:var(--gold-hi);letter-spacing:2px;flex-shrink:0;text-decoration:none}
+.tb-sep{width:0.5px;height:14px;background:var(--gold-border);flex-shrink:0}
+.tb-teacher{display:flex;flex-direction:column;gap:1px}
+.tb-teacher-name{font-size:11px;font-weight:600;color:var(--gold-hi);letter-spacing:0.02em}
+.tb-teacher-sub{font-size:8.5px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.tb-day{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em}
+
+/* notification btn */
+.tb-icon-btn{width:32px;height:32px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--gold-border);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all 0.15s;flex-shrink:0}
+.tb-icon-btn:hover{background:rgba(210,180,100,0.14);border-color:var(--gold-border-hover)}
+.tb-icon-btn svg{width:14px;height:14px;stroke:rgba(210,180,100,0.55);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-badge{position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg);font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center}
+
+/* avatar */
+.tb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3EC9A7,#1A7A60);border:1.5px solid rgba(62,201,167,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);cursor:pointer;flex-shrink:0;letter-spacing:0.5px;font-family:var(--display)}
+
+/* ── BODY ── */
+.body{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 20px;position:relative}
+
+/* hero right */
+.hero-right{position:absolute;right:clamp(28px,5vw,72px);top:50%;transform:translateY(-50%);text-align:right;pointer-events:none;z-index:2;opacity:0.85}
+.hero-letters{font-family:var(--display);font-size:clamp(56px,9vw,120px);font-weight:700;color:var(--gold-hi);line-height:0.85;letter-spacing:-4px}
+.hero-sub{font-size:clamp(6px,0.65vw,10px);letter-spacing:0.22em;color:rgba(232,200,120,0.6);text-transform:uppercase;margin-top:10px;font-weight:500}
+.hero-role{font-size:clamp(7px,0.6vw,9px);letter-spacing:0.16em;color:rgba(62,201,167,0.6);text-transform:uppercase;margin-top:6px;font-weight:600}
+
+/* dot pattern */
+.dots{position:absolute;right:0;top:50%;transform:translateY(-50%);width:48%;pointer-events:none;opacity:0.07;z-index:1}
+.dots svg{width:100%;height:auto}
+
+/* ── MODULE GRID ── */
+.btn-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,2.2vw,28px);z-index:10;position:relative}
+
+/* ── MODULE BUTTON ── */
+.mod{
+  width:clamp(90px,9vw,118px);height:clamp(90px,9vw,118px);
+  border-radius:22%;
+  background:linear-gradient(145deg,var(--mod-from) 0%,var(--mod-to) 100%);
+  box-shadow:5px 5px 16px rgba(10,6,20,0.55),-2px -2px 6px rgba(240,220,160,0.18),
+             inset 0 1px 0 rgba(255,248,225,0.88),inset 0 -1px 0 rgba(140,110,50,0.18);
+  border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(4px,0.4vw,7px);cursor:pointer;
+  transition:transform 0.2s cubic-bezier(0.4,0,0.2,1),box-shadow 0.2s;
+  position:relative;overflow:hidden;
+  animation:fadeUp 0.4s both
+}
+.mod::before{content:'';position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,250,230,0.45) 0%,rgba(255,235,170,0) 100%);border-radius:22% 22% 0 0;pointer-events:none}
+.mod:hover{transform:translateY(-4px) scale(1.05);box-shadow:6px 8px 22px rgba(10,6,20,0.65),-2px -2px 6px rgba(240,220,160,0.2),inset 0 1px 0 rgba(255,248,225,0.88),inset 0 -1px 0 rgba(140,110,50,0.2)}
+.mod:active{transform:translateY(0) scale(0.97)}
+.mod svg{width:clamp(18px,2vw,26px);height:clamp(18px,2vw,26px);stroke:var(--mod-stroke);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;position:relative;z-index:1}
+.mod-lbl{font-size:clamp(7px,0.62vw,9.5px);font-weight:600;letter-spacing:0.08em;color:var(--mod-stroke);text-transform:uppercase;white-space:nowrap;position:relative;z-index:1}
+.mod-badge{position:absolute;top:8px;right:8px;width:16px;height:16px;border-radius:50%;background:var(--red);border:1.5px solid var(--mod-to);font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;z-index:2}
+
+.mod:nth-child(1){animation-delay:0.05s}.mod:nth-child(2){animation-delay:0.10s}
+.mod:nth-child(3){animation-delay:0.15s}.mod:nth-child(4){animation-delay:0.20s}
+.mod:nth-child(5){animation-delay:0.25s}.mod:nth-child(6){animation-delay:0.30s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── STATUS BAR ── */
+.statusbar{
+  height:38px;flex-shrink:0;
+  background:rgba(10,6,18,0.5);
+  border-top:0.5px solid var(--gold-border);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:0 20px;z-index:10;position:relative
+}
+.sp{display:flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;border:0.5px solid var(--gold-border);font-size:clamp(8px,0.6vw,10px);font-weight:500;color:var(--text2);cursor:default;transition:all 0.15s}
+.sp:hover{color:var(--gold-hi);background:var(--gold-faint);border-color:var(--gold-border-hover)}
+.sp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sp-dot.ok{background:var(--teal);box-shadow:0 0 5px rgba(46,204,138,0.6)}
+.sp-dot.warn{background:var(--amber);box-shadow:0 0 5px rgba(232,184,75,0.5);animation:flicker 2.5s infinite}
+@keyframes flicker{0%,100%{opacity:1}50%{opacity:0.45}}
+
+/* ── OVERLAY + DRAWER ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,6,20,0.72);z-index:200;align-items:flex-end;justify-content:center}
+.overlay.open{display:flex}
+@media(min-width:640px){.overlay{align-items:center}.drawer{border-radius:18px !important;max-width:390px;width:100%;margin:0 auto;max-height:84vh}}
+.drawer{background:rgba(18,14,30,0.98);border:0.5px solid var(--border2);border-radius:20px 20px 0 0;width:100%;max-height:88vh;overflow-y:auto;scrollbar-width:none;animation:slideUp 0.28s cubic-bezier(0.4,0,0.2,1)}
+.drawer::-webkit-scrollbar{display:none}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.drawer-handle{width:36px;height:3px;border-radius:2px;background:rgba(210,180,100,0.18);margin:10px auto 0}
+.drawer-header{display:flex;align-items:center;gap:10px;padding:14px 18px 12px;border-bottom:0.5px solid var(--border)}
+.drawer-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0}
+.drawer-title{font-size:13px;font-weight:600;color:var(--gold-hi);text-transform:uppercase;letter-spacing:0.08em}
+.drawer-close{margin-left:auto;width:24px;height:24px;border-radius:50%;background:var(--gold-faint);border:none;cursor:pointer;color:var(--text2);font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.drawer-close:hover{background:rgba(210,180,100,0.18);color:var(--gold-hi)}
+.drawer-desc{font-size:10px;color:var(--text3);padding:10px 18px 4px;line-height:1.6}
+
+/* nav rows */
+.nav-row{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;margin:4px 14px;background:rgba(210,180,100,0.04);border:0.5px solid rgba(210,180,100,0.09);border-radius:11px;cursor:pointer;text-decoration:none;transition:background 0.15s}
+.nav-row:hover{background:rgba(210,180,100,0.1)}
+.nr-left{display:flex;align-items:center;gap:10px}
+.nr-icon{width:30px;height:30px;border-radius:9px;background:rgba(201,168,76,0.1);border:0.5px solid var(--gold-border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nr-icon svg{width:14px;height:14px;stroke:rgba(210,180,100,0.7);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.nr-text{display:flex;flex-direction:column;gap:2px}
+.nr-title{font-size:12px;font-weight:600;color:rgba(235,210,155,0.85)}
+.nr-sub{font-size:9px;color:var(--text3);letter-spacing:0.03em}
+.nr-badge{font-size:8px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.nr-badge.warn{background:rgba(232,184,75,0.15);border:0.5px solid rgba(232,184,75,0.28);color:var(--amber)}
+.nr-badge.ok  {background:rgba(46,204,138,0.12);border:0.5px solid rgba(46,204,138,0.28);color:var(--teal)}
+.nr-badge.new {background:rgba(232,69,90,0.12); border:0.5px solid rgba(232,69,90,0.28); color:var(--red)}
+.drawer-spacer{height:10px}
+
+/* class card inside drawer */
+.class-card{margin:6px 14px;background:rgba(62,201,167,0.05);border:0.5px solid rgba(62,201,167,0.18);border-radius:12px;padding:13px 14px}
+.cc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cc-title{font-size:12px;font-weight:600;color:var(--teal)}
+.cc-status{font-size:8px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.28);color:var(--teal)}
+.cc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.cc-row{display:flex;flex-direction:column;gap:2px;padding:5px 0;border-bottom:0.5px solid rgba(62,201,167,0.08)}
+.cc-row:nth-last-child(-n+2){border-bottom:none}
+.cc-key{font-size:8.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em}
+.cc-val{font-size:11px;font-weight:500;color:rgba(235,210,155,0.82)}
+.cc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:0.5px solid rgba(62,201,167,0.08)}
+.cc-btn{font-size:9px;padding:4px 10px;border-radius:999px;border:0.5px solid var(--gold-border);color:var(--text2);cursor:pointer;background:transparent;transition:all 0.12s;font-family:var(--sans)}
+.cc-btn:hover{background:var(--gold-faint);color:var(--gold-hi);border-color:var(--gold-border-hover)}
+
+/* next class banner */
+.next-class{margin:6px 14px 2px;background:rgba(201,168,76,0.06);border:0.5px solid var(--gold-dim);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.nc-time{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--gold-hi);flex-shrink:0;line-height:1}
+.nc-info{display:flex;flex-direction:column;gap:2px}
+.nc-label{font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3)}
+.nc-class{font-size:12px;font-weight:600;color:var(--text)}
+.nc-room{font-size:10px;color:var(--text2)}
+
+/* notification panel */
+.notif-panel{display:none;position:fixed;top:54px;right:12px;width:300px;background:rgba(18,14,30,0.98);border:0.5px solid var(--border2);border-radius:14px;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,0.5);overflow:hidden}
+.notif-panel.open{display:block}
+.notif-header{padding:10px 14px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.notif-title{font-size:11px;font-weight:600;color:var(--gold-hi);letter-spacing:0.05em;text-transform:uppercase}
+.notif-clear{font-size:9px;color:var(--text3);cursor:pointer;padding:2px 6px;border-radius:6px;transition:all 0.12s}
+.notif-clear:hover{color:var(--gold-hi);background:var(--gold-faint)}
+.notif-item{padding:10px 14px;border-bottom:0.5px solid rgba(210,180,100,0.06);display:flex;gap:10px;align-items:flex-start;cursor:pointer;transition:background 0.12s}
+.notif-item:hover{background:var(--gold-faint)}
+.notif-item:last-child{border-bottom:none}
+.notif-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.notif-dot.amber{background:var(--amber)}
+.notif-dot.teal{background:var(--teal)}
+.notif-dot.red{background:var(--red)}
+.notif-msg{font-size:10.5px;color:rgba(235,210,155,0.82);line-height:1.4}
+.notif-time{font-size:8.5px;color:var(--text3);margin-top:3px}
+
+/* mobile */
+@media(max-width:639px){
+  .hero-right,.dots{display:none}
+  .btn-grid{grid-template-columns:repeat(2,1fr);gap:16px;justify-items:center}
+  .mod{width:clamp(130px,42vw,160px);height:clamp(130px,42vw,160px)}
+  .mod svg{width:30px;height:30px}
+  .mod-lbl{font-size:10px}
+  .body{padding:24px 20px 100px;align-items:flex-start;padding-top:clamp(30px,10vw,60px)}
+  .statusbar{display:none}
+}
+@media(min-width:640px) and (max-width:900px){
+  .hero-right{display:none}
+  .dots{width:28%;opacity:0.05}
+}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg">
+  <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 540 C180 490,340 560,520 515 C700 470,820 555,1000 508 C1100 484,1160 502,1200 492 L1200 700 L0 700 Z" fill="rgba(15,10,28,0.22)"/>
+    <path d="M0 570 C140 538,300 600,480 562 C660 524,780 592,960 552 C1080 528,1150 546,1200 536 L1200 700 L0 700 Z" fill="rgba(8,5,18,0.14)"/>
+    <path d="M150 400 C260 338,380 285,490 316 C570 338,600 390,580 422 C560 454,520 454,490 432 C450 402,470 348,540 328 C620 305,740 276,880 254 C1020 232,1160 248,1280 216 L1380 200 L1380 222 C1160 272,1020 256,880 278 C740 300,620 330,540 354 C470 376,450 430,490 456 C520 476,560 476,580 446 C600 416,570 364,490 342 C380 312,260 364,150 428 Z" fill="rgba(62,201,167,0.04)"/>
+    <path d="M150 400 C260 338,380 285,490 316 C570 338,600 390,580 422 C560 454,520 454,490 432 C450 402,470 348,540 328 C620 305,740 276,880 254 C1020 232,1160 248,1280 216 L1380 200" fill="none" stroke="rgba(62,201,167,0.12)" stroke-width="1.4" stroke-linecap="round"/>
+    <radialGradient id="glow" cx="78%" cy="18%" r="38%">
+      <stop offset="0%" stop-color="rgba(62,201,167,0.08)"/>
+      <stop offset="55%" stop-color="rgba(140,90,160,0.04)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+    <rect width="100%" height="100%" fill="url(#glow)"/>
+  </svg>
+</div>
+
+<div class="shell">
+
+  <!-- ══ TOPBAR ══ -->
+  <div class="topbar">
+    <a class="tb-logo" href="#">ALM</a>
+    <div class="tb-sep"></div>
+    <div class="tb-teacher">
+      <div class="tb-teacher-name" id="tb-name">Sarah Mitchell</div>
+      <div class="tb-teacher-sub">Professor · Inglês · Funchal</div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-day" id="tb-day">—</div>
+      <div class="tb-icon-btn" onclick="toggleNotif(event)" id="notif-btn">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <div class="tb-badge" id="notif-count">2</div>
+      </div>
+      <div class="tb-avatar">SM</div>
+    </div>
+  </div>
+
+  <!-- Notification panel -->
+  <div class="notif-panel" id="notif-panel">
+    <div class="notif-header">
+      <span class="notif-title">Avisos</span>
+      <span class="notif-clear" onclick="clearNotifs()">Marcar como lidas</span>
+    </div>
+    <div class="notif-item">
+      <div class="notif-dot amber"></div>
+      <div>
+        <div class="notif-msg">Reunião de segunda-feira às 09h00 — sala de professores.</div>
+        <div class="notif-time">Hoje · 08:15</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-dot teal"></div>
+      <div>
+        <div class="notif-msg">Materiais de EN B1 aprovados e disponíveis para download.</div>
+        <div class="notif-time">Ontem · 16:30</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-dot red"></div>
+      <div>
+        <div class="notif-msg">3 sumários por preencher — prazo: sexta-feira.</div>
+        <div class="notif-time">2 dias atrás</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BODY ══ -->
+  <div class="body">
+
+    <!-- dot pattern -->
+    <div class="dots">
+      <svg viewBox="0 0 520 560" xmlns="http://www.w3.org/2000/svg" fill="#E8C97A">
+        <circle cx="80" cy="200" r="2.2"/><circle cx="98" cy="190" r="2.2"/><circle cx="116" cy="182" r="2.2"/><circle cx="134" cy="178" r="2.2"/><circle cx="152" cy="181" r="2.2"/><circle cx="170" cy="190" r="2.2"/><circle cx="188" cy="200" r="2.2"/><circle cx="206" cy="208" r="2.2"/><circle cx="224" cy="213" r="2.2"/><circle cx="242" cy="215" r="2.2"/><circle cx="260" cy="213" r="2.2"/><circle cx="278" cy="208" r="2.2"/><circle cx="296" cy="200" r="2.2"/>
+        <circle cx="72" cy="218" r="2.2"/><circle cx="90" cy="207" r="2.2"/><circle cx="108" cy="198" r="2.2"/><circle cx="126" cy="194" r="2.2"/><circle cx="144" cy="197" r="2.2"/><circle cx="162" cy="207" r="2.2"/><circle cx="180" cy="217" r="2.2"/><circle cx="198" cy="226" r="2.2"/><circle cx="216" cy="231" r="2.2"/><circle cx="234" cy="233" r="2.2"/><circle cx="252" cy="231" r="2.2"/><circle cx="270" cy="225" r="2.2"/>
+        <circle cx="66" cy="236" r="2.2"/><circle cx="84" cy="224" r="2.2"/><circle cx="102" cy="215" r="2.2"/><circle cx="120" cy="211" r="2.2"/><circle cx="138" cy="214" r="2.2"/><circle cx="156" cy="224" r="2.2"/><circle cx="174" cy="235" r="2.2"/><circle cx="192" cy="244" r="2.2"/>
+        <circle cx="90" cy="168" r="2.2"/><circle cx="108" cy="160" r="2.2"/><circle cx="126" cy="154" r="2.2"/><circle cx="144" cy="151" r="2.2"/><circle cx="162" cy="154" r="2.2"/>
+        <circle cx="100" cy="148" r="2.2"/><circle cx="118" cy="140" r="2.2"/><circle cx="136" cy="135" r="2.2"/>
+      </svg>
+    </div>
+
+    <!-- 6 modules -->
+    <div class="btn-grid">
+
+      <div class="mod" onclick="openDrawer('turmas')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <div class="mod-lbl">As minhas turmas</div>
+      </div>
+
+      <div class="mod" onclick="openDrawer('sumarios')">
+        <div class="mod-badge">3</div>
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+        <div class="mod-lbl">Sumários</div>
+      </div>
+
+      <div class="mod" onclick="openDrawer('presencas')">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <div class="mod-lbl">Presenças</div>
+      </div>
+
+      <div class="mod" onclick="openDrawer('materiais')">
+        <svg viewBox="0 0 24 24"><path d="M2 7l10-4 10 4v10l-10 4L2 17Z"/><path d="M12 3v18M2 7l10 4 10-4"/></svg>
+        <div class="mod-lbl">Materiais</div>
+      </div>
+
+      <div class="mod" onclick="openDrawer('testes')">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <div class="mod-lbl">Testes</div>
+      </div>
+
+      <div class="mod" onclick="openDrawer('mensagens')">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <div class="mod-lbl">Mensagens</div>
+      </div>
+
+    </div>
+
+    <!-- Hero -->
+    <div class="hero-right">
+      <div class="hero-letters">ALM</div>
+      <div class="hero-sub">Academia de Línguas da Madeira</div>
+      <div class="hero-role">Portal do Professor</div>
+    </div>
+
+  </div>
+
+  <!-- ══ STATUS BAR ══ -->
+  <div class="statusbar">
+    <div class="sp"><div class="sp-dot ok"></div><span id="sp-next">Próxima aula: EN B1 · 18:30</span></div>
+    <div class="sp" style="border-color:var(--gold-border)">Sala 4 · 1º andar · Funchal</div>
+    <div class="sp"><div class="sp-dot warn"></div>3 sumários por preencher</div>
+    <div class="sp" style="border-color:var(--gold-border)">Seg 9h · Reunião</div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ══ OVERLAY + DRAWER ══ -->
+<div class="overlay" id="overlay" onclick="handleOverlay(event)">
+  <div id="drawer-wrap" onclick="event.stopPropagation()">
+    <div class="drawer">
+      <div class="drawer-handle"></div>
+      <div class="drawer-header">
+        <div class="drawer-dot"></div>
+        <div class="drawer-title" id="drawer-title">—</div>
+        <button class="drawer-close" onclick="closeDrawer()">×</button>
+      </div>
+      <div id="drawer-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── CLOCK ── */
+(function(){
+  const d=new Date();
+  document.getElementById('tb-day').textContent=
+    d.toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'})+
+    ' · '+d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+})();
+
+/* ── DRAWER DATA ── */
+const DRAWERS={
+  turmas:{
+    title:'As minhas turmas',
+    desc:'As suas turmas activas para o ano lectivo 2025/2026.',
+    classCard:true,
+    rows:[
+      {icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',label:'EN · B1 · Turma C',sub:'Seg · Qua · Sex · 18:30 — 12 alunos',badge:'ok'},
+      {icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',label:'EN · A2 · Turma A',sub:'Ter · Qui · 09:00 — 10 alunos',badge:'ok'},
+      {icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',label:'EN · B2 · Turma Exame',sub:'Sáb · 10:00 — 7 alunos · Cambridge FCE',badge:'warn'},
+    ]
+  },
+  sumarios:{
+    title:'Sumários',
+    desc:'Registo das aulas dadas. 3 sumários por preencher.',
+    rows:[
+      {icon:'<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>',label:'Novo sumário',sub:'Registar aula de hoje',badge:'new'},
+      {icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>',label:'Sumários em falta',sub:'3 aulas por registar',badge:'warn'},
+      {icon:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',label:'Histórico',sub:'Todos os sumários do ano',badge:''},
+    ]
+  },
+  presencas:{
+    title:'Presenças',
+    desc:'Registo de assiduidade por turma e aluno.',
+    rows:[
+      {icon:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',label:'Marcar presenças — hoje',sub:'EN B1 · Turma C · 18:30',badge:'new'},
+      {icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>',label:'Por aluno',sub:'Ver assiduidade individual',badge:''},
+      {icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',label:'Por turma',sub:'Resumo mensal de presenças',badge:'ok'},
+      {icon:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>',label:'Faltas injustificadas',sub:'Alertas de assiduidade baixa',badge:'warn'},
+    ]
+  },
+  materiais:{
+    title:'Materiais',
+    desc:'Pedidos de fotocópias, livros e recursos pedagógicos.',
+    rows:[
+      {icon:'<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>',label:'Pedir fotocópias',sub:'Enviar pedido ao secretariado',badge:''},
+      {icon:'<path d="M2 7l10-4 10 4v10l-10 4L2 17Z"/><path d="M12 3v18"/>',label:'Pedir livros / fichas',sub:'Material pedagógico',badge:''},
+      {icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>',label:'Materiais disponíveis',sub:'Ficheiros e PDFs partilhados',badge:'ok'},
+      {icon:'<rect x="3" y="3" width="7" height="7" rx="1"/>',label:'Os meus pedidos',sub:'Estado dos pedidos enviados',badge:''},
+    ]
+  },
+  testes:{
+    title:'Testes',
+    desc:'Agendamento e registo de avaliações das suas turmas.',
+    rows:[
+      {icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',label:'Agendar teste',sub:'Marcar data de avaliação',badge:''},
+      {icon:'<path d="M9 11l3 3L22 4"/>',label:'Lançar notas',sub:'Introduzir resultados',badge:'new'},
+      {icon:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',label:'Ver resultados',sub:'Notas e estatísticas por turma',badge:'ok'},
+      {icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>',label:'Ficheiros de exame',sub:'MP3 listening · fichas · correcções',badge:''},
+    ]
+  },
+  mensagens:{
+    title:'Mensagens',
+    desc:'Comunicação com a direcção e secretariado.',
+    rows:[
+      {icon:'<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>',label:'Direcção',sub:'Mensagens da escola',badge:''},
+      {icon:'<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>',label:'Secretariado',sub:'Pedidos e informações',badge:''},
+      {icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>',label:'Colegas',sub:'Comunicação entre professores',badge:''},
+    ]
+  },
+};
+
+const CLASS_CARD=`
+<div class="next-class">
+  <div class="nc-time">18:30</div>
+  <div class="nc-info">
+    <div class="nc-label">Próxima aula — hoje</div>
+    <div class="nc-class">EN · B1 · Turma C</div>
+    <div class="nc-room">Sala 4 · 1º andar · Funchal · Sede</div>
+  </div>
+</div>
+<div class="class-card">
+  <div class="cc-header">
+    <span class="cc-title">EN · B1 · Turma C</span>
+    <span class="cc-status">Activa</span>
+  </div>
+  <div class="cc-grid">
+    <div class="cc-row"><div class="cc-key">Nível</div><div class="cc-val">English B1</div></div>
+    <div class="cc-row"><div class="cc-key">Alunos</div><div class="cc-val">12</div></div>
+    <div class="cc-row"><div class="cc-key">Horário</div><div class="cc-val">Seg · Qua · Sex</div></div>
+    <div class="cc-row"><div class="cc-key">Horas</div><div class="cc-val">18:30 – 20:00</div></div>
+    <div class="cc-row"><div class="cc-key">Sala</div><div class="cc-val">Sala 4 · 1º</div></div>
+    <div class="cc-row"><div class="cc-key">Filial</div><div class="cc-val">Funchal · Sede</div></div>
+  </div>
+  <div class="cc-actions">
+    <button class="cc-btn">Lista de alunos</button>
+    <button class="cc-btn">Marcar presenças</button>
+    <button class="cc-btn">Novo sumário</button>
+    <button class="cc-btn">Ver notas</button>
+  </div>
+</div>`;
+
+function openDrawer(key){
+  const d=DRAWERS[key];
+  if(!d)return;
+  document.getElementById('drawer-title').textContent=d.title;
+  const desc=`<p class="drawer-desc">${d.desc}</p>`;
+  const card=d.classCard?CLASS_CARD:'';
+  const rows=d.rows.map(r=>`
+    <a class="nav-row" href="#" onclick="return false">
+      <div class="nr-left">
+        <div class="nr-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="rgba(210,180,100,0.7)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">${r.icon}</svg></div>
+        <div class="nr-text">
+          <div class="nr-title">${r.label}</div>
+          <div class="nr-sub">${r.sub}</div>
+        </div>
+      </div>
+      ${r.badge==='warn'?'<span class="nr-badge warn">atenção</span>':r.badge==='ok'?'<span class="nr-badge ok">activo</span>':r.badge==='new'?'<span class="nr-badge new">novo</span>':''}
+    </a>`).join('');
+  document.getElementById('drawer-body').innerHTML=desc+card+`<div style="padding:6px 0 8px">${rows}</div><div class="drawer-spacer"></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeDrawer(){document.getElementById('overlay').classList.remove('open')}
+function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeDrawer()}
+
+/* notifications */
+function toggleNotif(e){
+  e.stopPropagation();
+  document.getElementById('notif-panel').classList.toggle('open');
+}
+function clearNotifs(){
+  document.querySelectorAll('.notif-dot').forEach(d=>{d.style.background='rgba(210,180,100,0.15)'});
+  document.getElementById('notif-count').style.display='none';
+}
+document.addEventListener('click',e=>{
+  const p=document.getElementById('notif-panel');
+  const b=document.getElementById('notif-btn');
+  if(!p.contains(e.target)&&!b.contains(e.target))p.classList.remove('open');
+});
+</script>
+</body>
+</html>
