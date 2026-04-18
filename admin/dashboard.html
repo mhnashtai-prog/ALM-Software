@@ -171,6 +171,8 @@
 .modal-title{font-size:12px;font-weight:600;color:#E8C97A;text-transform:uppercase;letter-spacing:0.08em}
 .modal-close{margin-left:auto;width:22px;height:22px;border-radius:50%;background:rgba(210,180,100,0.08);border:none;cursor:pointer;color:rgba(210,180,100,0.45);font-size:14px;display:flex;align-items:center;justify-content:center}
 .modal-close:hover{background:rgba(210,180,100,0.16);color:#E8C97A}
+.modal-section-label{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(210,180,100,0.32);padding:8px 14px 3px}
+.modal-divider{height:0.5px;background:rgba(210,180,100,0.08);margin:6px 14px 0}
 .nav-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin:4px 14px;background:rgba(210,180,100,0.04);border:0.5px solid rgba(210,180,100,0.09);border-radius:10px;cursor:pointer;text-decoration:none;transition:background 0.15s}
 .nav-row:hover{background:rgba(210,180,100,0.1)}
 .nav-row-left{display:flex;align-items:center;gap:10px}
@@ -202,14 +204,12 @@
     </svg>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       TASKBAR
-  ══════════════════════════════════════════ -->
+  <!-- ══ TASKBAR ══ -->
   <div class="taskbar">
     <span class="tb-logo">ALM</span>
     <div class="tb-sep"></div>
 
-    <!-- Alunos pill + tooltip -->
+    <!-- Alunos pill -->
     <div class="tb-stat">
       <div class="tb-stat-dot ok"></div>
       <div class="tb-stat-num">1 287</div>
@@ -230,7 +230,7 @@
       </div>
     </div>
 
-    <!-- Turmas pill + tooltip -->
+    <!-- Turmas pill -->
     <div class="tb-stat">
       <div class="tb-stat-dot"></div>
       <div class="tb-stat-num">94</div>
@@ -251,7 +251,7 @@
       </div>
     </div>
 
-    <!-- Professores pill + tooltip -->
+    <!-- Professores pill -->
     <div class="tb-stat">
       <div class="tb-stat-dot"></div>
       <div class="tb-stat-num">18</div>
@@ -289,30 +289,18 @@
         <span class="year-chevron">▾</span>
       </div>
       <div class="year-dropdown">
-        <div class="year-option active" onclick="selectYear(this,'2025 / 2026')">
-          2025 / 2026 <span class="year-badge current">actual</span>
-        </div>
-        <div class="year-option" onclick="selectYear(this,'2024 / 2025')">
-          2024 / 2025 <span class="year-badge anterior">anterior</span>
-        </div>
-        <div class="year-option" onclick="selectYear(this,'2023 / 2024')">
-          2023 / 2024 <span class="year-badge archive">arquivo</span>
-        </div>
-        <div class="year-option" onclick="selectYear(this,'2022 / 2023')">
-          2022 / 2023 <span class="year-badge archive">arquivo</span>
-        </div>
-        <div class="year-option" onclick="selectYear(this,'2021 / 2022')">
-          2021 / 2022 <span class="year-badge archive">arquivo</span>
-        </div>
+        <div class="year-option active" onclick="selectYear(this,'2025 / 2026')">2025 / 2026 <span class="year-badge current">actual</span></div>
+        <div class="year-option" onclick="selectYear(this,'2024 / 2025')">2024 / 2025 <span class="year-badge anterior">anterior</span></div>
+        <div class="year-option" onclick="selectYear(this,'2023 / 2024')">2023 / 2024 <span class="year-badge archive">arquivo</span></div>
+        <div class="year-option" onclick="selectYear(this,'2022 / 2023')">2022 / 2023 <span class="year-badge archive">arquivo</span></div>
+        <div class="year-option" onclick="selectYear(this,'2021 / 2022')">2021 / 2022 <span class="year-badge archive">arquivo</span></div>
       </div>
     </div>
 
     <span class="tb-time" id="t"></span>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       BODY
-  ══════════════════════════════════════════ -->
+  <!-- ══ BODY ══ -->
   <div class="body">
     <div class="left-zone">
       <div class="modules-grid">
@@ -378,7 +366,7 @@
 
     <!-- Modal overlay -->
     <div class="overlay" id="overlay" onclick="handleOverlay(event)">
-      <div class="modal" id="modal">
+      <div class="modal" id="modal" onclick="event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-dot"></div>
           <div class="modal-title" id="modal-title">—</div>
@@ -389,9 +377,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       BRANCH ROW (footer)
-  ══════════════════════════════════════════ -->
+  <!-- ══ BRANCH ROW ══ -->
   <div class="branch-row" id="branch-row"></div>
 </div>
 
@@ -412,7 +398,6 @@ function selectYear(el,val){
   document.querySelectorAll('.year-option').forEach(o=>o.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('yearWrap').classList.remove('open');
-  /* Dispatch a custom event so other pages/modules can react */
   window.dispatchEvent(new CustomEvent('anoLectivoChange',{detail:{ano:val}}));
 }
 document.addEventListener('click',e=>{
@@ -428,10 +413,27 @@ const MODAL_DATA={
     {label:'Histórico',sub:'Progressão e registos antigos',href:'#',dot:''},
     {label:'Desistências',sub:'Gestão de cancelamentos',href:'#',dot:'warn'},
   ]},
-  horarios:{title:'Horários',desc:'Gestão dos pedidos de horário e operações de alocação de turmas.',pages:[
-    {label:'Gestão de horários',sub:'Ver e tratar todos os pedidos',href:'timetable-request.html',dot:'ok'},
-    {label:'Painel operacional',sub:'Mapa de turmas e alocação',href:'command-centre.html',dot:''},
-  ]},
+  horarios:{
+    title:'Horários',
+    desc:'Gestão dos pedidos de horário e operações de alocação de turmas.',
+    sections:[
+      {
+        label:'Administração',
+        pages:[
+          {label:'Gestão de horários',sub:'Ver e tratar todos os pedidos',href:'command-centre.html',dot:'ok'},
+          {label:'Painel operacional',sub:'Mapa de turmas e alocação',href:'command-centre-alternative.html',dot:''},
+        ]
+      },
+      {
+        label:'Inscrições',
+        pages:[
+          {label:'Marcar inscrições',sub:'Registar pedido de horário para aluno',href:'timetable-request.html',dot:'ok'},
+          {label:'Atualizar inscrições',sub:'Alterar horário ou nível submetido',href:'timetable-request.html',dot:'warn'},
+          {label:'Verificar inscrições',sub:'Consultar estado de todos os pedidos',href:'timetable-request.html',dot:''},
+        ]
+      }
+    ]
+  },
   professores:{title:'Professores',desc:'Consulta de fichas, distribuição de turmas e comunicação interna.',pages:[
     {label:'Fichas de professores',sub:'Consulta e edição',href:'#',dot:''},
     {label:'Distribuição por turma',sub:'Ver quem lecciona o quê',href:'#',dot:''},
@@ -476,11 +478,8 @@ const MODAL_DATA={
   ]},
 };
 
-function openModal(key){
-  const m=MODAL_DATA[key];
-  document.getElementById('modal-title').textContent=m.title;
-  const desc=m.desc?`<p class="modal-desc">${m.desc}</p>`:'';
-  const rows=m.pages.map(p=>`
+function makeRows(pages){
+  return pages.map(p=>`
     <a class="nav-row" href="${p.href}" ${p.href==='#'?'onclick="return false"':''}>
       <div class="nav-row-left">
         <div class="nav-row-icon"><svg viewBox="0 0 16 16"><polyline points="5 2 10 7 5 12"/></svg></div>
@@ -491,9 +490,29 @@ function openModal(key){
       </div>
       ${p.dot==='warn'?`<span class="nav-row-badge">atenção</span>`:p.dot==='ok'?`<span class="nav-row-badge ok">activo</span>`:''}
     </a>`).join('');
-  document.getElementById('modal-body').innerHTML=desc+`<div style="padding:6px 0 4px">${rows}</div>`;
+}
+
+function openModal(key){
+  const m=MODAL_DATA[key];
+  document.getElementById('modal-title').textContent=m.title;
+
+  let body=`<p class="modal-desc">${m.desc}</p>`;
+
+  /* Horários uses sections; all others use flat pages list */
+  if(m.sections){
+    m.sections.forEach((s,i)=>{
+      if(i>0) body+=`<div class="modal-divider"></div>`;
+      body+=`<div class="modal-section-label">${s.label}</div>`;
+      body+=`<div style="padding:2px 0 4px">${makeRows(s.pages)}</div>`;
+    });
+  } else {
+    body+=`<div style="padding:6px 0 4px">${makeRows(m.pages)}</div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML=body;
   document.getElementById('overlay').classList.add('open');
 }
+
 function closeModal(){document.getElementById('overlay').classList.remove('open')}
 function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeModal()}
 
@@ -508,11 +527,10 @@ const BRANCHES=[
   {id:'estreito',label:'Estreito',       status:'concerning', alunos:122, inscritos:'70%', turmas:7,  dificeis:2},
 ];
 const STATUS_LABEL={healthy:'Saudável',viable:'Viável',concerning:'Atenção',unviable:'Inviável'};
-let activeBranch=null;
 
 function renderBranches(){
   document.getElementById('branch-row').innerHTML=BRANCHES.map(b=>`
-    <div class="branch${b.id===activeBranch?' active':''}" onclick="goBranch('${b.id}')">
+    <div class="branch" onclick="goBranch('${b.id}')">
       <div class="branch-light ${b.status}"></div>
       ${b.label}
       <div class="branch-tooltip">
