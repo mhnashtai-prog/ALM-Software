@@ -50,6 +50,14 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 /* ── SHELL ── */
 .shell{padding:16px 20px 40px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
 
+/* ── LOADING / ERROR STATE ── */
+.state-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;font-size:11px;margin-bottom:4px}
+.state-loading{background:rgba(91,156,246,0.08);border:0.5px solid rgba(91,156,246,0.22);color:var(--blue)}
+.state-error{background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.25);color:var(--red)}
+.state-empty{background:var(--gold-faint);border:0.5px solid var(--gold-dim);color:var(--gold)}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* ── HEADLINE ROW ── */
 .headline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;cursor:default;transition:border-color .15s}
@@ -120,7 +128,6 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .mins-fill{height:100%;border-radius:999px}
 .mins-val{font-family:var(--mono);font-size:8px;color:var(--text3)}
 .time-ago{font-family:var(--mono);font-size:8px;color:var(--text3)}
-.row-actions{display:flex;gap:4px;align-items:center}
 .act-btn{width:22px;height:22px;border-radius:5px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;flex-shrink:0}
 .act-btn:hover{background:rgba(201,168,76,0.15);border-color:var(--border2)}
 .act-btn svg{width:10px;height:10px;stroke:var(--gold);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -192,6 +199,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .pag-btn:hover{background:rgba(201,168,76,0.15);border-color:var(--border2)}
 .pag-btn.active{background:rgba(201,168,76,0.18);border-color:var(--gold-dim);color:var(--gold-hi)}
 .pag-btn:disabled{opacity:.3;cursor:default}
+.refresh-btn{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:var(--gold-faint);color:var(--text2);transition:all .12s;margin-left:8px}
+.refresh-btn:hover{background:rgba(201,168,76,0.15);border-color:var(--border2);color:var(--gold-hi)}
+.refresh-btn svg{width:10px;height:10px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 </style>
 </head>
 <body>
@@ -200,13 +210,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <!-- Home -->
-  <a class="tb-home" href="index.html">
+  <a class="tb-home" href="dashboard.html">
     <svg viewBox="0 0 16 16"><path d="M2 6L8 1l6 5v8a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M6 15V9h4v6"/></svg>
     Início
   </a>
   <div class="tb-divider"></div>
-  <!-- Back to command centre -->
   <a class="tb-back" href="command-centre.html">
     <svg viewBox="0 0 16 16"><polyline points="10 3 5 8 10 13"/></svg>
     Painel
@@ -221,35 +229,35 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 <div class="shell">
 
+  <!-- LOADING / ERROR BANNER -->
+  <div id="state-banner" style="display:none"></div>
+
   <!-- HEADLINE -->
   <div class="headline">
     <div class="hcard c-gold">
       <div class="hcard-lbl">Total Pedidos</div>
-      <div class="hcard-val">1 041</div>
-      <div class="hcard-sub">de 1 287 alunos</div>
-      <span class="hcard-delta delta-up">↑ +23 hoje</span>
+      <div class="hcard-val" id="h-total">—</div>
+      <div class="hcard-sub">pedidos recebidos</div>
     </div>
     <div class="hcard c-green">
-      <div class="hcard-lbl">Atribuídos</div>
-      <div class="hcard-val green">847</div>
-      <div class="hcard-sub">turma confirmada</div>
-      <span class="hcard-delta delta-up">81.4%</span>
+      <div class="hcard-lbl">Com sessões</div>
+      <div class="hcard-val green" id="h-sessions">—</div>
+      <div class="hcard-sub">horário preenchido</div>
     </div>
     <div class="hcard c-yellow">
-      <div class="hcard-lbl">Em Análise</div>
-      <div class="hcard-val yellow">163</div>
-      <div class="hcard-sub">aguarda decisão</div>
-    </div>
-    <div class="hcard c-red">
-      <div class="hcard-lbl">Conflitos</div>
-      <div class="hcard-val red">31</div>
-      <div class="hcard-sub">sobreposição / inviável</div>
-      <span class="hcard-delta delta-dn">urgente</span>
+      <div class="hcard-lbl">Sem sessões</div>
+      <div class="hcard-val yellow" id="h-empty">—</div>
+      <div class="hcard-sub">formulário vazio</div>
     </div>
     <div class="hcard c-blue">
-      <div class="hcard-lbl">Sem Pedido</div>
-      <div class="hcard-val blue">246</div>
-      <div class="hcard-sub">lembrete pendente</div>
+      <div class="hcard-lbl">Com notas</div>
+      <div class="hcard-val blue" id="h-notes">—</div>
+      <div class="hcard-sub">mensagem da direcção</div>
+    </div>
+    <div class="hcard c-green">
+      <div class="hcard-lbl">Hoje</div>
+      <div class="hcard-val green" id="h-today">—</div>
+      <div class="hcard-sub">submetidos hoje</div>
     </div>
   </div>
 
@@ -262,17 +270,20 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="panel-header">
         <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="5" r="2.5"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
         <div class="panel-title">Todos os Pedidos</div>
-        <div class="panel-meta" id="table-meta">1 041 registos</div>
+        <div class="panel-meta" id="table-meta">a carregar…</div>
+        <div class="refresh-btn" onclick="loadData()">
+          <svg viewBox="0 0 12 12"><path d="M1 6a5 5 0 105-5H4M4 1L2 3l2 2"/></svg>
+          Actualizar
+        </div>
       </div>
 
       <div class="filter-bar">
-        <div class="ftab" id="ftab-all" onclick="setFilter('all',this)">Todos</div>
-        <div class="ftab" id="ftab-conflict" onclick="setFilter('conflict',this)">⚠ Conflitos</div>
-        <div class="ftab" id="ftab-pending" onclick="setFilter('pending',this)">Em análise</div>
-        <div class="ftab" id="ftab-assigned" onclick="setFilter('assigned',this)">Atribuídos</div>
-        <div class="ftab" id="ftab-missing" onclick="setFilter('missing',this)">Sem pedido</div>
+        <div class="ftab active" id="ftab-all" onclick="setFilter('all',this)">Todos</div>
+        <div class="ftab" id="ftab-sessions" onclick="setFilter('sessions',this)">Com sessões</div>
+        <div class="ftab" id="ftab-empty" onclick="setFilter('empty',this)">Sem sessões</div>
+        <div class="ftab" id="ftab-notes" onclick="setFilter('notes',this)">Com nota</div>
         <div class="search-wrap">
-          <input class="search-input" id="search-input" placeholder="Pesquisar aluno…" oninput="onSearch()"/>
+          <input class="search-input" id="search-input" placeholder="Pesquisar nº aluno…" oninput="onSearch()"/>
         </div>
       </div>
 
@@ -295,7 +306,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       </div>
 
       <div class="pagination">
-        <div class="pag-info" id="pag-info">1–20 de 1 041</div>
+        <div class="pag-info" id="pag-info">—</div>
         <div class="pag-btns" id="pag-btns"></div>
       </div>
     </div>
@@ -319,9 +330,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div class="panel-header">
           <svg style="width:12px;height:12px;stroke:var(--yellow);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>
           <div class="panel-title" style="color:var(--yellow)">Alertas</div>
-          <div class="panel-meta">6 activos</div>
+          <div class="panel-meta" id="alert-meta">—</div>
         </div>
-        <div class="alert-list" id="alert-list"></div>
+        <div class="alert-list" id="alert-list">
+          <div style="padding:20px;text-align:center;font-size:10px;color:var(--text3)">A carregar alertas…</div>
+        </div>
       </div>
     </div>
   </div>
@@ -329,78 +342,139 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </div>
 
 <script>
+/* ── CLOCK ── */
 function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
 tick();setInterval(tick,1000);
 
+/* ── SUPABASE ── */
+const SUPA_URL='https://oapygbeliocdvitbdjbq.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const SB_HEADERS={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+
+async function sbGet(table,params=''){
+  const r=await fetch(`${SUPA_URL}/rest/v1/${table}?${params}`,{headers:SB_HEADERS});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+
+/* ── STATE ── */
 const DAYS=['Seg','Ter','Qua','Qui','Sex','Sáb'];
 const REQUIRED={kids:160,adults:160,exam:220};
-function rnd(min,max){return Math.floor(Math.random()*(max-min+1))+min}
-function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
-const FIRST=['Maria','João','Ana','Pedro','Sofia','Carlos','Inês','Rui','Clara','Paulo','Teresa','Miguel','Beatriz','André','Filipa','Diogo','Mariana','Luís','Sara','Tiago'];
-const LAST=['Silva','Santos','Ferreira','Costa','Oliveira','Rodrigues','Sousa','Lima','Pereira','Gomes','Nunes','Melo','Carvalho','Mendes','Correia','Marques','Fonseca','Lopes','Pinto','Gouveia'];
-const LANGS=['EN','PT','ES','DE','FR'];
-const LEVELS=['A1','A2','B1','B2','C1','C2','Kids'];
-const COURSES=['kids','adults','adults','adults','exam'];
-const BRANCHES=['Funchal','Machico','S. Cruz','R. Brava','Calheta','Estreito'];
-const STATUS_TYPES=['assigned','assigned','assigned','pending','pending','conflict','missing'];
-
-function genSessions(course,status){
-  if(status==='missing')return[];
-  const dur=course==='exam'?110:80;
-  const req=REQUIRED[course]||160;
-  const count=status==='conflict'?1:Math.ceil(req/dur)+rnd(-1,1);
-  const sess=[];const usedDays=new Set();
-  for(let i=0;i<count;i++){
-    let di;do{di=rnd(0,5)}while(usedDays.has(di));
-    usedDays.add(di);
-    const startH=pick([8,9,10,11,14,15,16,17,18,19]);
-    const sm=startH*60;const em=sm+dur;
-    sess.push({di,dayName:DAYS[di],start:`${String(startH).padStart(2,'0')}:00`,end:`${String(Math.floor(em/60)).padStart(2,'0')}:${String(em%60).padStart(2,'0')}`,sm,em,exam:course==='exam'});
-  }
-  return sess;
-}
-function genNote(status){
-  if(status!=='pending'&&status!=='conflict')return'';
-  const notes=['Tenho reunião às quartas-feiras às 18h.','Só disponível após as 17h nos dias úteis.','Prefiro manhãs. Saio 10 min mais cedo.','Não posso às sextas-feiras.','Exame em junho, preciso de professor experiente.'];
-  return Math.random()<0.5?pick(notes):'';
-}
-const DATA=[];const usedNums=new Set();
-for(let i=0;i<80;i++){
-  let num;do{num=String(rnd(1,999)).padStart(4,'0')}while(usedNums.has(num));
-  usedNums.add(num);
-  const fn=pick(FIRST),ln=pick(LAST);
-  const lang=pick(LANGS);const course=pick(COURSES);const status=pick(STATUS_TYPES);
-  const sessions=genSessions(course,status);
-  const totalMins=sessions.reduce((a,s)=>a+(s.em-s.sm),0);
-  const req=REQUIRED[course]||160;
-  const age=rnd(8,65);const daysAgo=status==='missing'?null:rnd(0,14);
-  DATA.push({id:i,num:'ALM-'+num,name:fn+' '+ln,initials:fn[0]+ln[0],age,lang,level:pick(LEVELS),course,branch:pick(BRANCHES),status,sessions,totalMins,req,note:genNote(status),email:fn.toLowerCase()+'.'+ln.toLowerCase()+'@email.com',phone:'9'+rnd(10,99)+' '+rnd(100,999)+' '+rnd(100,999),submittedDaysAgo:daysAgo,hasConflict:status==='conflict',ref:'ALM-REF-'+String(rnd(1,9999)).padStart(4,'0')});
-}
-DATA[0].status='conflict';DATA[0].sessions=genSessions(DATA[0].course,'conflict');DATA[0].hasConflict=true;
-DATA[1].status='conflict';DATA[1].hasConflict=true;
-DATA[2].status='missing';DATA[2].sessions=[];
-DATA[3].status='pending';
+let DATA=[],activeFilter='all',searchQ='',page=0,PAGE_SIZE=14,selectedId=null;
 
 /* ── URL PARAM: pre-select filter ── */
-const urlParams=new URLSearchParams(window.location.search);
-const filterParam=urlParams.get('filter');
-let activeFilter=filterParam&&['conflict','pending','assigned','missing'].includes(filterParam)?filterParam:'all';
-let searchQ='',page=0,PAGE_SIZE=14,selectedId=null;
+(function(){
+  const urlParams=new URLSearchParams(window.location.search);
+  const fp=urlParams.get('filter');
+  if(fp&&['sessions','empty','notes'].includes(fp))activeFilter=fp;
+})();
 
-/* Apply active tab styling after DOM ready */
-window.addEventListener('DOMContentLoaded',()=>{
-  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
-  const activeTab=document.getElementById('ftab-'+activeFilter);
-  if(activeTab)activeTab.classList.add('active');
-});
+/* ── LOAD DATA FROM SUPABASE ── */
+async function loadData(){
+  showBanner('loading','A carregar pedidos…');
+  try{
+    /* Load requests joined with student info */
+    const requests=await sbGet('timetable_requests','select=*&order=submitted_at.desc');
 
+    if(!requests.length){
+      DATA=[];
+      showBanner('empty','Nenhum pedido submetido ainda. Os pedidos aparecerão aqui assim que os alunos os enviarem.');
+      updateHeadline();
+      renderTable();
+      return;
+    }
+
+    /* Get unique student nums and fetch student profiles */
+    const nums=[...new Set(requests.map(r=>r.student_num))];
+    const numsQ=nums.map(n=>`"${n}"`).join(',');
+    let students=[];
+    try{
+      students=await sbGet('students',`num=in.(${numsQ})&select=num,name,initials,lang,level,course,branch,age,email,phone,nationality`);
+    }catch(e){
+      console.warn('Could not load student profiles',e);
+    }
+
+    const studentMap={};
+    students.forEach(s=>{studentMap[s.num]=s;});
+
+    const today=new Date();today.setHours(0,0,0,0);
+
+    DATA=requests.map((r,i)=>{
+      const s=studentMap[r.student_num]||{};
+      const sessions=r.sessions||[];
+      const totalMins=sessions.reduce((a,sess)=>a+(sess.em-sess.sm),0);
+      const course=s.course||'adults';
+      const req=REQUIRED[course]||160;
+      const submittedAt=r.submitted_at?new Date(r.submitted_at):null;
+      const daysAgo=submittedAt?Math.floor((Date.now()-submittedAt)/86400000):null;
+      const isToday=submittedAt&&submittedAt>=today;
+      return{
+        id:i,
+        dbId:r.id,
+        num:r.student_num,
+        name:s.name||r.student_num,
+        initials:s.initials||(s.name?s.name.slice(0,2).toUpperCase():r.student_num.slice(-2)),
+        age:s.age||'—',
+        lang:s.lang||'—',
+        level:s.level||'—',
+        course,
+        branch:s.branch||'—',
+        nationality:s.nationality||'—',
+        email:s.email||'—',
+        phone:s.phone||'—',
+        sessions,
+        totalMins,
+        req,
+        note:r.notes||'',
+        ref:r.ref||'—',
+        submittedAt,
+        submittedDaysAgo:daysAgo,
+        isToday,
+        hasNote:!!(r.notes&&r.notes.trim()),
+        hasSessions:sessions.length>0,
+      };
+    });
+
+    hideBanner();
+    updateHeadline();
+    renderTable();
+    renderAlerts();
+  }catch(e){
+    showBanner('error','Erro ao ligar ao Supabase: '+e.message+'. Verifique a ligação e tente novamente.');
+    console.error(e);
+  }
+}
+
+function showBanner(type,msg){
+  const b=document.getElementById('state-banner');
+  const icons={loading:'⏳',error:'✕',empty:'ℹ'};
+  b.className='state-banner state-'+type;
+  b.innerHTML=`<span>${icons[type]||''}</span><span>${msg}</span>`;
+  b.style.display='flex';
+}
+function hideBanner(){document.getElementById('state-banner').style.display='none';}
+
+/* ── HEADLINE ── */
+function updateHeadline(){
+  const total=DATA.length;
+  const withSessions=DATA.filter(r=>r.hasSessions).length;
+  const withoutSessions=DATA.filter(r=>!r.hasSessions).length;
+  const withNotes=DATA.filter(r=>r.hasNote).length;
+  const today=DATA.filter(r=>r.isToday).length;
+  document.getElementById('h-total').textContent=total;
+  document.getElementById('h-sessions').textContent=withSessions;
+  document.getElementById('h-empty').textContent=withoutSessions;
+  document.getElementById('h-notes').textContent=withNotes;
+  document.getElementById('h-today').textContent=today;
+}
+
+/* ── FILTER & SEARCH ── */
 function getFiltered(){
   return DATA.filter(r=>{
-    if(activeFilter==='conflict'&&r.status!=='conflict')return false;
-    if(activeFilter==='pending'&&r.status!=='pending')return false;
-    if(activeFilter==='assigned'&&r.status!=='assigned')return false;
-    if(activeFilter==='missing'&&r.status!=='missing')return false;
-    if(searchQ&&!r.name.toLowerCase().includes(searchQ.toLowerCase())&&!r.num.includes(searchQ))return false;
+    if(activeFilter==='sessions'&&!r.hasSessions)return false;
+    if(activeFilter==='empty'&&r.hasSessions)return false;
+    if(activeFilter==='notes'&&!r.hasNote)return false;
+    if(searchQ&&!r.num.toLowerCase().includes(searchQ.toLowerCase())&&!r.name.toLowerCase().includes(searchQ.toLowerCase()))return false;
     return true;
   });
 }
@@ -410,14 +484,9 @@ function setFilter(f,el){
   el.classList.add('active');
   renderTable();
 }
-function onSearch(){searchQ=document.getElementById('search-input').value;page=0;renderTable()}
+function onSearch(){searchQ=document.getElementById('search-input').value;page=0;renderTable();}
 
-function statusPill(r){
-  if(r.status==='assigned')return`<span class="status-pill sp-done"><span class="sp-dot"></span>Atribuído</span>`;
-  if(r.status==='conflict')return`<span class="status-pill sp-missing"><span class="sp-dot"></span>Conflito</span>`;
-  if(r.status==='pending')return`<span class="status-pill sp-partial"><span class="sp-dot"></span>Em análise</span>`;
-  return`<span class="status-pill sp-pending"><span class="sp-dot"></span>Sem pedido</span>`;
-}
+/* ── HELPERS ── */
 function avatarStyle(r){
   const colors={EN:'rgba(91,156,246,0.2)',PT:'rgba(201,168,76,0.2)',ES:'rgba(232,184,75,0.2)',DE:'rgba(62,201,167,0.2)',FR:'rgba(212,83,126,0.2)'};
   const borders={EN:'rgba(91,156,246,0.4)',PT:'rgba(201,168,76,0.4)',ES:'rgba(232,184,75,0.4)',DE:'rgba(62,201,167,0.4)',FR:'rgba(212,83,126,0.4)'};
@@ -433,28 +502,42 @@ function miniGrid(sessions){
   const cells=DAYS.map((_,di)=>{const s=sessions.find(x=>x.di===di);if(!s)return`<div class="mg-cell"></div>`;return`<div class="mg-cell ${s.exam?'exam':'filled'}"></div>`;});
   return`<div class="mini-grid">${cells.join('')}</div>`;
 }
-function timeAgo(days){if(days===null)return'—';if(days===0)return'hoje';if(days===1)return'ontem';return`${days}d atrás`;}
+function timeAgo(days){
+  if(days===null||days===undefined)return'—';
+  if(days===0)return'hoje';
+  if(days===1)return'ontem';
+  return`${days}d atrás`;
+}
 function courseLabel(c){return{kids:'Kids',adults:'Adultos',exam:'Exame'}[c]||c;}
 function courseClass(c){return{kids:'b-course-kids',adults:'b-course-adults',exam:'b-course-exam'}[c]||'b-course-adults';}
+function statusPill(r){
+  if(r.hasSessions){
+    const pct=r.req?Math.round(r.totalMins/r.req*100):0;
+    if(pct>=100)return`<span class="status-pill sp-done"><span class="sp-dot"></span>Completo</span>`;
+    return`<span class="status-pill sp-partial"><span class="sp-dot"></span>Parcial ${pct}%</span>`;
+  }
+  return`<span class="status-pill sp-pending"><span class="sp-dot"></span>Sem sessões</span>`;
+}
 
+/* ── RENDER TABLE ── */
 function renderTable(){
   const filtered=getFiltered();
   const total=filtered.length;
-  const totalPages=Math.ceil(total/PAGE_SIZE);
+  const totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
   if(page>=totalPages)page=Math.max(0,totalPages-1);
   const slice=filtered.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
   document.getElementById('table-meta').textContent=`${total} registos`;
   document.getElementById('pag-info').textContent=total===0?'0 registos':`${page*PAGE_SIZE+1}–${Math.min((page+1)*PAGE_SIZE,total)} de ${total}`;
   const tbody=document.getElementById('req-tbody');
   if(!slice.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="8">Nenhum resultado encontrado</td></tr>`;
-  } else {
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="8">${DATA.length===0?'A aguardar pedidos dos alunos…':'Nenhum resultado encontrado'}</td></tr>`;
+  }else{
     tbody.innerHTML=slice.map(r=>`
       <tr data-id="${r.id}" onclick="selectRow(${r.id})" class="${selectedId===r.id?'selected':''}">
         <td class="col-stu"><div class="td-inner">
           <div class="stu-avatar" style="${avatarStyle(r)}">${r.initials}</div>
           <div><div class="stu-name">${r.name}</div><div class="stu-num">${r.num}</div></div>
-          ${r.hasConflict?`<span class="conflict-badge">⚠</span>`:''}
+          ${r.hasNote?`<span style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(91,156,246,0.12);border:0.5px solid rgba(91,156,246,0.25);color:var(--blue);flex-shrink:0">nota</span>`:''}
         </div></td>
         <td class="col-course"><div class="td-inner" style="gap:4px">
           <span class="badge b-lang">${r.lang}</span>
@@ -463,16 +546,17 @@ function renderTable(){
         </div></td>
         <td class="col-branch"><div class="td-inner"><span class="branch-tag">${r.branch}</span></div></td>
         <td class="col-sess"><div class="td-inner">${miniGrid(r.sessions)}<span style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-left:4px">${r.sessions.length}</span></div></td>
-        <td class="col-mins"><div class="td-inner">${r.status==='missing'?`<span style="color:var(--text3);font-size:9px">—</span>`:minsProgress(r)}</div></td>
+        <td class="col-mins"><div class="td-inner">${!r.hasSessions?`<span style="color:var(--text3);font-size:9px">—</span>`:minsProgress(r)}</div></td>
         <td class="col-status"><div class="td-inner">${statusPill(r)}</div></td>
         <td class="col-submitted"><div class="td-inner"><span class="time-ago">${timeAgo(r.submittedDaysAgo)}</span></div></td>
         <td class="col-act"><div class="td-inner" style="justify-content:flex-end">
-          <div class="act-btn success" data-tip="Atribuir turma" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"/></svg></div>
+          <div class="act-btn success" data-tip="Marcar como atribuído" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"><svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"/></svg></div>
           <div class="act-btn" data-tip="Contactar aluno" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"><svg viewBox="0 0 12 12"><path d="M2 3h8a1 1 0 011 1v5a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M1 4l5 3.5L11 4"/></svg></div>
           <div class="act-btn danger" data-tip="Marcar como conflito" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"><svg viewBox="0 0 12 12"><path d="M6 1L1 11h10L6 1z"/><path d="M6 5v3M6 9.5v.5"/></svg></div>
         </div></td>
       </tr>`).join('');
   }
+  /* pagination */
   const pb=document.getElementById('pag-btns');
   let btns=`<button class="pag-btn" onclick="goPage(${page-1})" ${page===0?'disabled':''}>‹</button>`;
   const maxBtns=5;let start=Math.max(0,page-2);let end=Math.min(totalPages-1,start+maxBtns-1);
@@ -480,10 +564,27 @@ function renderTable(){
   for(let i=start;i<=end;i++)btns+=`<button class="pag-btn ${i===page?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
   btns+=`<button class="pag-btn" onclick="goPage(${page+1})" ${page>=totalPages-1?'disabled':''}>›</button>`;
   pb.innerHTML=btns;
+  /* update active filter tab */
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  const activeTab=document.getElementById('ftab-'+activeFilter);
+  if(activeTab)activeTab.classList.add('active');
 }
-function goPage(p){const filtered=getFiltered();const totalPages=Math.ceil(filtered.length/PAGE_SIZE);if(p<0||p>=totalPages)return;page=p;renderTable();}
-function selectRow(id){selectedId=id;renderTable();renderDetail(DATA.find(r=>r.id===id));}
 
+function goPage(p){
+  const filtered=getFiltered();
+  const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+  if(p<0||p>=totalPages)return;
+  page=p;renderTable();
+}
+
+/* ── SELECT ROW ── */
+function selectRow(id){
+  selectedId=id;
+  renderTable();
+  renderDetail(DATA.find(r=>r.id===id));
+}
+
+/* ── DETAIL PANEL ── */
 function renderDetail(r){
   const card=document.getElementById('detail-card');
   card.classList.add('active');
@@ -501,19 +602,23 @@ function renderDetail(r){
     const width=((s.em-s.sm)/TRACK_RANGE*100).toFixed(1);
     return`<div class="wv-row"><span class="wv-day">${d}</span><div class="wv-track"><div class="wv-band ${s.exam?'wv-band-e':'wv-band-n'}" style="left:${left}%;width:${width}%"><span class="wv-band-lbl">${s.start}–${s.end}</span></div></div></div>`;
   });
+  const submittedStr=r.submittedAt?r.submittedAt.toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
   body.innerHTML=`
     <div class="det-header">
       <div class="det-avatar" style="${avatarStyle(r)}">${r.initials}</div>
       <div><div class="det-name">${r.name}</div><div class="det-num">${r.num} · ${r.age} anos · ${r.branch}</div></div>
     </div>
     <div class="det-badges">
-      <span class="badge b-lang">${r.lang}</span><span class="badge b-level">${r.level}</span>
-      <span class="badge ${courseClass(r.course)}">${courseLabel(r.course)}</span>${statusPill(r)}
+      <span class="badge b-lang">${r.lang}</span>
+      <span class="badge b-level">${r.level}</span>
+      <span class="badge ${courseClass(r.course)}">${courseLabel(r.course)}</span>
+      ${statusPill(r)}
     </div>
     <div class="progress-arc-wrap">
       <svg class="arc-svg" viewBox="0 0 44 44">
         <circle class="arc-bg" cx="22" cy="22" r="16" fill="none" stroke-width="3"/>
-        <circle class="arc-fill ${arcClass}" cx="22" cy="22" r="16" fill="none" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" transform="rotate(-90 22 22)"/>
+        <circle class="arc-fill ${arcClass}" cx="22" cy="22" r="16" fill="none" stroke-width="3"
+          stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" transform="rotate(-90 22 22)"/>
         <text class="arc-center" x="22" y="26" text-anchor="middle">${pct}%</text>
       </svg>
       <div class="arc-info">
@@ -524,9 +629,12 @@ function renderDetail(r){
     ${r.sessions.length>0?`
     <div class="det-section">
       <div class="det-sec-lbl">Horário preferido</div>
-      <div class="wv-times"><span class="wv-time-lbl">8h</span><span class="wv-time-lbl">12h</span><span class="wv-time-lbl">17h</span><span class="wv-time-lbl">21h</span></div>
+      <div class="wv-times">
+        <span class="wv-time-lbl">8h</span><span class="wv-time-lbl">12h</span>
+        <span class="wv-time-lbl">17h</span><span class="wv-time-lbl">21h</span>
+      </div>
       <div class="week-view">${weekRows.join('')}</div>
-    </div>`:'<div style="padding:10px;text-align:center;font-size:10px;color:var(--text3)">Nenhum pedido de horário submetido</div>'}
+    </div>`:'<div style="padding:10px;text-align:center;font-size:10px;color:var(--text3)">Nenhum horário submetido</div>'}
     ${r.note?`<div class="det-section"><div class="det-sec-lbl">Nota do aluno</div><div class="notes-box">${r.note}</div></div>`:''}
     <div class="det-section">
       <div class="det-sec-lbl">Contacto</div>
@@ -534,40 +642,65 @@ function renderDetail(r){
     </div>
     <div class="det-section">
       <div class="det-sec-lbl">Referência</div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--gold)">${r.ref||'—'}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--gold)">${r.ref}</div>
+    </div>
+    <div class="det-section">
+      <div class="det-sec-lbl">Data de submissão</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2)">${submittedStr}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px">
       <button style="width:100%;padding:8px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid rgba(46,204,138,0.3);background:rgba(46,204,138,0.1);color:var(--green);font-family:var(--sans)">✓ Atribuir a turma</button>
-      <button style="width:100%;padding:8px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid var(--gold-dim);background:var(--gold-faint);color:var(--gold);font-family:var(--sans)">✉ Contactar aluno</button>
-      ${r.status!=='conflict'?`<button style="width:100%;padding:8px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid rgba(232,69,90,0.25);background:var(--red-faint);color:var(--red);font-family:var(--sans)">⚠ Marcar como conflito</button>`:''}
+      <button onclick="window.location.href='mailto:${r.email}'" style="width:100%;padding:8px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid var(--gold-dim);background:var(--gold-faint);color:var(--gold);font-family:var(--sans)">✉ Contactar aluno</button>
     </div>`;
 }
 
-const ALERTS=[
-  {type:'red',name:'R. Brava · Inscrições',reason:'61% de taxa — abaixo do mínimo viável',time:'agora'},
-  {type:'yellow',name:'Machico · EN B1',reason:'Grupo de 4 — inviável financeiramente',time:'2h'},
-  {type:'yellow',name:'DE · B1 · Funchal',reason:'Só 4 alunos inscreveram-se neste nível',time:'3h'},
-  {type:'red',name:'Maria Rodrigues',reason:'Conflito irresolvível · Sáb 09h única opção',time:'4h'},
-  {type:'blue',name:'Motor de alocação',reason:'847 / 1041 alunos processados (81%)',time:'a correr'},
-  {type:'yellow',name:'Estreito · Inscrições',reason:'70% — 6 alunos ainda não submeteram',time:'6h'},
-];
+/* ── ALERTS (dynamic based on real data) ── */
 function renderAlerts(){
-  document.getElementById('alert-list').innerHTML=ALERTS.map(a=>`
+  const alerts=[];
+  /* Students with no sessions */
+  const noSessions=DATA.filter(r=>!r.hasSessions);
+  if(noSessions.length>0)alerts.push({type:'yellow',name:`${noSessions.length} aluno(s) sem sessões`,reason:'Submeteram formulário sem marcar horário',time:'—'});
+  /* Students with notes */
+  const withNotes=DATA.filter(r=>r.hasNote);
+  if(withNotes.length>0)alerts.push({type:'blue',name:`${withNotes.length} nota(s) da direcção`,reason:'Alunos deixaram mensagens para análise',time:'—'});
+  /* Partial submissions */
+  const partial=DATA.filter(r=>r.hasSessions&&r.totalMins<r.req);
+  if(partial.length>0)alerts.push({type:'yellow',name:`${partial.length} pedido(s) incompletos`,reason:'Tempo total abaixo do mínimo necessário',time:'—'});
+  /* Today's submissions */
+  const today=DATA.filter(r=>r.isToday);
+  if(today.length>0)alerts.push({type:'blue',name:`${today.length} novo(s) hoje`,reason:'Pedidos submetidos nas últimas 24h',time:'hoje'});
+
+  document.getElementById('alert-meta').textContent=alerts.length+' activos';
+  if(!alerts.length){
+    document.getElementById('alert-list').innerHTML='<div style="padding:16px;text-align:center;font-size:10px;color:var(--text3)">Sem alertas activos</div>';
+    return;
+  }
+  document.getElementById('alert-list').innerHTML=alerts.map(a=>`
     <div class="alert-row">
-      <div class="alert-ico ai-${a.type}"><svg viewBox="0 0 12 12">${a.type==='blue'?'<circle cx="6" cy="6" r="4"/><path d="M6 4v3M6 8.5v.5"/>':`<path d="M6 1L1 11h10L6 1z"/><path d="M6 5v3M6 9.5v.5"/>`}</svg></div>
+      <div class="alert-ico ai-${a.type}"><svg viewBox="0 0 12 12">
+        ${a.type==='blue'?'<circle cx="6" cy="6" r="4"/><path d="M6 4v3M6 8.5v.5"/>':`<path d="M6 1L1 11h10L6 1z"/><path d="M6 5v3M6 9.5v.5"/>`}
+      </svg></div>
       <div class="alert-info"><div class="alert-name">${a.name}</div><div class="alert-reason">${a.reason}</div></div>
       <div class="alert-time">${a.time}</div>
     </div>`).join('');
 }
 
+/* ── TOOLTIP ── */
 const tip=document.getElementById('tooltip');
 function showTip(e,el){tip.textContent=el.dataset.tip;tip.classList.add('show');moveTip(e)}
 function hideTip(){tip.classList.remove('show')}
 document.addEventListener('mousemove',e=>{if(tip.classList.contains('show'))moveTip(e)});
 function moveTip(e){tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-28)+'px'}
 
-renderTable();
-renderAlerts();
+/* ── INIT ── */
+loadData();
+
+/* Apply filter from URL after DOM ready */
+window.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  const activeTab=document.getElementById('ftab-'+activeFilter);
+  if(activeTab)activeTab.classList.add('active');
+});
 </script>
 </body>
 </html>
