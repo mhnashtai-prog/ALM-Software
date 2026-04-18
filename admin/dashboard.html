@@ -1,1 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Painel Principal</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.desktop{width:100%;height:600px;background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%);position:relative;font-family:'Inter',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.wave-bg{position:absolute;inset:0;pointer-events:none;z-index:1}
 
+/* ── TASKBAR ── */
+.taskbar{height:42px;flex-shrink:0;background:rgba(12,8,20,0.72);border-bottom:0.5px solid rgba(210,180,120,0.1);display:flex;align-items:center;padding:0 18px;gap:10px;z-index:20;position:relative}
+.tb-logo{font-size:15px;font-weight:700;color:#E8C97A;letter-spacing:2px;flex-shrink:0}
+.tb-sep{width:0.5px;height:12px;background:rgba(210,180,120,0.2);flex-shrink:0}
+
+/* stat pills with hover tooltip */
+.tb-stat{display:flex;align-items:center;gap:5px;background:rgba(210,180,100,0.08);border:0.5px solid rgba(210,180,100,0.18);border-radius:999px;padding:3px 11px;cursor:default;position:relative;transition:all 0.15s}
+.tb-stat:hover{background:rgba(210,180,100,0.14);border-color:rgba(210,180,100,0.32)}
+.tb-stat-num{font-size:11px;font-weight:600;color:#E8C97A;letter-spacing:-0.2px}
+.tb-stat-lbl{font-size:9px;font-weight:500;color:rgba(210,180,100,0.5);text-transform:uppercase;letter-spacing:0.06em}
+.tb-stat-dot{width:5px;height:5px;border-radius:50%;background:rgba(210,180,100,0.3);flex-shrink:0}
+.tb-stat-dot.ok{background:#C9A84C}
+
+/* shared tooltip shell */
+.stat-tooltip{
+  position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
+  background:rgba(10,6,20,0.98);border:0.5px solid rgba(210,180,100,0.22);
+  border-radius:12px;padding:12px 14px;pointer-events:none;
+  opacity:0;transition:opacity 0.15s;z-index:400;min-width:220px;
+}
+.tb-stat:hover .stat-tooltip{opacity:1}
+.stat-tooltip::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:rgba(210,180,100,0.22)}
+.tt-title{font-size:10px;font-weight:600;color:#E8C97A;margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase}
+.tt-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:3px 0;border-bottom:0.5px solid rgba(210,180,100,0.06)}
+.tt-row:last-of-type{border-bottom:none}
+.tt-key{font-size:9px;color:rgba(210,180,100,0.38)}
+.tt-val{font-size:9px;font-weight:600;color:rgba(235,210,155,0.82)}
+.tt-val.warn{color:rgba(232,184,75,0.9)}
+.tt-divider{margin:7px 0;border:none;border-top:0.5px solid rgba(210,180,100,0.1)}
+.tt-bar-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.tt-bar-label{font-size:8.5px;color:rgba(210,180,100,0.45);width:72px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tt-bar-track{flex:1;height:3px;background:rgba(210,180,100,0.1);border-radius:2px;overflow:hidden}
+.tt-bar-fill{height:100%;border-radius:2px;background:#C9A84C}
+.tt-bar-num{font-size:8px;font-weight:600;color:rgba(235,210,155,0.65);min-width:28px;text-align:right}
+.tt-hint{font-size:8px;color:rgba(210,180,100,0.32);margin-top:8px;padding-top:6px;border-top:0.5px solid rgba(210,180,100,0.08);text-align:center}
+
+/* health indicator */
+.tb-health{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 8px;border-radius:999px;border:0.5px solid;cursor:pointer;position:relative;transition:all 0.2s;text-decoration:none}
+.tb-health.healthy   {background:rgba(29,185,84,0.08);  border-color:rgba(29,185,84,0.25)}
+.tb-health.viable    {background:rgba(46,204,138,0.08); border-color:rgba(46,204,138,0.22)}
+.tb-health.concerning{background:rgba(232,184,75,0.08); border-color:rgba(232,184,75,0.25)}
+.tb-health.unviable  {background:rgba(232,69,90,0.08);  border-color:rgba(232,69,90,0.25)}
+.tb-health-light{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tb-health.healthy    .tb-health-light{background:#1DB954;box-shadow:0 0 6px rgba(29,185,84,0.8)}
+.tb-health.viable     .tb-health-light{background:#2ECC8A;box-shadow:0 0 5px rgba(46,204,138,0.6)}
+.tb-health.concerning .tb-health-light{background:#E8B84B;box-shadow:0 0 6px rgba(232,184,75,0.7);animation:flicker 2.5s infinite}
+.tb-health.unviable   .tb-health-light{background:#E8455A;box-shadow:0 0 7px rgba(232,69,90,0.8);animation:flicker 1.4s infinite}
+.tb-health-text{display:flex;flex-direction:column;gap:1px}
+.tb-health-lbl{font-size:7.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+.tb-health.healthy    .tb-health-lbl{color:rgba(29,185,84,0.9)}
+.tb-health.viable     .tb-health-lbl{color:rgba(46,204,138,0.9)}
+.tb-health.concerning .tb-health-lbl{color:rgba(232,184,75,0.95)}
+.tb-health.unviable   .tb-health-lbl{color:rgba(232,69,90,0.95)}
+.tb-health-sub{font-size:7px;color:rgba(210,180,100,0.35);letter-spacing:0.05em}
+.tb-health-tooltip{
+  position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);
+  background:rgba(10,6,20,0.98);border:0.5px solid rgba(210,180,100,0.22);
+  border-radius:10px;padding:9px 13px;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity 0.15s;z-index:300;min-width:200px;
+}
+.tb-health:hover .tb-health-tooltip{opacity:1}
+.tb-health-tooltip::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:rgba(210,180,100,0.22)}
+.tht-title{font-size:10px;font-weight:600;color:#E8C97A;margin-bottom:6px;letter-spacing:0.04em}
+.tht-row{display:flex;justify-content:space-between;gap:16px;padding:2px 0;border-bottom:0.5px solid rgba(210,180,100,0.06)}
+.tht-row:last-of-type{border-bottom:none}
+.tht-key{font-size:9px;color:rgba(210,180,100,0.38)}
+.tht-val{font-size:9px;font-weight:600;color:rgba(235,210,155,0.82)}
+.tht-breakdown{margin-top:7px;padding-top:6px;border-top:0.5px solid rgba(210,180,100,0.1);display:flex;gap:4px;flex-wrap:wrap}
+.tht-chip{font-size:8px;font-weight:600;padding:2px 7px;border-radius:999px;display:flex;align-items:center;gap:4px}
+.tht-chip-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.tht-chip.healthy   {background:rgba(29,185,84,0.1); color:rgba(29,185,84,0.9); border:0.5px solid rgba(29,185,84,0.25)}
+.tht-chip.viable    {background:rgba(46,204,138,0.1);color:rgba(46,204,138,0.9);border:0.5px solid rgba(46,204,138,0.25)}
+.tht-chip.concerning{background:rgba(232,184,75,0.1);color:rgba(232,184,75,0.95);border:0.5px solid rgba(232,184,75,0.28)}
+.tht-chip.unviable  {background:rgba(232,69,90,0.1); color:rgba(232,69,90,0.95); border:0.5px solid rgba(232,69,90,0.25)}
+.tht-hint{font-size:8px;color:rgba(210,180,100,0.4);margin-top:6px;text-align:center;padding-top:5px;border-top:0.5px solid rgba(210,180,100,0.08)}
+
+/* ── ANO LECTIVO DROPDOWN ── */
+.year-wrap{margin-left:auto;position:relative;flex-shrink:0}
+.year-btn{display:flex;align-items:center;gap:8px;background:rgba(210,180,100,0.07);border:0.5px solid rgba(210,180,100,0.2);border-radius:8px;padding:4px 11px;cursor:pointer;color:#E8C97A;font-size:11px;font-weight:600;letter-spacing:0.03em;transition:all 0.15s;user-select:none}
+.year-btn:hover{background:rgba(210,180,100,0.13);border-color:rgba(210,180,100,0.35)}
+.year-btn-inner{display:flex;flex-direction:column;gap:1px}
+.year-label{font-size:7.5px;color:rgba(210,180,100,0.4);font-weight:400;letter-spacing:0.06em;text-transform:uppercase}
+.year-chevron{font-size:9px;color:rgba(210,180,100,0.4);transition:transform 0.2s;flex-shrink:0}
+.year-wrap.open .year-chevron{transform:rotate(180deg)}
+.year-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;
+  background:rgba(10,6,20,0.98);border:0.5px solid rgba(210,180,100,0.2);
+  border-radius:10px;overflow:hidden;
+  pointer-events:none;opacity:0;transform:translateY(-6px);
+  transition:all 0.15s;z-index:500;min-width:170px;
+}
+.year-wrap.open .year-dropdown{opacity:1;transform:translateY(0);pointer-events:auto}
+.year-option{display:flex;align-items:center;justify-content:space-between;padding:8px 13px;cursor:pointer;font-size:11px;color:rgba(210,180,100,0.55);transition:background 0.1s;border-bottom:0.5px solid rgba(210,180,100,0.06)}
+.year-option:last-child{border-bottom:none}
+.year-option:hover{background:rgba(210,180,100,0.08);color:#E8C97A}
+.year-option.active{color:#E8C97A;font-weight:600}
+.year-badge{font-size:7.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;font-weight:600}
+.year-badge.current {background:rgba(29,185,84,0.12); border:0.5px solid rgba(29,185,84,0.28); color:#1DB954}
+.year-badge.anterior{background:rgba(201,168,76,0.12); border:0.5px solid rgba(201,168,76,0.25);color:#C9A84C}
+.year-badge.archive {background:rgba(136,135,128,0.1); border:0.5px solid rgba(136,135,128,0.2); color:rgba(210,180,100,0.35)}
+
+.tb-time{font-size:10px;color:rgba(210,180,100,0.35);flex-shrink:0;margin-left:6px}
+
+/* ── BODY ── */
+.body{flex:1;display:flex;position:relative;overflow:hidden}
+.left-zone{width:44%;display:flex;align-items:center;justify-content:center;z-index:10}
+.modules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.8vw,26px)}
+.mod{width:clamp(72px,7.4vw,98px);height:clamp(72px,7.4vw,98px);border-radius:22%;background:linear-gradient(145deg,#EEE0C0 0%,#D9C490 100%);box-shadow:5px 5px 14px rgba(10,6,20,0.5),-2px -2px 6px rgba(240,220,160,0.2),inset 0 1px 0 rgba(255,248,225,0.85),inset 0 -1px 0 rgba(140,110,50,0.2);border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(3px,0.35vw,5px);cursor:pointer;transition:all 0.2s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}
+.mod::before{content:'';position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,250,230,0.45) 0%,rgba(255,235,170,0) 100%);border-radius:22% 22% 0 0;pointer-events:none}
+.mod:hover{transform:translateY(-3px) scale(1.04)}
+.mod:active{transform:translateY(0) scale(0.97)}
+.mod-icon{position:relative;z-index:1}
+.mod-icon svg{width:clamp(16px,1.8vw,24px);height:clamp(16px,1.8vw,24px);stroke:#4A3560;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.mod-lbl{font-size:clamp(6.5px,0.58vw,9px);font-weight:600;letter-spacing:0.07em;color:#4A3560;text-transform:uppercase;white-space:nowrap;position:relative;z-index:1}
+.divider{width:0.5px;background:rgba(210,180,100,0.08);margin:20px 0;align-self:stretch;z-index:5}
+.right-zone{flex:1;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 clamp(22px,4vw,56px) 0 0;position:relative;z-index:5}
+.dot-wrap{position:absolute;left:-8%;top:50%;transform:translateY(-50%);width:78%;pointer-events:none;opacity:0.12}
+.dot-wrap svg{width:100%;height:auto}
+.hero{text-align:right;position:relative;z-index:2}
+.alm-letters{font-size:clamp(80px,13vw,160px);font-weight:700;color:#E8C97A;line-height:0.85;letter-spacing:-6px}
+.alm-sub{font-size:clamp(7px,0.75vw,11px);letter-spacing:0.2em;color:rgba(232,200,120,0.75);text-transform:uppercase;margin-top:clamp(6px,0.8vw,12px);font-weight:600}
+
+/* ── BRANCH ROW ── */
+.branch-row{height:36px;flex-shrink:0;background:rgba(10,6,18,0.45);border-top:0.5px solid rgba(210,180,100,0.08);display:flex;align-items:center;justify-content:center;gap:6px;z-index:10;padding:0 18px;position:relative}
+.branch{background:rgba(0,0,0,0.2);border:0.5px solid rgba(210,180,100,0.14);border-radius:999px;padding:4px 10px 4px 8px;font-size:clamp(8px,0.6vw,10px);color:rgba(210,180,100,0.4);cursor:pointer;transition:all 0.15s;font-weight:500;display:flex;align-items:center;gap:6px;position:relative}
+.branch.active,.branch:hover{background:rgba(210,180,100,0.14);border-color:rgba(210,180,100,0.4);color:#E8C97A}
+.branch-light{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:all 0.2s}
+.branch-light.healthy   {background:#1DB954;box-shadow:0 0 5px rgba(29,185,84,0.7)}
+.branch-light.viable    {background:#2ECC8A;box-shadow:0 0 4px rgba(46,204,138,0.5)}
+.branch-light.concerning{background:#E8B84B;box-shadow:0 0 5px rgba(232,184,75,0.6);animation:flicker 2.5s infinite}
+.branch-light.unviable  {background:#E8455A;box-shadow:0 0 6px rgba(232,69,90,0.7);animation:flicker 1.4s infinite}
+@keyframes flicker{0%,100%{opacity:1}50%{opacity:0.55}}
+.branch-tooltip{
+  position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+  background:rgba(10,6,20,0.97);border:0.5px solid rgba(210,180,100,0.22);
+  border-radius:8px;padding:7px 11px;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity 0.15s;z-index:200;min-width:150px;
+}
+.branch:hover .branch-tooltip{opacity:1}
+.bt-name{font-size:10px;font-weight:600;color:#E8C97A;margin-bottom:4px}
+.bt-row{display:flex;justify-content:space-between;gap:12px;font-size:9px}
+.bt-key{color:rgba(210,180,100,0.38)}
+.bt-val{color:rgba(235,210,155,0.8);font-weight:500}
+.bt-status{font-size:8px;font-weight:700;letter-spacing:0.06em;margin-top:5px;padding:2px 7px;border-radius:999px;display:inline-block}
+.bt-status.healthy   {background:rgba(29,185,84,0.15);color:#1DB954;border:0.5px solid rgba(29,185,84,0.35)}
+.bt-status.viable    {background:rgba(46,204,138,0.12);color:#2ECC8A;border:0.5px solid rgba(46,204,138,0.3)}
+.bt-status.concerning{background:rgba(232,184,75,0.12);color:#E8B84B;border:0.5px solid rgba(232,184,75,0.3)}
+.bt-status.unviable  {background:rgba(232,69,90,0.12); color:#E8455A;border:0.5px solid rgba(232,69,90,0.3)}
+.bt-hint{font-size:8px;color:rgba(210,180,100,0.4);margin-top:6px;padding-top:5px;border-top:0.5px solid rgba(210,180,100,0.1);text-align:center}
+.branch-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(210,180,100,0.22)}
+
+/* ── MODAL OVERLAY ── */
+.overlay{display:none;position:absolute;inset:0;background:rgba(10,6,20,0.65);z-index:50;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:rgba(22,15,35,0.97);border:0.5px solid rgba(210,180,100,0.16);border-radius:18px;padding:0 0 16px;width:clamp(240px,28%,320px);max-height:80%;overflow-y:auto;scrollbar-width:none}
+.modal::-webkit-scrollbar{display:none}
+.modal-header{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;border-bottom:0.5px solid rgba(210,180,100,0.1)}
+.modal-dot{width:7px;height:7px;border-radius:50%;background:#C9A84C}
+.modal-title{font-size:12px;font-weight:600;color:#E8C97A;text-transform:uppercase;letter-spacing:0.08em}
+.modal-close{margin-left:auto;width:22px;height:22px;border-radius:50%;background:rgba(210,180,100,0.08);border:none;cursor:pointer;color:rgba(210,180,100,0.45);font-size:14px;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:rgba(210,180,100,0.16);color:#E8C97A}
+.nav-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin:4px 14px;background:rgba(210,180,100,0.04);border:0.5px solid rgba(210,180,100,0.09);border-radius:10px;cursor:pointer;text-decoration:none;transition:background 0.15s}
+.nav-row:hover{background:rgba(210,180,100,0.1)}
+.nav-row-left{display:flex;align-items:center;gap:10px}
+.nav-row-icon{width:28px;height:28px;border-radius:8px;background:rgba(201,168,76,0.1);border:0.5px solid rgba(210,180,100,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav-row-icon svg{width:14px;height:14px;stroke:rgba(210,180,100,0.7);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.nav-row-text{display:flex;flex-direction:column;gap:2px}
+.nav-row-title{font-size:12px;font-weight:600;color:rgba(235,210,155,0.85)}
+.nav-row-sub{font-size:9px;color:rgba(210,180,100,0.35);letter-spacing:0.04em}
+.nav-row-badge{font-size:8px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(232,184,75,0.15);border:0.5px solid rgba(232,184,75,0.28);color:#E8B84B;white-space:nowrap}
+.nav-row-badge.ok{background:rgba(46,204,138,0.12);border-color:rgba(46,204,138,0.28);color:#2ECC8A}
+.modal-desc{font-size:10px;color:rgba(210,180,100,0.35);padding:10px 14px 2px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="desktop">
+  <!-- Wave background -->
+  <div class="wave-bg">
+    <svg viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <path d="M0 480 C180 430,340 500,520 460 C700 420,820 500,1000 455 C1100 432,1160 448,1200 440 L1200 600 L0 600 Z" fill="rgba(15,10,28,0.2)"/>
+      <path d="M0 510 C140 480,300 540,480 505 C660 470,780 530,960 495 C1080 472,1150 488,1200 480 L1200 600 L0 600 Z" fill="rgba(8,5,18,0.12)"/>
+      <path d="M 150 370 C 260 310, 380 260, 490 290 C 570 310, 600 360, 580 390 C 560 420, 520 420, 490 400 C 450 372, 470 320, 540 300 C 620 278, 740 250, 880 230 C 1020 210, 1160 225, 1280 195 L 1380 180 L 1380 202 C 1160 248, 1020 232, 880 252 C 740 272, 620 301, 540 323 C 470 344, 450 396, 490 424 C 520 444, 560 444, 580 414 C 600 384, 570 334, 490 314 C 380 284, 260 334, 150 394 Z" fill="rgba(200,160,80,0.06)"/>
+      <path d="M 150 370 C 260 310, 380 260, 490 290 C 570 310, 600 360, 580 390 C 560 420, 520 420, 490 400 C 450 372, 470 320, 540 300 C 620 278, 740 250, 880 230 C 1020 210, 1160 225, 1280 195 L 1380 180" fill="none" stroke="rgba(220,185,100,0.16)" stroke-width="1.4" stroke-linecap="round"/>
+      <radialGradient id="sun2" cx="80%" cy="15%" r="40%">
+        <stop offset="0%" stop-color="rgba(220,185,100,0.14)"/>
+        <stop offset="55%" stop-color="rgba(140,90,160,0.05)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+      <rect width="100%" height="100%" fill="url(#sun2)"/>
+    </svg>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TASKBAR
+  ══════════════════════════════════════════ -->
+  <div class="taskbar">
+    <span class="tb-logo">ALM</span>
+    <div class="tb-sep"></div>
+
+    <!-- Alunos pill + tooltip -->
+    <div class="tb-stat">
+      <div class="tb-stat-dot ok"></div>
+      <div class="tb-stat-num">1 287</div>
+      <div class="tb-stat-lbl">Alunos</div>
+      <div class="stat-tooltip" style="min-width:230px">
+        <div class="tt-title">Alunos por filial</div>
+        <div class="tt-bar-row"><span class="tt-bar-label">Funchal · Sede</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:100%"></div></div><span class="tt-bar-num">412</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">S. Cruz</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:54%"></div></div><span class="tt-bar-num">221</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">Machico</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:48%"></div></div><span class="tt-bar-num">198</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">Calheta</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:43%"></div></div><span class="tt-bar-num">178</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">R. Brava</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:38%"></div></div><span class="tt-bar-num">156</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">Estreito</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:30%"></div></div><span class="tt-bar-num">122</span></div>
+        <div class="tt-bar-row"><span class="tt-bar-label">P. do Sol</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:22%"></div></div><span class="tt-bar-num">90</span></div>
+        <hr class="tt-divider"/>
+        <div class="tt-row"><span class="tt-key">Total geral</span><span class="tt-val">1 287 alunos</span></div>
+        <div class="tt-row"><span class="tt-key">Inscrição média</span><span class="tt-val">79%</span></div>
+        <div class="tt-hint">Passe o rato sobre uma filial no rodapé para mais detalhes</div>
+      </div>
+    </div>
+
+    <!-- Turmas pill + tooltip -->
+    <div class="tb-stat">
+      <div class="tb-stat-dot"></div>
+      <div class="tb-stat-num">94</div>
+      <div class="tb-stat-lbl">Turmas</div>
+      <div class="stat-tooltip" style="min-width:220px">
+        <div class="tt-title">Turmas activas</div>
+        <div class="tt-row"><span class="tt-key">Funchal · Sede</span><span class="tt-val">38 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">S. Cruz</span><span class="tt-val">18 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">Machico</span><span class="tt-val">14 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">Calheta</span><span class="tt-val">13 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">R. Brava</span><span class="tt-val">9 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">Estreito</span><span class="tt-val">7 turmas</span></div>
+        <div class="tt-row"><span class="tt-key">P. do Sol</span><span class="tt-val">6 turmas</span></div>
+        <hr class="tt-divider"/>
+        <div class="tt-row"><span class="tt-key">Capacidade média</span><span class="tt-val">13.7 alunos / turma</span></div>
+        <div class="tt-row"><span class="tt-key">Turmas com conflitos</span><span class="tt-val warn">33 / 94</span></div>
+        <div class="tt-hint">Clique em Turmas para ver o mapa completo</div>
+      </div>
+    </div>
+
+    <!-- Professores pill + tooltip -->
+    <div class="tb-stat">
+      <div class="tb-stat-dot"></div>
+      <div class="tb-stat-num">18</div>
+      <div class="tb-stat-lbl">Professores</div>
+      <div class="stat-tooltip" style="min-width:230px">
+        <div class="tt-title">Professores activos</div>
+        <div class="tt-row"><span class="tt-key">Em actividade</span><span class="tt-val">18</span></div>
+        <div class="tt-row"><span class="tt-key">Turmas médias / professor</span><span class="tt-val">5.2</span></div>
+        <div class="tt-row"><span class="tt-key">Horas semanais médias</span><span class="tt-val">21 h</span></div>
+        <div class="tt-row"><span class="tt-key">Línguas cobertas</span><span class="tt-val">Ing · Fra · Ale · Esp</span></div>
+        <div class="tt-row"><span class="tt-key">Sumários em falta</span><span class="tt-val warn">3 professores</span></div>
+        <div class="tt-hint">Clique em Professores para ver fichas</div>
+      </div>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <!-- Health indicator -->
+    <a class="tb-health" id="tb-health" href="command-centre.html">
+      <div class="tb-health-light"></div>
+      <div class="tb-health-text">
+        <div class="tb-health-lbl" id="tb-health-lbl">—</div>
+        <div class="tb-health-sub">saúde global</div>
+      </div>
+      <div class="tb-health-tooltip" id="tb-health-tooltip"></div>
+    </a>
+
+    <!-- Ano Lectivo dropdown -->
+    <div class="year-wrap" id="yearWrap">
+      <div class="year-btn" onclick="toggleYear(event)">
+        <div class="year-btn-inner">
+          <span class="year-label">Ano Lectivo</span>
+          <span id="yearVal">2025 / 2026</span>
+        </div>
+        <span class="year-chevron">▾</span>
+      </div>
+      <div class="year-dropdown">
+        <div class="year-option active" onclick="selectYear(this,'2025 / 2026')">
+          2025 / 2026 <span class="year-badge current">actual</span>
+        </div>
+        <div class="year-option" onclick="selectYear(this,'2024 / 2025')">
+          2024 / 2025 <span class="year-badge anterior">anterior</span>
+        </div>
+        <div class="year-option" onclick="selectYear(this,'2023 / 2024')">
+          2023 / 2024 <span class="year-badge archive">arquivo</span>
+        </div>
+        <div class="year-option" onclick="selectYear(this,'2022 / 2023')">
+          2022 / 2023 <span class="year-badge archive">arquivo</span>
+        </div>
+        <div class="year-option" onclick="selectYear(this,'2021 / 2022')">
+          2021 / 2022 <span class="year-badge archive">arquivo</span>
+        </div>
+      </div>
+    </div>
+
+    <span class="tb-time" id="t"></span>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       BODY
+  ══════════════════════════════════════════ -->
+  <div class="body">
+    <div class="left-zone">
+      <div class="modules-grid">
+        <div class="mod" onclick="openModal('alunos')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+          <div class="mod-lbl">Alunos</div>
+        </div>
+        <div class="mod" onclick="openModal('horarios')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+          <div class="mod-lbl">Horários</div>
+        </div>
+        <div class="mod" onclick="openModal('professores')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M4 19V6a2 2 0 012-2h12a2 2 0 012 2v13"/><path d="M4 19h16M9 10h6M9 14h4"/></svg></div>
+          <div class="mod-lbl">Professores</div>
+        </div>
+        <div class="mod" onclick="openModal('pagamentos')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+          <div class="mod-lbl">Pagamentos</div>
+        </div>
+        <div class="mod" onclick="openModal('turmas')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <div class="mod-lbl">Turmas</div>
+        </div>
+        <div class="mod" onclick="openModal('testes')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+          <div class="mod-lbl">Testes</div>
+        </div>
+        <div class="mod" onclick="openModal('traducoes')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M3 5h8M7 3v2M3 9c0 2.5 2 4.5 4 6"/><path d="M9 9c-.5 2-2 3.5-3.5 5M13 21l4-9 4 9M14.5 18h5"/></svg></div>
+          <div class="mod-lbl">Traduções</div>
+        </div>
+        <div class="mod" onclick="openModal('stock')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M2 7l10-4 10 4v10l-10 4L2 17Z"/><path d="M12 3v18M2 7l10 4 10-4"/></svg></div>
+          <div class="mod-lbl">Stock</div>
+        </div>
+        <div class="mod" onclick="openModal('fotocopias')">
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M8 8V5a1 1 0 011-1h6a1 1 0 011 1v3"/><circle cx="17" cy="13" r="1" fill="#4A3560"/><path d="M7 17h6"/></svg></div>
+          <div class="mod-lbl">Fotocópias</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="right-zone">
+      <div class="dot-wrap">
+        <svg viewBox="0 0 520 560" xmlns="http://www.w3.org/2000/svg" fill="#E8C97A">
+          <circle cx="80" cy="200" r="2.2"/><circle cx="98" cy="190" r="2.2"/><circle cx="116" cy="182" r="2.2"/><circle cx="134" cy="178" r="2.2"/><circle cx="152" cy="181" r="2.2"/><circle cx="170" cy="190" r="2.2"/><circle cx="188" cy="200" r="2.2"/><circle cx="206" cy="208" r="2.2"/><circle cx="224" cy="213" r="2.2"/><circle cx="242" cy="215" r="2.2"/><circle cx="260" cy="213" r="2.2"/><circle cx="278" cy="208" r="2.2"/><circle cx="296" cy="200" r="2.2"/><circle cx="314" cy="191" r="2.2"/>
+          <circle cx="72" cy="218" r="2.2"/><circle cx="90" cy="207" r="2.2"/><circle cx="108" cy="198" r="2.2"/><circle cx="126" cy="194" r="2.2"/><circle cx="144" cy="197" r="2.2"/><circle cx="162" cy="207" r="2.2"/><circle cx="180" cy="217" r="2.2"/><circle cx="198" cy="226" r="2.2"/><circle cx="216" cy="231" r="2.2"/><circle cx="234" cy="233" r="2.2"/><circle cx="252" cy="231" r="2.2"/><circle cx="270" cy="225" r="2.2"/><circle cx="288" cy="217" r="2.2"/>
+          <circle cx="66" cy="236" r="2.2"/><circle cx="84" cy="224" r="2.2"/><circle cx="102" cy="215" r="2.2"/><circle cx="120" cy="211" r="2.2"/><circle cx="138" cy="214" r="2.2"/><circle cx="156" cy="224" r="2.2"/><circle cx="174" cy="235" r="2.2"/><circle cx="192" cy="244" r="2.2"/><circle cx="210" cy="249" r="2.2"/><circle cx="228" cy="251" r="2.2"/><circle cx="246" cy="249" r="2.2"/>
+          <circle cx="62" cy="254" r="2.2"/><circle cx="80" cy="242" r="2.2"/><circle cx="98" cy="232" r="2.2"/><circle cx="116" cy="228" r="2.2"/><circle cx="134" cy="231" r="2.2"/><circle cx="152" cy="241" r="2.2"/><circle cx="170" cy="252" r="2.2"/><circle cx="188" cy="261" r="2.2"/>
+          <circle cx="60" cy="272" r="2.2"/><circle cx="78" cy="260" r="2.2"/><circle cx="96" cy="250" r="2.2"/><circle cx="114" cy="246" r="2.2"/><circle cx="132" cy="249" r="2.2"/><circle cx="150" cy="259" r="2.2"/><circle cx="168" cy="270" r="2.2"/>
+          <circle cx="90" cy="168" r="2.2"/><circle cx="108" cy="160" r="2.2"/><circle cx="126" cy="154" r="2.2"/><circle cx="144" cy="151" r="2.2"/><circle cx="162" cy="154" r="2.2"/><circle cx="180" cy="162" r="2.2"/>
+          <circle cx="100" cy="148" r="2.2"/><circle cx="118" cy="140" r="2.2"/><circle cx="136" cy="135" r="2.2"/><circle cx="154" cy="133" r="2.2"/>
+          <circle cx="112" cy="130" r="2.2"/><circle cx="130" cy="122" r="2.2"/>
+        </svg>
+      </div>
+      <div class="hero">
+        <div class="alm-letters">ALM</div>
+        <div class="alm-sub">Academia de Línguas da Madeira</div>
+      </div>
+    </div>
+
+    <!-- Modal overlay -->
+    <div class="overlay" id="overlay" onclick="handleOverlay(event)">
+      <div class="modal" id="modal">
+        <div class="modal-header">
+          <div class="modal-dot"></div>
+          <div class="modal-title" id="modal-title">—</div>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       BRANCH ROW (footer)
+  ══════════════════════════════════════════ -->
+  <div class="branch-row" id="branch-row"></div>
+</div>
+
+<script>
+/* ── Clock ── */
+const d=new Date();
+document.getElementById('t').textContent=
+  d.toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short',year:'numeric'})+
+  ' · '+d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+
+/* ── Ano Lectivo dropdown ── */
+function toggleYear(e){
+  e.stopPropagation();
+  document.getElementById('yearWrap').classList.toggle('open');
+}
+function selectYear(el,val){
+  document.getElementById('yearVal').textContent=val;
+  document.querySelectorAll('.year-option').forEach(o=>o.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('yearWrap').classList.remove('open');
+  /* Dispatch a custom event so other pages/modules can react */
+  window.dispatchEvent(new CustomEvent('anoLectivoChange',{detail:{ano:val}}));
+}
+document.addEventListener('click',e=>{
+  if(!document.getElementById('yearWrap').contains(e.target))
+    document.getElementById('yearWrap').classList.remove('open');
+});
+
+/* ── Modal data ── */
+const MODAL_DATA={
+  alunos:{title:'Alunos',desc:'Gestão de fichas, inscrições e histórico académico.',pages:[
+    {label:'Nova inscrição',sub:'Registar novo aluno',href:'enrollment.html',dot:'ok'},
+    {label:'Consultar alunos',sub:'Pesquisa e edição de fichas',href:'#',dot:''},
+    {label:'Histórico',sub:'Progressão e registos antigos',href:'#',dot:''},
+    {label:'Desistências',sub:'Gestão de cancelamentos',href:'#',dot:'warn'},
+  ]},
+  horarios:{title:'Horários',desc:'Gestão dos pedidos de horário e operações de alocação de turmas.',pages:[
+    {label:'Gestão de horários',sub:'Ver e tratar todos os pedidos',href:'timetable-request.html',dot:'ok'},
+    {label:'Painel operacional',sub:'Mapa de turmas e alocação',href:'command-centre.html',dot:''},
+  ]},
+  professores:{title:'Professores',desc:'Consulta de fichas, distribuição de turmas e comunicação interna.',pages:[
+    {label:'Fichas de professores',sub:'Consulta e edição',href:'#',dot:''},
+    {label:'Distribuição por turma',sub:'Ver quem lecciona o quê',href:'#',dot:''},
+    {label:'Sumários',sub:'Registo de aulas dadas',href:'#',dot:''},
+    {label:'Mensagens internas',sub:'Comunicação com professores',href:'#',dot:''},
+  ]},
+  pagamentos:{title:'Pagamentos',desc:'Consulta de pagamentos, alertas de atraso e isenções.',pages:[
+    {label:'Por aluno',sub:'Histórico e estado de conta',href:'#',dot:''},
+    {label:'Listas de pagamento',sub:'Visão geral de todos os alunos',href:'#',dot:''},
+    {label:'Alertas e atrasos',sub:'Contas vencidas e avisos',href:'#',dot:'warn'},
+    {label:'Isenções',sub:'Alunos com desconto ou bolsa',href:'#',dot:'ok'},
+  ]},
+  turmas:{title:'Turmas',desc:'Mapa geral de turmas formadas por língua, nível e professor.',pages:[
+    {label:'Mapa geral',sub:'Todas as turmas activas',href:'command-centre.html',dot:'ok'},
+    {label:'Por professor',sub:'Turmas atribuídas a cada prof.',href:'#',dot:''},
+    {label:'Total por língua',sub:'Resumo estatístico',href:'#',dot:''},
+    {label:'Total por nível',sub:'Distribuição A1→C2',href:'#',dot:''},
+  ]},
+  testes:{title:'Testes',desc:'Agendamento, resultados e controlo de avaliações.',pages:[
+    {label:'Testes agendados',sub:'Próximas avaliações',href:'#',dot:'warn'},
+    {label:'Resultados',sub:'Notas e classificações',href:'#',dot:'ok'},
+    {label:'Por professor',sub:'Testes por docente',href:'#',dot:''},
+    {label:'Por turma',sub:'Testes por grupo',href:'#',dot:''},
+  ]},
+  traducoes:{title:'Traduções',desc:'Pedidos de tradução, orçamentos e estado de trabalhos.',pages:[
+    {label:'Pedidos',sub:'Novos pedidos de tradução',href:'#',dot:'ok'},
+    {label:'Em curso',sub:'Trabalhos a decorrer',href:'#',dot:'warn'},
+    {label:'Concluídos',sub:'Arquivo de trabalhos entregues',href:'#',dot:''},
+    {label:'Orçamentos',sub:'Propostas por cliente',href:'#',dot:''},
+  ]},
+  stock:{title:'Stock',desc:'Inventário de livros e materiais pedagógicos.',pages:[
+    {label:'Inventário geral',sub:'Todos os artigos em stock',href:'#',dot:'ok'},
+    {label:'Por nível',sub:'Livros por nível de língua',href:'#',dot:''},
+    {label:'Encomendas',sub:'Pedidos a fornecedores',href:'#',dot:'warn'},
+    {label:'Stock mínimo',sub:'Artigos abaixo do mínimo',href:'#',dot:'warn'},
+  ]},
+  fotocopias:{title:'Fotocópias',desc:'Registo e controlo de consumo de fotocópias por turma e professor.',pages:[
+    {label:'Por professor',sub:'Consumo individual',href:'#',dot:''},
+    {label:'Por turma',sub:'Consumo por grupo',href:'#',dot:''},
+    {label:'Totais mensais',sub:'Relatório de consumo mensal',href:'#',dot:'ok'},
+    {label:'Limites e alertas',sub:'Quotas e excedentes',href:'#',dot:'warn'},
+  ]},
+};
+
+function openModal(key){
+  const m=MODAL_DATA[key];
+  document.getElementById('modal-title').textContent=m.title;
+  const desc=m.desc?`<p class="modal-desc">${m.desc}</p>`:'';
+  const rows=m.pages.map(p=>`
+    <a class="nav-row" href="${p.href}" ${p.href==='#'?'onclick="return false"':''}>
+      <div class="nav-row-left">
+        <div class="nav-row-icon"><svg viewBox="0 0 16 16"><polyline points="5 2 10 7 5 12"/></svg></div>
+        <div class="nav-row-text">
+          <div class="nav-row-title">${p.label}</div>
+          <div class="nav-row-sub">${p.sub}</div>
+        </div>
+      </div>
+      ${p.dot==='warn'?`<span class="nav-row-badge">atenção</span>`:p.dot==='ok'?`<span class="nav-row-badge ok">activo</span>`:''}
+    </a>`).join('');
+  document.getElementById('modal-body').innerHTML=desc+`<div style="padding:6px 0 4px">${rows}</div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open')}
+function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeModal()}
+
+/* ── Branch data ── */
+const BRANCHES=[
+  {id:'funchal', label:'Funchal · Sede', status:'healthy',    alunos:412, inscritos:'89%', turmas:38, dificeis:4},
+  {id:'machico', label:'Machico',        status:'concerning', alunos:198, inscritos:'74%', turmas:14, dificeis:8},
+  {id:'scruz',   label:'S. Cruz',        status:'viable',     alunos:221, inscritos:'83%', turmas:18, dificeis:5},
+  {id:'rbrava',  label:'R. Brava',       status:'unviable',   alunos:156, inscritos:'61%', turmas:9,  dificeis:9},
+  {id:'calheta', label:'Calheta',        status:'healthy',    alunos:178, inscritos:'86%', turmas:13, dificeis:3},
+  {id:'psol',    label:'P. do Sol',      status:'viable',     alunos:90,  inscritos:'78%', turmas:6,  dificeis:2},
+  {id:'estreito',label:'Estreito',       status:'concerning', alunos:122, inscritos:'70%', turmas:7,  dificeis:2},
+];
+const STATUS_LABEL={healthy:'Saudável',viable:'Viável',concerning:'Atenção',unviable:'Inviável'};
+let activeBranch=null;
+
+function renderBranches(){
+  document.getElementById('branch-row').innerHTML=BRANCHES.map(b=>`
+    <div class="branch${b.id===activeBranch?' active':''}" onclick="goBranch('${b.id}')">
+      <div class="branch-light ${b.status}"></div>
+      ${b.label}
+      <div class="branch-tooltip">
+        <div class="bt-name">${b.label}</div>
+        <div class="bt-row"><span class="bt-key">Alunos</span><span class="bt-val">${b.alunos}</span></div>
+        <div class="bt-row"><span class="bt-key">Inscritos</span><span class="bt-val">${b.inscritos}</span></div>
+        <div class="bt-row"><span class="bt-key">Turmas</span><span class="bt-val">${b.turmas}</span></div>
+        <div class="bt-row"><span class="bt-key">Conflitos</span><span class="bt-val">${b.dificeis}</span></div>
+        <div><span class="bt-status ${b.status}">${STATUS_LABEL[b.status]}</span></div>
+        <div class="bt-hint">Clique para ver o painel →</div>
+      </div>
+    </div>`).join('');
+}
+
+function goBranch(id){
+  window.location.href='command-centre.html?branch='+id;
+}
+
+/* ── School health ── */
+function computeSchoolHealth(){
+  const totalStudents=BRANCHES.reduce((a,b)=>a+b.alunos,0);
+  const totalConflicts=BRANCHES.reduce((a,b)=>a+b.dificeis,0);
+  const avgEnrolment=BRANCHES.reduce((a,b)=>a+(parseInt(b.inscritos)*b.alunos/totalStudents),0);
+  const counts={healthy:0,viable:0,concerning:0,unviable:0};
+  BRANCHES.forEach(b=>counts[b.status]++);
+  let status;
+  if(avgEnrolment>=85)status='healthy';
+  else if(avgEnrolment>=75)status='viable';
+  else if(avgEnrolment>=65)status='concerning';
+  else status='unviable';
+  if(counts.unviable>0&&status==='healthy')status='viable';
+  return{status,avgEnrolment:Math.round(avgEnrolment),totalStudents,totalConflicts,counts};
+}
+
+function renderSchoolHealth(){
+  const h=computeSchoolHealth();
+  const el=document.getElementById('tb-health');
+  el.className='tb-health '+h.status;
+  document.getElementById('tb-health-lbl').textContent=STATUS_LABEL[h.status];
+  const chips=Object.entries(h.counts).map(([s,n])=>n>0?`
+    <div class="tht-chip ${s}"><div class="tht-chip-dot" style="background:currentColor"></div>${n} ${STATUS_LABEL[s]}</div>`:''
+  ).join('');
+  document.getElementById('tb-health-tooltip').innerHTML=`
+    <div class="tht-title">Saúde Global · Todas as Filiais</div>
+    <div class="tht-row"><span class="tht-key">Média de inscrição</span><span class="tht-val">${h.avgEnrolment}%</span></div>
+    <div class="tht-row"><span class="tht-key">Total de alunos</span><span class="tht-val">${h.totalStudents.toLocaleString('pt-PT')}</span></div>
+    <div class="tht-row"><span class="tht-key">Filiais activas</span><span class="tht-val">${BRANCHES.length}</span></div>
+    <div class="tht-row"><span class="tht-key">Conflitos totais</span><span class="tht-val">${h.totalConflicts}</span></div>
+    <div class="tht-breakdown">${chips}</div>
+    <div class="tht-hint">Clique para abrir o painel operacional</div>`;
+}
+
+renderBranches();
+renderSchoolHealth();
+</script>
+</body>
+</html>
