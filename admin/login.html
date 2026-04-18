@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Acesso Restrito</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --gold-border:rgba(201,168,76,0.18);--gold-border-hover:rgba(201,168,76,0.42);
+  --green:#2ECC8A;--red:#E8455A;
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow:hidden}
+
+/* ── SCANLINE TEXTURE ── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px);
+  pointer-events:none;z-index:0
+}
+
+/* ── BACKGROUND ── */
+.bg-wrap{position:fixed;inset:0;z-index:0;overflow:hidden}
+.bg-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ── SHELL ── */
+.shell{
+  position:relative;z-index:10;
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+}
+
+/* ── LEFT PANEL ── */
+.left{
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:flex-start;
+  padding:clamp(40px,6vw,80px) clamp(40px,5vw,72px);
+  position:relative;
+}
+
+/* vertical rule between panels */
+.left::after{
+  content:'';position:absolute;right:0;top:10%;bottom:10%;
+  width:0.5px;background:linear-gradient(to bottom,transparent,var(--border),rgba(201,168,76,0.25),var(--border),transparent);
+}
+
+.left-top{margin-bottom:clamp(32px,5vh,56px)}
+
+.alm-wordmark{
+  font-family:var(--display);
+  font-size:clamp(56px,8vw,96px);
+  color:var(--gold-hi);
+  letter-spacing:8px;
+  line-height:1;
+  animation:fadeUp 0.7s ease both;
+}
+.alm-sub{
+  font-size:clamp(8px,0.75vw,11px);
+  letter-spacing:0.22em;
+  color:var(--text2);
+  text-transform:uppercase;
+  margin-top:10px;
+  font-weight:500;
+  animation:fadeUp 0.7s 0.1s ease both;
+}
+
+.access-label{
+  display:inline-flex;align-items:center;gap:7px;
+  margin-top:clamp(20px,3vh,32px);
+  padding:5px 14px;
+  border-radius:999px;
+  border:0.5px solid rgba(232,69,90,0.3);
+  background:rgba(232,69,90,0.07);
+  font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+  color:rgba(232,130,130,0.8);
+  animation:fadeUp 0.7s 0.2s ease both;
+}
+.access-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--red);
+  animation:blink 2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* stat pills */
+.stat-row{
+  display:flex;gap:12px;margin-top:clamp(24px,4vh,44px);flex-wrap:wrap;
+  animation:fadeUp 0.7s 0.3s ease both;
+}
+.stat{
+  display:flex;flex-direction:column;gap:2px;
+  padding:10px 16px;
+  background:rgba(201,168,76,0.05);
+  border:0.5px solid var(--border);
+  border-radius:10px;
+  cursor:default;
+  transition:border-color 0.15s;
+}
+.stat:hover{border-color:var(--border2)}
+.stat-val{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--gold-hi);letter-spacing:-0.5px}
+.stat-lbl{font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+
+/* dot-pattern */
+.dot-art{
+  margin-top:auto;
+  opacity:0.06;
+  animation:fadeUp 0.7s 0.4s ease both;
+}
+.dot-art svg{width:clamp(160px,22vw,280px);height:auto}
+
+/* ── RIGHT PANEL — FORM ── */
+.right{
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  padding:clamp(40px,5vw,60px) clamp(32px,4vw,56px);
+}
+
+.form-card{
+  width:100%;max-width:380px;
+  background:rgba(18,14,30,0.85);
+  border:0.5px solid var(--border2);
+  border-radius:18px;
+  padding:32px 28px 28px;
+  animation:fadeUp 0.7s 0.15s ease both;
+  backdrop-filter:blur(12px);
+}
+
+.form-header{margin-bottom:24px;text-align:center}
+.form-title{font-family:var(--display);font-size:20px;color:var(--gold-hi);letter-spacing:2px}
+.form-sub{font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-top:6px}
+
+/* lock icon */
+.lock-wrap{
+  width:48px;height:48px;border-radius:50%;
+  background:rgba(201,168,76,0.08);
+  border:0.5px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
+.lock-wrap svg{width:20px;height:20px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* field */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field-label{font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text2)}
+
+.input-wrap{
+  position:relative;
+  display:flex;align-items:center;
+}
+.input-icon{
+  position:absolute;left:12px;
+  width:14px;height:14px;
+  stroke:var(--text3);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke 0.15s;
+  pointer-events:none;
+}
+.field-input{
+  width:100%;
+  background:rgba(255,255,255,0.04);
+  border:0.5px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px 10px 38px;
+  font-size:13px;
+  color:var(--text);
+  outline:none;
+  font-family:var(--sans);
+  transition:border-color 0.15s,background 0.15s;
+  letter-spacing:0.01em;
+}
+.field-input::placeholder{color:var(--text3)}
+.field-input:focus{
+  border-color:var(--gold-dim);
+  background:rgba(201,168,76,0.04);
+}
+.field-input:focus + .input-icon,
+.input-wrap:focus-within .input-icon{stroke:var(--gold)}
+
+/* password toggle */
+.pw-toggle{
+  position:absolute;right:10px;
+  width:28px;height:28px;
+  border-radius:6px;
+  border:none;background:transparent;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background 0.12s;
+  padding:0;
+}
+.pw-toggle:hover{background:rgba(201,168,76,0.1)}
+.pw-toggle svg{width:14px;height:14px;stroke:var(--text3);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* role selector */
+.role-row{display:flex;gap:6px;margin-bottom:20px}
+.role-btn{
+  flex:1;padding:7px 6px;
+  border-radius:8px;
+  border:0.5px solid var(--border);
+  background:transparent;
+  font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text3);cursor:pointer;
+  transition:all 0.15s;font-family:var(--sans);
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.role-btn svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.role-btn:hover{border-color:var(--border2);color:var(--text2)}
+.role-btn.active{
+  background:rgba(201,168,76,0.1);
+  border-color:var(--gold-dim);
+  color:var(--gold-hi);
+}
+
+/* submit button */
+.btn-login{
+  width:100%;
+  padding:11px;
+  background:rgba(201,168,76,0.15);
+  border:0.5px solid var(--gold-dim);
+  border-radius:10px;
+  font-size:13px;font-weight:600;
+  color:var(--gold-hi);
+  cursor:pointer;
+  letter-spacing:0.06em;
+  transition:all 0.2s;
+  font-family:var(--sans);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:4px;
+}
+.btn-login:hover{background:rgba(201,168,76,0.24);border-color:rgba(201,168,76,0.5)}
+.btn-login:active{transform:scale(0.98)}
+.btn-login.loading{opacity:0.7;cursor:wait}
+.btn-login svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* error */
+.error-box{
+  display:none;
+  align-items:center;gap:8px;
+  padding:9px 12px;
+  background:rgba(232,69,90,0.08);
+  border:0.5px solid rgba(232,69,90,0.28);
+  border-radius:8px;
+  margin-bottom:14px;
+  font-size:11px;
+  color:rgba(232,130,130,0.9);
+}
+.error-box.show{display:flex}
+.error-box svg{width:13px;height:13px;stroke:rgba(232,100,100,0.8);stroke-width:2;fill:none;flex-shrink:0;stroke-linecap:round;stroke-linejoin:round}
+
+/* divider */
+.divider{
+  display:flex;align-items:center;gap:10px;
+  margin:18px 0 14px;
+}
+.divider-line{flex:1;height:0.5px;background:var(--border)}
+.divider-txt{font-size:9px;color:var(--text3);letter-spacing:0.08em;white-space:nowrap}
+
+/* footer note */
+.form-foot{
+  text-align:center;margin-top:20px;
+  font-size:9px;color:var(--text3);letter-spacing:0.06em;line-height:1.7;
+}
+
+/* clock */
+.form-clock{
+  font-family:var(--mono);
+  font-size:9px;color:var(--text3);
+  text-align:center;
+  margin-top:16px;
+  letter-spacing:0.08em;
+}
+
+/* status bar */
+.status-bar{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin-top:18px;
+  padding:6px 14px;
+  background:rgba(46,204,138,0.06);
+  border:0.5px solid rgba(46,204,138,0.2);
+  border-radius:999px;
+}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.status-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.1em}
+
+/* animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SUCCESS OVERLAY ── */
+.success-overlay{
+  display:none;
+  position:fixed;inset:0;z-index:200;
+  background:rgba(10,6,20,0.75);
+  backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;
+}
+.success-overlay.show{display:flex}
+.success-modal{
+  background:rgba(16,10,28,0.98);
+  border:0.5px solid rgba(46,204,138,0.4);
+  border-radius:20px;
+  padding:32px 28px;
+  text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  max-width:320px;width:90%;
+  animation:fadeUp 0.3s ease;
+}
+.success-icon{
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(46,204,138,0.1);
+  border:0.5px solid rgba(46,204,138,0.35);
+  display:flex;align-items:center;justify-content:center;
+}
+.success-icon svg{width:26px;height:26px;stroke:var(--green);stroke-width:2;fill:none}
+.success-title{font-family:var(--display);font-size:16px;color:var(--green);letter-spacing:0.04em}
+.success-sub{font-size:11px;color:var(--text2);line-height:1.6}
+.success-dest{
+  font-family:var(--mono);font-size:10px;
+  padding:5px 16px;border-radius:999px;
+  background:rgba(46,204,138,0.08);
+  border:0.5px solid rgba(46,204,138,0.25);
+  color:var(--green);letter-spacing:0.08em;
+}
+
+/* responsive */
+@media(max-width:700px){
+  .shell{grid-template-columns:1fr}
+  .left{display:none}
+  .right{padding:40px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- Background SVG -->
+<div class="bg-wrap">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="glow1" cx="70%" cy="20%" r="45%">
+        <stop offset="0%" stop-color="rgba(201,168,76,0.12)"/>
+        <stop offset="60%" stop-color="rgba(100,60,140,0.06)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+      <radialGradient id="glow2" cx="25%" cy="80%" r="35%">
+        <stop offset="0%" stop-color="rgba(62,100,180,0.08)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="#0C0816"/>
+    <rect width="100%" height="100%" fill="url(#glow1)"/>
+    <rect width="100%" height="100%" fill="url(#glow2)"/>
+    <!-- wave lines -->
+    <path d="M0 600 C240 560,480 630,720 590 C960 550,1100 620,1440 575 L1440 900 L0 900Z" fill="rgba(14,10,26,0.35)"/>
+    <path d="M0 650 C200 620,400 680,680 645 C920 612,1200 665,1440 630 L1440 900 L0 900Z" fill="rgba(8,5,18,0.2)"/>
+    <!-- decorative curve -->
+    <path d="M200 450 C350 380,500 320,640 355 C730 378,760 430,742 465 C724 500,680 502,650 478 C608 446,628 385,700 365 C790 340,950 300,1140 270" fill="none" stroke="rgba(201,168,76,0.07)" stroke-width="1.5"/>
+  </svg>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-modal">
+    <div class="success-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <div class="success-title">Acesso autorizado</div>
+    <div class="success-sub" id="success-msg">Bem-vindo ao painel de administração da ALM.</div>
+    <div class="success-dest" id="success-dest">→ dashboard.html</div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ══ LEFT PANEL ══ -->
+  <div class="left">
+    <div class="left-top">
+      <div class="alm-wordmark">ALM</div>
+      <div class="alm-sub">Academia de Línguas da Madeira</div>
+      <div class="access-label">
+        <div class="access-dot"></div>
+        Acesso restrito · Pessoal autorizado
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-val">1 287</div>
+        <div class="stat-lbl">Alunos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">94</div>
+        <div class="stat-lbl">Turmas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">18</div>
+        <div class="stat-lbl">Professores</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">7</div>
+        <div class="stat-lbl">Filiais</div>
+      </div>
+    </div>
+
+    <div class="dot-art">
+      <svg viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" fill="#E8C97A">
+        <circle cx="60" cy="140" r="2.2"/><circle cx="78" cy="130" r="2.2"/><circle cx="96" cy="122" r="2.2"/><circle cx="114" cy="118" r="2.2"/><circle cx="132" cy="121" r="2.2"/><circle cx="150" cy="130" r="2.2"/><circle cx="168" cy="140" r="2.2"/><circle cx="186" cy="148" r="2.2"/><circle cx="204" cy="153" r="2.2"/><circle cx="222" cy="155" r="2.2"/><circle cx="240" cy="153" r="2.2"/><circle cx="258" cy="148" r="2.2"/><circle cx="276" cy="140" r="2.2"/>
+        <circle cx="52" cy="158" r="2.2"/><circle cx="70" cy="147" r="2.2"/><circle cx="88" cy="138" r="2.2"/><circle cx="106" cy="134" r="2.2"/><circle cx="124" cy="137" r="2.2"/><circle cx="142" cy="147" r="2.2"/><circle cx="160" cy="157" r="2.2"/><circle cx="178" cy="166" r="2.2"/><circle cx="196" cy="171" r="2.2"/><circle cx="214" cy="173" r="2.2"/><circle cx="232" cy="171" r="2.2"/><circle cx="250" cy="165" r="2.2"/>
+        <circle cx="46" cy="176" r="2.2"/><circle cx="64" cy="164" r="2.2"/><circle cx="82" cy="155" r="2.2"/><circle cx="100" cy="151" r="2.2"/><circle cx="118" cy="154" r="2.2"/><circle cx="136" cy="164" r="2.2"/><circle cx="154" cy="175" r="2.2"/><circle cx="172" cy="184" r="2.2"/>
+        <circle cx="70" cy="108" r="2.2"/><circle cx="88" cy="100" r="2.2"/><circle cx="106" cy="94" r="2.2"/><circle cx="124" cy="91" r="2.2"/><circle cx="142" cy="94" r="2.2"/><circle cx="160" cy="102" r="2.2"/>
+        <circle cx="80" cy="88" r="2.2"/><circle cx="98" cy="80" r="2.2"/><circle cx="116" cy="75" r="2.2"/><circle cx="134" cy="73" r="2.2"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <div class="right">
+    <div class="form-card">
+
+      <div class="form-header">
+        <div class="lock-wrap">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <div class="form-title">Painel de Acesso</div>
+        <div class="form-sub">Academia de Línguas da Madeira</div>
+      </div>
+
+      <!-- Role selector -->
+      <div class="role-row" id="role-row">
+        <button class="role-btn active" data-role="director" onclick="setRole('director',this)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 3l2 2-4 4"/></svg>
+          Direcção
+        </button>
+        <button class="role-btn" data-role="secretariat" onclick="setRole('secretariat',this)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Secretariado
+        </button>
+        <button class="role-btn" data-role="teacher" onclick="setRole('teacher',this)">
+          <svg viewBox="0 0 24 24"><path d="M4 19V6a2 2 0 012-2h12a2 2 0 012 2v13"/><path d="M4 19h16M9 10h6M9 14h4"/></svg>
+          Professor
+        </button>
+      </div>
+
+      <!-- Error box -->
+      <div class="error-box" id="error-box">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span id="error-msg">Credenciais inválidas. Tente novamente.</span>
+      </div>
+
+      <!-- Email -->
+      <div class="field">
+        <div class="field-label">Email institucional</div>
+        <div class="input-wrap">
+          <input class="field-input" id="inp-email" type="email" placeholder="nome@alm-madeira.com" autocomplete="username" oninput="clearError()"/>
+          <svg class="input-icon" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <div class="field-label">Palavra-passe</div>
+        <div class="input-wrap">
+          <input class="field-input" id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" oninput="clearError()" onkeydown="if(event.key==='Enter')doLogin()"/>
+          <svg class="input-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <button class="pw-toggle" onclick="togglePw()" id="pw-toggle" aria-label="Mostrar palavra-passe">
+            <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Login button -->
+      <button class="btn-login" id="btn-login" onclick="doLogin()">
+        <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Entrar
+      </button>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-txt">acesso seguro</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="form-foot">
+        Só pessoal autorizado da ALM.<br/>
+        Em caso de problema contacte o administrador do sistema.
+      </div>
+
+      <div class="status-bar">
+        <div class="status-dot"></div>
+        <div class="status-lbl">SISTEMA ACTIVO · 2025/2026</div>
+      </div>
+
+      <div class="form-clock" id="clock">--:--:--</div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── CLOCK ── */
+function tick(){
+  document.getElementById('clock').textContent=
+    new Date().toLocaleTimeString('pt-PT',{weekday:'short',day:'numeric',month:'short'})
+    +' · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+tick();setInterval(tick,1000);
+
+/* ── ROLE ── */
+let activeRole='director';
+function setRole(r,el){
+  activeRole=r;
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  clearError();
+}
+
+/* ── PASSWORD TOGGLE ── */
+let pwVisible=false;
+function togglePw(){
+  pwVisible=!pwVisible;
+  const inp=document.getElementById('inp-pass');
+  inp.type=pwVisible?'text':'password';
+  const icon=document.getElementById('eye-icon');
+  if(pwVisible){
+    icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }else{
+    icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+/* ── ERROR ── */
+function showError(msg){
+  const box=document.getElementById('error-box');
+  document.getElementById('error-msg').textContent=msg;
+  box.classList.add('show');
+  document.getElementById('inp-email').style.borderColor='rgba(232,69,90,0.35)';
+  document.getElementById('inp-pass').style.borderColor='rgba(232,69,90,0.35)';
+}
+function clearError(){
+  document.getElementById('error-box').classList.remove('show');
+  document.getElementById('inp-email').style.borderColor='';
+  document.getElementById('inp-pass').style.borderColor='';
+}
+
+/* ── DESTINATION MAP ── */
+const DEST={
+  director:'dashboard.html',
+  secretariat:'dashboard.html',
+  teacher:'../teachers/index.html',
+};
+const DEST_LABEL={
+  director:'Painel de Administração',
+  secretariat:'Painel de Administração',
+  teacher:'Portal do Professor',
+};
+
+/* ── LOGIN ── */
+async function doLogin(){
+  const email=document.getElementById('inp-email').value.trim();
+  const pass=document.getElementById('inp-pass').value;
+  const btn=document.getElementById('btn-login');
+
+  clearError();
+
+  if(!email){showError('Introduza o seu email institucional.');return}
+  if(!pass){showError('Introduza a sua palavra-passe.');return}
+  if(!email.includes('@')){showError('Email inválido.');return}
+
+  /* Loading state */
+  btn.classList.add('loading');
+  btn.innerHTML=`<svg viewBox="0 0 24 24" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round" stroke-width="2"/></svg> A verificar…`;
+
+  /* ── SUPABASE AUTH ──
+     Replace this block with real Supabase auth when ready:
+
+     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+     if (error) { showError('Credenciais inválidas.'); resetBtn(); return; }
+
+     For now: demo credentials ── */
+  await new Promise(r=>setTimeout(r,1100));
+
+  const DEMO=[
+    {email:'director@alm-madeira.com',pass:'alm2026',role:'director'},
+    {email:'secretariado@alm-madeira.com',pass:'alm2026',role:'secretariat'},
+    {email:'professor@alm-madeira.com',pass:'alm2026',role:'teacher'},
+  ];
+
+  const match=DEMO.find(u=>u.email===email&&u.pass===pass&&u.role===activeRole);
+
+  if(!match){
+    btn.classList.remove('loading');
+    btn.innerHTML=`<svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar`;
+    showError('Credenciais inválidas ou função incorrecta. Tente novamente.');
+    return;
+  }
+
+  /* Success */
+  const dest=DEST[match.role]||'dashboard.html';
+  document.getElementById('success-msg').textContent=`Bem-vindo ao ${DEST_LABEL[match.role]} da ALM.`;
+  document.getElementById('success-dest').textContent=`→ ${dest}`;
+  document.getElementById('success-overlay').classList.add('show');
+
+  setTimeout(()=>{
+    window.location.href=dest;
+  },1800);
+}
+
+/* spin keyframe for loading */
+const style=document.createElement('style');
+style.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
