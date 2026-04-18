@@ -456,7 +456,7 @@ const MODALS={
     desc:'Gerir as suas inscrições de horário para o ano lectivo 2026/2027.',
     classCard:false,
     rows:[
-     {icon:'<path d="M16 21v-2a4 4 0 00-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M20 8v6M17 11h6"/>',label:'Marcar inscrições',sub:'Seleccionar horário para o novo ano lectivo',badge:'',fn:'goInscricoes'},
+      {icon:'<path d="M16 21v-2a4 4 0 00-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M20 8v6M17 11h6"/>',label:'Marcar inscrições',sub:'Seleccionar horário para o novo ano lectivo',badge:'',fn:'goInscricoes'},
       {icon:'<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>',label:'Atualizar inscrições',sub:'Alterar o horário já submetido',badge:''},
       {icon:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',label:'Verificar inscrições',sub:'Consultar o estado do pedido de horário',badge:'ok'},
     ]
@@ -503,53 +503,61 @@ const MODALS={
   }
 };
 
-const CLASS_CARD=`
-<div class="class-card">
-  <div class="cc-header">
-    <span class="cc-title">Inglês B1 · Turma C</span>
-    <span class="cc-status">Activo</span>
-  </div>
-  <div class="cc-grid">
-    <div class="cc-row"><div class="cc-key">Professor</div><div class="cc-val">Sarah Mitchell</div></div>
-    <div class="cc-row"><div class="cc-key">Dias</div><div class="cc-val">Seg · Qua · Sex</div></div>
-    <div class="cc-row"><div class="cc-key">Horário</div><div class="cc-val">18:30 – 20:00</div></div>
-    <div class="cc-row"><div class="cc-key">Sala</div><div class="cc-val">Sala 4 · 1º andar</div></div>
-    <div class="cc-row"><div class="cc-key">Filial</div><div class="cc-val">Funchal · Sede</div></div>
-    <div class="cc-row"><div class="cc-key">Início</div><div class="cc-val">6 Out 2025</div></div>
-  </div>
-  <div class="cc-actions">
-    <button class="cc-btn">Ver sumários</button>
-    <button class="cc-btn">Presenças</button>
-    <button class="cc-btn">Contactar professor</button>
-    <button class="cc-btn">Mudar turma</button>
-  </div>
-</div>`;
+const CLASS_CARD=
+  '<div class="class-card">'+
+  '<div class="cc-header"><span class="cc-title">Inglês B1 · Turma C</span><span class="cc-status">Activo</span></div>'+
+  '<div class="cc-grid">'+
+  '<div class="cc-row"><div class="cc-key">Professor</div><div class="cc-val">Sarah Mitchell</div></div>'+
+  '<div class="cc-row"><div class="cc-key">Dias</div><div class="cc-val">Seg · Qua · Sex</div></div>'+
+  '<div class="cc-row"><div class="cc-key">Horário</div><div class="cc-val">18:30 – 20:00</div></div>'+
+  '<div class="cc-row"><div class="cc-key">Sala</div><div class="cc-val">Sala 4 · 1º andar</div></div>'+
+  '<div class="cc-row"><div class="cc-key">Filial</div><div class="cc-val">Funchal · Sede</div></div>'+
+  '<div class="cc-row"><div class="cc-key">Início</div><div class="cc-val">6 Out 2025</div></div>'+
+  '</div>'+
+  '<div class="cc-actions">'+
+  '<button class="cc-btn">Ver sumários</button>'+
+  '<button class="cc-btn">Presenças</button>'+
+  '<button class="cc-btn">Contactar professor</button>'+
+  '<button class="cc-btn">Mudar turma</button>'+
+  '</div></div>';
 
 function openModal(key){
   const m=MODALS[key];
   if(!m)return;
   document.getElementById('drawer-title').textContent=m.title;
-  const desc=`<p class="drawer-desc">${m.desc}</p>`;
-  const card=m.classCard?CLASS_CARD:'';
   const params=new URLSearchParams(window.location.search).toString();
-  const rows=m.rows.map(r=>{
-    const onclick=r.fn
-      ? r.fn+'();return false'
-      : r.href
-        ? 'window.location.href=\''+r.href+(params?'?'+params:'')+"';return false"
-        : 'return false';
+  const badge=function(b){
+    if(b==='warn')return '<span class="nr-badge warn">atenção</span>';
+    if(b==='ok')return '<span class="nr-badge ok">activo</span>';
+    if(b==='new')return '<span class="nr-badge new">novo</span>';
+    return '';
+  };
+  const rows=m.rows.map(function(r){
+    var onclick;
+    if(r.fn){
+      onclick=r.fn+'();return false';
+    } else if(r.href){
+      onclick='window.location.href=\''+r.href+(params?'?'+params:'\'')+'\''+';return false';
+    } else {
+      onclick='return false';
+    }
     return '<a class="nav-row" href="#" onclick="'+onclick+'">'
       +'<div class="nr-left">'
       +'<div class="nr-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="rgba(210,180,100,0.7)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">'+r.icon+'</svg></div>'
       +'<div class="nr-text"><div class="nr-title">'+r.label+'</div><div class="nr-sub">'+r.sub+'</div></div>'
       +'</div>'
-      +(r.badge==='warn'?'<span class="nr-badge warn">atenção</span>':r.badge==='ok'?'<span class="nr-badge ok">activo</span>':r.badge==='new'?'<span class="nr-badge new">novo</span>':'')
+      +badge(r.badge)
       +'</a>';
   }).join('');
-  document.getElementById('drawer-body').innerHTML=desc+card+'<div style="padding:6px 0 8px">'+rows+'</div><div class="drawer-spacer"></div>';
+  document.getElementById('drawer-body').innerHTML=
+    '<p class="drawer-desc">'+m.desc+'</p>'
+    +(m.classCard?CLASS_CARD:'')
+    +'<div style="padding:6px 0 8px">'+rows+'</div>'
+    +'<div class="drawer-spacer"></div>';
   document.getElementById('overlay').classList.add('open');
-  document.querySelectorAll('.mob-nav-item').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.mob-nav-item').forEach(function(el){el.classList.remove('active')});
 }
+
 function closeModal(){document.getElementById('overlay').classList.remove('open')}
 function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeModal()}
 
@@ -558,12 +566,12 @@ function toggleNotif(e){
   document.getElementById('notif-panel').classList.toggle('open');
 }
 function clearNotifs(){
-  document.getElementById('notif-panel').querySelectorAll('.notif-dot').forEach(d=>{d.style.background='rgba(210,180,100,0.15)'});
+  document.getElementById('notif-panel').querySelectorAll('.notif-dot').forEach(function(d){d.style.background='rgba(210,180,100,0.15)'});
   document.querySelector('#notif-btn .tb-badge').style.display='none';
 }
-document.addEventListener('click',e=>{
-  const p=document.getElementById('notif-panel');
-  const b=document.getElementById('notif-btn');
+document.addEventListener('click',function(e){
+  var p=document.getElementById('notif-panel');
+  var b=document.getElementById('notif-btn');
   if(!p.contains(e.target)&&!b.contains(e.target))p.classList.remove('open');
 });
 </script>
