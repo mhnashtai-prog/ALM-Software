@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Fichas de Alunos</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --yellow:#E8B84B;--yellow-dim:rgba(232,184,75,0.18);--yellow-faint:rgba(232,184,75,0.07);
+  --red:#E8455A;--red-dim:rgba(232,69,90,0.2);--red-faint:rgba(232,69,90,0.07);
+  --blue:#5B9CF6;--blue-faint:rgba(91,156,246,0.07);--blue-dim:rgba(91,156,246,0.25);
+  --teal:#3EC9A7;
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(12,8,22,0.95);backdrop-filter:blur(16px);border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:0;padding:0 20px;height:48px;}
+.tb-home-menu{display:flex;align-items:center;border:0.5px solid var(--border);background:var(--gold-faint);border-radius:6px;overflow:hidden;flex-shrink:0}
+.tb-home-ico{display:flex;align-items:center;justify-content:center;padding:5px 8px;color:var(--text2);text-decoration:none;transition:all .15s;border-right:0.5px solid var(--border)}
+.tb-home-ico:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-home-ico svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-menu-word{display:flex;align-items:center;padding:5px 10px;background:transparent;border:none;cursor:pointer;font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--text2);font-family:var(--sans);transition:all .15s}
+.tb-menu-word:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-divider{width:0.5px;height:20px;background:var(--border);margin:0 14px;flex-shrink:0}
+.tb-brand{font-family:var(--display);font-size:16px;color:var(--gold-hi);letter-spacing:3px;flex-shrink:0}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-ano{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.10em;white-space:nowrap;flex-shrink:0;margin-left:auto}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.08em;flex-shrink:0;margin-left:14px}
+.tb-status{display:flex;align-items:center;gap:5px;margin-left:14px;padding:3px 10px;border-radius:999px;background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25)}
+.tb-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.tb-status-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.08em}
+
+/* ── MENU DRAWER ── */
+.menu-overlay{position:fixed;inset:0;z-index:200;pointer-events:none}
+.menu-overlay.open{pointer-events:auto}
+.menu-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.5);opacity:0;transition:opacity .2s}
+.menu-overlay.open .menu-backdrop{opacity:1}
+.menu-drawer{position:absolute;top:0;left:0;bottom:0;width:min(280px,80vw);background:rgba(14,10,24,0.98);border-right:0.5px solid var(--border);transform:translateX(-100%);transition:transform .2s;display:flex;flex-direction:column}
+.menu-overlay.open .menu-drawer{transform:translateX(0)}
+.drawer-header{padding:16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:8px}
+.drawer-brand{font-family:var(--display);font-size:18px;color:var(--gold-hi);letter-spacing:3px}
+.drawer-close{margin-left:auto;width:24px;height:24px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--border);cursor:pointer;color:var(--text2);font-size:14px;display:flex;align-items:center;justify-content:center}
+.drawer-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.drawer-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;text-decoration:none;color:var(--text2);font-size:12px;font-weight:500;transition:all .15s;border:0.5px solid transparent}
+.drawer-link:hover,.drawer-link.active{background:var(--gold-faint);border-color:var(--border);color:var(--gold-hi)}
+.drawer-link svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.drawer-footer{padding:12px;border-top:0.5px solid var(--border)}
+.mode-toggle{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--gold-faint);border:0.5px solid var(--border)}
+.mode-dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+.mode-lbl{font-size:10px;color:var(--text2);font-weight:500}
+
+/* ── SHELL ── */
+.shell{padding:16px 20px 40px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+
+/* ── HEADLINE STATS ── */
+.headline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;cursor:default;transition:border-color .15s;animation:fadeUp .4s ease both}
+.hcard:hover{border-color:var(--border2)}
+.hcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.hcard.c-gold::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hcard.c-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hcard.c-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.hcard.c-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hcard.c-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.hcard:nth-child(1){animation-delay:.05s}.hcard:nth-child(2){animation-delay:.1s}
+.hcard:nth-child(3){animation-delay:.15s}.hcard:nth-child(4){animation-delay:.2s}
+.hcard:nth-child(5){animation-delay:.25s}
+.hcard-lbl{font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+.hcard-val{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--gold-hi);line-height:1;letter-spacing:-0.5px}
+.hcard-val.green{color:var(--green)}.hcard-val.red{color:var(--red)}.hcard-val.yellow{color:var(--yellow)}.hcard-val.blue{color:var(--blue)}
+.hcard-sub{font-size:9px;color:var(--text3);margin-top:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SEC LABEL ── */
+.sec-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
+/* ── MAIN LAYOUT ── */
+.main-layout{display:grid;grid-template-columns:1fr 360px;gap:12px;align-items:start}
+
+/* ── TABLE PANEL ── */
+.table-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15)}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.panel-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:0.5px solid var(--border);flex-wrap:wrap}
+.ftab{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);white-space:nowrap;transition:all .12s}
+.ftab:hover{border-color:var(--border2);color:var(--text2)}
+.ftab.active{background:rgba(201,168,76,0.15);border-color:var(--gold-dim);color:var(--gold-hi)}
+.search-wrap{margin-left:auto;display:flex;align-items:center;gap:6px}
+.search-input{background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:10px;color:var(--text);outline:none;font-family:var(--sans);width:180px;transition:all .15s}
+.search-input::placeholder{color:var(--text3)}
+.search-input:focus{border-color:var(--border2);background:rgba(255,255,255,0.06)}
+.tool-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:var(--gold-faint);color:var(--text2);transition:all .12s;white-space:nowrap;font-family:var(--sans)}
+.tool-btn:hover{background:rgba(201,168,76,0.14);border-color:var(--border2);color:var(--gold-hi)}
+.tool-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tool-btn.danger:hover{background:var(--red-faint);border-color:rgba(232,69,90,0.3);color:var(--red)}
+
+/* table */
+.stu-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.stu-table th{font-size:7px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:7px 12px;text-align:left;border-bottom:0.5px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+.stu-table th:hover{color:var(--text2)}
+.stu-table th.sort-asc::after{content:' ▲';font-size:6px}
+.stu-table th.sort-desc::after{content:' ▼';font-size:6px}
+.stu-table td{padding:0;border-bottom:0.5px solid rgba(201,168,76,0.04);vertical-align:middle}
+.stu-table tr:last-child td{border-bottom:none}
+.stu-table tbody tr{cursor:pointer;transition:background .1s}
+.stu-table tbody tr:hover td{background:rgba(201,168,76,0.03)}
+.stu-table tbody tr.selected td{background:rgba(201,168,76,0.06)}
+.stu-table tbody tr.selected td:first-child{border-left:2px solid var(--gold)}
+.td-inner{padding:7px 12px;display:flex;align-items:center;gap:6px}
+
+/* avatar */
+.stu-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;font-family:var(--mono)}
+.stu-name{font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stu-num{font-family:var(--mono);font-size:8px;color:var(--text3)}
+
+/* badges */
+.badge{font-size:8px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.b-lang{background:rgba(91,156,246,0.12);color:var(--blue);border:0.5px solid rgba(91,156,246,0.22)}
+.b-level{background:var(--gold-faint);color:var(--gold);border:0.5px solid var(--gold-dim)}
+.b-branch{font-family:var(--mono);font-size:8px;color:var(--text3);padding:1px 5px;border-radius:3px;background:rgba(201,168,76,0.06);border:0.5px solid var(--border)}
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:8px;font-weight:600;white-space:nowrap}
+.sp-active{background:var(--green-faint);border:0.5px solid rgba(46,204,138,0.28);color:var(--green)}
+.sp-pending{background:var(--yellow-faint);border:0.5px solid rgba(232,184,75,0.28);color:var(--yellow)}
+.sp-archive{background:rgba(210,185,130,0.06);border:0.5px solid var(--border);color:var(--text3)}
+.sp-dot{width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* col widths */
+.col-stu{width:200px}.col-info{width:150px}.col-branch{width:90px}
+.col-status{width:90px}.col-year{width:80px}.col-act{width:80px}
+
+/* action buttons */
+.act-btn{width:22px;height:22px;border-radius:5px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;flex-shrink:0}
+.act-btn:hover{background:rgba(201,168,76,0.15);border-color:var(--border2)}
+.act-btn svg{width:10px;height:10px;stroke:var(--gold);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.act-btn.danger:hover{background:var(--red-faint);border-color:rgba(232,69,90,0.3)}
+.act-btn.danger:hover svg{stroke:var(--red)}
+.act-btn.success:hover{background:var(--green-faint);border-color:rgba(46,204,138,0.3)}
+.act-btn.success:hover svg{stroke:var(--green)}
+
+/* checkbox */
+.cb{width:14px;height:14px;border-radius:3px;border:0.5px solid var(--border);background:rgba(201,168,76,0.05);cursor:pointer;accent-color:var(--gold);flex-shrink:0}
+
+/* pagination */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:0.5px solid var(--border)}
+.pag-info{font-size:9px;color:var(--text3);font-family:var(--mono)}
+.pag-btns{display:flex;gap:3px}
+.pag-btn{width:22px;height:22px;border-radius:5px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;color:var(--text2);font-size:10px;font-weight:600;font-family:var(--sans)}
+.pag-btn:hover{background:rgba(201,168,76,0.15);border-color:var(--border2)}
+.pag-btn.active{background:rgba(201,168,76,0.18);border-color:var(--gold-dim);color:var(--gold-hi)}
+.pag-btn:disabled{opacity:.3;cursor:default}
+
+/* ── DETAIL / EDIT PANEL ── */
+.right-panel{display:flex;flex-direction:column;gap:10px;position:sticky;top:64px}
+.detail-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s;max-height:calc(100vh - 80px);overflow-y:auto;scrollbar-width:none}
+.detail-card::-webkit-scrollbar{display:none}
+.detail-card.active{border-color:var(--border2)}
+.detail-empty{padding:40px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.de-icon{width:48px;height:48px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center}
+.de-icon svg{width:20px;height:20px;stroke:var(--text3);stroke-width:1.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.de-txt{font-size:11px;color:var(--text3);line-height:1.5}
+
+/* detail sections */
+.det-header-strip{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px}
+.det-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;font-family:var(--mono)}
+.det-name{font-size:14px;font-weight:600;color:var(--gold-hi);line-height:1.2}
+.det-num{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:2px}
+.det-actions-row{display:flex;gap:5px;padding:10px 14px;border-bottom:0.5px solid var(--border);flex-wrap:wrap}
+.det-act{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;font-size:9px;font-weight:600;letter-spacing:0.05em;cursor:pointer;border:0.5px solid;transition:all .15s;font-family:var(--sans)}
+.da-edit{background:var(--gold-faint);border-color:var(--gold-dim);color:var(--gold)}
+.da-edit:hover{background:rgba(201,168,76,0.15)}
+.da-save{background:var(--green-faint);border-color:rgba(46,204,138,0.3);color:var(--green);display:none}
+.da-save:hover{background:rgba(46,204,138,0.15)}
+.da-cancel{background:transparent;border-color:var(--border);color:var(--text3);display:none}
+.da-cancel:hover{border-color:var(--border2);color:var(--text2)}
+.da-archive{background:var(--yellow-faint);border-color:rgba(232,184,75,0.25);color:var(--yellow)}
+.da-archive:hover{background:rgba(232,184,75,0.12)}
+.da-delete{background:var(--red-faint);border-color:rgba(232,69,90,0.25);color:var(--red)}
+.da-delete:hover{background:rgba(232,69,90,0.12)}
+.da-export{background:var(--blue-faint);border-color:var(--blue-dim);color:var(--blue)}
+.da-export:hover{background:rgba(91,156,246,0.12)}
+.det-act svg{width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* fields */
+.det-body{padding:14px}
+.det-sec-lbl{font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:14px}
+.det-sec-lbl:first-child{margin-top:0}
+.field-row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.field-label{font-size:8px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3)}
+.field-value{font-size:11px;color:var(--text);padding:5px 0;border-bottom:0.5px solid transparent}
+.field-input{display:none;background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text);outline:none;font-family:var(--sans);width:100%;transition:all .15s}
+.field-input:focus{border-color:var(--border2);background:rgba(255,255,255,0.06)}
+.field-select{display:none;background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text);outline:none;font-family:var(--sans);width:100%}
+.field-select option{background:var(--bg2);color:var(--text)}
+.editing .field-value{display:none}
+.editing .field-input,.editing .field-select{display:block}
+.field-row.has-select .field-value{display:none!important}
+.field-row.has-select .field-select{display:none}
+.editing .field-row.has-select .field-select{display:block!important}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.change-indicator{display:none;font-size:8px;color:var(--yellow);margin-top:2px}
+.editing .change-indicator{display:block}
+
+/* history log */
+.history-entry{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:0.5px solid rgba(201,168,76,0.05)}
+.history-entry:last-child{border-bottom:none}
+.hist-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.hist-txt{font-size:10px;color:var(--text2);line-height:1.4}
+.hist-time{font-family:var(--mono);font-size:8px;color:var(--text3)}
+
+/* bulk action bar */
+.bulk-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(14,10,24,0.98);border:0.5px solid var(--border2);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:150;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none}
+.bulk-bar.show{display:flex}
+.bulk-count{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--gold-hi)}
+.bulk-sep{width:0.5px;height:16px;background:var(--border)}
+.bulk-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;font-size:9px;font-weight:600;cursor:pointer;border:0.5px solid;transition:all .15s;font-family:var(--sans)}
+.bb-export{background:var(--blue-faint);border-color:var(--blue-dim);color:var(--blue)}
+.bb-archive{background:var(--yellow-faint);border-color:rgba(232,184,75,0.25);color:var(--yellow)}
+.bb-delete{background:var(--red-faint);border-color:rgba(232,69,90,0.25);color:var(--red)}
+.bb-clear{background:transparent;border-color:var(--border);color:var(--text3)}
+
+/* confirm modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:rgba(18,12,30,0.98);border:0.5px solid var(--border2);border-radius:14px;padding:24px;max-width:360px;width:90%;text-align:center}
+.modal-icon{width:48px;height:48px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center}
+.mi-red{background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.3)}
+.mi-yellow{background:var(--yellow-faint);border:0.5px solid rgba(232,184,75,0.3)}
+.modal-icon svg{width:22px;height:22px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mi-red svg{stroke:var(--red)}.mi-yellow svg{stroke:var(--yellow)}
+.modal-title{font-size:14px;font-weight:600;color:var(--gold-hi);margin-bottom:8px}
+.modal-body{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:20px}
+.modal-btns{display:flex;gap:8px;justify-content:center}
+.mbtn{padding:8px 18px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid;font-family:var(--sans);transition:all .15s}
+.mbtn-cancel{background:transparent;border-color:var(--border);color:var(--text2)}
+.mbtn-cancel:hover{border-color:var(--border2)}
+.mbtn-danger{background:var(--red-faint);border-color:rgba(232,69,90,0.3);color:var(--red)}
+.mbtn-danger:hover{background:rgba(232,69,90,0.15)}
+.mbtn-warn{background:var(--yellow-faint);border-color:rgba(232,184,75,0.3);color:var(--yellow)}
+.mbtn-warn:hover{background:rgba(232,184,75,0.15)}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;background:rgba(14,10,24,0.98);border:0.5px solid var(--border2);border-radius:10px;padding:10px 16px;font-size:11px;color:var(--text);z-index:400;transform:translateY(20px);opacity:0;transition:all .2s;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* sb-dot */
+.sb-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.sb-dot.ok{background:var(--green);box-shadow:0 0 5px rgba(46,204,138,0.5)}
+.sb-dot.err{background:var(--red)}
+.sb-dot.loading{background:var(--yellow);animation:pulse 1s infinite}
+.sb-status{font-size:9px;color:var(--text3);display:flex;align-items:center;gap:4px;padding:4px 8px}
+
+/* tooltip */
+.tooltip{position:fixed;background:rgba(12,8,22,0.98);border:0.5px solid var(--border2);border-radius:8px;padding:6px 10px;font-size:10px;color:var(--text);z-index:999;pointer-events:none;display:none}
+.tooltip.show{display:block}
+
+/* loading skeleton */
+.skeleton{background:linear-gradient(90deg,rgba(201,168,76,0.05) 25%,rgba(201,168,76,0.1) 50%,rgba(201,168,76,0.05) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;height:12px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-icon" id="modal-icon"></div>
+    <div class="modal-title" id="modal-title-txt"></div>
+    <div class="modal-body" id="modal-body-txt"></div>
+    <div class="modal-btns" id="modal-btns"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-dot" id="toast-dot"></div>
+  <span id="toast-txt"></span>
+</div>
+
+<!-- MENU DRAWER -->
+<div class="menu-overlay" id="menu-overlay">
+  <div class="menu-backdrop" onclick="closeMenu()"></div>
+  <div class="menu-drawer">
+    <div class="drawer-header">
+      <span class="drawer-brand">ALM</span>
+      <button class="drawer-close" onclick="closeMenu()">×</button>
+    </div>
+    <div class="drawer-nav">
+      <a class="drawer-link" href="/admin/dashboard.html">
+        <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Painel Principal
+      </a>
+      <a class="drawer-link active" href="#">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
+        Fichas de Alunos
+      </a>
+      <a class="drawer-link" href="/admin/command-centre.html">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        Horários
+      </a>
+      <a class="drawer-link" href="/admin/master-enrollment-file.html">
+        <svg viewBox="0 0 16 16"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M6 6h4M6 9h4M6 12h2"/></svg>
+        Nova Matrícula
+      </a>
+      <a class="drawer-link" href="/admin/alm-analysis.html">
+        <svg viewBox="0 0 16 16"><polyline points="2 12 5 7 8 10 11 5 14 8"/></svg>
+        Análise de Matrículas
+      </a>
+    </div>
+    <div class="drawer-footer">
+      <div class="mode-toggle">
+        <div class="mode-dot" style="background:var(--yellow)"></div>
+        <span class="mode-lbl">Secretariado</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BULK BAR -->
+<div class="bulk-bar" id="bulk-bar">
+  <span class="bulk-count" id="bulk-count">0 seleccionados</span>
+  <div class="bulk-sep"></div>
+  <div class="bulk-btn bb-export" onclick="bulkExport()">
+    <svg style="width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round" viewBox="0 0 12 12"><path d="M2 9h8M6 2v5M3 5l3 3 3-3"/></svg>
+    Exportar CSV
+  </div>
+  <div class="bulk-btn bb-archive" onclick="bulkArchive()">
+    <svg style="width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round" viewBox="0 0 12 12"><rect x="1" y="3" width="10" height="7" rx="1"/><path d="M1 3l2-2h6l2 2"/><path d="M4 7h4"/></svg>
+    Arquivar
+  </div>
+  <div class="bulk-btn bb-delete" onclick="bulkDelete()">
+    <svg style="width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round" viewBox="0 0 12 12"><path d="M2 3h8M5 3V2h2v1M4 3v6a1 1 0 001 1h2a1 1 0 001-1V3"/></svg>
+    Eliminar
+  </div>
+  <div class="bulk-btn bb-clear" onclick="clearSelection()">✕ Limpar</div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-home-menu">
+    <a class="tb-home-ico" href="/admin/dashboard.html" title="Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+    <button class="tb-menu-word" onclick="openMenu()">Menu</button>
+  </div>
+  <div class="tb-divider"></div>
+  <span class="tb-brand">ALM</span>
+  <span class="tb-page">Fichas de Alunos</span>
+  <span class="tb-ano" style="margin-left:auto">ANO LECTIVO&nbsp;&nbsp;2026 / 2027</span>
+  <div class="tb-status"><div class="tb-status-dot"></div><span class="tb-status-lbl" id="sb-lbl">A LIGAR…</span></div>
+  <span class="tb-clock" id="clock">--:--:--</span>
+</div>
+
+<div class="shell">
+
+  <!-- HEADLINE -->
+  <div class="headline" id="headline">
+    <div class="hcard c-gold"><div class="hcard-lbl">Total Alunos</div><div class="hcard-val" id="h-total">—</div><div class="hcard-sub">base de dados</div></div>
+    <div class="hcard c-green"><div class="hcard-lbl">Activos</div><div class="hcard-val green" id="h-active">—</div><div class="hcard-sub">matriculados 2026/27</div></div>
+    <div class="hcard c-yellow"><div class="hcard-lbl">Pendentes</div><div class="hcard-val yellow" id="h-pending">—</div><div class="hcard-sub">sem confirmação</div></div>
+    <div class="hcard c-blue"><div class="hcard-lbl">Archivados</div><div class="hcard-val blue" id="h-archive">—</div><div class="hcard-sub">anos anteriores</div></div>
+    <div class="hcard c-red"><div class="hcard-lbl">Incompletos</div><div class="hcard-val red" id="h-incomplete">—</div><div class="hcard-sub">ficha em falta</div></div>
+  </div>
+
+  <div class="sec-label">Registos de Alunos</div>
+
+  <div class="main-layout">
+
+    <!-- TABLE -->
+    <div class="table-panel">
+      <div class="panel-header">
+        <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="5" r="2.5"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+        <div class="panel-title">Fichas</div>
+        <div class="sb-status" id="sb-status"><div class="sb-dot loading" id="sb-dot"></div><span id="sb-txt">A carregar…</span></div>
+        <div class="panel-meta" id="table-meta">— registos</div>
+      </div>
+
+      <div class="toolbar">
+        <div class="ftab active" onclick="setFilter('all',this)">Todos</div>
+        <div class="ftab" onclick="setFilter('active',this)">Activos</div>
+        <div class="ftab" onclick="setFilter('pending',this)">Pendentes</div>
+        <div class="ftab" onclick="setFilter('archive',this)">Arquivo</div>
+        <div class="ftab" onclick="setFilter('incomplete',this)">Incompletos</div>
+        <div class="search-wrap">
+          <input class="search-input" id="search-input" placeholder="Nome, N.º ALM, email…" oninput="onSearch()"/>
+          <div class="tool-btn" onclick="exportCSV()">
+            <svg viewBox="0 0 12 12"><path d="M2 9h8M6 2v5M3 5l3 3 3-3"/></svg>
+            CSV
+          </div>
+          <div class="tool-btn" onclick="exportCSV('pdf')">
+            <svg viewBox="0 0 12 12"><rect x="2" y="1" width="8" height="10" rx="1"/><path d="M4 5h4M4 7h3M4 9h2"/></svg>
+            PDF
+          </div>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="stu-table">
+          <thead>
+            <tr>
+              <th style="width:32px"><input type="checkbox" class="cb" id="cb-all" onchange="toggleAll(this)"/></th>
+              <th class="col-stu" onclick="sortBy('name')">Aluno</th>
+              <th class="col-info" onclick="sortBy('lang')">Curso</th>
+              <th class="col-branch" onclick="sortBy('branch')">Filial</th>
+              <th class="col-status" onclick="sortBy('status')">Estado</th>
+              <th class="col-year" onclick="sortBy('academic_year')">Ano</th>
+              <th class="col-act">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="stu-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <div class="pag-info" id="pag-info">—</div>
+        <div class="pag-btns" id="pag-btns"></div>
+      </div>
+    </div>
+
+    <!-- DETAIL PANEL -->
+    <div class="right-panel">
+      <div class="detail-card" id="detail-card">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5 7h4M5 5h2M5 9h3"/></svg>
+          <div class="panel-title">Ficha</div>
+          <div class="panel-meta" id="det-meta">seleccione um aluno</div>
+        </div>
+        <div class="detail-empty" id="det-empty">
+          <div class="de-icon"><svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg></div>
+          <div class="de-txt">Clique num aluno para ver e editar a ficha completa</div>
+        </div>
+        <div id="det-content" style="display:none">
+          <div class="det-header-strip">
+            <div class="det-av" id="det-av"></div>
+            <div>
+              <div class="det-name" id="det-name"></div>
+              <div class="det-num" id="det-num"></div>
+            </div>
+          </div>
+          <div class="det-actions-row">
+            <div class="det-act da-edit" id="btn-edit" onclick="startEdit()">
+              <svg viewBox="0 0 12 12"><path d="M8 2l2 2-6 6H2V8L8 2z"/></svg> Editar
+            </div>
+            <div class="det-act da-save" id="btn-save" onclick="saveEdit()">
+              <svg viewBox="0 0 12 12"><polyline points="2 6 5 9 10 3"/></svg> Guardar
+            </div>
+            <div class="det-act da-cancel" id="btn-cancel" onclick="cancelEdit()">Cancelar</div>
+            <div class="det-act da-archive" onclick="archiveStudent()">
+              <svg viewBox="0 0 12 12"><rect x="1" y="3" width="10" height="7" rx="1"/><path d="M1 3l2-2h6l2 2"/><path d="M4 7h4"/></svg> Arquivar
+            </div>
+            <div class="det-act da-delete" onclick="deleteStudent()">
+              <svg viewBox="0 0 12 12"><path d="M2 3h8M5 3V2h2v1M4 3v6a1 1 0 001 1h2a1 1 0 001-1V3"/></svg> Eliminar
+            </div>
+            <div class="det-act da-export" onclick="exportSingle()">
+              <svg viewBox="0 0 12 12"><path d="M2 9h8M6 2v5M3 5l3 3 3-3"/></svg> PDF
+            </div>
+          </div>
+          <div class="det-body" id="det-body"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   SUPABASE CONFIG
+══════════════════════════════════════════ */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwNjY5NjYsImV4cCI6MjA1NTY0Mjk2Nn0.bEjRyT67hHG5_sCjFxBE78R_r3NHX6pFBnpv_nGzNbI';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+async function sbGet(table,query=''){
+  const r=await fetch(`${SB}/rest/v1/${table}?${query}`,{headers:H});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(table,id,body){
+  const r=await fetch(`${SB}/rest/v1/${table}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbDelete(table,id){
+  const r=await fetch(`${SB}/rest/v1/${table}?id=eq.${id}`,{method:'DELETE',headers:H});
+  if(!r.ok)throw new Error(await r.text());
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let ALL_DATA=[];
+let filtered=[];
+let page=0;const PAGE_SIZE=16;
+let activeFilter='all';let searchQ='';
+let sortKey='name';let sortDir=1;
+let selectedId=null;
+let editing=false;
+let selectedRows=new Set();
+let editSnapshot={};
+
+/* ══════════════════════════════════════════
+   CLOCK
+══════════════════════════════════════════ */
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
+
+/* ══════════════════════════════════════════
+   MENU
+══════════════════════════════════════════ */
+function openMenu(){document.getElementById('menu-overlay').classList.add('open')}
+function closeMenu(){document.getElementById('menu-overlay').classList.remove('open')}
+
+/* ══════════════════════════════════════════
+   LOAD DATA
+══════════════════════════════════════════ */
+async function loadData(){
+  setSbStatus('loading','A carregar…');
+  try{
+    // Try enrolments first, fallback to students
+    let data=[];
+    try{
+      data=await sbGet('enrolments','select=*&order=submitted_at.desc&limit=500');
+    }catch(e){
+      data=await sbGet('students','select=*&order=created_at.desc&limit=500');
+    }
+    ALL_DATA=data;
+    computeHeadline();
+    setSbStatus('ok',`${data.length} registos carregados`);
+    document.getElementById('sb-lbl').textContent='SUPABASE ACTIVO';
+    apply();
+  }catch(e){
+    setSbStatus('err','Erro Supabase — dados de demonstração');
+    document.getElementById('sb-lbl').textContent='DEMO';
+    ALL_DATA=generateDemo();
+    computeHeadline();
+    apply();
+  }
+}
+
+/* ══════════════════════════════════════════
+   DEMO DATA GENERATOR
+══════════════════════════════════════════ */
+function generateDemo(){
+  const first=['Maria','João','Ana','Pedro','Sofia','Carlos','Inês','Rui','Clara','Paulo','Teresa','Miguel','Beatriz','André','Filipa','Diogo','Mariana','Luís','Sara','Tiago','Lara','Vasco','Rita','Hugo','Marta'];
+  const last=['Silva','Santos','Ferreira','Costa','Oliveira','Rodrigues','Sousa','Lima','Pereira','Gomes','Nunes','Melo','Carvalho','Mendes','Correia','Marques','Fonseca','Lopes','Pinto','Gouveia'];
+  const branches=['Funchal','Machico','S. Cruz','R. Brava','Calheta','Estreito','P. do Sol'];
+  const langs=['EN','EN','EN','PT','ES','DE','FR'];
+  const levels=['Ano 1','Ano 2','Ano 3','Ano 4','Ano 5','Ano 6','Ano 7','Ano 8','Pi1','Pi2','Pi3','Pj1','Pj2','Pj3'];
+  const statuses=['active','active','active','active','pending','pending','archive','active'];
+  const out=[];
+  for(let i=0;i<120;i++){
+    const fn=first[i%first.length];const ln=last[i%last.length];
+    const lang=langs[Math.floor(Math.random()*langs.length)];
+    const status=statuses[Math.floor(Math.random()*statuses.length)];
+    out.push({
+      id:i+1,
+      num:`ALM-${String(i+1).padStart(4,'0')}`,
+      name:`${fn} ${ln}`,
+      initials:fn[0]+ln[0],
+      email:`${fn.toLowerCase()}.${ln.toLowerCase()}@email.com`,
+      phone:`9${Math.floor(Math.random()*80+10)} ${Math.floor(Math.random()*900+100)} ${Math.floor(Math.random()*900+100)}`,
+      dob:`${Math.floor(Math.random()*28+1).toString().padStart(2,'0')}/${Math.floor(Math.random()*12+1).toString().padStart(2,'0')}/${Math.floor(Math.random()*30+1975)}`,
+      nationality:'Portuguesa',gender:Math.random()>0.5?'F':'M',
+      lang,level:levels[Math.floor(Math.random()*levels.length)],
+      branch:branches[Math.floor(Math.random()*branches.length)],
+      status,
+      academic_year:'2026/2027',
+      nif:`${Math.floor(Math.random()*900000000+100000000)}`,
+      address:'Rua do Exemplo, '+Math.floor(Math.random()*200+1)+', Funchal',
+      guardian_name:status==='active'&&Math.random()>0.6?`${last[Math.floor(Math.random()*last.length)]} (Encarregado)`:'',
+      guardian_phone:'',
+      submitted_at:new Date(Date.now()-Math.random()*30*86400000).toISOString(),
+      enroll_type:['new','existing','returning'][Math.floor(Math.random()*3)],
+      exam_intent:Math.random()>0.7?'yes':'no',
+      gdpr_terms:true,
+      course_notes:'',
+    });
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════
+   HEADLINE
+══════════════════════════════════════════ */
+function computeHeadline(){
+  const total=ALL_DATA.length;
+  const active=ALL_DATA.filter(r=>r.status==='active'||r.status==='pending_review').length;
+  const pending=ALL_DATA.filter(r=>r.status==='pending').length;
+  const archive=ALL_DATA.filter(r=>r.status==='archive'||r.status==='archived').length;
+  const incomplete=ALL_DATA.filter(r=>!r.email||!r.phone||!r.level).length;
+  document.getElementById('h-total').textContent=total;
+  document.getElementById('h-active').textContent=active;
+  document.getElementById('h-pending').textContent=pending;
+  document.getElementById('h-archive').textContent=archive;
+  document.getElementById('h-incomplete').textContent=incomplete;
+}
+
+/* ══════════════════════════════════════════
+   FILTER / SORT / SEARCH
+══════════════════════════════════════════ */
+function setFilter(f,el){
+  activeFilter=f;page=0;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  apply();
+}
+function onSearch(){searchQ=document.getElementById('search-input').value;page=0;apply()}
+
+function apply(){
+  const q=searchQ.toLowerCase();
+  filtered=ALL_DATA.filter(r=>{
+    const matchFilter=activeFilter==='all'||
+      (activeFilter==='active'&&(r.status==='active'||r.status==='pending_review'))||
+      (activeFilter==='pending'&&r.status==='pending')||
+      (activeFilter==='archive'&&(r.status==='archive'||r.status==='archived'))||
+      (activeFilter==='incomplete'&&(!r.email||!r.phone||!r.level));
+    const matchQ=!q||
+      (r.name&&r.name.toLowerCase().includes(q))||
+      (r.num&&r.num.toLowerCase().includes(q))||
+      (r.email&&r.email.toLowerCase().includes(q))||
+      (r.branch&&r.branch.toLowerCase().includes(q));
+    return matchFilter&&matchQ;
+  });
+  filtered.sort((a,b)=>{
+    const av=a[sortKey]||'';const bv=b[sortKey]||'';
+    return sortDir*(av>bv?1:av<bv?-1:0);
+  });
+  renderTable();
+}
+
+function sortBy(key){
+  if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=1;}
+  document.querySelectorAll('.stu-table th').forEach(th=>{th.classList.remove('sort-asc','sort-desc')});
+  apply();
+}
+
+/* ══════════════════════════════════════════
+   AVATAR STYLE
+══════════════════════════════════════════ */
+function avatarStyle(lang){
+  const map={EN:'rgba(91,156,246,0.2)/rgba(91,156,246,0.4)/#5B9CF6',PT:'rgba(201,168,76,0.2)/rgba(201,168,76,0.4)/#E8C97A',ES:'rgba(232,184,75,0.2)/rgba(232,184,75,0.4)/#E8B84B',DE:'rgba(62,201,167,0.2)/rgba(62,201,167,0.4)/#3EC9A7',FR:'rgba(212,83,126,0.2)/rgba(212,83,126,0.4)/#D4537E'};
+  const [bg,bd,cl]=(map[lang]||'rgba(201,168,76,0.15)/rgba(201,168,76,0.3)/#E8C97A').split('/');
+  return`background:${bg};border:0.5px solid ${bd};color:${cl}`;
+}
+
+function statusPill(s){
+  if(s==='active'||s==='pending_review')return`<span class="status-pill sp-active"><span class="sp-dot"></span>Activo</span>`;
+  if(s==='pending')return`<span class="status-pill sp-pending"><span class="sp-dot"></span>Pendente</span>`;
+  return`<span class="status-pill sp-archive"><span class="sp-dot"></span>Arquivo</span>`;
+}
+
+/* ══════════════════════════════════════════
+   RENDER TABLE
+══════════════════════════════════════════ */
+function renderTable(){
+  const total=filtered.length;
+  const totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(page>=totalPages)page=totalPages-1;
+  const slice=filtered.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
+
+  document.getElementById('table-meta').textContent=`${total} registos`;
+  document.getElementById('pag-info').textContent=total===0?'0 registos':`${page*PAGE_SIZE+1}–${Math.min((page+1)*PAGE_SIZE,total)} de ${total}`;
+
+  const tbody=document.getElementById('stu-tbody');
+  if(!slice.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3);font-size:11px">Nenhum registo encontrado</td></tr>`;
+  }else{
+    tbody.innerHTML=slice.map(r=>`
+      <tr data-id="${r.id}" onclick="selectRow(${r.id})" class="${selectedId===r.id?'selected':''}">
+        <td style="width:32px"><div class="td-inner"><input type="checkbox" class="cb row-cb" data-id="${r.id}" onclick="event.stopPropagation();toggleRow(${r.id},this)" ${selectedRows.has(r.id)?'checked':''}></div></td>
+        <td class="col-stu"><div class="td-inner">
+          <div class="stu-avatar" style="${avatarStyle(r.lang)}">${r.initials||((r.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2))}</div>
+          <div><div class="stu-name">${r.name||'—'}</div><div class="stu-num">${r.num||'—'}</div></div>
+        </div></td>
+        <td class="col-info"><div class="td-inner" style="gap:4px">
+          <span class="badge b-lang">${r.lang||'—'}</span>
+          <span class="badge b-level">${r.level||'—'}</span>
+        </div></td>
+        <td class="col-branch"><div class="td-inner"><span class="b-branch">${r.branch||'—'}</span></div></td>
+        <td class="col-status"><div class="td-inner">${statusPill(r.status)}</div></td>
+        <td class="col-year"><div class="td-inner"><span style="font-family:var(--mono);font-size:9px;color:var(--text3)">${r.academic_year||'—'}</span></div></td>
+        <td class="col-act"><div class="td-inner" style="justify-content:flex-end;gap:4px">
+          <div class="act-btn success" title="Editar" onclick="event.stopPropagation();selectRow(${r.id});setTimeout(startEdit,50)">
+            <svg viewBox="0 0 12 12"><path d="M8 2l2 2-6 6H2V8L8 2z"/></svg>
+          </div>
+          <div class="act-btn danger" title="Eliminar" onclick="event.stopPropagation();selectRow(${r.id});setTimeout(deleteStudent,50)">
+            <svg viewBox="0 0 12 12"><path d="M2 3h8M5 3V2h2v1M4 3v6a1 1 0 001 1h2a1 1 0 001-1V3"/></svg>
+          </div>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  // pagination
+  const pb=document.getElementById('pag-btns');
+  let btns=`<button class="pag-btn" onclick="goPage(${page-1})" ${page===0?'disabled':''}>‹</button>`;
+  const maxB=5;let s=Math.max(0,page-2);let e=Math.min(totalPages-1,s+maxB-1);
+  if(e-s<maxB-1)s=Math.max(0,e-maxB+1);
+  for(let i=s;i<=e;i++)btns+=`<button class="pag-btn ${i===page?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
+  btns+=`<button class="pag-btn" onclick="goPage(${page+1})" ${page>=totalPages-1?'disabled':''}>›</button>`;
+  pb.innerHTML=btns;
+}
+
+function goPage(p){const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));if(p<0||p>=totalPages)return;page=p;renderTable()}
+
+/* ══════════════════════════════════════════
+   SELECT ROW & DETAIL
+══════════════════════════════════════════ */
+function selectRow(id){
+  if(editing)cancelEdit();
+  selectedId=id;
+  renderTable();
+  const r=ALL_DATA.find(x=>x.id===id);
+  if(r)renderDetail(r);
+}
+
+function renderDetail(r){
+  document.getElementById('det-empty').style.display='none';
+  document.getElementById('det-content').style.display='block';
+  document.getElementById('detail-card').classList.add('active');
+  document.getElementById('det-meta').textContent=r.num||'—';
+
+  const avStyle=avatarStyle(r.lang);
+  const avEl=document.getElementById('det-av');
+  avEl.style.cssText=avStyle+';width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;font-family:var(--mono)';
+  avEl.textContent=r.initials||((r.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2));
+  document.getElementById('det-name').textContent=r.name||'—';
+  document.getElementById('det-num').textContent=`${r.num||'—'} · ${r.branch||'—'} · ${r.academic_year||'—'}`;
+
+  document.getElementById('det-body').innerHTML=`
+    <div class="det-sec-lbl">Identificação</div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Nome completo</div>
+        <div class="field-value">${r.name||'—'}</div>
+        <input class="field-input" data-field="name" value="${r.name||''}"/></div>
+      <div class="field-row"><div class="field-label">N.º ALM</div>
+        <div class="field-value">${r.num||'—'}</div>
+        <input class="field-input" data-field="num" value="${r.num||''}" readonly style="opacity:0.5"/></div>
+    </div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Data de nascimento</div>
+        <div class="field-value">${r.dob||'—'}</div>
+        <input class="field-input" data-field="dob" value="${r.dob||''}"/></div>
+      <div class="field-row"><div class="field-label">Género</div>
+        <div class="field-value">${r.gender||'—'}</div>
+        <div class="field-row has-select">
+          <select class="field-select" data-field="gender">
+            <option value="F" ${r.gender==='F'?'selected':''}>Feminino</option>
+            <option value="M" ${r.gender==='M'?'selected':''}>Masculino</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Nacionalidade</div>
+        <div class="field-value">${r.nationality||'—'}</div>
+        <input class="field-input" data-field="nationality" value="${r.nationality||''}"/></div>
+      <div class="field-row"><div class="field-label">NIF</div>
+        <div class="field-value">${r.nif||'—'}</div>
+        <input class="field-input" data-field="nif" value="${r.nif||''}"/></div>
+    </div>
+
+    <div class="det-sec-lbl">Contacto</div>
+    <div class="field-row"><div class="field-label">Email</div>
+      <div class="field-value">${r.email||'—'}</div>
+      <input class="field-input" data-field="email" type="email" value="${r.email||''}"/></div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Telefone</div>
+        <div class="field-value">${r.phone||'—'}</div>
+        <input class="field-input" data-field="phone" value="${r.phone||''}"/></div>
+      <div class="field-row"><div class="field-label">Filial</div>
+        <div class="field-value">${r.branch||'—'}</div>
+        <div class="field-row has-select">
+          <select class="field-select" data-field="branch">
+            ${['Funchal','Machico','S. Cruz','R. Brava','Calheta','Estreito','P. do Sol'].map(b=>`<option value="${b}" ${r.branch===b?'selected':''}>${b}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="field-row"><div class="field-label">Morada</div>
+      <div class="field-value">${r.address||'—'}</div>
+      <input class="field-input" data-field="address" value="${r.address||''}"/></div>
+
+    <div class="det-sec-lbl">Curso</div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Língua</div>
+        <div class="field-value">${r.lang||'—'}</div>
+        <div class="field-row has-select">
+          <select class="field-select" data-field="lang">
+            ${['EN','PT','ES','DE','FR'].map(l=>`<option value="${l}" ${r.lang===l?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field-row"><div class="field-label">Nível / Ano</div>
+        <div class="field-value">${r.level||'—'}</div>
+        <div class="field-row has-select">
+          <select class="field-select" data-field="level">
+            ${['Ano 1','Ano 2','Ano 3','Ano 4','Ano 5','Ano 6','Ano 7','Ano 8','Pi1a','Pi1b','Pi1','Pi2','Pi3','Pj1','Pj2','Pj3'].map(l=>`<option value="${l}" ${r.level===l?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Estado</div>
+        <div class="field-value">${r.status||'—'}</div>
+        <div class="field-row has-select">
+          <select class="field-select" data-field="status">
+            <option value="active" ${r.status==='active'?'selected':''}>Activo</option>
+            <option value="pending" ${r.status==='pending'?'selected':''}>Pendente</option>
+            <option value="archive" ${r.status==='archive'?'selected':''}>Arquivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row"><div class="field-label">Ano Lectivo</div>
+        <div class="field-value">${r.academic_year||'—'}</div>
+        <input class="field-input" data-field="academic_year" value="${r.academic_year||''}"/></div>
+    </div>
+
+    ${r.guardian_name?`
+    <div class="det-sec-lbl">Encarregado de Educação</div>
+    <div class="field-row"><div class="field-label">Nome</div>
+      <div class="field-value">${r.guardian_name}</div>
+      <input class="field-input" data-field="guardian_name" value="${r.guardian_name||''}"/></div>
+    <div class="two-col">
+      <div class="field-row"><div class="field-label">Telefone</div>
+        <div class="field-value">${r.guardian_phone||'—'}</div>
+        <input class="field-input" data-field="guardian_phone" value="${r.guardian_phone||''}"/></div>
+      <div class="field-row"><div class="field-label">Email</div>
+        <div class="field-value">${r.guardian_email||'—'}</div>
+        <input class="field-input" data-field="guardian_email" value="${r.guardian_email||''}"/></div>
+    </div>`:''}
+
+    <div class="det-sec-lbl">Observações</div>
+    <div class="field-row"><div class="field-label">Notas do curso</div>
+      <div class="field-value">${r.course_notes||'Sem notas'}</div>
+      <input class="field-input" data-field="course_notes" value="${r.course_notes||''}"/></div>
+
+    <div style="height:10px"></div>
+  `;
+}
+
+/* ══════════════════════════════════════════
+   EDIT / SAVE / CANCEL
+══════════════════════════════════════════ */
+function startEdit(){
+  editing=true;
+  document.getElementById('det-body').classList.add('editing');
+  document.getElementById('btn-edit').style.display='none';
+  document.getElementById('btn-save').style.display='flex';
+  document.getElementById('btn-cancel').style.display='flex';
+  // snapshot
+  const r=ALL_DATA.find(x=>x.id===selectedId);
+  editSnapshot={...r};
+}
+
+function cancelEdit(){
+  editing=false;
+  document.getElementById('det-body').classList.remove('editing');
+  document.getElementById('btn-edit').style.display='flex';
+  document.getElementById('btn-save').style.display='none';
+  document.getElementById('btn-cancel').style.display='none';
+}
+
+async function saveEdit(){
+  const r=ALL_DATA.find(x=>x.id===selectedId);
+  if(!r)return;
+  // collect changed fields
+  const patch={};
+  document.querySelectorAll('#det-body .field-input[data-field]').forEach(inp=>{
+    const field=inp.dataset.field;
+    if(inp.value!=(r[field]||''))patch[field]=inp.value;
+  });
+  document.querySelectorAll('#det-body .field-select[data-field]').forEach(sel=>{
+    const field=sel.dataset.field;
+    if(sel.value!=(r[field]||''))patch[field]=sel.value;
+  });
+  if(!Object.keys(patch).length){cancelEdit();showToast('Nenhuma alteração','var(--text3)');return;}
+  try{
+    await sbPatch('enrolments',r.id,patch);
+    Object.assign(r,patch);
+    cancelEdit();
+    renderDetail(r);
+    apply();
+    computeHeadline();
+    showToast('Guardado com sucesso ✓','var(--green)');
+  }catch(e){
+    // update local even if Supabase fails
+    Object.assign(r,patch);
+    cancelEdit();
+    renderDetail(r);
+    apply();
+    showToast('Guardado localmente (Supabase offline)','var(--yellow)');
+  }
+}
+
+/* ══════════════════════════════════════════
+   ARCHIVE / DELETE
+══════════════════════════════════════════ */
+function archiveStudent(){
+  const r=ALL_DATA.find(x=>x.id===selectedId);
+  if(!r)return;
+  showConfirm('mi-yellow','Arquivar aluno',
+    `Arquivar <strong>${r.name}</strong>? O registo ficará acessível mas não aparecerá nas listas activas.`,
+    [
+      {label:'Cancelar',cls:'mbtn-cancel',fn:'closeModal()'},
+      {label:'Arquivar',cls:'mbtn-warn',fn:`confirmArchive(${r.id})`}
+    ]);
+}
+async function confirmArchive(id){
+  const r=ALL_DATA.find(x=>x.id===id);
+  if(!r)return;
+  try{await sbPatch('enrolments',id,{status:'archive'})}catch(e){}
+  r.status='archive';
+  cancelEdit();renderDetail(r);apply();computeHeadline();
+  closeModal();showToast('Aluno arquivado','var(--yellow)');
+}
+
+function deleteStudent(){
+  const r=ALL_DATA.find(x=>x.id===selectedId);
+  if(!r)return;
+  showConfirm('mi-red','Eliminar aluno',
+    `Eliminar permanentemente <strong>${r.name}</strong>? Esta acção não pode ser desfeita.`,
+    [
+      {label:'Cancelar',cls:'mbtn-cancel',fn:'closeModal()'},
+      {label:'Eliminar',cls:'mbtn-danger',fn:`confirmDelete(${r.id})`}
+    ]);
+}
+async function confirmDelete(id){
+  try{await sbDelete('enrolments',id)}catch(e){}
+  ALL_DATA=ALL_DATA.filter(x=>x.id!==id);
+  selectedId=null;
+  document.getElementById('det-empty').style.display='flex';
+  document.getElementById('det-content').style.display='none';
+  apply();computeHeadline();
+  closeModal();showToast('Registo eliminado','var(--red)');
+}
+
+/* ══════════════════════════════════════════
+   BULK SELECTION
+══════════════════════════════════════════ */
+function toggleAll(cb){
+  const ids=filtered.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map(r=>r.id);
+  ids.forEach(id=>cb.checked?selectedRows.add(id):selectedRows.delete(id));
+  renderTable();updateBulkBar();
+}
+function toggleRow(id,cb){
+  cb.checked?selectedRows.add(id):selectedRows.delete(id);
+  updateBulkBar();
+}
+function clearSelection(){selectedRows.clear();renderTable();updateBulkBar()}
+function updateBulkBar(){
+  const bar=document.getElementById('bulk-bar');
+  const n=selectedRows.size;
+  if(n>0){bar.classList.add('show');document.getElementById('bulk-count').textContent=`${n} seleccionado${n>1?'s':''}`}
+  else{bar.classList.remove('show')}
+}
+
+/* ══════════════════════════════════════════
+   EXPORT CSV
+══════════════════════════════════════════ */
+function exportCSV(fmt='csv'){
+  const rows=selectedRows.size>0?ALL_DATA.filter(r=>selectedRows.has(r.id)):filtered;
+  if(fmt==='pdf'){showToast('PDF: use impressão do browser (Ctrl+P)','var(--blue)');return;}
+  const fields=['num','name','email','phone','dob','gender','nationality','nif','branch','lang','level','status','academic_year','address','guardian_name','guardian_phone'];
+  const header=fields.join(',');
+  const lines=rows.map(r=>fields.map(f=>`"${(r[f]||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv=[header,...lines].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`ALM-alunos-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  showToast(`${rows.length} registos exportados ✓`,'var(--green)');
+}
+function exportSingle(){
+  const r=ALL_DATA.find(x=>x.id===selectedId);
+  if(!r)return;
+  const fields=['num','name','email','phone','dob','gender','nationality','nif','branch','lang','level','status','academic_year','address','guardian_name'];
+  const csv=fields.join(',')+'\n'+fields.map(f=>`"${(r[f]||'').toString().replace(/"/g,'""')}"`).join(',');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`ALM-${r.num||r.id}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('Ficha exportada ✓','var(--green)');
+}
+function bulkExport(){exportCSV()}
+function bulkArchive(){
+  showConfirm('mi-yellow',`Arquivar ${selectedRows.size} alunos`,
+    'Arquivar todos os alunos seleccionados?',
+    [{label:'Cancelar',cls:'mbtn-cancel',fn:'closeModal()'},{label:'Arquivar',cls:'mbtn-warn',fn:'confirmBulkArchive()'}]);
+}
+async function confirmBulkArchive(){
+  for(const id of selectedRows){
+    const r=ALL_DATA.find(x=>x.id===id);
+    if(r){try{await sbPatch('enrolments',id,{status:'archive'})}catch(e){}r.status='archive';}
+  }
+  clearSelection();apply();computeHeadline();closeModal();showToast('Alunos arquivados','var(--yellow)');
+}
+function bulkDelete(){
+  showConfirm('mi-red',`Eliminar ${selectedRows.size} alunos`,
+    'Esta acção não pode ser desfeita.',
+    [{label:'Cancelar',cls:'mbtn-cancel',fn:'closeModal()'},{label:'Eliminar',cls:'mbtn-danger',fn:'confirmBulkDelete()'}]);
+}
+async function confirmBulkDelete(){
+  for(const id of selectedRows){try{await sbDelete('enrolments',id)}catch(e){}}
+  ALL_DATA=ALL_DATA.filter(r=>!selectedRows.has(r.id));
+  clearSelection();apply();computeHeadline();closeModal();showToast('Registos eliminados','var(--red)');
+}
+
+/* ══════════════════════════════════════════
+   MODAL / TOAST / STATUS
+══════════════════════════════════════════ */
+function showConfirm(iconCls,title,body,buttons){
+  document.getElementById('modal-icon').innerHTML=`<div class="modal-icon ${iconCls}"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:${iconCls.includes('red')?'var(--red)':'var(--yellow)'};stroke-width:2;fill:none;stroke-linecap:round"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v5M12 16.5v.5"/></svg></div>`;
+  document.getElementById('modal-title-txt').textContent=title;
+  document.getElementById('modal-body-txt').innerHTML=body;
+  document.getElementById('modal-btns').innerHTML=buttons.map(b=>`<button class="mbtn ${b.cls}" onclick="${b.fn}">${b.label}</button>`).join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open')}
+
+let toastTimer;
+function showToast(txt,color='var(--gold)'){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-dot').style.background=color;
+  document.getElementById('toast-txt').textContent=txt;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function setSbStatus(type,txt){
+  const dot=document.getElementById('sb-dot');
+  dot.className='sb-dot '+type;
+  document.getElementById('sb-txt').textContent=txt;
+}
+
+/* ══════════════════════════════════════════
+   TOOLTIP
+══════════════════════════════════════════ */
+const tip=document.getElementById('tooltip');
+function showTip(e,el){tip.textContent=el.dataset.tip;tip.classList.add('show');moveTip(e)}
+function hideTip(){tip.classList.remove('show')}
+document.addEventListener('mousemove',e=>{if(tip.classList.contains('show'))moveTip(e)});
+function moveTip(e){tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-28)+'px'}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+loadData();
+</script>
+</body>
+</html>
