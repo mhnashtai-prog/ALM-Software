@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Motor de Alocação</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --yellow:#E8B84B;--yellow-dim:rgba(232,184,75,0.18);--yellow-faint:rgba(232,184,75,0.07);
+  --red:#E8455A;--red-dim:rgba(232,69,90,0.2);--red-faint:rgba(232,69,90,0.07);
+  --blue:#5B9CF6;--blue-dim:rgba(91,156,246,0.18);--blue-faint:rgba(91,156,246,0.07);
+  --teal:#3EC9A7;--teal-faint:rgba(62,201,167,0.07);
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;--sans:'Outfit',system-ui,sans-serif;--display:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(12,8,22,0.96);backdrop-filter:blur(16px);border-bottom:0.5px solid var(--border);display:flex;align-items:center;padding:0 20px;height:48px;gap:0}
+.tb-home{display:flex;align-items:center;border:0.5px solid var(--border);background:var(--gold-faint);border-radius:6px;overflow:hidden;flex-shrink:0}
+.tb-ico{display:flex;align-items:center;justify-content:center;padding:5px 8px;color:var(--text2);text-decoration:none;transition:all .15s;border-right:0.5px solid var(--border)}
+.tb-ico:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-ico svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-menu-btn{display:flex;align-items:center;padding:5px 10px;background:transparent;border:none;cursor:pointer;font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--text2);font-family:var(--sans);transition:all .15s}
+.tb-menu-btn:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-div{width:0.5px;height:20px;background:var(--border);margin:0 12px;flex-shrink:0}
+.tb-brand{font-family:var(--display);font-size:15px;color:var(--gold-hi);letter-spacing:3px}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.tb-ano{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.1em;white-space:nowrap}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.tb-status{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px}
+.tb-status.ok{background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25)}
+.tb-status.loading{background:var(--yellow-faint);border:0.5px solid rgba(232,184,75,0.25)}
+.tb-status.err{background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.25)}
+.tb-dot{width:5px;height:5px;border-radius:50%}
+.tb-dot.ok{background:var(--green);animation:pulse 2s infinite}
+.tb-dot.loading{background:var(--yellow);animation:pulse 1s infinite}
+.tb-dot.err{background:var(--red)}
+.tb-lbl{font-size:9px;font-weight:600;letter-spacing:0.08em}
+.tb-lbl.ok{color:var(--green)}.tb-lbl.loading{color:var(--yellow)}.tb-lbl.err{color:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-run{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;border:none;background:var(--green);color:#fff;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.btn-run:hover{background:#27b877}
+.btn-run:disabled{opacity:0.5;cursor:default}
+.btn-run svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
+.btn-run.spinning svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-export{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;border:0.5px solid var(--blue-dim);background:var(--blue-faint);color:var(--blue);font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.btn-export:hover{background:rgba(91,156,246,0.12)}
+.btn-export svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round}
+
+/* ── SHELL ── */
+.shell{padding:16px 20px 60px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+
+/* ── SEC LABEL ── */
+.sec-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
+/* ── KPI ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.kpi{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden;transition:border-color .15s}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.kpi.c-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.kpi.c-gold::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.kpi.c-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.kpi.c-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.kpi.c-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.kpi.c-teal::after{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.kpi-lbl{font-size:7.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.kpi-val{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1;letter-spacing:-0.5px}
+.kv-g{color:var(--green)}.kv-y{color:var(--yellow)}.kv-r{color:var(--red)}.kv-b{color:var(--blue)}.kv-t{color:var(--teal)}.kv-gold{color:var(--gold-hi)}
+.kpi-sub{font-size:8.5px;color:var(--text3);margin-top:3px}
+
+/* ── CONTROLS ── */
+.controls{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-lbl{font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3)}
+.ctrl-row{display:flex;gap:6px;flex-wrap:wrap}
+.pill-toggle{padding:4px 10px;border-radius:999px;font-size:9px;font-weight:600;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);transition:all .12s;font-family:var(--sans)}
+.pill-toggle:hover{border-color:var(--border2);color:var(--text2)}
+.pill-toggle.on{background:rgba(201,168,76,0.15);border-color:var(--gold-dim);color:var(--gold-hi)}
+.ctrl-sel{background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:6px;padding:5px 9px;font-size:10px;color:var(--text2);outline:none;font-family:var(--sans);cursor:pointer}
+.ctrl-sel option{background:var(--bg2)}
+.ctrl-divider{width:0.5px;height:36px;background:var(--border);flex-shrink:0}
+.ctrl-hint{font-size:9px;color:var(--text3);line-height:1.5;max-width:220px}
+
+/* ── MAIN LAYOUT ── */
+.main-layout{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start}
+
+/* ── GROUP LIST ── */
+.group-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;position:sticky;top:64px}
+.panel-hdr{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15)}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.panel-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.group-list{max-height:calc(100vh - 200px);overflow-y:auto}
+.group-list::-webkit-scrollbar{width:3px}
+.group-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+.group-item{padding:9px 14px;border-bottom:0.5px solid rgba(201,168,76,0.04);cursor:pointer;transition:background .1s;display:flex;flex-direction:column;gap:4px}
+.group-item:hover{background:rgba(201,168,76,0.04)}
+.group-item.active{background:rgba(201,168,76,0.07);border-left:2px solid var(--gold)}
+.gi-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.gi-name{font-size:11px;font-weight:500;color:var(--text)}
+.gi-count{font-family:var(--mono);font-size:9px;color:var(--text3)}
+.gi-tags{display:flex;gap:4px}
+.gi-tag{font-size:7.5px;font-weight:600;padding:1px 5px;border-radius:3px}
+.gt-lang{background:rgba(91,156,246,0.12);color:var(--blue)}
+.gt-lv{background:var(--gold-faint);color:var(--gold)}
+.gt-br{background:rgba(201,168,76,0.06);color:var(--text3);border:0.5px solid var(--border)}
+.gi-bar{height:2px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;margin-top:2px}
+.gi-bar-fill{height:100%;border-radius:999px}
+.gi-viability{font-size:8px;font-weight:600;padding:1px 6px;border-radius:3px}
+.gv-ok{background:var(--green-faint);color:var(--green);border:0.5px solid rgba(46,204,138,0.25)}
+.gv-warn{background:var(--yellow-faint);color:var(--yellow);border:0.5px solid rgba(232,184,75,0.25)}
+.gv-crit{background:var(--red-faint);color:var(--red);border:0.5px solid rgba(232,69,90,0.25)}
+.group-empty{padding:24px;text-align:center;font-size:10px;color:var(--text3)}
+
+/* ── RESULTS PANEL ── */
+.results-panel{display:flex;flex-direction:column;gap:10px}
+.empty-state{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:48px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.es-icon{width:48px;height:48px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center}
+.es-icon svg{width:22px;height:22px;stroke:var(--text3);stroke-width:1.4;fill:none}
+.es-title{font-size:12px;font-weight:600;color:var(--text2)}
+.es-sub{font-size:10px;color:var(--text3);line-height:1.6;max-width:320px}
+
+/* ── CLASS CARD ── */
+.class-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .15s}
+.class-card:hover{border-color:var(--border2)}
+.class-card.viable{border-left:3px solid var(--green)}
+.class-card.marginal{border-left:3px solid var(--yellow)}
+.class-card.unviable{border-left:3px solid var(--red)}
+.cc-hdr{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.12)}
+.cc-num{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text3);width:24px;flex-shrink:0}
+.cc-title{font-size:11px;font-weight:600;color:var(--text);flex:1}
+.cc-size{font-family:var(--mono);font-size:11px;font-weight:700}
+.sz-ok{color:var(--green)}.sz-warn{color:var(--yellow)}.sz-crit{color:var(--red)}
+.cc-time{font-family:var(--mono);font-size:9px;color:var(--gold);padding:2px 8px;border-radius:4px;background:var(--gold-faint);border:0.5px solid var(--gold-dim)}
+.cc-score{font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px}
+.sc-high{background:var(--green-faint);color:var(--green);border:0.5px solid rgba(46,204,138,0.25)}
+.sc-med{background:var(--yellow-faint);color:var(--yellow);border:0.5px solid rgba(232,184,75,0.25)}
+.sc-low{background:var(--red-faint);color:var(--red);border:0.5px solid rgba(232,69,90,0.25)}
+.cc-body{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+
+/* slot heatmap */
+.slot-map{display:flex;flex-direction:column;gap:3px}
+.sm-row{display:flex;align-items:center;gap:6px;height:20px}
+.sm-day{font-size:8px;font-weight:600;color:var(--text3);width:22px;text-align:right;flex-shrink:0}
+.sm-track{flex:1;background:rgba(201,168,76,0.05);border:0.5px solid var(--border);border-radius:3px;height:100%;position:relative;overflow:hidden}
+.sm-band{position:absolute;top:1px;bottom:1px;border-radius:2px}
+.sm-band-label{font-size:7px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;line-height:18px}
+.sm-times{display:flex;justify-content:space-between;padding:0 2px;margin-bottom:2px}
+.sm-tl{font-size:7px;color:var(--text3);font-family:var(--mono)}
+
+/* overlap indicator */
+.overlap-bar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(46,204,138,0.05);border:0.5px solid rgba(46,204,138,0.15);border-radius:7px}
+.ob-label{font-size:9px;color:var(--text2);flex:1}
+.ob-track{flex:2;height:4px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden}
+.ob-fill{height:100%;border-radius:999px;background:var(--green)}
+.ob-pct{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--green);width:32px;text-align:right}
+
+/* student roster */
+.roster{display:flex;flex-wrap:wrap;gap:5px}
+.roster-chip{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:rgba(255,255,255,0.03);border:0.5px solid var(--border);font-size:10px;color:var(--text);cursor:default;transition:border-color .12s}
+.roster-chip:hover{border-color:var(--border2)}
+.roster-chip.overlap-all{border-color:rgba(46,204,138,0.3);background:rgba(46,204,138,0.05)}
+.roster-chip.overlap-partial{border-color:rgba(232,184,75,0.3);background:rgba(232,184,75,0.04)}
+.rc-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;font-family:var(--mono)}
+.rc-name{font-size:10px}
+.rc-num{font-family:var(--mono);font-size:8px;color:var(--text3)}
+
+/* suggested time badge */
+.sug-time{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(201,168,76,0.06);border:0.5px solid var(--gold-dim);border-radius:8px}
+.st-icon{width:20px;height:20px;border-radius:50%;background:rgba(201,168,76,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.st-icon svg{width:10px;height:10px;stroke:var(--gold);stroke-width:2;fill:none;stroke-linecap:round}
+.st-info{flex:1}
+.st-label{font-size:10px;font-weight:600;color:var(--gold-hi)}
+.st-sub{font-size:8px;color:var(--text3);margin-top:1px}
+.st-confirm{padding:5px 12px;border-radius:6px;border:0.5px solid rgba(46,204,138,0.3);background:var(--green-faint);color:var(--green);font-size:9px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .12s;white-space:nowrap}
+.st-confirm:hover{background:rgba(46,204,138,0.15)}
+
+/* unmatched section */
+.unmatched-panel{background:var(--bg2);border:0.5px solid rgba(232,184,75,0.2);border-radius:12px;overflow:hidden}
+.unmatched-list{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px}
+.um-chip{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:rgba(232,184,75,0.06);border:0.5px solid rgba(232,184,75,0.2);font-size:10px;color:var(--yellow)}
+.um-chip svg{width:9px;height:9px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;flex-shrink:0}
+
+/* confirmed badge */
+.confirmed-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:var(--green-faint);border:0.5px solid rgba(46,204,138,0.3);color:var(--green);font-size:9px;font-weight:600}
+
+/* toast */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:8px;padding:9px 14px;font-size:11px;color:var(--text);z-index:999;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+
+/* loading skeleton */
+.skeleton{background:linear-gradient(90deg,rgba(201,168,76,0.05) 25%,rgba(201,168,76,0.1) 50%,rgba(201,168,76,0.05) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;height:60px;margin-bottom:8px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+@media(max-width:900px){
+  .main-layout{grid-template-columns:1fr}
+  .group-panel{position:static}
+  .kpi-row{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-home">
+    <a class="tb-ico" href="/admin/dashboard.html" title="Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+    <button class="tb-menu-btn" onclick="history.back()">← Voltar</button>
+  </div>
+  <div class="tb-div"></div>
+  <span class="tb-brand">ALM</span>
+  <span class="tb-page">Motor de Alocação</span>
+  <div class="tb-right">
+    <div class="tb-status loading" id="sb-status">
+      <div class="tb-dot loading" id="sb-dot"></div>
+      <span class="tb-lbl loading" id="sb-lbl">A ligar…</span>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runEngine()" disabled>
+      <svg viewBox="0 0 12 12"><polygon points="3,2 10,6 3,10"/></svg>
+      Executar alocação
+    </button>
+    <button class="btn-export" id="btn-export" onclick="exportCSV()" style="display:none">
+      <svg viewBox="0 0 12 12"><path d="M2 9h8M6 2v5M3 5l3 3 3-3"/></svg>
+      Exportar CSV
+    </button>
+    <span class="tb-ano">2026 / 2027</span>
+    <span class="tb-clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi c-gold"><div class="kpi-lbl">Pedidos carregados</div><div class="kpi-val kv-gold" id="k-total">—</div><div class="kpi-sub">da base Supabase</div></div>
+    <div class="kpi c-green"><div class="kpi-lbl">Turmas viáveis</div><div class="kpi-val kv-g" id="k-viable">—</div><div class="kpi-sub">≥ 5 alunos com sobreposição</div></div>
+    <div class="kpi c-yellow"><div class="kpi-lbl">Turmas marginais</div><div class="kpi-val kv-y" id="k-marginal">—</div><div class="kpi-sub">3–4 alunos</div></div>
+    <div class="kpi c-red"><div class="kpi-lbl">Sem turma</div><div class="kpi-val kv-r" id="k-unmatched">—</div><div class="kpi-sub">sem sobreposição comum</div></div>
+    <div class="kpi c-blue"><div class="kpi-lbl">Grupos processados</div><div class="kpi-val kv-b" id="k-groups">—</div><div class="kpi-sub">língua · nível · filial</div></div>
+    <div class="kpi c-teal"><div class="kpi-lbl">Cobertura</div><div class="kpi-val kv-t" id="k-coverage">—</div><div class="kpi-sub">% alunos alocados</div></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-lbl">Tamanho mínimo de turma</div>
+      <div class="ctrl-row">
+        <button class="pill-toggle" onclick="setMinSize(3,this)">3</button>
+        <button class="pill-toggle on" onclick="setMinSize(5,this)">5</button>
+        <button class="pill-toggle" onclick="setMinSize(8,this)">8</button>
+      </div>
+    </div>
+    <div class="ctrl-divider"></div>
+    <div class="ctrl-group">
+      <div class="ctrl-lbl">Sobreposição mínima</div>
+      <div class="ctrl-row">
+        <button class="pill-toggle" onclick="setMinOverlap(30,this)">30 min</button>
+        <button class="pill-toggle on" onclick="setMinOverlap(60,this)">60 min</button>
+        <button class="pill-toggle" onclick="setMinOverlap(90,this)">90 min</button>
+      </div>
+    </div>
+    <div class="ctrl-divider"></div>
+    <div class="ctrl-group">
+      <div class="ctrl-lbl">Filtrar por língua</div>
+      <div class="ctrl-row">
+        <button class="pill-toggle on" onclick="setLangFilter('all',this)">Todas</button>
+        <button class="pill-toggle" onclick="setLangFilter('EN',this)">🇬🇧 EN</button>
+        <button class="pill-toggle" onclick="setLangFilter('PT',this)">🇵🇹 PT</button>
+        <button class="pill-toggle" onclick="setLangFilter('ES',this)">🇪🇸 ES</button>
+        <button class="pill-toggle" onclick="setLangFilter('DE',this)">🇩🇪 DE</button>
+        <button class="pill-toggle" onclick="setLangFilter('FR',this)">🇫🇷 FR</button>
+      </div>
+    </div>
+    <div class="ctrl-divider"></div>
+    <div class="ctrl-group">
+      <div class="ctrl-lbl">Ordenar resultados</div>
+      <select class="ctrl-sel" id="sort-sel" onchange="renderResults()">
+        <option value="size_desc">Maior turma primeiro</option>
+        <option value="overlap_desc">Maior sobreposição</option>
+        <option value="score_desc">Melhor pontuação</option>
+        <option value="lang_asc">Língua A→Z</option>
+      </select>
+    </div>
+    <div style="margin-left:auto">
+      <div class="ctrl-hint">O motor analisa sobreposições de horário entre todos os alunos do mesmo grupo (língua · nível · filial) e propõe turmas optimizadas.</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="sec-label" id="results-label" style="display:none">Resultados da Alocação</div>
+  <div class="main-layout">
+
+    <!-- GROUP LIST -->
+    <div class="group-panel">
+      <div class="panel-hdr">
+        <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
+        <div class="panel-title">Grupos</div>
+        <div class="panel-meta" id="group-meta">—</div>
+      </div>
+      <div class="group-list" id="group-list">
+        <div class="group-empty">Execute a alocação para ver os grupos</div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-panel" id="results-panel">
+      <div class="empty-state">
+        <div class="es-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/></svg></div>
+        <div class="es-title">Motor de alocação pronto</div>
+        <div class="es-sub">Carregue os dados do Supabase e clique em "Executar alocação" para gerar turmas optimizadas automaticamente.</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   SUPABASE
+══════════════════════════════════════════ */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+async function sbGet(table,qs=''){
+  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:H});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(table,qs,body){
+  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+
+/* ══════════════════════════════════════════
+   CLOCK
+══════════════════════════════════════════ */
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+const DAYS=['Seg','Ter','Qua','Qui','Sex','Sáb'];
+const AV_COLORS={
+  EN:['rgba(91,156,246,0.2)','rgba(91,156,246,0.4)','#5B9CF6'],
+  PT:['rgba(201,168,76,0.2)','rgba(201,168,76,0.4)','#E8C97A'],
+  ES:['rgba(232,184,75,0.2)','rgba(232,184,75,0.4)','#E8B84B'],
+  DE:['rgba(62,201,167,0.2)','rgba(62,201,167,0.4)','#3EC9A7'],
+  FR:['rgba(212,83,126,0.2)','rgba(212,83,126,0.4)','#D4537E'],
+};
+
+let allRequests=[];
+let allStudents={};
+let engineResults=null;
+let activeGroupId=null;
+let confirmedClasses={};
+
+let minSize=5;
+let minOverlap=60;
+let langFilter='all';
+
+/* ══════════════════════════════════════════
+   LOAD DATA
+══════════════════════════════════════════ */
+async function loadData(){
+  setSb('loading','A carregar…');
+  try{
+    const reqs=await sbGet('timetable_requests','select=*&order=submitted_at.asc&limit=2000');
+    if(reqs.length){
+      const nums=[...new Set(reqs.map(r=>r.student_num))];
+      const q=nums.map(n=>`"${n}"`).join(',');
+      let sts=[];
+      try{sts=await sbGet('enrolments',`num=in.(${q})&select=num,name,initials,lang,level,course,branch,age,email,phone&limit=2000`);}
+      catch(e){
+        try{sts=await sbGet('students',`num=in.(${q})&select=num,name,initials,lang,level,course,branch,age,email,phone&limit=2000`);}
+        catch(e2){console.warn('student lookup failed');}
+      }
+      allStudents={};sts.forEach(s=>{allStudents[s.num]=s;});
+    }
+    allRequests=reqs.map(r=>{
+      const s=allStudents[r.student_num]||{};
+      return{
+        id:r.id,
+        studentNum:r.student_num,
+        name:s.name||r.student_num,
+        initials:s.initials||(s.name?s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():r.student_num.slice(-2).toUpperCase()),
+        lang:s.lang||r.lang||'—',
+        level:s.level||r.level||'—',
+        course:s.course||r.course||'adults',
+        branch:s.branch||r.branch||'—',
+        age:s.age||'—',
+        email:s.email||'—',
+        sessions:r.sessions||[],
+        assignedClass:r.assigned_class||null,
+        dbId:r.id,
+      };
+    });
+    setSb('ok',`${allRequests.length} pedidos carregados`);
+    document.getElementById('k-total').textContent=allRequests.length;
+    document.getElementById('btn-run').disabled=false;
+    toast(`${allRequests.length} pedidos carregados do Supabase`);
+  }catch(e){
+    setSb('err','Supabase offline — a usar dados de demonstração');
+    allRequests=generateDemo();
+    document.getElementById('k-total').textContent=allRequests.length;
+    document.getElementById('btn-run').disabled=false;
+    toast('A usar dados de demonstração');
+  }
+}
+
+/* ══════════════════════════════════════════
+   DEMO DATA
+══════════════════════════════════════════ */
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function generateDemo(){
+  const names=[['Maria','Silva'],['João','Ferreira'],['Ana','Costa'],['Pedro','Santos'],['Sofia','Gomes'],
+    ['Carlos','Rodrigues'],['Inês','Lima'],['Rui','Pereira'],['Clara','Sousa'],['Paulo','Melo'],
+    ['Teresa','Nunes'],['Miguel','Carvalho'],['Beatriz','Mendes'],['André','Correia'],['Filipa','Lopes'],
+    ['Diogo','Pinto'],['Mariana','Gouveia'],['Luís','Fonseca'],['Sara','Oliveira'],['Tiago','Marques'],
+    ['Helena','Borges'],['Rute','Azevedo'],['Nuno','Freitas'],['Catarina','Cunha'],['Vasco','Moreira']];
+  const configs=[
+    {lang:'EN',level:'B2',course:'exam',branch:'Funchal',n:12},
+    {lang:'EN',level:'B1',course:'adults',branch:'Funchal',n:10},
+    {lang:'EN',level:'A2',course:'adults',branch:'Funchal',n:9},
+    {lang:'EN',level:'A1',course:'adults',branch:'Funchal',n:8},
+    {lang:'EN',level:'B1',course:'adults',branch:'Machico',n:7},
+    {lang:'EN',level:'A2',course:'adults',branch:'Machico',n:6},
+    {lang:'PT',level:'A1',course:'adults',branch:'Funchal',n:8},
+    {lang:'PT',level:'A2',course:'adults',branch:'Funchal',n:6},
+    {lang:'ES',level:'A1',course:'adults',branch:'Funchal',n:7},
+    {lang:'DE',level:'A1',course:'adults',branch:'Funchal',n:4},
+    {lang:'FR',level:'A1',course:'adults',branch:'Funchal',n:5},
+    {lang:'EN',level:'Kids',course:'kids',branch:'Funchal',n:9},
+    {lang:'EN',level:'B1',course:'adults',branch:'S. Cruz',n:3},
+  ];
+  const TIME_SLOTS=[
+    [8*60,9*60+30],[9*60,10*60+30],[10*60,11*60+30],[14*60,15*60+30],
+    [15*60,16*60+30],[16*60,17*60+30],[17*60,18*60+30],[18*60,19*60+30],[19*60,20*60+30]
+  ];
+  const out=[];let idx=0;
+  configs.forEach(cfg=>{
+    // give students within group similar but not identical slots for realistic overlap testing
+    const anchor=pick([0,1,2,3,4,5,6,7,8]);
+    for(let i=0;i<cfg.n;i++){
+      const nm=names[idx%names.length];
+      const numSessions=cfg.course==='exam'?3:2;
+      const usedDays=new Set();
+      const sessions=[];
+      for(let j=0;j<numSessions;j++){
+        let di;do{di=ri(0,4)}while(usedDays.has(di));
+        usedDays.add(di);
+        // slight variation from anchor
+        const slotIdx=Math.max(0,Math.min(8,anchor+(Math.random()<0.7?0:ri(-1,1))));
+        const [sm,em]=TIME_SLOTS[slotIdx];
+        sessions.push({di,dayName:DAYS[di],start:`${String(Math.floor(sm/60)).padStart(2,'0')}:${String(sm%60).padStart(2,'0')}`,end:`${String(Math.floor(em/60)).padStart(2,'0')}:${String(em%60).padStart(2,'0')}`,sm,em,exam:cfg.course==='exam'});
+      }
+      out.push({
+        id:out.length+1,
+        studentNum:`ALM-${String(out.length+1).padStart(4,'0')}`,
+        name:nm[0]+' '+nm[1],
+        initials:nm[0][0]+nm[1][0],
+        lang:cfg.lang,level:cfg.level,course:cfg.course,branch:cfg.branch,
+        age:ri(14,55),email:`${nm[0].toLowerCase()}@email.com`,
+        sessions,assignedClass:null,dbId:out.length+1,
+      });
+      idx++;
+    }
+  });
+  return out;
+}
+
+/* ══════════════════════════════════════════
+   ★ ALLOCATION ENGINE ★
+══════════════════════════════════════════ */
+function runEngine(){
+  const btn=document.getElementById('btn-run');
+  btn.classList.add('spinning');btn.disabled=true;
+
+  // Small delay so UI updates before heavy computation
+  setTimeout(()=>{
+    engineResults=allocate(allRequests,{minSize,minOverlap,langFilter});
+    renderKPIs(engineResults);
+    renderGroupList(engineResults);
+    document.getElementById('results-label').style.display='flex';
+    document.getElementById('btn-export').style.display='flex';
+
+    // Select first group automatically
+    if(engineResults.groups.length){
+      selectGroup(engineResults.groups[0].id);
+    }else{
+      document.getElementById('results-panel').innerHTML=`<div class="empty-state"><div class="es-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="es-title">Sem grupos encontrados</div><div class="es-sub">Tente reduzir o tamanho mínimo de turma ou a sobreposição mínima.</div></div>`;
+    }
+
+    btn.classList.remove('spinning');btn.disabled=false;
+    toast(`Alocação concluída · ${engineResults.totalAllocated} alunos alocados em ${engineResults.totalClasses} turmas`);
+  },50);
+}
+
+/* ──────────────────────────────────────────
+   CORE: allocate()
+   Input:  requests[], options{}
+   Output: { groups[], totalClasses, totalAllocated, totalUnmatched, coverage }
+────────────────────────────────────────── */
+function allocate(requests,options){
+  const {minSize=5,minOverlap=60,langFilter='all'}=options;
+
+  // 1. Filter by language if needed
+  const filtered=langFilter==='all'?requests:requests.filter(r=>r.lang===langFilter);
+
+  // 2. Group by lang+level+course+branch
+  const groupMap={};
+  filtered.forEach(r=>{
+    const key=[r.lang,r.level,r.course,r.branch].join('|');
+    if(!groupMap[key])groupMap[key]={id:key,lang:r.lang,level:r.level,course:r.course,branch:r.branch,members:[]};
+    groupMap[key].members.push(r);
+  });
+
+  const groups=Object.values(groupMap).map(g=>{
+    // 3. For each group, find overlap clusters
+    const classes=findOverlapClusters(g.members,minSize,minOverlap);
+    const unmatched=g.members.filter(m=>!classes.some(c=>c.members.includes(m)));
+    const viability=classes.length>0?(classes[0].members.length>=8?'ok':classes[0].members.length>=5?'warn':'crit'):'crit';
+    return{...g,classes,unmatched,viability,totalAllocated:g.members.length-unmatched.length};
+  }).sort((a,b)=>a.lang.localeCompare(b.lang)||a.level.localeCompare(b.level));
+
+  const totalClasses=groups.reduce((a,g)=>a+g.classes.length,0);
+  const totalAllocated=groups.reduce((a,g)=>a+g.totalAllocated,0);
+  const totalUnmatched=groups.reduce((a,g)=>a+g.unmatched.length,0);
+  const coverage=filtered.length?Math.round(totalAllocated/filtered.length*100):0;
+
+  return{groups,totalClasses,totalAllocated,totalUnmatched,coverage,total:filtered.length};
+}
+
+/* ──────────────────────────────────────────
+   findOverlapClusters()
+   For a group of students, find subsets that
+   share common time windows ≥ minOverlap mins
+────────────────────────────────────────── */
+function findOverlapClusters(members,minSize,minOverlap){
+  if(!members.length)return[];
+
+  // Build overlap matrix: overlapMins[i][j] = total overlap minutes between student i and j
+  const n=members.length;
+  const matrix=Array.from({length:n},()=>new Array(n).fill(0));
+
+  for(let i=0;i<n;i++){
+    for(let j=i+1;j<n;j++){
+      const ov=totalOverlapMins(members[i].sessions,members[j].sessions);
+      matrix[i][j]=ov;
+      matrix[j][i]=ov;
+    }
+  }
+
+  // Greedy clustering: start with student who has most overlaps, grow cluster
+  const assigned=new Set();
+  const clusters=[];
+
+  // Sort students by their average overlap with others (most "connectable" first)
+  const avgOverlap=members.map((_,i)=>{
+    const total=matrix[i].reduce((a,v)=>a+v,0);
+    return{idx:i,avg:total/(n-1)};
+  }).sort((a,b)=>b.avg-a.avg);
+
+  for(const {idx:seed} of avgOverlap){
+    if(assigned.has(seed))continue;
+
+    // Find all members with sufficient overlap to this seed
+    const candidates=[];
+    for(let j=0;j<n;j++){
+      if(j===seed||assigned.has(j))continue;
+      if(matrix[seed][j]>=minOverlap)candidates.push(j);
+    }
+
+    if(candidates.length+1<minSize){
+      // Try to form smaller cluster if minSize is 3+
+      if(candidates.length+1>=3){
+        // Accept marginal cluster
+      } else {
+        continue; // skip — can't form even a small group
+      }
+    }
+
+    // Sort candidates by their overlap with the seed (best match first)
+    candidates.sort((a,b)=>matrix[seed][b]-matrix[seed][a]);
+
+    const clusterIdx=[seed,...candidates];
+    clusterIdx.forEach(i=>assigned.add(i));
+
+    // Find the common overlap window for this cluster
+    const clusterMembers=clusterIdx.map(i=>members[i]);
+    const commonSlots=findCommonSlots(clusterMembers);
+    const totalOv=clusterIdx.length>1
+      ?clusterIdx.slice(1).reduce((a,j)=>a+matrix[seed][j],0)/clusterIdx.length
+      :0;
+
+    // Score: weighted combination of size, overlap quality, common slot quality
+    const sizePts=Math.min(clusterMembers.length/10,1)*40;
+    const ovPts=Math.min(totalOv/120,1)*35;
+    const slotPts=commonSlots.length>0?25:0;
+    const score=Math.round(sizePts+ovPts+slotPts);
+
+    clusters.push({
+      id:`cluster-${clusters.length}`,
+      members:clusterMembers,
+      commonSlots,
+      avgOverlapMins:Math.round(totalOv),
+      score,
+      suggestedTime:commonSlots[0]||null,
+    });
+  }
+
+  // Sort clusters by score descending
+  return clusters.sort((a,b)=>b.score-a.score);
+}
+
+/* ──────────────────────────────────────────
+   totalOverlapMins(sessionsA, sessionsB)
+   Sum of overlapping minutes across all day pairs
+────────────────────────────────────────── */
+function totalOverlapMins(sessA,sessB){
+  let total=0;
+  for(const a of sessA){
+    for(const b of sessB){
+      if(a.di===b.di){
+        const start=Math.max(a.sm,b.sm);
+        const end=Math.min(a.em,b.em);
+        if(end>start)total+=end-start;
+      }
+    }
+  }
+  return total;
+}
+
+/* ──────────────────────────────────────────
+   findCommonSlots(members)
+   Find day+time windows where ALL members overlap
+────────────────────────────────────────── */
+function findCommonSlots(members){
+  if(!members.length)return[];
+  const slots=[];
+  // For each day, find the intersection of all members' windows
+  for(let di=0;di<6;di++){
+    const daySessions=members.map(m=>m.sessions.filter(s=>s.di===di));
+    if(daySessions.some(ds=>ds.length===0))continue; // not all members have this day
+
+    // Find intersection of all windows on this day
+    let start=Math.max(...daySessions.map(ds=>Math.min(...ds.map(s=>s.sm))));
+    let end=Math.min(...daySessions.map(ds=>Math.max(...ds.map(s=>s.em))));
+
+    if(end-start>=60){
+      slots.push({
+        di,
+        dayName:DAYS[di],
+        start:minsToTime(start),
+        end:minsToTime(end),
+        sm:start,em:end,
+        durationMins:end-start,
+      });
+    }
+  }
+  return slots.sort((a,b)=>b.durationMins-a.durationMins);
+}
+
+function minsToTime(m){
+  return`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+
+/* ══════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════ */
+function renderKPIs(res){
+  document.getElementById('k-viable').textContent=res.groups.filter(g=>g.viability==='ok').length+
+    res.groups.reduce((a,g)=>a+g.classes.filter(c=>c.members.length>=minSize).length,0);
+  document.getElementById('k-marginal').textContent=
+    res.groups.reduce((a,g)=>a+g.classes.filter(c=>c.members.length<minSize&&c.members.length>=3).length,0);
+  document.getElementById('k-unmatched').textContent=res.totalUnmatched;
+  document.getElementById('k-groups').textContent=res.groups.length;
+  document.getElementById('k-coverage').textContent=res.coverage+'%';
+}
+
+function renderGroupList(res){
+  const el=document.getElementById('group-list');
+  document.getElementById('group-meta').textContent=res.groups.length+' grupos';
+  if(!res.groups.length){el.innerHTML='<div class="group-empty">Nenhum grupo encontrado</div>';return;}
+  el.innerHTML=res.groups.map(g=>{
+    const cls=g.classes.length;
+    const um=g.unmatched.length;
+    const pct=g.members.length?Math.round(g.totalAllocated/g.members.length*100):0;
+    const barCol=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
+    const vCls={'ok':'gv-ok','warn':'gv-warn','crit':'gv-crit'}[g.viability];
+    const vLbl={'ok':'Viável','warn':'Marginal','crit':'Crítico'}[g.viability];
+    const isActive=g.id===activeGroupId;
+    return`<div class="group-item${isActive?' active':''}" onclick="selectGroup('${g.id}')">
+      <div class="gi-top">
+        <span class="gi-name">${g.lang} ${g.level}</span>
+        <span class="gi-count">${g.members.length} alunos</span>
+      </div>
+      <div class="gi-tags">
+        <span class="gi-tag gt-lang">${g.lang}</span>
+        <span class="gi-tag gt-lv">${g.level}</span>
+        <span class="gi-tag gt-br">${g.branch}</span>
+        <span class="gi-viability ${vCls}">${vLbl}</span>
+      </div>
+      <div class="gi-bar"><div class="gi-bar-fill" style="width:${pct}%;background:${barCol}"></div></div>
+      <div style="font-size:8px;color:var(--text3);display:flex;justify-content:space-between;margin-top:2px">
+        <span>${cls} turma${cls!==1?'s':''} · ${um} sem turma</span>
+        <span style="font-family:var(--mono)">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectGroup(id){
+  activeGroupId=id;
+  renderGroupList(engineResults);
+  renderResults();
+}
+
+function renderResults(){
+  if(!engineResults)return;
+  const sortVal=document.getElementById('sort-sel').value;
+  const panel=document.getElementById('results-panel');
+
+  let groups=engineResults.groups.filter(g=>langFilter==='all'||g.lang===langFilter);
+  if(activeGroupId){
+    const g=groups.find(x=>x.id===activeGroupId);
+    if(g)groups=[g];
+  }
+
+  if(!groups.length){panel.innerHTML='<div class="empty-state"><div class="es-title">Nenhum resultado</div></div>';return;}
+
+  let html='';
+  groups.forEach(g=>{
+    let classes=[...g.classes];
+    if(sortVal==='size_desc')classes.sort((a,b)=>b.members.length-a.members.length);
+    else if(sortVal==='overlap_desc')classes.sort((a,b)=>b.avgOverlapMins-a.avgOverlapMins);
+    else if(sortVal==='score_desc')classes.sort((a,b)=>b.score-a.score);
+
+    classes.forEach((cls,ci)=>{
+      const n=cls.members.length;
+      const viabilityClass=n>=8?'viable':n>=minSize?'viable':n>=3?'marginal':'unviable';
+      const sizeClass=n>=8?'sz-ok':n>=5?'sz-ok':n>=3?'sz-warn':'sz-crit';
+      const scoreClass=cls.score>=70?'sc-high':cls.score>=45?'sc-med':'sc-low';
+      const confirmed=confirmedClasses[cls.id];
+      const groupLabel=`${g.lang} ${g.level} · ${g.branch}`;
+
+      html+=`<div class="class-card ${viabilityClass}" id="card-${cls.id}">
+        <div class="cc-hdr">
+          <span class="cc-num">T${ci+1}</span>
+          <span class="cc-title">${groupLabel}</span>
+          <span class="cc-size ${sizeClass}">${n} alunos</span>
+          ${cls.suggestedTime?`<span class="cc-time">${cls.suggestedTime.dayName} ${cls.suggestedTime.start}–${cls.suggestedTime.end}</span>`:''}
+          <span class="cc-score ${scoreClass}">Score ${cls.score}</span>
+          ${confirmed?`<span class="confirmed-badge">✓ Confirmada</span>`:''}
+        </div>
+        <div class="cc-body">`;
+
+      // Slot heatmap
+      if(cls.commonSlots.length>0){
+        const TRACK_S=8*60,TRACK_E=21*60,TRACK_R=TRACK_E-TRACK_S;
+        html+=`<div>
+          <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Janelas de sobreposição comum</div>
+          <div class="sm-times"><span class="sm-tl">8h</span><span class="sm-tl">12h</span><span class="sm-tl">17h</span><span class="sm-tl">21h</span></div>
+          <div class="slot-map">`;
+        DAYS.forEach((d,di)=>{
+          const slot=cls.commonSlots.find(s=>s.di===di);
+          if(!slot){
+            html+=`<div class="sm-row"><span class="sm-day">${d}</span><div class="sm-track"></div></div>`;
+          }else{
+            const left=((slot.sm-TRACK_S)/TRACK_R*100).toFixed(1);
+            const w=((slot.em-slot.sm)/TRACK_R*100).toFixed(1);
+            const dur=slot.durationMins;
+            html+=`<div class="sm-row"><span class="sm-day">${d}</span>
+              <div class="sm-track">
+                <div class="sm-band" style="left:${left}%;width:${w}%;background:rgba(46,204,138,0.3);border:0.5px solid rgba(46,204,138,0.5)">
+                  <span class="sm-band-label" style="color:var(--green)">${slot.start}–${slot.end} (${dur}min)</span>
+                </div>
+              </div></div>`;
+          }
+        });
+        html+=`</div></div>`;
+      }
+
+      // Overlap quality bar
+      html+=`<div class="overlap-bar">
+        <span class="ob-label">Sobreposição média entre alunos</span>
+        <div class="ob-track"><div class="ob-fill" style="width:${Math.min(100,cls.avgOverlapMins/120*100)}%"></div></div>
+        <span class="ob-pct">${cls.avgOverlapMins}min</span>
+      </div>`;
+
+      // Suggested time + confirm button
+      if(cls.suggestedTime&&!confirmed){
+        html+=`<div class="sug-time">
+          <div class="st-icon"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5"/><path d="M6 3.5v2.5l1.5 1.5"/></svg></div>
+          <div class="st-info">
+            <div class="st-label">Horário sugerido: ${cls.suggestedTime.dayName} ${cls.suggestedTime.start}–${cls.suggestedTime.end}</div>
+            <div class="st-sub">${cls.suggestedTime.durationMins} min de sobreposição · ${cls.members.length} alunos disponíveis</div>
+          </div>
+          <button class="st-confirm" onclick="confirmClass('${cls.id}','${cls.suggestedTime.dayName} ${cls.suggestedTime.start}')">Confirmar ✓</button>
+        </div>`;
+      }
+
+      // Student roster
+      html+=`<div>
+        <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Alunos (${n})</div>
+        <div class="roster">`;
+      cls.members.forEach(m=>{
+        const av=AV_COLORS[m.lang]||['rgba(201,168,76,0.2)','rgba(201,168,76,0.4)','#E8C97A'];
+        const overlapAll=cls.commonSlots.length>0;
+        html+=`<div class="roster-chip ${overlapAll?'overlap-all':'overlap-partial'}" title="${m.studentNum}">
+          <div class="rc-av" style="background:${av[0]};border:0.5px solid ${av[1]};color:${av[2]}">${m.initials}</div>
+          <div>
+            <div class="rc-name">${m.name}</div>
+            <div class="rc-num">${m.studentNum}</div>
+          </div>
+        </div>`;
+      });
+      html+=`</div></div>`;
+      html+=`</div></div>`;
+    });
+
+    // Unmatched students
+    if(g.unmatched.length>0){
+      html+=`<div class="unmatched-panel">
+        <div class="panel-hdr">
+          <svg style="width:12px;height:12px;stroke:var(--yellow);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>
+          <div class="panel-title" style="color:var(--yellow)">Sem turma · ${g.lang} ${g.level} · ${g.branch}</div>
+          <div class="panel-meta">${g.unmatched.length} aluno${g.unmatched.length!==1?'s':''}</div>
+        </div>
+        <div class="unmatched-list">`;
+      g.unmatched.forEach(m=>{
+        html+=`<div class="um-chip">
+          <svg viewBox="0 0 12 12"><path d="M6 1L1 11h10L6 1z"/><path d="M6 5v3M6 9.5v.5"/></svg>
+          ${m.name} <span style="font-family:var(--mono);font-size:8px;opacity:0.6">${m.studentNum}</span>
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+  });
+
+  panel.innerHTML=html;
+}
+
+/* ══════════════════════════════════════════
+   CONFIRM CLASS
+══════════════════════════════════════════ */
+async function confirmClass(clsId,timeLabel){
+  confirmedClasses[clsId]=timeLabel;
+  // Find the cluster and patch all members
+  if(engineResults){
+    for(const g of engineResults.groups){
+      const cls=g.classes.find(c=>c.id===clsId);
+      if(cls){
+        for(const m of cls.members){
+          if(m.dbId){
+            try{
+              await sbPatch('timetable_requests',`id=eq.${m.dbId}`,{assigned_class:clsId,notes_staff:`Auto-alocado: ${timeLabel}`});
+            }catch(e){console.warn('patch failed for',m.studentNum);}
+          }
+        }
+        break;
+      }
+    }
+  }
+  renderResults();
+  toast(`Turma confirmada: ${timeLabel}`);
+}
+
+/* ══════════════════════════════════════════
+   CONTROLS
+══════════════════════════════════════════ */
+function setMinSize(v,btn){
+  minSize=v;
+  document.querySelectorAll('.ctrl-group:nth-child(1) .pill-toggle').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function setMinOverlap(v,btn){
+  minOverlap=v;
+  document.querySelectorAll('.ctrl-group:nth-child(3) .pill-toggle').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function setLangFilter(v,btn){
+  langFilter=v;
+  document.querySelectorAll('.ctrl-group:nth-child(5) .pill-toggle').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(engineResults)renderResults();
+}
+
+/* ══════════════════════════════════════════
+   EXPORT
+══════════════════════════════════════════ */
+function exportCSV(){
+  if(!engineResults)return;
+  const rows=[['Turma','Língua','Nível','Filial','Aluno','N.º ALM','Horário Sugerido','Score','Estado']];
+  engineResults.groups.forEach(g=>{
+    g.classes.forEach((cls,ci)=>{
+      const time=cls.suggestedTime?`${cls.suggestedTime.dayName} ${cls.suggestedTime.start}–${cls.suggestedTime.end}`:'—';
+      const confirmed=confirmedClasses[cls.id]?'Confirmada':'Proposta';
+      cls.members.forEach(m=>{
+        rows.push([`T${ci+1}`,g.lang,g.level,g.branch,m.name,m.studentNum,time,cls.score,confirmed]);
+      });
+    });
+    g.unmatched.forEach(m=>{
+      rows.push(['—',g.lang,g.level,g.branch,m.name,m.studentNum,'—','—','Sem turma']);
+    });
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`ALM-alocacao-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  toast('CSV exportado');
+}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+function setSb(type,txt){
+  const el=document.getElementById('sb-status');el.className=`tb-status ${type}`;
+  document.getElementById('sb-dot').className=`tb-dot ${type}`;
+  const lbl=document.getElementById('sb-lbl');lbl.className=`tb-lbl ${type}`;lbl.textContent=txt;
+}
+function toast(msg,dur=2800){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),dur);
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+loadData();
+</script>
+</body>
+</html>
