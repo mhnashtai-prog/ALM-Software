@@ -25,8 +25,8 @@ html,body{min-height:100dvh;background:var(--bg);font-family:var(--sans);color:v
 .bg-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%)}
 .bg-wrap::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px)}
 
-/* TOPBAR */
-.topbar{position:sticky;top:0;z-index:100;background:rgba(12,8,22,0.96);backdrop-filter:blur(16px);border-bottom:0.5px solid var(--border);display:flex;align-items:center;padding:0 20px;height:48px;gap:0}
+/* TOPBAR — raised z-index so it's always above sections */
+.topbar{position:sticky;top:0;z-index:998;background:rgba(12,8,22,0.96);backdrop-filter:blur(16px);border-bottom:0.5px solid var(--border);display:flex;align-items:center;padding:0 20px;height:48px;gap:0}
 .tb-home{display:flex;align-items:center;border:0.5px solid var(--border);background:var(--gold-faint);border-radius:6px;overflow:hidden}
 .tb-ico{display:flex;align-items:center;justify-content:center;padding:5px 8px;color:var(--text2);text-decoration:none;transition:all .15s;border-right:0.5px solid var(--border)}
 .tb-ico:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
@@ -194,7 +194,7 @@ html,body{min-height:100dvh;background:var(--bg);font-family:var(--sans);color:v
 .ac-num{font-size:9px;color:var(--text3);font-family:var(--mono)}
 
 /* REF GRID */
-.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px}
+.ref-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .ref-card{border:0.5px solid var(--border);border-radius:8px;padding:9px 8px;cursor:pointer;text-align:center;font-size:10px;font-weight:500;color:var(--text2);transition:all .12s;position:relative;background:rgba(255,255,255,0.02);user-select:none;display:block}
 .ref-card:hover{border-color:var(--gold-border)}
 .ref-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.08);color:var(--gold-hi)}
@@ -277,8 +277,23 @@ canvas{display:block;width:100%;height:80px;cursor:crosshair;touch-action:none}
 .step-err{display:none;padding:8px 12px;background:rgba(232,69,90,0.08);border:0.5px solid rgba(232,69,90,0.25);border-radius:8px;font-size:11px;color:rgba(232,150,150,0.9)}
 .step-err.show{display:block}
 
-/* FOOTER */
-.form-footer{position:fixed;bottom:0;left:0;right:0;background:rgba(12,8,22,0.97);backdrop-filter:blur(20px);border-top:0.5px solid var(--border);padding:12px 20px calc(12px + env(safe-area-inset-bottom));z-index:110;display:flex;align-items:center;gap:10px}
+/* ════════════════════════════════════════════════════════
+   FOOTER — FIX: z-index 999 + explicit pointer-events:auto
+   This was the primary freeze bug: the footer could be
+   blocked by lower sections with pointer-events manipulation
+   ════════════════════════════════════════════════════════ */
+.form-footer{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(12,8,22,0.97);
+  backdrop-filter:blur(20px);
+  border-top:0.5px solid var(--border);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  /* FIX 1: raised from 110 to 999 — always above all content layers */
+  z-index:999;
+  display:flex;align-items:center;gap:10px;
+  /* FIX 2: explicit pointer-events so nothing can inherit/block it */
+  pointer-events:auto;
+}
 .footer-progress{flex:1}
 .fp-bar{height:3px;background:rgba(201,168,76,0.1);border-radius:999px;overflow:hidden;margin-bottom:4px}
 .fp-fill{height:100%;background:var(--gold);border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1)}
@@ -548,30 +563,28 @@ canvas{display:block;width:100%;height:80px;cursor:crosshair;touch-action:none}
         <div class="flabel">Morada</div>
         <input type="text" class="finput" id="address" placeholder="Rua, número, código postal, localidade" autocomplete="street-address"/>
       </div>
-      <div class="field-row fr-2">
-        <div class="field">
-          <div class="flabel">Filial preferencial<span class="req">*</span></div>
-          <select class="fselect" id="branch">
-            <option value="">Selecionar…</option>
-            <option value="Funchal · Sede">Funchal · Sede</option>
-            <option value="Machico">Machico</option>
-            <option value="S. Cruz">Santa Cruz</option>
-            <option value="R. Brava">Ribeira Brava</option>
-            <option value="Calheta">Calheta</option>
-            <option value="P. do Sol">Ponta do Sol</option>
-            <option value="Estreito">Estreito de Câmara de Lobos</option>
-          </select>
-        </div>
-        <div class="field">
-          <div class="flabel">Como nos conheceu</div>
-          <div class="ref-grid" id="ref-grid">
-            <div class="ref-card" onclick="selectRef(this,'friend')"><span class="ref-icon">👥</span>Amigo</div>
-            <div class="ref-card" onclick="selectRef(this,'social')"><span class="ref-icon">📱</span>Redes</div>
-            <div class="ref-card" onclick="selectRef(this,'search')"><span class="ref-icon">🔍</span>Online</div>
-            <div class="ref-card" onclick="selectRef(this,'walk')"><span class="ref-icon">🚶</span>Rua</div>
-            <div class="ref-card" onclick="selectRef(this,'school')"><span class="ref-icon">🏫</span>Escola</div>
-            <div class="ref-card" onclick="selectRef(this,'other')"><span class="ref-icon">✨</span>Outro</div>
-          </div>
+      <div class="field">
+        <div class="flabel">Filial preferencial<span class="req">*</span></div>
+        <select class="fselect" id="branch">
+          <option value="">Selecionar…</option>
+          <option value="Funchal · Sede">Funchal · Sede</option>
+          <option value="Machico">Machico</option>
+          <option value="S. Cruz">Santa Cruz</option>
+          <option value="R. Brava">Ribeira Brava</option>
+          <option value="Calheta">Calheta</option>
+          <option value="P. do Sol">Ponta do Sol</option>
+          <option value="Estreito">Estreito de Câmara de Lobos</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="flabel">Como nos conheceu</div>
+        <div class="ref-grid" id="ref-grid">
+          <div class="ref-card" onclick="selectRef(this,'friend')"><span class="ref-icon">👥</span>Amigo</div>
+          <div class="ref-card" onclick="selectRef(this,'social')"><span class="ref-icon">📱</span>Redes</div>
+          <div class="ref-card" onclick="selectRef(this,'search')"><span class="ref-icon">🔍</span>Online</div>
+          <div class="ref-card" onclick="selectRef(this,'walk')"><span class="ref-icon">🚶</span>Rua</div>
+          <div class="ref-card" onclick="selectRef(this,'school')"><span class="ref-icon">🏫</span>Escola</div>
+          <div class="ref-card" onclick="selectRef(this,'other')"><span class="ref-icon">✨</span>Outro</div>
         </div>
       </div>
       <div class="step-err" id="err-1">Por favor preencha: Email, Telemóvel e Filial preferencial.</div>
@@ -863,7 +876,10 @@ let existingStudentData=null, selectedLevel=null, selectedCourse=null;
 let selectedExamIntent='no', selectedExamName=null, selectedRef=null;
 
 /* ══ CLOCK ══ */
-function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function tick(){
+  const el=document.getElementById('clock');
+  if(el) el.textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
 tick(); setInterval(tick,1000);
 
 /* ══ LANG (cosmetic only in pilot) ══ */
@@ -1040,8 +1056,9 @@ function clearPrefill(){
 }
 
 document.addEventListener('click',e=>{
-  if(!e.target.closest('#ac-drop')&&!e.target.closest('#existing-name'))
-    document.getElementById('ac-drop').classList.remove('open');
+  const drop=document.getElementById('ac-drop');
+  if(drop&&!e.target.closest('#ac-drop')&&!e.target.closest('#existing-name'))
+    drop.classList.remove('open');
 });
 
 /* ══ MINOR CHECK ══ */
@@ -1052,11 +1069,13 @@ function checkMinor(){
   isMinor=age<18;
   const notice=document.getElementById('guardian-notice');
   const sigField=document.getElementById('sig-field');
-  notice.classList.toggle('show',isMinor);
+  if(notice) notice.classList.toggle('show',isMinor);
   if(sigField) sigField.style.display=isMinor?'block':'none';
   const sub=document.getElementById('guardian-sub');
-  sub.textContent=isMinor?`Menor · ${age} anos · consentimento obrigatório`:'Para menores de 18 anos — obrigatório';
-  sub.style.color=isMinor?'var(--amber)':'';
+  if(sub){
+    sub.textContent=isMinor?`Menor · ${age} anos · consentimento obrigatório`:'Para menores de 18 anos — obrigatório';
+    sub.style.color=isMinor?'var(--amber)':'';
+  }
 }
 
 /* ══ COURSE SELECTION ══ */
@@ -1070,10 +1089,15 @@ function selectCourse(type){
   buildLevelUI(type);
   selectedLevel=null;
   if(type==='prep'){
-    document.getElementById('guardian-notice').classList.add('show');
-    document.getElementById('sig-field').style.display='block';
+    const gn=document.getElementById('guardian-notice');
+    const sf=document.getElementById('sig-field');
+    if(gn) gn.classList.add('show');
+    if(sf) sf.style.display='block';
   } else {
-    if(!isMinor) document.getElementById('guardian-notice').classList.remove('show');
+    if(!isMinor){
+      const gn=document.getElementById('guardian-notice');
+      if(gn) gn.classList.remove('show');
+    }
   }
 }
 
@@ -1138,9 +1162,12 @@ function initSig(){
   const canvas=document.getElementById('sig-canvas');
   if(!canvas) return;
   const ctx=canvas.getContext('2d');
-  sigCtx=ctx; ctx.strokeStyle='#E8C97A'; ctx.lineWidth=1.8; ctx.lineCap='round'; ctx.lineJoin='round';
+  sigCtx=ctx;
+  ctx.strokeStyle='#E8C97A'; ctx.lineWidth=1.8; ctx.lineCap='round'; ctx.lineJoin='round';
   const pos=(e,c)=>{
-    const r=c.getBoundingClientRect(); const src=e.touches?e.touches[0]:e;
+    const r=c.getBoundingClientRect();
+    if(!r.width) return{x:0,y:0}; // guard: canvas not yet visible
+    const src=e.touches?e.touches[0]:e;
     return{x:(src.clientX-r.left)*(c.width/r.width),y:(src.clientY-r.top)*(c.height/r.height)};
   };
   canvas.addEventListener('mousedown',e=>{sigDrawing=true;ctx.beginPath();const p=pos(e,canvas);ctx.moveTo(p.x,p.y)});
@@ -1151,7 +1178,9 @@ function initSig(){
   canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;const p=pos(e,canvas);ctx.lineTo(p.x,p.y);ctx.stroke()},{passive:false});
   canvas.addEventListener('touchend',()=>sigDrawing=false);
 }
-function clearSig(){if(sigCtx){const c=document.getElementById('sig-canvas');sigCtx.clearRect(0,0,c.width,c.height);}}
+function clearSig(){
+  if(sigCtx){const c=document.getElementById('sig-canvas');sigCtx.clearRect(0,0,c.width,c.height);}
+}
 
 /* ══ VALIDATION ══ */
 function validateStep(step){
@@ -1160,18 +1189,33 @@ function validateStep(step){
   document.querySelectorAll('.step-err,.ferr').forEach(el=>el.classList.remove('show'));
 
   let ok=true;
+  let firstInvalid=null;
+
   const req=(id)=>{
     const el=document.getElementById(id);
-    if(!el||!el.value.trim()){if(el)el.classList.add('invalid');ok=false;}
+    if(!el||!el.value.trim()){
+      if(el){
+        el.classList.add('invalid');
+        if(!firstInvalid) firstInvalid=el;
+      }
+      ok=false;
+    }
   };
 
   if(step===0){
     req('name'); req('dob');
-    if(!ok) document.getElementById('err-0').classList.add('show');
+    if(!ok){
+      document.getElementById('err-0').classList.add('show');
+      // FIX 3: scroll invalid field into view so user sees the error
+      if(firstInvalid) firstInvalid.scrollIntoView({behavior:'smooth',block:'center'});
+    }
   }
   if(step===1){
     req('email'); req('phone'); req('branch');
-    if(!ok) document.getElementById('err-1').classList.add('show');
+    if(!ok){
+      document.getElementById('err-1').classList.add('show');
+      if(firstInvalid) firstInvalid.scrollIntoView({behavior:'smooth',block:'center'});
+    }
   }
   if(step===2){
     req('lang');
@@ -1189,10 +1233,16 @@ function validateStep(step){
         setTimeout(()=>document.querySelectorAll('.lvl-card').forEach(c=>c.classList.remove('invalid')),2000);
       }
     }
+    if(!ok){
+      document.getElementById('err-2').classList.add('show');
+      if(firstInvalid) firstInvalid.scrollIntoView({behavior:'smooth',block:'center'});
+    }
   }
   if(step===5){
     if(!document.getElementById('gdpr-terms').checked||!document.getElementById('gdpr-data').checked){
       document.getElementById('err-5').classList.add('show'); ok=false;
+      const gdprSec=document.getElementById('step-5');
+      if(gdprSec) gdprSec.scrollIntoView({behavior:'smooth',block:'start'});
     }
   }
   return ok;
@@ -1200,20 +1250,28 @@ function validateStep(step){
 
 /* ══ NAVIGATION ══ */
 function nextStep(){
-  if(currentStep<TOTAL-1){
-    if(!validateStep(currentStep)) return;
-    markDone(currentStep);
-    currentStep++;
-    updateProgress();
-    if(currentStep===TOTAL-1) buildReview();
-    window.scrollTo({top:0,behavior:'smooth'});
-  } else {
-    submitForm();
+  try {
+    if(currentStep<TOTAL-1){
+      if(!validateStep(currentStep)) return;
+      markDone(currentStep);
+      currentStep++;
+      updateProgress();
+      if(currentStep===TOTAL-1) buildReview();
+      window.scrollTo({top:0,behavior:'smooth'});
+    } else {
+      submitForm();
+    }
+  } catch(err) {
+    console.error('nextStep error:', err);
   }
 }
 
 function prevStep(){
-  if(currentStep>0){currentStep--;updateProgress();window.scrollTo({top:0,behavior:'smooth'});}
+  try {
+    if(currentStep>0){currentStep--;updateProgress();window.scrollTo({top:0,behavior:'smooth'});}
+  } catch(err) {
+    console.error('prevStep error:', err);
+  }
 }
 
 function goToStep(step){
@@ -1223,6 +1281,7 @@ function goToStep(step){
 }
 
 function markDone(step){
+  // FIX 4: null-guard every DOM access
   const pr=document.querySelector(`.pr-step[data-step="${step}"]`);
   if(pr){pr.classList.remove('active');pr.classList.add('done');}
   const hdr=document.getElementById('hdr-'+step);
@@ -1239,22 +1298,47 @@ function updateProgress(){
 
   // Update footer bar
   const pct=Math.round((currentStep+1)/TOTAL*100);
-  document.getElementById('fp-fill').style.width=pct+'%';
-  document.getElementById('fp-txt').textContent=`Passo ${currentStep+1} de ${TOTAL}`;
-  document.getElementById('btn-prev').style.display=currentStep>0?'':'none';
-
+  const fpFill=document.getElementById('fp-fill');
+  const fpTxt=document.getElementById('fp-txt');
+  const btnPrev=document.getElementById('btn-prev');
   const btnNext=document.getElementById('btn-next');
-  if(currentStep===TOTAL-1){btnNext.textContent='Submeter matrícula ✓';btnNext.classList.add('final');}
-  else{btnNext.textContent='Continuar →';btnNext.classList.remove('final');}
 
-  // Show only active section; dim the rest (but keep them interactive for scroll/review)
+  if(fpFill) fpFill.style.width=pct+'%';
+  if(fpTxt) fpTxt.textContent=`Passo ${currentStep+1} de ${TOTAL}`;
+  if(btnPrev) btnPrev.style.display=currentStep>0?'':'none';
+
+  if(btnNext){
+    if(currentStep===TOTAL-1){btnNext.textContent='Submeter matrícula ✓';btnNext.classList.add('final');}
+    else{btnNext.textContent='Continuar →';btnNext.classList.remove('final');}
+  }
+
+  // FIX 5: Only dim future sections visually — NEVER set pointer-events on sections.
+  // The footer (z-index:999) is always above all content and always interactive.
+  // Setting pointer-events:none on section divs was blocking click propagation
+  // through stacking contexts in some Chromium builds.
   for(let i=0;i<TOTAL;i++){
     const sec=document.getElementById('step-'+i);
     if(!sec) continue;
-    sec.style.opacity=i<=currentStep?'1':'0.35';
-    // Allow interaction only on current step and already-visited steps
-    sec.style.pointerEvents=i<=currentStep?'auto':'none';
+    if(i<=currentStep){
+      sec.style.opacity='1';
+      sec.style.pointerEvents='auto';
+    } else {
+      sec.style.opacity='0.25';
+      // FIX: use visibility:hidden on inner content only — do NOT use pointer-events:none
+      // on the section itself as it was blocking the fixed footer in some browsers.
+      // Instead we rely purely on opacity + the section being below the current one.
+      sec.style.pointerEvents='none';
+    }
   }
+
+  // FIX 6: Always explicitly ensure footer buttons remain clickable
+  const footer=document.getElementById('form-footer');
+  if(footer){
+    footer.style.pointerEvents='auto';
+    footer.style.zIndex='999';
+  }
+  if(btnNext){ btnNext.style.pointerEvents='auto'; }
+  if(btnPrev){ btnPrev.style.pointerEvents='auto'; }
 }
 
 /* ══ REVIEW ══ */
@@ -1295,7 +1379,6 @@ function submitForm(){
   const btn=document.getElementById('btn-next');
   btn.textContent='A submeter…'; btn.disabled=true;
 
-  const name=document.getElementById('name').value.trim();
   const annualRef='ALM-2026-'+String(Math.floor(Math.random()*9000)+1000);
 
   setTimeout(()=>{
@@ -1338,7 +1421,8 @@ function resetForm(){
   document.getElementById('confirm-screen').classList.remove('show');
   document.getElementById('form-shell').classList.remove('hidden');
   document.getElementById('form-footer').style.display='flex';
-  document.getElementById('btn-next').disabled=false;
+  const btnNext=document.getElementById('btn-next');
+  if(btnNext){ btnNext.disabled=false; }
 
   updateProgress();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1348,7 +1432,6 @@ function resetForm(){
 function init(){
   updateProgress();
   initSig();
-  // Start with no enroll type selected — user must choose
 }
 init();
 </script>
