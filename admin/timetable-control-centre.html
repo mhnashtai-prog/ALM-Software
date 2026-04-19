@@ -763,18 +763,23 @@ function openNotify(id){
 }
 
 async function confirmNotify(){
+  const r=requests.find(x=>String(x.id)===String(notifyTarget));
   try{
     await sbPost('notification_log',{
       request_id:notifyTarget,
-      student_num:requests.find(x=>String(x.id)===String(notifyTarget))?.studentNum,
+      student_num:r?.studentNum,
       notified_at:new Date().toISOString(),
       type:'timetable_assigned'
     });
-    toast('Notificação registada.');
   }catch(e){
-    // notification_log table may not exist yet — not a critical error
-    toast('Notificação registada (log local).');
+    console.warn('notification_log not available',e);
   }
+  if(r&&r.email&&r.email!=='—'){
+    const subject=encodeURIComponent('ALM · Horário confirmado');
+    const body=encodeURIComponent(`Caro/a ${r.name},\n\nO seu horário foi confirmado.\nTurma: ${r.assignedClass||'a confirmar'}\nFilial: ${r.branch}\n\nALM`);
+    window.open(`mailto:${r.email}?subject=${subject}&body=${body}`);
+  }
+  toast('Notificação registada.');
   closeModal('notify-modal');
 }
 
