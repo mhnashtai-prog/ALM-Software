@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>ALM · Ficha de Matrícula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── RESET & TOKENS ── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --ivory:#F9F6EF;
+  --cream:#F2EDE2;
+  --sand:#E8DFC8;
+  --warm:#C9A96E;
+  --gold:#A07840;
+  --ink:#1C1814;
+  --ink2:#4A4238;
+  --ink3:#8A7D6A;
+  --ink4:#BDB2A0;
+  --teal:#0B6E5A;--teal-bg:rgba(11,110,90,0.08);--teal-bdr:rgba(11,110,90,0.2);
+  --red:#8B1F1F;--red-bg:rgba(139,31,31,0.07);--red-bdr:rgba(139,31,31,0.18);
+  --blue:#1A4B8A;
+  --border:#DDD5C4;
+  --rad:10px;
+  --step: clamp(14px, 2vw, 16px);
+}
+html{scroll-behavior:smooth}
+body{
+  min-height:100dvh;
+  background:var(--ivory);
+  font-family:'DM Sans',sans-serif;
+  font-size:var(--step);
+  color:var(--ink);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── HERO HEADER ── */
+.hero{
+  background:var(--ink);
+  padding:clamp(28px,5vw,48px) clamp(20px,5vw,48px) 0;
+  position:relative;
+  overflow:hidden;
+}
+.hero::before{
+  content:'';
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 80% at 80% 50%, rgba(201,169,110,0.12) 0%, transparent 70%),
+    repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px);
+  pointer-events:none;
+}
+.hero-inner{
+  max-width:700px;
+  margin:0 auto;
+  position:relative;z-index:1;
+}
+.hero-eyebrow{
+  display:flex;align-items:center;gap:10px;
+  font-family:'DM Mono',monospace;
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--warm);margin-bottom:20px;
+}
+.hero-eyebrow span{display:inline-block;width:24px;height:1px;background:var(--warm)}
+.hero-bc-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:4px 12px 4px 8px;
+  background:rgba(201,169,110,0.1);
+  border:1px solid rgba(201,169,110,0.25);
+  border-radius:999px;
+  font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--warm);margin-bottom:16px;
+}
+.bc-dot{width:6px;height:6px;border-radius:50%;background:var(--warm)}
+.hero-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(28px,6vw,52px);
+  font-weight:400;
+  color:#fff;
+  line-height:1.1;
+  letter-spacing:-0.02em;
+  margin-bottom:10px;
+}
+.hero-title em{font-style:italic;color:var(--warm)}
+.hero-sub{
+  font-size:clamp(13px,2vw,15px);
+  color:rgba(255,255,255,0.45);
+  margin-bottom:28px;
+  font-weight:300;
+  letter-spacing:0.01em;
+}
+/* progress rail */
+.progress-rail{
+  display:flex;align-items:center;gap:0;
+  padding-bottom:0;
+  border-top:1px solid rgba(255,255,255,0.08);
+  padding-top:20px;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.progress-rail::-webkit-scrollbar{display:none}
+.pr-step{
+  flex:1;min-width:60px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding-bottom:18px;
+  cursor:pointer;
+  transition:opacity .2s;
+  position:relative;
+}
+.pr-step::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:transparent;transition:background .3s;
+}
+.pr-step.done::after{background:var(--warm)}
+.pr-step.active::after{background:#fff}
+.pr-step:not(.active):not(.done){opacity:0.35}
+.pr-num{
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:600;
+  background:rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.5);
+  font-family:'DM Mono',monospace;
+  transition:all .2s;
+}
+.pr-step.done .pr-num{background:var(--warm);color:var(--ink)}
+.pr-step.active .pr-num{background:#fff;color:var(--ink)}
+.pr-lbl{font-size:9px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.4);white-space:nowrap}
+.pr-step.active .pr-lbl{color:#fff}
+.pr-step.done .pr-lbl{color:var(--warm)}
+
+/* ── BODY SHELL ── */
+.shell{
+  max-width:700px;
+  margin:0 auto;
+  padding:clamp(24px,4vw,40px) clamp(16px,4vw,32px) 120px;
+}
+
+/* ── SECTION CARD ── */
+.section{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+  margin-bottom:16px;
+  transition:box-shadow .2s;
+}
+.section:focus-within{box-shadow:0 0 0 3px rgba(160,120,64,0.12)}
+.sec-hdr{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  background:var(--cream);
+  cursor:pointer;
+  user-select:none;
+}
+.sec-num{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:600;font-family:'DM Mono',monospace;
+  flex-shrink:0;
+}
+.sec-hdr.done .sec-num{background:var(--teal)}
+.sec-title{font-size:13px;font-weight:600;letter-spacing:0.02em;color:var(--ink)}
+.sec-sub{font-size:11px;color:var(--ink3);margin-left:2px}
+.sec-check{margin-left:auto;font-size:12px;color:var(--teal);opacity:0;transition:opacity .2s}
+.sec-hdr.done .sec-check{opacity:1}
+.sec-body{padding:20px;display:flex;flex-direction:column;gap:14px}
+.sec-body.hidden{display:none}
+
+/* ── FIELD ── */
+.field{display:flex;flex-direction:column;gap:5px}
+.field-row{display:grid;gap:12px}
+.fr-2{grid-template-columns:1fr 1fr}
+.fr-3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:480px){.fr-2,.fr-3{grid-template-columns:1fr}}
+label{font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:0.04em;text-transform:uppercase}
+label .req{color:var(--red);margin-left:2px}
+input,select,textarea{
+  width:100%;
+  padding:11px 14px;
+  border:1.5px solid var(--border);
+  border-radius:var(--rad);
+  font-size:15px;
+  font-family:'DM Sans',sans-serif;
+  color:var(--ink);
+  background:#fff;
+  outline:none;
+  transition:border-color .15s,box-shadow .15s;
+  -webkit-appearance:none;
+  appearance:none;
+}
+input::placeholder,textarea::placeholder{color:var(--ink4);font-weight:300}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(160,120,64,0.1);
+}
+input.invalid,select.invalid{border-color:var(--red);box-shadow:0 0 0 3px var(--red-bg)}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238A7D6A' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+  padding-right:36px;
+  cursor:pointer;
+}
+select option{background:#fff;color:var(--ink)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+
+/* ── PHOTO UPLOAD ── */
+.photo-zone{
+  border:2px dashed var(--sand);
+  border-radius:12px;
+  padding:24px 16px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+  background:var(--cream);
+}
+.photo-zone:hover,.photo-zone.drag{border-color:var(--warm);background:rgba(201,169,110,0.05)}
+.photo-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-preview{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--warm);margin:0 auto 10px;display:block}
+.photo-icon{width:48px;height:48px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.photo-icon svg{width:22px;height:22px;stroke:var(--gold);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.photo-lbl{font-size:13px;font-weight:500;color:var(--ink2);margin-bottom:4px}
+.photo-hint{font-size:11px;color:var(--ink3)}
+
+/* ── COURSE SELECTOR ── */
+.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.course-card{
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  padding:12px 14px;
+  cursor:pointer;
+  transition:all .15s;
+  position:relative;
+  background:#fff;
+}
+.course-card:hover{border-color:var(--warm);background:rgba(201,169,110,0.04)}
+.course-card.selected{border-color:var(--gold);background:rgba(160,120,64,0.06)}
+.course-card input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;margin:0}
+.cc-icon{font-size:20px;margin-bottom:6px;display:block}
+.cc-name{font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:2px}
+.cc-desc{font-size:10px;color:var(--ink3);display:block;line-height:1.4}
+
+/* ── EXAM SELECTOR (pills) ── */
+.exam-pills{display:flex;flex-wrap:wrap;gap:7px}
+.exam-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 13px;
+  border:1.5px solid var(--border);
+  border-radius:999px;
+  cursor:pointer;
+  font-size:12px;font-weight:500;color:var(--ink2);
+  transition:all .15s;
+  position:relative;
+  background:#fff;
+}
+.exam-pill:hover{border-color:var(--warm)}
+.exam-pill.selected{border-color:var(--gold);background:rgba(160,120,64,0.07);color:var(--ink)}
+.exam-pill input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+.ep-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--cream);color:var(--gold);font-weight:600;font-family:'DM Mono',monospace}
+.exam-pill.selected .ep-badge{background:var(--warm);color:#fff}
+
+/* ── LEVEL SLIDER ── */
+.level-track{position:relative;padding:8px 0}
+.level-labels{display:flex;justify-content:space-between;margin-bottom:8px}
+.level-lbl{font-size:9px;color:var(--ink3);font-family:'DM Mono',monospace;font-weight:500}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:4px;
+  background:linear-gradient(to right,var(--warm) 0%,var(--warm) var(--pct,25%),var(--sand) var(--pct,25%),var(--sand) 100%);
+  border-radius:999px;padding:0;border:none;box-shadow:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:#fff;border:2.5px solid var(--warm);cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);transition:transform .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--warm);cursor:pointer}
+.level-val{text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--gold);margin-top:6px}
+
+/* ── GUARDIAN NOTICE ── */
+.guardian-notice{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 14px;
+  background:rgba(26,75,138,0.06);
+  border:1px solid rgba(26,75,138,0.18);
+  border-radius:8px;
+  font-size:12px;color:var(--blue);line-height:1.5;
+}
+.guardian-notice svg{width:16px;height:16px;stroke:var(--blue);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── SIGNATURE PAD ── */
+.sig-wrap{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#FAFAF8}
+.sig-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--cream)}
+.sig-lbl{font-size:10px;font-weight:600;color:var(--ink2);letter-spacing:0.06em;text-transform:uppercase}
+.sig-clear{font-size:11px;color:var(--ink3);cursor:pointer;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;transition:all .12s}
+.sig-clear:hover{color:var(--ink);border-color:var(--ink3)}
+canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
+.sig-hint{font-size:10px;color:var(--ink4);padding:5px 12px 8px;font-style:italic}
+
+/* ── GDPR TOGGLE ── */
+.gdpr-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--cream)}
+.gdpr-row:last-child{border-bottom:none}
+.toggle-wrap{flex-shrink:0;margin-top:2px}
+.toggle{position:relative;width:38px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;border-radius:999px;background:var(--sand);cursor:pointer;transition:background .2s}
+.toggle input:checked+.toggle-track{background:var(--teal)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,0.15)}
+.toggle input:checked~.toggle-thumb{transform:translateX(16px)}
+.gdpr-text{font-size:12px;color:var(--ink2);line-height:1.5;cursor:default}
+.gdpr-text strong{color:var(--ink);font-weight:600}
+
+/* ── HOW DID YOU FIND US ── */
+.referral-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
+.ref-card{
+  border:1.5px solid var(--border);border-radius:8px;padding:10px 10px;
+  cursor:pointer;text-align:center;font-size:11px;font-weight:500;color:var(--ink2);
+  transition:all .12s;position:relative;background:#fff;
+}
+.ref-card:hover{border-color:var(--warm)}
+.ref-card.selected{border-color:var(--gold);background:rgba(160,120,64,0.06);color:var(--ink)}
+.ref-card input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+.ref-icon{font-size:18px;display:block;margin-bottom:4px}
+
+/* ── SUBMIT FOOTER ── */
+.submit-footer{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(249,246,239,0.96);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  padding:14px clamp(16px,4vw,32px) calc(14px + env(safe-area-inset-bottom));
+  z-index:100;
+}
+.footer-inner{max-width:700px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.footer-progress{flex:1}
+.fp-bar{height:3px;background:var(--sand);border-radius:999px;overflow:hidden;margin-bottom:4px}
+.fp-fill{height:100%;background:var(--warm);border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.fp-txt{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:0.04em}
+.btn-prev{
+  padding:10px 18px;border-radius:9px;border:1.5px solid var(--border);
+  background:transparent;font-size:13px;font-weight:500;color:var(--ink2);
+  cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;
+}
+.btn-prev:hover{border-color:var(--gold);color:var(--ink)}
+.btn-next{
+  padding:11px 24px;border-radius:9px;border:none;
+  background:var(--ink);font-size:13px;font-weight:600;color:#fff;
+  cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;
+  letter-spacing:0.02em;
+}
+.btn-next:hover{background:var(--gold)}
+.btn-next:active{transform:scale(0.97)}
+.btn-next:disabled{background:var(--sand);color:var(--ink3);cursor:default}
+.btn-next.final{background:var(--teal)}
+.btn-next.final:hover{background:#0A5A49}
+
+/* ── CONFIRM SCREEN ── */
+.confirm-screen{display:none;padding:clamp(32px,6vw,56px) clamp(20px,4vw,32px) 120px;max-width:700px;margin:0 auto;text-align:center}
+.confirm-screen.show{display:block}
+.shell.hidden{display:none}
+.confirm-icon{
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(11,110,90,0.1);border:2px solid rgba(11,110,90,0.3);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+}
+.confirm-icon svg{width:34px;height:34px;stroke:var(--teal);stroke-width:1.8;fill:none}
+.confirm-title{font-family:'Playfair Display',serif;font-size:clamp(24px,5vw,36px);color:var(--ink);margin-bottom:10px}
+.confirm-sub{font-size:14px;color:var(--ink3);line-height:1.7;max-width:420px;margin:0 auto 24px}
+.confirm-ref{
+  display:inline-block;
+  padding:8px 22px;border-radius:999px;
+  background:var(--cream);border:1px solid var(--sand);
+  font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--gold);
+  letter-spacing:0.1em;margin-bottom:20px;
+}
+.confirm-card{
+  background:#fff;border:1px solid var(--border);border-radius:14px;
+  padding:20px;text-align:left;margin-bottom:20px;
+}
+.cc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--cream)}
+.cc-row:last-child{border-bottom:none}
+.cc-k{font-size:11px;color:var(--ink3)}
+.cc-v{font-size:12px;font-weight:500;color:var(--ink)}
+.confirm-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.ca-btn{
+  padding:11px 24px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .15s;text-decoration:none;display:inline-block;
+}
+.ca-primary{background:var(--ink);color:#fff;border:none}
+.ca-primary:hover{background:var(--gold)}
+.ca-secondary{background:transparent;border:1.5px solid var(--border);color:var(--ink2)}
+.ca-secondary:hover{border-color:var(--warm);color:var(--ink)}
+
+/* ── INLINE NOTICE ── */
+.field-notice{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;background:rgba(160,120,64,0.06);border:1px solid rgba(160,120,64,0.18);border-radius:8px;font-size:11px;color:var(--ink2);line-height:1.5}
+.field-notice svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
+.error-msg{font-size:11px;color:var(--red);margin-top:2px;display:none}
+.error-msg.show{display:block}
+
+/* ── SAVE STRIP (magic footer) ── */
+.save-strip{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--ink);
+  padding:0 clamp(16px,4vw,32px);
+  display:flex;align-items:center;
+  height:0;overflow:hidden;
+  transition:height .3s cubic-bezier(.4,0,.2,1);
+  z-index:200;
+}
+.save-strip.show{height:calc(54px + env(safe-area-inset-bottom))}
+.ss-inner{max-width:700px;margin:0 auto;width:100%;display:flex;align-items:center;gap:12px;padding-bottom:env(safe-area-inset-bottom)}
+.ss-txt{font-size:12px;color:rgba(255,255,255,0.6);flex:1}
+.ss-txt strong{color:#fff;font-weight:500}
+.ss-btn{padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;border:none}
+.ss-save{background:var(--warm);color:var(--ink)}
+.ss-save:hover{background:var(--gold)}
+.ss-dismiss{background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5)}
+.ss-dismiss:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.section{animation:fadeUp .35s ease both}
+.section:nth-child(1){animation-delay:.05s}
+.section:nth-child(2){animation-delay:.1s}
+.section:nth-child(3){animation-delay:.15s}
+.section:nth-child(4){animation-delay:.2s}
+.section:nth-child(5){animation-delay:.25s}
+.section:nth-child(6){animation-delay:.3s}
+.section:nth-child(7){animation-delay:.35s}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.loading-pulse{animation:pulse 1.4s ease infinite}
+
+/* ── SUPABASE STATE ── */
+.sb-status{display:flex;align-items:center;gap:6px;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:0.06em;margin-top:12px}
+.sb-dot{width:6px;height:6px;border-radius:50%}
+.sb-dot.ok{background:#2ECC8A}
+.sb-dot.err{background:#E8455A}
+.sb-dot.pending{background:var(--warm);animation:pulse 1.4s ease infinite}
+
+/* ── UTILS ── */
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow"><span></span>Academia de Línguas da Madeira<span></span></div>
+    <div class="hero-bc-badge"><div class="bc-dot"></div>British Council Authorised Examination Centre</div>
+    <h1 class="hero-title">Ficha de <em>Matrícula</em></h1>
+    <p class="hero-sub">Ano Lectivo 2026 / 2027 · Setembro a Junho</p>
+    <div class="progress-rail" id="progress-rail">
+      <div class="pr-step active" data-step="0" onclick="goToStep(0)">
+        <div class="pr-num">1</div><div class="pr-lbl">Identificação</div>
+      </div>
+      <div class="pr-step" data-step="1" onclick="goToStep(1)">
+        <div class="pr-num">2</div><div class="pr-lbl">Contacto</div>
+      </div>
+      <div class="pr-step" data-step="2" onclick="goToStep(2)">
+        <div class="pr-num">3</div><div class="pr-lbl">Curso</div>
+      </div>
+      <div class="pr-step" data-step="3" onclick="goToStep(3)">
+        <div class="pr-num">4</div><div class="pr-lbl">Exames</div>
+      </div>
+      <div class="pr-step" data-step="4" onclick="goToStep(4)">
+        <div class="pr-num">5</div><div class="pr-lbl">Encarregado</div>
+      </div>
+      <div class="pr-step" data-step="5" onclick="goToStep(5)">
+        <div class="pr-num">6</div><div class="pr-lbl">RGPD</div>
+      </div>
+      <div class="pr-step" data-step="6" onclick="goToStep(6)">
+        <div class="pr-num">7</div><div class="pr-lbl">Revisão</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FORM STEPS ── -->
+<div class="shell" id="form-shell">
+
+  <!-- STEP 0: IDENTITY -->
+  <div class="section" id="step-0">
+    <div class="sec-hdr" onclick="toggleSection(0)">
+      <div class="sec-num">1</div>
+      <div><div class="sec-title">Identificação</div><div class="sec-sub">Dados pessoais do aluno</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body">
+      <!-- Photo -->
+      <div class="photo-zone" id="photo-zone">
+        <input type="file" accept="image/*" capture="user" id="photo-input" onchange="handlePhoto(this)"/>
+        <img class="photo-preview hidden" id="photo-preview" src="" alt="Foto do aluno"/>
+        <div id="photo-placeholder">
+          <div class="photo-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 20c0-4-3.6-7-8-7s-8 3-8 7"/><path d="M12 16l1.5-3M21 6l-3 3-1.5-1.5" stroke-width="1.5"/><circle cx="17.5" cy="4.5" r="2.5" stroke-width="1.5"/><polyline points="16.5 4.5 17.5 5.5 19 4" stroke-width="1.5"/></svg>
+          </div>
+          <div class="photo-lbl">Fotografia do aluno</div>
+          <div class="photo-hint">Toque para fotografar ou escolher da galeria</div>
+        </div>
+      </div>
+
+      <div class="field-row fr-2">
+        <div class="field">
+          <label>Tipo de matrícula<span class="req">*</span></label>
+          <select id="enroll-type" onchange="handleEnrollType()">
+            <option value="">Selecionar…</option>
+            <option value="new">Novo aluno</option>
+            <option value="returning">Aluno existente — renovação</option>
+          </select>
+        </div>
+        <div class="field" id="existing-num-field" style="display:none">
+          <label>N.º de aluno ALM</label>
+          <input type="text" id="existing-num" placeholder="ALM-0001" oninput="lookupExisting()"/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nome completo<span class="req">*</span></label>
+        <input type="text" id="name" placeholder="Nome próprio e apelido" autocomplete="name" oninput="markDirty()"/>
+      </div>
+
+      <div class="field-row fr-3">
+        <div class="field">
+          <label>Data de nascimento<span class="req">*</span></label>
+          <input type="date" id="dob" onchange="checkMinor()"/>
+        </div>
+        <div class="field">
+          <label>Nacionalidade</label>
+          <input type="text" id="nationality" placeholder="Ex: Portuguesa" oninput="markDirty()"/>
+        </div>
+        <div class="field">
+          <label>Género</label>
+          <select id="gender">
+            <option value="">—</option>
+            <option value="F">Feminino</option>
+            <option value="M">Masculino</option>
+            <option value="NB">Não-binário</option>
+            <option value="X">Prefiro não indicar</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>N.º de identificação (CC / Passaporte)</label>
+        <input type="text" id="id-number" placeholder="12345678 A" oninput="markDirty()"/>
+      </div>
+
+      <div class="field-row fr-2">
+        <div class="field">
+          <label>NIF</label>
+          <input type="text" id="nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
+        </div>
+        <div class="field">
+          <label>País de residência</label>
+          <select id="country">
+            <option value="PT">Portugal</option>
+            <option value="BR">Brazil</option>
+            <option value="AO">Angola</option>
+            <option value="MZ">Moçambique</option>
+            <option value="UK">Reino Unido</option>
+            <option value="FR">França</option>
+            <option value="DE">Alemanha</option>
+            <option value="OTHER">Outro</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1: CONTACT -->
+  <div class="section" id="step-1">
+    <div class="sec-hdr" onclick="toggleSection(1)">
+      <div class="sec-num">2</div>
+      <div><div class="sec-title">Contacto</div><div class="sec-sub">Como chegamos ao aluno</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body">
+      <div class="field-row fr-2">
+        <div class="field">
+          <label>Email<span class="req">*</span></label>
+          <input type="email" id="email" placeholder="email@exemplo.com" autocomplete="email" oninput="markDirty()"/>
+        </div>
+        <div class="field">
+          <label>Telemóvel<span class="req">*</span></label>
+          <input type="tel" id="phone" placeholder="9XX XXX XXX" autocomplete="tel" oninput="markDirty()"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>Morada</label>
+        <input type="text" id="address" placeholder="Rua, número, código postal, localidade" autocomplete="street-address" oninput="markDirty()"/>
+      </div>
+      <div class="field-row fr-2">
+        <div class="field">
+          <label>Filial preferencial<span class="req">*</span></label>
+          <select id="branch" onchange="markDirty()">
+            <option value="">Selecionar filial…</option>
+            <option value="Funchal · Sede">Funchal · Sede</option>
+            <option value="Machico">Machico</option>
+            <option value="S. Cruz">Santa Cruz</option>
+            <option value="R. Brava">Ribeira Brava</option>
+            <option value="Calheta">Calheta</option>
+            <option value="P. do Sol">Ponta do Sol</option>
+            <option value="Estreito">Estreito de Câmara de Lobos</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Como nos conheceu</label>
+          <div class="referral-grid">
+            <label class="ref-card" id="ref-friend">
+              <input type="radio" name="referral" value="friend" onchange="markDirty()"/>
+              <span class="ref-icon">👥</span>Amigo / Família
+            </label>
+            <label class="ref-card" id="ref-social">
+              <input type="radio" name="referral" value="social" onchange="markDirty()"/>
+              <span class="ref-icon">📱</span>Redes sociais
+            </label>
+            <label class="ref-card" id="ref-search">
+              <input type="radio" name="referral" value="search" onchange="markDirty()"/>
+              <span class="ref-icon">🔍</span>Pesquisa online
+            </label>
+            <label class="ref-card" id="ref-walk">
+              <input type="radio" name="referral" value="walk" onchange="markDirty()"/>
+              <span class="ref-icon">🚶</span>Passei na rua
+            </label>
+            <label class="ref-card" id="ref-school">
+              <input type="radio" name="referral" value="school" onchange="markDirty()"/>
+              <span class="ref-icon">🏫</span>Escola parceira
+            </label>
+            <label class="ref-card" id="ref-other">
+              <input type="radio" name="referral" value="other" onchange="markDirty()"/>
+              <span class="ref-icon">✨</span>Outro
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: COURSE -->
+  <div class="section" id="step-2">
+    <div class="sec-hdr" onclick="toggleSection(2)">
+      <div class="sec-num">3</div>
+      <div><div class="sec-title">Curso</div><div class="sec-sub">Língua, nível e tipo</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body">
+      <div class="field-row fr-2">
+        <div class="field">
+          <label>Língua<span class="req">*</span></label>
+          <select id="lang" onchange="markDirty()">
+            <option value="">Selecionar…</option>
+            <option value="English">🇬🇧 English</option>
+            <option value="Português">🇵🇹 Português (Língua estrangeira)</option>
+            <option value="Español">🇪🇸 Español</option>
+            <option value="Deutsch">🇩🇪 Deutsch</option>
+            <option value="Français">🇫🇷 Français</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tipo de curso<span class="req">*</span></label>
+          <div class="course-grid">
+            <label class="course-card">
+              <input type="radio" name="course" value="adults" onchange="updateCourseType('adults')"/>
+              <span class="cc-icon">👤</span>
+              <span class="cc-name">Adultos</span>
+              <span class="cc-desc">+12 anos · 80 min/sessão</span>
+            </label>
+            <label class="course-card">
+              <input type="radio" name="course" value="preparatórios" onchange="updateCourseType('kids')"/>
+              <span class="cc-icon">🧒</span>
+              <span class="cc-name">preparatórios</span>
+              <span class="cc-desc">até 12 anos · 80 min/sessão</span>
+            </label>
+            <label class="course-card">
+              <input type="radio" name="course" value="exam" onchange="updateCourseType('exam')"/>
+              <span class="cc-icon">🎓</span>
+              <span class="cc-name">Exame</span>
+              <span class="cc-desc">Cambridge / DELF · 110 min</span>
+            </label>
+            <label class="course-card">
+              <input type="radio" name="course" value="intensive" onchange="updateCourseType('intensive')"/>
+              <span class="cc-icon">⚡</span>
+              <span class="cc-name">Intensivo</span>
+              <span class="cc-desc">Férias / projectos</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nível actual</label>
+        <div class="level-track">
+          <div class="level-labels">
+            <span class="level-lbl">preparatórios</span>
+            <span class="level-lbl">Iniciante</span>
+            <span class="level-lbl">A1</span>
+            <span class="level-lbl">A2</span>
+            <span class="level-lbl">B1</span>
+            <span class="level-lbl">B2</span>
+            <span class="level-lbl">C1</span>
+            <span class="level-lbl">C2</span>
+          </div>
+          <input type="range" id="level-slider" min="0" max="6" step="1" value="0" oninput="updateLevel(this.value)" style="--pct:0%"/>
+          <div class="level-val" id="level-val">Iniciante</div>
+        </div>
+        <div class="field-notice">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+          Se não sabe o seu nível, a ALM realizará um teste de nivelamento gratuito antes do início das aulas.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Observações sobre o curso</label>
+        <textarea id="course-notes" placeholder="Ex: experiência prévia, objectivos, preferências de horário…" oninput="markDirty()"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: EXAMS -->
+  <div class="section" id="step-3">
+    <div class="sec-hdr" onclick="toggleSection(3)">
+      <div class="sec-num">4</div>
+      <div><div class="sec-title">Exames Cambridge</div><div class="sec-sub">British Council Examination Centre</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body">
+      <div class="field-notice">
+        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Como centro autorizado pelo British Council, podemos inscrever alunos em todos os exames Cambridge English (KET, PET, FCE, CAE, CPE, IELTS) e DELF/DALF.
+      </div>
+
+      <div class="field">
+        <label>Pretende realizar exame oficial este ano lectivo?</label>
+        <div class="exam-pills">
+          <label class="exam-pill">
+            <input type="radio" name="exam-intent" value="no" checked onchange="toggleExamDetails(false)"/>
+            Não por agora
+          </label>
+          <label class="exam-pill">
+            <input type="radio" name="exam-intent" value="yes" onchange="toggleExamDetails(true)"/>
+            Sim, quero inscrever-me
+          </label>
+          <label class="exam-pill">
+            <input type="radio" name="exam-intent" value="maybe" onchange="toggleExamDetails(false)"/>
+            Talvez — vou decidir depois
+          </label>
+        </div>
+      </div>
+
+      <div id="exam-details" style="display:none">
+        <div class="field">
+          <label>Exame pretendido<span class="req">*</span></label>
+          <div class="exam-pills" style="flex-direction:column;align-items:flex-start;gap:8px">
+            <label class="exam-pill"><input type="radio" name="exam-name" value="KET"/><span>Cambridge KET (A2)</span><span class="ep-badge">A2</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="PET"/><span>Cambridge PET (B1)</span><span class="ep-badge">B1</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="FCE"/><span>Cambridge FCE (B2)</span><span class="ep-badge">B2</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="CAE"/><span>Cambridge CAE (C1)</span><span class="ep-badge">C1</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="CPE"/><span>Cambridge CPE (C2)</span><span class="ep-badge">C2</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="IELTS"/><span>IELTS Academic / General</span><span class="ep-badge">BC</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="DELF"/><span>DELF / DALF (Français)</span><span class="ep-badge">FR</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="DELE"/><span>DELE (Español)</span><span class="ep-badge">ES</span></label>
+            <label class="exam-pill"><input type="radio" name="exam-name" value="Goethe"/><span>Goethe-Zertifikat (Deutsch)</span><span class="ep-badge">DE</span></label>
+          </div>
+        </div>
+        <div class="field-row fr-2">
+          <div class="field">
+            <label>Data aproximada do exame</label>
+            <input type="month" id="exam-date"/>
+          </div>
+          <div class="field">
+            <label>Sessão preferencial</label>
+            <select id="exam-session">
+              <option value="">—</option>
+              <option value="nov">Novembro 2025</option>
+              <option value="feb">Fevereiro 2026</option>
+              <option value="may">Maio 2026</option>
+              <option value="jun">Junho 2026</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Já realizou exames anteriores? Resultados?</label>
+          <textarea id="exam-history" placeholder="Ex: FCE em 2023 — nota B. Ou primeira vez a realizar exame." rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: GUARDIAN -->
+  <div class="section" id="step-4">
+    <div class="sec-hdr" onclick="toggleSection(4)">
+      <div class="sec-num">5</div>
+      <div><div class="sec-title">Encarregado de Educação</div><div class="sec-sub" id="guardian-sub">Para menores de 18 anos</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body" id="guardian-body">
+      <div class="guardian-notice" id="guardian-notice" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        O aluno é menor de idade. O consentimento e assinatura do encarregado de educação são obrigatórios por lei.
+      </div>
+      <div class="field">
+        <label>Nome do encarregado</label>
+        <input type="text" id="g-name" placeholder="Nome completo do encarregado" oninput="markDirty()"/>
+      </div>
+      <div class="field-row fr-3">
+        <div class="field">
+          <label>Relação</label>
+          <select id="g-relation">
+            <option value="">—</option>
+            <option value="pai">Pai</option>
+            <option value="mae">Mãe</option>
+            <option value="avo">Avó / Avô</option>
+            <option value="tutor">Tutor legal</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Telemóvel</label>
+          <input type="tel" id="g-phone" placeholder="9XX XXX XXX" oninput="markDirty()"/>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="g-email" placeholder="encarregado@email.com" oninput="markDirty()"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>NIF do encarregado (para facturação)</label>
+        <input type="text" id="g-nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
+      </div>
+      <!-- Signature -->
+      <div class="field" id="sig-field" style="display:none">
+        <label>Assinatura do encarregado</label>
+        <div class="sig-wrap">
+          <div class="sig-bar">
+            <span class="sig-lbl">Assinar aqui</span>
+            <button type="button" class="sig-clear" onclick="clearSig()">Apagar</button>
+          </div>
+          <canvas id="sig-canvas" width="640" height="88"></canvas>
+          <div class="sig-hint">Assine com o dedo ou rato dentro desta área</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5: GDPR -->
+  <div class="section" id="step-5">
+    <div class="sec-hdr" onclick="toggleSection(5)">
+      <div class="sec-num">6</div>
+      <div><div class="sec-title">Privacidade & Consentimentos</div><div class="sec-sub">RGPD · Regulamento Geral de Proteção de Dados</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body">
+      <div class="gdpr-row">
+        <label class="toggle"><input type="checkbox" id="gdpr-terms" onchange="checkGdpr()"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        <div class="gdpr-text"><strong>Termos e condições</strong> — Declaro ter lido e aceito os termos e condições da Academia de Línguas da Madeira, incluindo a política de cancelamento e de faltas.</div>
+      </div>
+      <div class="gdpr-row">
+        <label class="toggle"><input type="checkbox" id="gdpr-data" onchange="checkGdpr()"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        <div class="gdpr-text"><strong>Tratamento de dados pessoais</strong> — Autorizo o tratamento dos meus dados pessoais para fins de gestão académica, de acordo com o RGPD e a política de privacidade da ALM.</div>
+      </div>
+      <div class="gdpr-row">
+        <label class="toggle"><input type="checkbox" id="gdpr-photo"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        <div class="gdpr-text"><strong>Imagem</strong> — Autorizo a utilização da minha imagem em materiais pedagógicos e de divulgação da escola (opcional).</div>
+      </div>
+      <div class="gdpr-row">
+        <label class="toggle"><input type="checkbox" id="gdpr-bc"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        <div class="gdpr-text"><strong>Partilha com o British Council</strong> — Para inscrição em exames Cambridge, autorizo a partilha dos meus dados com o British Council / Cambridge Assessment English (opcional).</div>
+      </div>
+      <div class="gdpr-row">
+        <label class="toggle"><input type="checkbox" id="gdpr-comms"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        <div class="gdpr-text"><strong>Comunicações</strong> — Aceito receber informações sobre cursos, exames e eventos da ALM por email e SMS (opcional).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 6: REVIEW -->
+  <div class="section" id="step-6">
+    <div class="sec-hdr" onclick="toggleSection(6)">
+      <div class="sec-num">7</div>
+      <div><div class="sec-title">Revisão final</div><div class="sec-sub">Confirme antes de enviar</div></div>
+      <span class="sec-check">✓</span>
+    </div>
+    <div class="sec-body" id="review-body">
+      <div id="review-content"></div>
+      <div class="field-notice" id="review-warnings" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="review-warn-txt"></span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ── CONFIRM SCREEN ── -->
+<div class="confirm-screen" id="confirm-screen">
+  <div class="confirm-icon">
+    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <h2 class="confirm-title">Matrícula registada</h2>
+  <p class="confirm-sub">A sua ficha foi submetida com sucesso. A equipa ALM irá confirmar a sua inscrição em breve.</p>
+  <div class="confirm-ref" id="confirm-ref">ALM-2026-0000</div>
+  <div class="confirm-card" id="confirm-summary"></div>
+  <div style="text-align:left;padding:14px 16px;background:var(--teal-bg);border:1px solid var(--teal-bdr);border-radius:10px;margin-bottom:20px">
+    <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:8px">Próximos passos</div>
+    <div style="font-size:12px;color:var(--ink2);line-height:1.8">
+      1. Receberá um email de confirmação em <strong id="confirm-email-txt">—</strong><br>
+      2. A ALM contactará para agendar teste de nivelamento (se aplicável)<br>
+      3. Receberá as informações do seu horário e turma em Setembro<br>
+      4. Pagamento da matrícula processado na primeira aula
+    </div>
+  </div>
+  <div class="confirm-actions">
+    <a href="students/index.html" class="ca-btn ca-primary">Portal do aluno →</a>
+    <a href="admin/dashboard.html" class="ca-btn ca-secondary">Painel ALM</a>
+    <button onclick="resetForm()" class="ca-btn ca-secondary">Nova matrícula</button>
+  </div>
+  <div class="sb-status" id="sb-status-confirm" style="justify-content:center;margin-top:16px">
+    <div class="sb-dot pending" id="sb-dot"></div>
+    <span id="sb-txt" style="color:var(--ink3)">A guardar no Supabase…</span>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<div class="submit-footer" id="submit-footer">
+  <div class="footer-inner">
+    <div class="footer-progress">
+      <div class="fp-bar"><div class="fp-fill" id="fp-fill" style="width:14%"></div></div>
+      <div class="fp-txt" id="fp-txt">Passo 1 de 7</div>
+    </div>
+    <button class="btn-prev" id="btn-prev" onclick="prevStep()" style="display:none">← Anterior</button>
+    <button class="btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
+  </div>
+</div>
+
+<!-- ── SAVE STRIP (magic auto-save) ── -->
+<div class="save-strip" id="save-strip">
+  <div class="ss-inner">
+    <div class="ss-txt"><strong>Dados não guardados</strong> — quer guardar o progresso?</div>
+    <button class="ss-btn ss-save" onclick="autoSave()">Guardar</button>
+    <button class="ss-btn ss-dismiss" onclick="dismissSave()">Dispensar</button>
+  </div>
+</div>
+
+<script>
+/* ── SUPABASE ── */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+async function sbPost(table,body){
+  const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:H,body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(table,qs,body){
+  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+
+/* ── STATE ── */
+let currentStep=0;
+const TOTAL_STEPS=7;
+const LEVELS=['Iniciante','A1','A2','B1','B2','C1','C2'];
+let isDirty=false;
+let saveTimer=null;
+let isMinor=false;
+let photoDataUrl=null;
+let sigDrawing=false;
+let sigCtx=null;
+let draftId=null; // Supabase draft row id
+
+/* ── INIT ── */
+function init(){
+  initSig();
+  updateProgress();
+  restoreDraft();
+  updateReferralStyles();
+  initRadioStyles();
+}
+
+/* ── STEP NAVIGATION ── */
+function nextStep(){
+  if(currentStep<TOTAL_STEPS-1){
+    if(!validateStep(currentStep))return;
+    markStepDone(currentStep);
+    currentStep++;
+    updateProgress();
+    if(currentStep===TOTAL_STEPS-1)buildReview();
+    scrollToTop();
+  } else {
+    submitForm();
+  }
+}
+
+function prevStep(){
+  if(currentStep>0){currentStep--;updateProgress();scrollToTop();}
+}
+
+function goToStep(step){
+  if(step>currentStep)return; // can only go back
+  currentStep=step;
+  updateProgress();
+  scrollToTop();
+}
+
+function scrollToTop(){
+  document.querySelector('.hero').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function validateStep(step){
+  let ok=true;
+  if(step===0){
+    if(!v('name'))ok=false;
+    if(!v('dob'))ok=false;
+  }
+  if(step===1){
+    if(!v('email'))ok=false;
+    if(!v('phone'))ok=false;
+    if(!v('branch'))ok=false;
+  }
+  if(step===2){
+    if(!v('lang'))ok=false;
+    const course=document.querySelector('input[name="course"]:checked');
+    if(!course){ok=false;/* visual cue */}
+  }
+  if(step===5){
+    if(!document.getElementById('gdpr-terms').checked||!document.getElementById('gdpr-data').checked){
+      alert('Os primeiros dois consentimentos são obrigatórios para prosseguir.');
+      ok=false;
+    }
+  }
+  return ok;
+}
+
+function v(id){
+  const el=document.getElementById(id);
+  if(!el)return true;
+  const ok=el.value.trim()!=='';
+  el.classList.toggle('invalid',!ok);
+  return ok;
+}
+
+function markStepDone(step){
+  const sec=document.querySelector(`[id="step-${step}"] .sec-hdr`);
+  if(sec)sec.classList.add('done');
+  const pr=document.querySelector(`.pr-step[data-step="${step}"]`);
+  if(pr){pr.classList.remove('active');pr.classList.add('done');}
+}
+
+function updateProgress(){
+  // progress rail
+  document.querySelectorAll('.pr-step').forEach((el,i)=>{
+    el.classList.toggle('active',i===currentStep);
+  });
+  // footer bar
+  const pct=Math.round((currentStep+1)/TOTAL_STEPS*100);
+  document.getElementById('fp-fill').style.width=pct+'%';
+  document.getElementById('fp-txt').textContent=`Passo ${currentStep+1} de ${TOTAL_STEPS}`;
+  // buttons
+  const btnPrev=document.getElementById('btn-prev');
+  const btnNext=document.getElementById('btn-next');
+  btnPrev.style.display=currentStep>0?'':'none';
+  if(currentStep===TOTAL_STEPS-1){
+    btnNext.textContent='Submeter matrícula ✓';
+    btnNext.classList.add('final');
+  } else {
+    btnNext.textContent='Continuar →';
+    btnNext.classList.remove('final');
+  }
+  // show/hide sections based on step
+  for(let i=0;i<TOTAL_STEPS;i++){
+    const sec=document.getElementById('step-'+i);
+    if(sec){
+      sec.style.opacity=i<=currentStep?'1':'0.4';
+      sec.style.pointerEvents=i===currentStep?'auto':'none';
+    }
+  }
+  // hide footer in confirm state
+  if(document.getElementById('confirm-screen').classList.contains('show')){
+    document.getElementById('submit-footer').style.display='none';
+  }
+}
+
+function toggleSection(idx){
+  // allow re-opening done sections
+  if(idx<currentStep){currentStep=idx;updateProgress();}
+}
+
+/* ── LEVEL SLIDER ── */
+function updateLevel(val){
+  const pct=(val/6*100)+'%';
+  document.getElementById('level-slider').style.setProperty('--pct',pct);
+  document.getElementById('level-val').textContent=LEVELS[val];
+  markDirty();
+}
+
+/* ── COURSE TYPE ── */
+function updateCourseType(type){
+  document.querySelectorAll('.course-card').forEach(c=>{
+    c.classList.toggle('selected',c.querySelector('input').value===type);
+  });
+  markDirty();
+}
+function initRadioStyles(){
+  document.querySelectorAll('.course-card input').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      document.querySelectorAll('.course-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
+    });
+  });
+  document.querySelectorAll('.exam-pill input').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const name=inp.getAttribute('name');
+      document.querySelectorAll(`.exam-pill input[name="${name}"]`).forEach(o=>{
+        o.closest('.exam-pill').classList.toggle('selected',o.checked);
+      });
+    });
+  });
+  document.querySelectorAll('.ref-card input').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      document.querySelectorAll('.ref-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
+    });
+  });
+}
+function updateReferralStyles(){
+  document.querySelectorAll('.ref-card').forEach(c=>{
+    c.classList.toggle('selected',c.querySelector('input').checked);
+  });
+}
+
+/* ── MINOR CHECK ── */
+function checkMinor(){
+  const dob=document.getElementById('dob').value;
+  if(!dob)return;
+  const age=Math.floor((Date.now()-new Date(dob))/(365.25*24*60*60*1000));
+  isMinor=age<18;
+  document.getElementById('guardian-notice').style.display=isMinor?'flex':'none';
+  document.getElementById('sig-field').style.display=isMinor?'block':'none';
+  const sub=document.getElementById('guardian-sub');
+  sub.textContent=isMinor?`⚠ Menor — ${age} anos — consentimento obrigatório`:'Para menores de 18 anos';
+  sub.style.color=isMinor?'var(--red)':'';
+  markDirty();
+}
+
+/* ── ENROLL TYPE ── */
+function handleEnrollType(){
+  const type=document.getElementById('enroll-type').value;
+  document.getElementById('existing-num-field').style.display=type==='returning'?'block':'none';
+}
+
+async function lookupExisting(){
+  const num=document.getElementById('existing-num').value.trim();
+  if(num.length<7)return;
+  // Could fetch existing student data here
+  // For now just accept the number
+}
+
+/* ── EXAM TOGGLE ── */
+function toggleExamDetails(show){
+  document.getElementById('exam-details').style.display=show?'block':'none';
+  document.querySelectorAll('.exam-pill').forEach(p=>{
+    p.classList.toggle('selected',p.querySelector('input').checked);
+  });
+}
+
+/* ── GDPR CHECK ── */
+function checkGdpr(){
+  const ok=document.getElementById('gdpr-terms').checked&&document.getElementById('gdpr-data').checked;
+  document.getElementById('btn-next').disabled=!ok&&currentStep===5;
+}
+
+/* ── PHOTO ── */
+function handlePhoto(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    photoDataUrl=e.target.result;
+    const img=document.getElementById('photo-preview');
+    img.src=photoDataUrl;
+    img.classList.remove('hidden');
+    document.getElementById('photo-placeholder').classList.add('hidden');
+    markDirty();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── SIGNATURE ── */
+function initSig(){
+  const canvas=document.getElementById('sig-canvas');
+  const ctx=canvas.getContext('2d');
+  sigCtx=ctx;
+  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()||'#1C1814';
+  ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+  const onStart=e=>{
+    e.preventDefault();sigDrawing=true;ctx.beginPath();
+    const pos=getPos(e,canvas);ctx.moveTo(pos.x,pos.y);
+  };
+  const onMove=e=>{
+    e.preventDefault();if(!sigDrawing)return;
+    const pos=getPos(e,canvas);ctx.lineTo(pos.x,pos.y);ctx.stroke();
+    markDirty();
+  };
+  const onEnd=()=>sigDrawing=false;
+  canvas.addEventListener('mousedown',onStart);canvas.addEventListener('mousemove',onMove);
+  canvas.addEventListener('mouseup',onEnd);canvas.addEventListener('mouseleave',onEnd);
+  canvas.addEventListener('touchstart',onStart,{passive:false});
+  canvas.addEventListener('touchmove',onMove,{passive:false});
+  canvas.addEventListener('touchend',onEnd);
+}
+function getPos(e,canvas){
+  const r=canvas.getBoundingClientRect();
+  const src=e.touches?e.touches[0]:e;
+  return{x:(src.clientX-r.left)*(canvas.width/r.width),y:(src.clientY-r.top)*(canvas.height/r.height)};
+}
+function clearSig(){
+  const canvas=document.getElementById('sig-canvas');
+  sigCtx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+/* ── REVIEW BUILD ── */
+function buildReview(){
+  const lang=document.getElementById('lang').value;
+  const course=document.querySelector('input[name="course"]:checked');
+  const exam=document.querySelector('input[name="exam-name"]:checked');
+  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
+  const lvl=LEVELS[document.getElementById('level-slider').value];
+
+  const warnings=[];
+  if(!document.getElementById('name').value)warnings.push('Nome do aluno em falta');
+  if(!document.getElementById('email').value)warnings.push('Email em falta');
+  if(!lang)warnings.push('Língua não seleccionada');
+  if(!course)warnings.push('Tipo de curso não seleccionado');
+
+  document.getElementById('review-content').innerHTML=`
+    <div class="confirm-card" style="margin-bottom:0">
+      <div class="cc-row"><span class="cc-k">Nome</span><span class="cc-v">${document.getElementById('name').value||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Data de nascimento</span><span class="cc-v">${formatDate(document.getElementById('dob').value)}</span></div>
+      <div class="cc-row"><span class="cc-k">Email</span><span class="cc-v">${document.getElementById('email').value||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Telemóvel</span><span class="cc-v">${document.getElementById('phone').value||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Filial</span><span class="cc-v">${document.getElementById('branch').value||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Língua</span><span class="cc-v">${lang||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Tipo de curso</span><span class="cc-v">${course?.value||'—'}</span></div>
+      <div class="cc-row"><span class="cc-k">Nível actual</span><span class="cc-v">${lvl}</span></div>
+      ${examIntent?.value==='yes'?`<div class="cc-row"><span class="cc-k">Exame</span><span class="cc-v">${exam?.value||'A definir'}</span></div>`:''}
+      ${document.getElementById('g-name').value?`<div class="cc-row"><span class="cc-k">Encarregado</span><span class="cc-v">${document.getElementById('g-name').value}</span></div>`:''}
+    </div>`;
+
+  const warnEl=document.getElementById('review-warnings');
+  const warnTxt=document.getElementById('review-warn-txt');
+  if(warnings.length){
+    warnEl.style.display='flex';
+    warnTxt.textContent='Atenção: '+warnings.join(' · ');
+  } else {
+    warnEl.style.display='none';
+  }
+}
+
+function formatDate(d){
+  if(!d)return'—';
+  const dt=new Date(d+'T12:00:00');
+  return dt.toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
+}
+
+/* ── SUBMIT ── */
+async function submitForm(){
+  const btn=document.getElementById('btn-next');
+  btn.textContent='A submeter…';btn.disabled=true;
+
+  const course=document.querySelector('input[name="course"]:checked');
+  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
+  const examName=document.querySelector('input[name="exam-name"]:checked');
+  const referral=document.querySelector('input[name="referral"]:checked');
+
+  const ref='ALM-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9999)+1).padStart(4,'0');
+
+  const payload={
+    ref,
+    enroll_type:document.getElementById('enroll-type').value||'new',
+    name:document.getElementById('name').value.trim(),
+    dob:document.getElementById('dob').value,
+    nationality:document.getElementById('nationality').value,
+    gender:document.getElementById('gender').value,
+    id_number:document.getElementById('id-number').value,
+    nif:document.getElementById('nif').value,
+    country:document.getElementById('country').value,
+    email:document.getElementById('email').value.trim(),
+    phone:document.getElementById('phone').value.trim(),
+    address:document.getElementById('address').value,
+    branch:document.getElementById('branch').value,
+    referral:referral?.value||null,
+    lang:document.getElementById('lang').value,
+    course:course?.value||null,
+    level:document.getElementById('level-slider').value,
+    level_label:LEVELS[document.getElementById('level-slider').value],
+    course_notes:document.getElementById('course-notes').value,
+    exam_intent:examIntent?.value||'no',
+    exam_name:examName?.value||null,
+    exam_session:document.getElementById('exam-session').value||null,
+    exam_history:document.getElementById('exam-history').value||null,
+    guardian_name:document.getElementById('g-name').value,
+    guardian_relation:document.getElementById('g-relation').value,
+    guardian_phone:document.getElementById('g-phone').value,
+    guardian_email:document.getElementById('g-email').value,
+    guardian_nif:document.getElementById('g-nif').value,
+    gdpr_terms:document.getElementById('gdpr-terms').checked,
+    gdpr_data:document.getElementById('gdpr-data').checked,
+    gdpr_photo:document.getElementById('gdpr-photo').checked,
+    gdpr_bc:document.getElementById('gdpr-bc').checked,
+    gdpr_comms:document.getElementById('gdpr-comms').checked,
+    is_minor:isMinor,
+    photo_url:null, // would upload to Supabase Storage in production
+    submitted_at:new Date().toISOString(),
+    academic_year:'2026/2027',
+    status:'pending_review',
+  };
+
+  // Show confirm screen immediately for UX
+  document.getElementById('form-shell').classList.add('hidden');
+  document.getElementById('submit-footer').style.display='none';
+  document.getElementById('save-strip').classList.remove('show');
+  const cs=document.getElementById('confirm-screen');
+  cs.classList.add('show');
+  document.getElementById('confirm-ref').textContent=ref;
+  document.getElementById('confirm-email-txt').textContent=payload.email||'—';
+  buildConfirmSummary(payload);
+
+  // Try Supabase
+  try{
+    await sbPost('students',{
+      num:ref,name:payload.name,initials:(payload.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()),
+      email:payload.email,phone:payload.phone,
+      lang:payload.lang,level:payload.level_label,
+      course:payload.course,branch:payload.branch,
+      age:payload.dob?Math.floor((Date.now()-new Date(payload.dob))/(365.25*24*60*60*1000)):null,
+      nationality:payload.nationality,nif:payload.nif,
+      gender:payload.gender,address:payload.address,
+      guardian_name:payload.guardian_name,guardian_phone:payload.guardian_phone,guardian_email:payload.guardian_email,
+      exam_intent:payload.exam_intent,exam_name:payload.exam_name,
+      gdpr_photo:payload.gdpr_photo,gdpr_comms:payload.gdpr_comms,
+      status:'active',enrolled_at:payload.submitted_at,
+      academic_year:payload.academic_year,
+    });
+    setSbStatus(true,'Guardado com sucesso no Supabase');
+    localStorage.removeItem('alm-draft');
+  }catch(e){
+    console.error('Supabase insert failed:',e);
+    setSbStatus(false,'Guardado localmente. A sincronizar…');
+    // Save to localStorage as fallback
+    localStorage.setItem('alm-submission-'+ref,JSON.stringify(payload));
+  }
+}
+
+function setSbStatus(ok,txt){
+  const dot=document.getElementById('sb-dot');
+  const t=document.getElementById('sb-txt');
+  dot.className='sb-dot '+(ok?'ok':'err');
+  t.textContent=txt;
+}
+
+function buildConfirmSummary(p){
+  document.getElementById('confirm-summary').innerHTML=`
+    <div class="cc-row"><span class="cc-k">Nome</span><span class="cc-v">${p.name||'—'}</span></div>
+    <div class="cc-row"><span class="cc-k">Filial</span><span class="cc-v">${p.branch||'—'}</span></div>
+    <div class="cc-row"><span class="cc-k">Curso</span><span class="cc-v">${p.lang||'—'} · ${p.course||'—'} · ${p.level_label||'—'}</span></div>
+    <div class="cc-row"><span class="cc-k">Exame</span><span class="cc-v">${p.exam_intent==='yes'?(p.exam_name||'A confirmar'):'—'}</span></div>
+    <div class="cc-row"><span class="cc-k">Referência</span><span class="cc-v" style="font-family:'DM Mono',monospace;color:var(--gold)">${p.ref}</span></div>
+    <div class="cc-row"><span class="cc-k">Ano lectivo</span><span class="cc-v">${p.academic_year}</span></div>`;
+}
+
+/* ── DRAFT AUTO-SAVE ── */
+function markDirty(){
+  isDirty=true;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    if(isDirty)document.getElementById('save-strip').classList.add('show');
+  },4000);
+}
+
+function autoSave(){
+  const data={
+    name:document.getElementById('name').value,
+    email:document.getElementById('email').value,
+    phone:document.getElementById('phone').value,
+    lang:document.getElementById('lang').value,
+    branch:document.getElementById('branch').value,
+    dob:document.getElementById('dob').value,
+    step:currentStep,
+    ts:Date.now(),
+  };
+  localStorage.setItem('alm-draft',JSON.stringify(data));
+  isDirty=false;
+  document.getElementById('save-strip').classList.remove('show');
+  // Optional: also POST draft to Supabase enrollment_drafts table
+}
+
+function dismissSave(){
+  document.getElementById('save-strip').classList.remove('show');
+  isDirty=false;
+}
+
+function restoreDraft(){
+  const d=localStorage.getItem('alm-draft');
+  if(!d)return;
+  try{
+    const data=JSON.parse(d);
+    // Only restore if less than 24h old
+    if(Date.now()-data.ts>86400000){localStorage.removeItem('alm-draft');return;}
+    if(data.name)document.getElementById('name').value=data.name;
+    if(data.email)document.getElementById('email').value=data.email;
+    if(data.phone)document.getElementById('phone').value=data.phone;
+    if(data.lang)document.getElementById('lang').value=data.lang;
+    if(data.branch)document.getElementById('branch').value=data.branch;
+    if(data.dob){document.getElementById('dob').value=data.dob;checkMinor();}
+    // Show restore notice
+    const strip=document.getElementById('save-strip');
+    const txt=strip.querySelector('.ss-txt');
+    txt.innerHTML=`<strong>Rascunho recuperado</strong> — ${new Date(data.ts).toLocaleString('pt-PT')}`;
+    strip.querySelector('.ss-save').textContent='Continuar';
+    strip.querySelector('.ss-save').onclick=()=>{strip.classList.remove('show');if(data.step)goToStep(data.step);};
+    strip.querySelector('.ss-dismiss').onclick=()=>{localStorage.removeItem('alm-draft');dismissSave();};
+    strip.classList.add('show');
+  }catch(e){localStorage.removeItem('alm-draft');}
+}
+
+function resetForm(){
+  location.reload();
+}
+
+/* ── DRAG OVER PHOTO ── */
+const pz=document.getElementById('photo-zone');
+pz.addEventListener('dragover',e=>{e.preventDefault();pz.classList.add('drag')});
+pz.addEventListener('dragleave',()=>pz.classList.remove('drag'));
+pz.addEventListener('drop',e=>{
+  e.preventDefault();pz.classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('image/')){
+    const inp=document.getElementById('photo-input');
+    const dt=new DataTransfer();dt.items.add(file);inp.files=dt.files;
+    handlePhoto(inp);
+  }
+});
+
+/* ── INIT ── */
+init();
+</script>
+</body>
+</html>
