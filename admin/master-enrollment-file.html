@@ -4,542 +4,666 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>ALM · Ficha de Matrícula</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
-/* ── RESET & TOKENS ── */
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --ivory:#F9F6EF;
-  --cream:#F2EDE2;
-  --sand:#E8DFC8;
-  --warm:#C9A96E;
-  --gold:#A07840;
-  --ink:#1C1814;
-  --ink2:#4A4238;
-  --ink3:#8A7D6A;
-  --ink4:#BDB2A0;
-  --teal:#0B6E5A;--teal-bg:rgba(11,110,90,0.08);--teal-bdr:rgba(11,110,90,0.2);
-  --red:#8B1F1F;--red-bg:rgba(139,31,31,0.07);--red-bdr:rgba(139,31,31,0.18);
-  --blue:#1A4B8A;
-  --border:#DDD5C4;
-  --rad:10px;
-  --step: clamp(14px, 2vw, 16px);
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --gold-border:rgba(201,168,76,0.18);--gold-border-h:rgba(201,168,76,0.42);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --teal:#3EC9A7;--teal-dim:rgba(62,201,167,0.18);
+  --red:#E8455A;--red-faint:rgba(232,69,90,0.07);--red-dim:rgba(232,69,90,0.2);
+  --amber:#E8B84B;--amber-dim:rgba(232,184,75,0.18);--amber-faint:rgba(232,184,75,0.07);
+  --blue:#5B9CF6;--blue-dim:rgba(91,156,246,0.18);--blue-faint:rgba(91,156,246,0.07);
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --display:'Cinzel',serif;
 }
-html{scroll-behavior:smooth}
-body{
-  min-height:100dvh;
-  background:var(--ivory);
-  font-family:'DM Sans',sans-serif;
-  font-size:var(--step);
-  color:var(--ink);
-  line-height:1.6;
-  -webkit-font-smoothing:antialiased;
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100dvh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+
+/* ── BACKGROUND ── */
+.bg-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%)}
+.bg-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(12,8,22,0.95);backdrop-filter:blur(16px);
+  border-bottom:0.5px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;height:48px;gap:0;
 }
+.tb-home{width:28px;height:28px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;text-decoration:none;margin-right:6px}
+.tb-home:hover{background:rgba(201,168,76,0.16);border-color:var(--gold-dim)}
+.tb-home svg{width:13px;height:13px;stroke:rgba(210,180,100,0.65);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-alm{font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:700;color:var(--gold-hi);letter-spacing:0.18em;text-transform:uppercase;flex-shrink:0}
+/* home + menu pill — looks like one unit, two clickable zones */
+.tb-home-menu{display:flex;align-items:center;border:0.5px solid var(--border);background:var(--gold-faint);border-radius:6px;overflow:hidden;flex-shrink:0}
+.tb-home-ico{display:flex;align-items:center;justify-content:center;padding:5px 8px;color:var(--text2);text-decoration:none;transition:all .15s;border-right:0.5px solid var(--border)}
+.tb-home-ico:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-home-ico svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-menu-word{display:flex;align-items:center;padding:5px 10px;background:transparent;border:none;cursor:pointer;font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--text2);font-family:var(--sans);transition:all .15s}
+.tb-menu-word:hover{background:rgba(201,168,76,0.14);color:var(--gold-hi)}
+.tb-div{width:0.5px;height:20px;background:var(--border);margin:0 12px;flex-shrink:0}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-ano{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;white-space:nowrap;flex-shrink:0}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.08em;flex-shrink:0}
+
+/* drawer footer — mode toggle */
+.menu-drawer-footer{border-top:0.5px solid var(--border);padding:12px 18px;flex-shrink:0}
+.menu-mode-row{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border);background:rgba(255,255,255,0.02);transition:background .12s}
+.menu-mode-row:hover{background:rgba(201,168,76,0.06);border-color:var(--gold-dim)}
+.mmr-left{display:flex;align-items:center;gap:10px}
+.mmr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mmr-text{display:flex;flex-direction:column;gap:1px}
+.mmr-label{font-size:11px;font-weight:600;color:var(--text)}
+.mmr-sub{font-size:9px;color:var(--text3)}
+.mmr-toggle{font-size:8px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:2px 7px;border-radius:4px;border:0.5px solid var(--border);background:rgba(255,255,255,0.03)}
+
+/* menu drawer */
+.menu-overlay{display:none;position:fixed;inset:0;background:rgba(8,4,18,0.72);z-index:400;backdrop-filter:blur(6px)}
+.menu-overlay.open{display:block}
+.menu-drawer{position:fixed;top:0;left:0;bottom:0;width:min(280px,80vw);background:var(--bg2);border-right:0.5px solid var(--border2);z-index:401;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.menu-overlay.open .menu-drawer{transform:translateX(0)}
+.menu-drawer-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:0.5px solid var(--border)}
+.menu-drawer-brand{font-family:var(--display);font-size:18px;color:var(--gold-hi);letter-spacing:3px}
+.menu-drawer-close{width:28px;height:28px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:16px;transition:all .12s}
+.menu-drawer-close:hover{background:rgba(201,168,76,0.15);color:var(--gold-hi)}
+.menu-nav{flex:1;overflow-y:auto;padding:8px 0}
+.menu-nav-item{display:flex;align-items:center;gap:12px;padding:12px 18px;cursor:pointer;transition:background .12s;text-decoration:none;border-bottom:0.5px solid rgba(201,168,76,0.04)}
+.menu-nav-item:hover{background:rgba(201,168,76,0.06)}
+.mni-icon{width:30px;height:30px;border-radius:8px;background:var(--gold-faint);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mni-icon svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mni-text{display:flex;flex-direction:column;gap:2px}
+.mni-title{font-size:12px;font-weight:600;color:var(--text)}
+.mni-sub{font-size:9px;color:var(--text3)}
+
+/* mode badge */
+.tb-mode{display:flex;align-items:center;gap:5px;margin-left:14px;padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.08em;cursor:pointer;transition:all .15s}
+.mode-staff{background:rgba(232,184,75,0.12);border:0.5px solid rgba(232,184,75,0.3);color:var(--amber)}
+.mode-student{background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25);color:var(--green)}
+.tb-mode-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ── SHELL ── */
+.shell{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:20px 16px 120px}
 
 /* ── HERO HEADER ── */
-.hero{
-  background:var(--ink);
-  padding:clamp(28px,5vw,48px) clamp(20px,5vw,48px) 0;
-  position:relative;
-  overflow:hidden;
-}
-.hero::before{
-  content:'';
-  position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse 60% 80% at 80% 50%, rgba(201,169,110,0.12) 0%, transparent 70%),
-    repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px);
-  pointer-events:none;
-}
-.hero-inner{
-  max-width:700px;
-  margin:0 auto;
-  position:relative;z-index:1;
-}
-.hero-eyebrow{
-  display:flex;align-items:center;gap:10px;
-  font-family:'DM Mono',monospace;
-  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--warm);margin-bottom:20px;
-}
-.hero-eyebrow span{display:inline-block;width:24px;height:1px;background:var(--warm)}
-.hero-bc-badge{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:4px 12px 4px 8px;
-  background:rgba(201,169,110,0.1);
-  border:1px solid rgba(201,169,110,0.25);
-  border-radius:999px;
-  font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
-  color:var(--warm);margin-bottom:16px;
-}
-.bc-dot{width:6px;height:6px;border-radius:50%;background:var(--warm)}
-.hero-title{
-  font-family:'Playfair Display',serif;
-  font-size:clamp(28px,6vw,52px);
-  font-weight:400;
-  color:#fff;
-  line-height:1.1;
-  letter-spacing:-0.02em;
-  margin-bottom:10px;
-}
-.hero-title em{font-style:italic;color:var(--warm)}
-.hero-sub{
-  font-size:clamp(13px,2vw,15px);
-  color:rgba(255,255,255,0.45);
-  margin-bottom:28px;
-  font-weight:300;
-  letter-spacing:0.01em;
-}
-/* progress rail */
-.progress-rail{
-  display:flex;align-items:center;gap:0;
-  padding-bottom:0;
-  border-top:1px solid rgba(255,255,255,0.08);
-  padding-top:20px;
-  overflow-x:auto;
-  scrollbar-width:none;
-}
-.progress-rail::-webkit-scrollbar{display:none}
-.pr-step{
-  flex:1;min-width:60px;
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  padding-bottom:18px;
-  cursor:pointer;
-  transition:opacity .2s;
-  position:relative;
-}
-.pr-step::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
-  background:transparent;transition:background .3s;
-}
-.pr-step.done::after{background:var(--warm)}
-.pr-step.active::after{background:#fff}
-.pr-step:not(.active):not(.done){opacity:0.35}
-.pr-num{
-  width:22px;height:22px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:600;
-  background:rgba(255,255,255,0.08);
-  color:rgba(255,255,255,0.5);
-  font-family:'DM Mono',monospace;
-  transition:all .2s;
-}
-.pr-step.done .pr-num{background:var(--warm);color:var(--ink)}
-.pr-step.active .pr-num{background:#fff;color:var(--ink)}
-.pr-lbl{font-size:9px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.4);white-space:nowrap}
-.pr-step.active .pr-lbl{color:#fff}
-.pr-step.done .pr-lbl{color:var(--warm)}
+.hero{margin-bottom:20px}
+.hero-eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.hero-line{width:24px;height:0.5px;background:var(--gold-dim)}
+.hero-lbl{font-size:8px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--text3)}
+.hero-bc{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 8px;background:var(--blue-faint);border:0.5px solid rgba(91,156,246,0.25);border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
+.bc-dot{width:5px;height:5px;border-radius:50%;background:var(--blue)}
+.hero-title{font-family:'Inter',system-ui,sans-serif;font-size:clamp(13px,1.8vw,16px);font-weight:700;color:var(--gold-hi);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:4px}
+.hero-title em{font-style:italic;color:var(--text2);font-family:var(--sans);font-size:0.65em;letter-spacing:0.02em}
+.hero-sub{font-size:11px;color:var(--text3);letter-spacing:0.06em}
 
-/* ── BODY SHELL ── */
-.shell{
-  max-width:700px;
-  margin:0 auto;
-  padding:clamp(24px,4vw,40px) clamp(16px,4vw,32px) 120px;
-}
+/* ── PROGRESS RAIL ── */
+.progress-rail{display:flex;background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.pr-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;cursor:pointer;transition:background .15s;position:relative;border-right:0.5px solid var(--border)}
+.pr-step:last-child{border-right:none}
+.pr-step::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;transition:background .3s}
+.pr-step.done::after{background:var(--gold)}
+.pr-step.active::after{background:var(--gold-hi)}
+.pr-step:not(.active):not(.done){opacity:0.45}
+.pr-step.done{background:rgba(201,168,76,0.04)}
+.pr-step.active{background:rgba(201,168,76,0.07)}
+.pr-num{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:var(--mono);background:rgba(255,255,255,0.06);color:var(--text3);transition:all .2s}
+.pr-step.done .pr-num{background:rgba(201,168,76,0.2);color:var(--gold)}
+.pr-step.active .pr-num{background:rgba(201,168,76,0.3);color:var(--gold-hi)}
+.pr-lbl{font-size:7.5px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text3);white-space:nowrap}
+.pr-step.active .pr-lbl{color:var(--gold-hi)}
+.pr-step.done .pr-lbl{color:var(--gold)}
 
 /* ── SECTION CARD ── */
-.section{
-  background:#fff;
-  border:1px solid var(--border);
-  border-radius:16px;
-  overflow:hidden;
-  margin-bottom:16px;
-  transition:box-shadow .2s;
-}
-.section:focus-within{box-shadow:0 0 0 3px rgba(160,120,64,0.12)}
-.sec-hdr{
-  display:flex;align-items:center;gap:12px;
-  padding:16px 20px;
-  border-bottom:1px solid var(--border);
-  background:var(--cream);
-  cursor:pointer;
-  user-select:none;
-}
-.sec-num{
-  width:26px;height:26px;border-radius:50%;
-  background:var(--ink);color:#fff;
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:600;font-family:'DM Mono',monospace;
-  flex-shrink:0;
-}
-.sec-hdr.done .sec-num{background:var(--teal)}
-.sec-title{font-size:13px;font-weight:600;letter-spacing:0.02em;color:var(--ink)}
-.sec-sub{font-size:11px;color:var(--ink3);margin-left:2px}
-.sec-check{margin-left:auto;font-size:12px;color:var(--teal);opacity:0;transition:opacity .2s}
+.section{background:var(--bg2);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;transition:border-color .2s}
+.section:focus-within{border-color:var(--border2)}
+.sec-hdr{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15);cursor:pointer;user-select:none;transition:background .15s}
+.sec-hdr:hover{background:rgba(0,0,0,0.25)}
+.sec-num{width:24px;height:24px;border-radius:50%;background:rgba(201,168,76,0.12);border:0.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:var(--mono);color:var(--gold);flex-shrink:0}
+.sec-hdr.done .sec-num{background:var(--green-faint);border-color:rgba(46,204,138,0.35);color:var(--green)}
+.sec-title{font-size:12px;font-weight:600;letter-spacing:0.03em;color:var(--text)}
+.sec-sub{font-size:9px;color:var(--text3);margin-top:1px}
+.sec-check{margin-left:auto;font-size:12px;color:var(--green);opacity:0;transition:opacity .2s}
 .sec-hdr.done .sec-check{opacity:1}
-.sec-body{padding:20px;display:flex;flex-direction:column;gap:14px}
-.sec-body.hidden{display:none}
+.sec-body{padding:18px 16px;display:flex;flex-direction:column;gap:14px}
 
 /* ── FIELD ── */
 .field{display:flex;flex-direction:column;gap:5px}
-.field-row{display:grid;gap:12px}
+.field-row{display:grid;gap:10px}
 .fr-2{grid-template-columns:1fr 1fr}
 .fr-3{grid-template-columns:1fr 1fr 1fr}
 @media(max-width:480px){.fr-2,.fr-3{grid-template-columns:1fr}}
-label{font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:0.04em;text-transform:uppercase}
-label .req{color:var(--red);margin-left:2px}
-input,select,textarea{
-  width:100%;
-  padding:11px 14px;
-  border:1.5px solid var(--border);
-  border-radius:var(--rad);
-  font-size:15px;
-  font-family:'DM Sans',sans-serif;
-  color:var(--ink);
-  background:#fff;
-  outline:none;
-  transition:border-color .15s,box-shadow .15s;
-  -webkit-appearance:none;
-  appearance:none;
+.flabel{font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text2)}
+.flabel .req{color:var(--red);margin-left:2px}
+.finput,.fselect,.ftextarea{
+  width:100%;padding:10px 12px;
+  background:rgba(255,255,255,0.04);
+  border:0.5px solid var(--border);
+  border-radius:8px;
+  font-size:13px;font-family:var(--sans);
+  color:var(--text);outline:none;
+  transition:border-color .15s,background .15s;
+  -webkit-appearance:none;appearance:none;
 }
-input::placeholder,textarea::placeholder{color:var(--ink4);font-weight:300}
-input:focus,select:focus,textarea:focus{
-  border-color:var(--gold);
-  box-shadow:0 0 0 3px rgba(160,120,64,0.1);
+.finput::placeholder,.ftextarea::placeholder{color:var(--text3);font-weight:300}
+.finput:focus,.fselect:focus,.ftextarea:focus{border-color:var(--gold-dim);background:rgba(201,168,76,0.04)}
+.finput.invalid,.fselect.invalid{border-color:var(--red);box-shadow:0 0 0 2px rgba(232,69,90,0.12)}
+.fselect{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23C9A84C' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  padding-right:34px;cursor:pointer;
 }
-input.invalid,select.invalid{border-color:var(--red);box-shadow:0 0 0 3px var(--red-bg)}
-select{
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238A7D6A' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 14px center;
-  padding-right:36px;
-  cursor:pointer;
-}
-select option{background:#fff;color:var(--ink)}
-textarea{resize:vertical;min-height:80px;line-height:1.5}
+.fselect option{background:var(--bg2);color:var(--text)}
+.ftextarea{resize:vertical;min-height:72px;line-height:1.5}
+.fhint{font-size:9px;color:var(--text3);line-height:1.5}
 
-/* ── PHOTO UPLOAD ── */
-.photo-zone{
-  border:2px dashed var(--sand);
-  border-radius:12px;
-  padding:24px 16px;
-  text-align:center;
-  cursor:pointer;
-  transition:all .2s;
-  position:relative;
-  background:var(--cream);
-}
-.photo-zone:hover,.photo-zone.drag{border-color:var(--warm);background:rgba(201,169,110,0.05)}
-.photo-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.photo-preview{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid var(--warm);margin:0 auto 10px;display:block}
-.photo-icon{width:48px;height:48px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
-.photo-icon svg{width:22px;height:22px;stroke:var(--gold);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.photo-lbl{font-size:13px;font-weight:500;color:var(--ink2);margin-bottom:4px}
-.photo-hint{font-size:11px;color:var(--ink3)}
+/* ── LEVEL SYSTEM ── */
+.level-system{display:flex;flex-direction:column;gap:10px}
+.level-track-label{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.level-track-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
 
-/* ── COURSE SELECTOR ── */
-.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.level-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.lvl-card{
+  border:0.5px solid var(--border);border-radius:8px;
+  padding:8px 10px;cursor:pointer;transition:all .15s;
+  position:relative;background:rgba(255,255,255,0.02);
+}
+.lvl-card:hover{border-color:var(--border2);background:rgba(201,168,76,0.06)}
+.lvl-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.1)}
+.lvl-card input[type=radio]{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;margin:0}
+.lvl-code{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--gold-hi);margin-bottom:2px}
+.lvl-desc{font-size:8.5px;color:var(--text3);line-height:1.4}
+.lvl-badge{font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:3px;display:inline-block;letter-spacing:0.06em}
+.badge-prep{background:rgba(62,201,167,0.12);border:0.5px solid rgba(62,201,167,0.25);color:var(--teal)}
+.badge-teen{background:rgba(201,168,76,0.12);border:0.5px solid var(--gold-dim);color:var(--gold)}
+.badge-exam{background:rgba(232,184,75,0.12);border:0.5px solid rgba(232,184,75,0.25);color:var(--amber)}
+.badge-adult{background:rgba(91,156,246,0.12);border:0.5px solid rgba(91,156,246,0.25);color:var(--blue)}
+
+/* ── COURSE TYPE CARDS ── */
+.course-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .course-card{
-  border:1.5px solid var(--border);
-  border-radius:10px;
-  padding:12px 14px;
-  cursor:pointer;
-  transition:all .15s;
-  position:relative;
-  background:#fff;
+  border:0.5px solid var(--border);border-radius:10px;
+  padding:12px;cursor:pointer;transition:all .15s;
+  position:relative;background:rgba(255,255,255,0.02);
+  display:flex;flex-direction:column;gap:5px;
 }
-.course-card:hover{border-color:var(--warm);background:rgba(201,169,110,0.04)}
-.course-card.selected{border-color:var(--gold);background:rgba(160,120,64,0.06)}
+.course-card:hover{border-color:var(--border2);background:rgba(201,168,76,0.05)}
+.course-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.08)}
 .course-card input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;margin:0}
-.cc-icon{font-size:20px;margin-bottom:6px;display:block}
-.cc-name{font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:2px}
-.cc-desc{font-size:10px;color:var(--ink3);display:block;line-height:1.4}
+.cc-icon{font-size:18px;line-height:1}
+.cc-name{font-size:11px;font-weight:600;color:var(--text)}
+.cc-desc{font-size:9px;color:var(--text3);line-height:1.4}
 
-/* ── EXAM SELECTOR (pills) ── */
-.exam-pills{display:flex;flex-wrap:wrap;gap:7px}
+/* ── PHOTO ZONE ── */
+.photo-zone{
+  border:0.5px dashed var(--border2);border-radius:10px;
+  padding:20px;text-align:center;cursor:pointer;
+  transition:all .2s;position:relative;
+  background:rgba(255,255,255,0.02);
+}
+.photo-zone:hover,.photo-zone.drag{border-color:var(--gold-dim);background:rgba(201,168,76,0.05)}
+.photo-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-preview{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--gold-dim);margin:0 auto 8px;display:block}
+.photo-icon{width:44px;height:44px;border-radius:50%;background:var(--gold-faint);border:0.5px solid var(--gold-border);display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+.photo-icon svg{width:20px;height:20px;stroke:var(--gold);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.photo-lbl{font-size:11px;font-weight:500;color:var(--text2)}
+.photo-hint{font-size:9px;color:var(--text3);margin-top:3px}
+
+/* ── EXAM PILLS ── */
+.exam-pills{display:flex;flex-wrap:wrap;gap:6px}
 .exam-pill{
   display:flex;align-items:center;gap:6px;
-  padding:7px 13px;
-  border:1.5px solid var(--border);
-  border-radius:999px;
-  cursor:pointer;
-  font-size:12px;font-weight:500;color:var(--ink2);
-  transition:all .15s;
-  position:relative;
-  background:#fff;
+  padding:6px 12px;border:0.5px solid var(--border);border-radius:999px;
+  cursor:pointer;font-size:11px;font-weight:500;color:var(--text2);
+  transition:all .15s;position:relative;background:rgba(255,255,255,0.02);
 }
-.exam-pill:hover{border-color:var(--warm)}
-.exam-pill.selected{border-color:var(--gold);background:rgba(160,120,64,0.07);color:var(--ink)}
+.exam-pill:hover{border-color:var(--gold-dim)}
+.exam-pill.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.1);color:var(--gold-hi)}
 .exam-pill input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
-.ep-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--cream);color:var(--gold);font-weight:600;font-family:'DM Mono',monospace}
-.exam-pill.selected .ep-badge{background:var(--warm);color:#fff}
-
-/* ── LEVEL SLIDER ── */
-.level-track{position:relative;padding:8px 0}
-.level-labels{display:flex;justify-content:space-between;margin-bottom:8px}
-.level-lbl{font-size:9px;color:var(--ink3);font-family:'DM Mono',monospace;font-weight:500}
-input[type=range]{
-  -webkit-appearance:none;appearance:none;
-  width:100%;height:4px;
-  background:linear-gradient(to right,var(--warm) 0%,var(--warm) var(--pct,25%),var(--sand) var(--pct,25%),var(--sand) 100%);
-  border-radius:999px;padding:0;border:none;box-shadow:none;cursor:pointer;
-}
-input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
-  background:#fff;border:2.5px solid var(--warm);cursor:pointer;
-  box-shadow:0 2px 8px rgba(0,0,0,0.15);transition:transform .1s;
-}
-input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
-input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px solid var(--warm);cursor:pointer}
-.level-val{text-align:center;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--gold);margin-top:6px}
+.ep-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--gold-faint);border:0.5px solid var(--gold-dim);color:var(--gold);font-family:var(--mono)}
+.exam-pill.selected .ep-badge{background:rgba(201,168,76,0.2)}
 
 /* ── GUARDIAN NOTICE ── */
 .guardian-notice{
   display:flex;align-items:flex-start;gap:10px;
-  padding:12px 14px;
-  background:rgba(26,75,138,0.06);
-  border:1px solid rgba(26,75,138,0.18);
-  border-radius:8px;
-  font-size:12px;color:var(--blue);line-height:1.5;
+  padding:10px 12px;background:var(--blue-faint);border:0.5px solid rgba(91,156,246,0.2);
+  border-radius:8px;font-size:11px;color:rgba(91,156,246,0.85);line-height:1.5;
 }
-.guardian-notice svg{width:16px;height:16px;stroke:var(--blue);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
+.guardian-notice svg{width:14px;height:14px;stroke:var(--blue);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
 
 /* ── SIGNATURE PAD ── */
-.sig-wrap{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#FAFAF8}
-.sig-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--cream)}
-.sig-lbl{font-size:10px;font-weight:600;color:var(--ink2);letter-spacing:0.06em;text-transform:uppercase}
-.sig-clear{font-size:11px;color:var(--ink3);cursor:pointer;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;transition:all .12s}
-.sig-clear:hover{color:var(--ink);border-color:var(--ink3)}
-canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
-.sig-hint{font-size:10px;color:var(--ink4);padding:5px 12px 8px;font-style:italic}
+.sig-wrap{border:0.5px solid var(--border);border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.02)}
+.sig-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.2)}
+.sig-lbl{font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3)}
+.sig-clear{font-size:10px;color:var(--text3);cursor:pointer;padding:2px 8px;border-radius:5px;border:0.5px solid var(--border);background:transparent;font-family:var(--sans);transition:all .12s}
+.sig-clear:hover{color:var(--gold);border-color:var(--gold-dim)}
+canvas{display:block;width:100%;height:80px;cursor:crosshair;touch-action:none}
+.sig-hint{font-size:9px;color:var(--text3);padding:4px 12px 7px;font-style:italic}
 
-/* ── GDPR TOGGLE ── */
-.gdpr-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--cream)}
+/* ── GDPR TOGGLES ── */
+.gdpr-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border)}
 .gdpr-row:last-child{border-bottom:none}
-.toggle-wrap{flex-shrink:0;margin-top:2px}
-.toggle{position:relative;width:38px;height:22px;flex-shrink:0}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0;position:absolute}
-.toggle-track{position:absolute;inset:0;border-radius:999px;background:var(--sand);cursor:pointer;transition:background .2s}
-.toggle input:checked+.toggle-track{background:var(--teal)}
-.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,0.15)}
-.toggle input:checked~.toggle-thumb{transform:translateX(16px)}
-.gdpr-text{font-size:12px;color:var(--ink2);line-height:1.5;cursor:default}
-.gdpr-text strong{color:var(--ink);font-weight:600}
+.toggle-track{position:absolute;inset:0;border-radius:999px;background:rgba(201,168,76,0.1);border:0.5px solid var(--border);cursor:pointer;transition:all .2s}
+.toggle input:checked+.toggle-track{background:rgba(46,204,138,0.25);border-color:rgba(46,204,138,0.4)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:rgba(210,185,130,0.4);transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.toggle input:checked~.toggle-thumb{transform:translateX(16px);background:var(--green)}
+.gdpr-text{font-size:11px;color:var(--text2);line-height:1.5;cursor:default}
+.gdpr-text strong{color:var(--text);font-weight:600}
 
-/* ── HOW DID YOU FIND US ── */
-.referral-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:7px}
+/* ── REFERRAL GRID ── */
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
 .ref-card{
-  border:1.5px solid var(--border);border-radius:8px;padding:10px 10px;
-  cursor:pointer;text-align:center;font-size:11px;font-weight:500;color:var(--ink2);
-  transition:all .12s;position:relative;background:#fff;
+  border:0.5px solid var(--border);border-radius:8px;padding:9px 8px;
+  cursor:pointer;text-align:center;font-size:10px;font-weight:500;color:var(--text2);
+  transition:all .12s;position:relative;background:rgba(255,255,255,0.02);
 }
-.ref-card:hover{border-color:var(--warm)}
-.ref-card.selected{border-color:var(--gold);background:rgba(160,120,64,0.06);color:var(--ink)}
+.ref-card:hover{border-color:var(--gold-border)}
+.ref-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.08);color:var(--gold-hi)}
 .ref-card input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
-.ref-icon{font-size:18px;display:block;margin-bottom:4px}
+.ref-icon{font-size:16px;display:block;margin-bottom:4px}
 
-/* ── SUBMIT FOOTER ── */
-.submit-footer{
+/* ── NOTICE ── */
+.notice{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;background:var(--gold-faint);border:0.5px solid var(--gold-border);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.5}
+.notice svg{width:13px;height:13px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── REVIEW CARD ── */
+.review-card{background:rgba(201,168,76,0.04);border:0.5px solid var(--border);border-radius:10px;padding:0;overflow:hidden}
+.rv-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid var(--border)}
+.rv-row:last-child{border-bottom:none}
+.rv-k{font-size:9.5px;color:var(--text3)}
+.rv-v{font-size:10px;font-weight:500;color:var(--text)}
+
+/* ── STICKY FOOTER ── */
+.form-footer{
   position:fixed;bottom:0;left:0;right:0;
-  background:rgba(249,246,239,0.96);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  border-top:1px solid var(--border);
-  padding:14px clamp(16px,4vw,32px) calc(14px + env(safe-area-inset-bottom));
-  z-index:100;
+  background:rgba(12,8,22,0.97);backdrop-filter:blur(20px);
+  border-top:0.5px solid var(--border);
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  z-index:100;display:flex;align-items:center;gap:10px;
 }
-.footer-inner{max-width:700px;margin:0 auto;display:flex;align-items:center;gap:12px}
 .footer-progress{flex:1}
-.fp-bar{height:3px;background:var(--sand);border-radius:999px;overflow:hidden;margin-bottom:4px}
-.fp-fill{height:100%;background:var(--warm);border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1)}
-.fp-txt{font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;letter-spacing:0.04em}
+.fp-bar{height:3px;background:rgba(201,168,76,0.1);border-radius:999px;overflow:hidden;margin-bottom:4px}
+.fp-fill{height:100%;background:var(--gold);border-radius:999px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.fp-txt{font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.04em}
 .btn-prev{
-  padding:10px 18px;border-radius:9px;border:1.5px solid var(--border);
-  background:transparent;font-size:13px;font-weight:500;color:var(--ink2);
-  cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;
+  padding:9px 16px;border-radius:8px;border:0.5px solid var(--border);
+  background:transparent;font-size:11px;font-weight:600;color:var(--text2);
+  cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap;
 }
-.btn-prev:hover{border-color:var(--gold);color:var(--ink)}
+.btn-prev:hover{border-color:var(--gold-dim);color:var(--gold-hi)}
 .btn-next{
-  padding:11px 24px;border-radius:9px;border:none;
-  background:var(--ink);font-size:13px;font-weight:600;color:#fff;
-  cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;
-  letter-spacing:0.02em;
+  padding:10px 22px;border-radius:8px;border:none;
+  background:var(--gold);font-size:12px;font-weight:600;color:var(--bg);
+  cursor:pointer;font-family:var(--sans);transition:all .2s;white-space:nowrap;
+  letter-spacing:0.04em;
 }
-.btn-next:hover{background:var(--gold)}
+.btn-next:hover{background:var(--gold-hi)}
 .btn-next:active{transform:scale(0.97)}
-.btn-next:disabled{background:var(--sand);color:var(--ink3);cursor:default}
-.btn-next.final{background:var(--teal)}
-.btn-next.final:hover{background:#0A5A49}
+.btn-next:disabled{background:rgba(201,168,76,0.2);color:var(--text3);cursor:default}
+.btn-next.final{background:var(--green);color:#fff}
+.btn-next.final:hover{background:#27b877}
 
-/* ── CONFIRM SCREEN ── */
-.confirm-screen{display:none;padding:clamp(32px,6vw,56px) clamp(20px,4vw,32px) 120px;max-width:700px;margin:0 auto;text-align:center}
-.confirm-screen.show{display:block}
-.shell.hidden{display:none}
-.confirm-icon{
-  width:72px;height:72px;border-radius:50%;
-  background:rgba(11,110,90,0.1);border:2px solid rgba(11,110,90,0.3);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
-}
-.confirm-icon svg{width:34px;height:34px;stroke:var(--teal);stroke-width:1.8;fill:none}
-.confirm-title{font-family:'Playfair Display',serif;font-size:clamp(24px,5vw,36px);color:var(--ink);margin-bottom:10px}
-.confirm-sub{font-size:14px;color:var(--ink3);line-height:1.7;max-width:420px;margin:0 auto 24px}
-.confirm-ref{
-  display:inline-block;
-  padding:8px 22px;border-radius:999px;
-  background:var(--cream);border:1px solid var(--sand);
-  font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--gold);
-  letter-spacing:0.1em;margin-bottom:20px;
-}
-.confirm-card{
-  background:#fff;border:1px solid var(--border);border-radius:14px;
-  padding:20px;text-align:left;margin-bottom:20px;
-}
-.cc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--cream)}
-.cc-row:last-child{border-bottom:none}
-.cc-k{font-size:11px;color:var(--ink3)}
-.cc-v{font-size:12px;font-weight:500;color:var(--ink)}
-.confirm-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.ca-btn{
-  padding:11px 24px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
-  font-family:'DM Sans',sans-serif;transition:all .15s;text-decoration:none;display:inline-block;
-}
-.ca-primary{background:var(--ink);color:#fff;border:none}
-.ca-primary:hover{background:var(--gold)}
-.ca-secondary{background:transparent;border:1.5px solid var(--border);color:var(--ink2)}
-.ca-secondary:hover{border-color:var(--warm);color:var(--ink)}
-
-/* ── INLINE NOTICE ── */
-.field-notice{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;background:rgba(160,120,64,0.06);border:1px solid rgba(160,120,64,0.18);border-radius:8px;font-size:11px;color:var(--ink2);line-height:1.5}
-.field-notice svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.8;fill:none;flex-shrink:0;margin-top:1px;stroke-linecap:round;stroke-linejoin:round}
-.error-msg{font-size:11px;color:var(--red);margin-top:2px;display:none}
-.error-msg.show{display:block}
-
-/* ── SAVE STRIP (magic footer) ── */
+/* ── SAVE STRIP ── */
 .save-strip{
   position:fixed;bottom:0;left:0;right:0;
-  background:var(--ink);
-  padding:0 clamp(16px,4vw,32px);
-  display:flex;align-items:center;
+  background:var(--bg3);border-top:0.5px solid var(--amber-dim);
+  padding:0 20px;display:flex;align-items:center;
   height:0;overflow:hidden;
   transition:height .3s cubic-bezier(.4,0,.2,1);
   z-index:200;
 }
-.save-strip.show{height:calc(54px + env(safe-area-inset-bottom))}
-.ss-inner{max-width:700px;margin:0 auto;width:100%;display:flex;align-items:center;gap:12px;padding-bottom:env(safe-area-inset-bottom)}
-.ss-txt{font-size:12px;color:rgba(255,255,255,0.6);flex:1}
-.ss-txt strong{color:#fff;font-weight:500}
-.ss-btn{padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;border:none}
-.ss-save{background:var(--warm);color:var(--ink)}
-.ss-save:hover{background:var(--gold)}
-.ss-dismiss{background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5)}
-.ss-dismiss:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+.save-strip.show{height:calc(52px + env(safe-area-inset-bottom))}
+.ss-inner{width:100%;display:flex;align-items:center;gap:10px;padding-bottom:env(safe-area-inset-bottom)}
+.ss-txt{font-size:11px;color:var(--text2);flex:1}
+.ss-txt strong{color:var(--amber);font-weight:600}
+.ss-btn{padding:6px 14px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s;border:none}
+.ss-save{background:var(--amber);color:var(--bg)}
+.ss-save:hover{background:#f0c955}
+.ss-dismiss{background:transparent;border:0.5px solid var(--border);color:var(--text3)}
+.ss-dismiss:hover{border-color:var(--border2);color:var(--text2)}
+
+/* ── CONFIRM SCREEN ── */
+.confirm-screen{display:none;padding:40px 20px 120px;text-align:center}
+.confirm-screen.show{display:block}
+.shell.hidden{display:none}
+.confirm-icon{width:64px;height:64px;border-radius:50%;background:var(--green-faint);border:0.5px solid rgba(46,204,138,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.confirm-icon svg{width:30px;height:30px;stroke:var(--green);stroke-width:1.8;fill:none}
+.confirm-title{font-family:'Inter',system-ui,sans-serif;font-size:14px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold-hi);margin-bottom:8px}
+.confirm-sub{font-size:12px;color:var(--text2);line-height:1.7;max-width:400px;margin:0 auto 20px}
+.confirm-ref{display:inline-block;padding:6px 20px;border-radius:999px;background:var(--gold-faint);border:0.5px solid var(--gold-border);font-family:var(--mono);font-size:12px;font-weight:600;color:var(--gold);letter-spacing:0.1em;margin-bottom:20px}
+.sb-status{display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:14px}
+.sb-dot{width:6px;height:6px;border-radius:50%}
+.sb-dot.ok{background:var(--green)}.sb-dot.err{background:var(--red)}.sb-dot.pending{background:var(--amber);animation:pulse 1.4s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── NEXT STEPS ── */
+.next-steps{text-align:left;background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.ns-title{font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.ns-row{display:flex;align-items:flex-start;gap:10px;padding:5px 0;border-bottom:0.5px solid var(--border)}
+.ns-row:last-child{border-bottom:none}
+.ns-num{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--gold-dim);flex-shrink:0;margin-top:1px}
+.ns-txt{font-size:10px;color:var(--text2);line-height:1.5}
+
+/* ── ENROLMENT TYPE CARDS ── */
+.enroll-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+.enroll-card{border:0.5px solid var(--border);border-radius:10px;padding:12px 10px;cursor:pointer;transition:all .15s;background:rgba(255,255,255,0.02);text-align:center}
+.enroll-card:hover{border-color:var(--border2);background:rgba(201,168,76,0.05)}
+.enroll-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,0.1)}
+.ec-icon{font-size:18px;margin-bottom:5px;color:var(--text3);line-height:1}
+.enroll-card.selected .ec-icon{color:var(--gold-hi)}
+.ec-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;letter-spacing:0.02em}
+.ec-desc{font-size:8.5px;color:var(--text3);line-height:1.4}
+
+/* ── LOOKUP BOX ── */
+.lookup-box{background:rgba(201,168,76,0.04);border:0.5px solid var(--gold-border);border-radius:10px;padding:12px 14px;margin-top:4px}
+.lookup-box-label{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.lookup-box-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.lbr-field{display:flex;flex-direction:column;gap:4px;min-width:120px;flex-shrink:0}
+.lbr-field.flex1{flex:1;position:relative}
+.btn-lookup-go{display:flex;align-items:center;gap:5px;padding:9px 14px;background:rgba(201,168,76,0.15);border:0.5px solid var(--gold-dim);border-radius:8px;font-size:11px;font-weight:600;color:var(--gold-hi);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0;font-family:var(--sans)}
+.btn-lookup-go:hover{background:rgba(201,168,76,0.25)}
+.btn-lookup-go:disabled{opacity:0.4;cursor:default}
+.lookup-result{margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px}
+.lr-found{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lr-avatar{width:34px;height:34px;border-radius:50%;background:rgba(201,168,76,0.18);border:0.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--gold-hi);flex-shrink:0}
+.lr-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.lr-name{font-size:13px;font-weight:600;color:var(--gold-hi)}
+.lr-meta{font-size:9px;color:var(--text3);font-family:var(--mono)}
+.lr-badges{display:flex;gap:4px;flex-wrap:wrap}
+.lr-use{padding:6px 14px;background:var(--green-faint);border:0.5px solid rgba(46,204,138,0.35);border-radius:7px;font-size:10px;font-weight:600;color:var(--green);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:var(--sans)}
+.lr-use:hover{background:rgba(46,204,138,0.15)}
+.lookup-not-found{margin-top:10px;padding:8px 10px;background:rgba(232,69,90,0.08);border:0.5px solid rgba(232,69,90,0.2);border-radius:7px;font-size:11px;color:rgba(232,150,150,0.85)}
+.prefill-banner{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--green-faint);border:0.5px solid rgba(46,204,138,0.28);border-radius:8px;font-size:11px;color:rgba(46,204,138,0.9);margin-top:4px}
+.prefill-banner svg{flex-shrink:0;stroke:var(--green)}
+.prefill-clear{margin-left:auto;font-size:9px;color:var(--text3);cursor:pointer;padding:2px 8px;border-radius:5px;border:0.5px solid var(--border);background:transparent;font-family:var(--sans);transition:all .12s;flex-shrink:0}
+.prefill-clear:hover{color:var(--gold-hi);border-color:var(--gold-dim)}
+#existing-ac-drop{position:absolute;top:100%;left:0;right:0;background:rgba(18,10,30,0.98);border:0.5px solid rgba(210,180,100,0.3);border-radius:10px;margin-top:4px;overflow:hidden;z-index:200;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+#existing-ac-drop.open{display:block}
 
 /* ── ANIMATIONS ── */
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .section{animation:fadeUp .35s ease both}
-.section:nth-child(1){animation-delay:.05s}
-.section:nth-child(2){animation-delay:.1s}
-.section:nth-child(3){animation-delay:.15s}
-.section:nth-child(4){animation-delay:.2s}
-.section:nth-child(5){animation-delay:.25s}
-.section:nth-child(6){animation-delay:.3s}
-.section:nth-child(7){animation-delay:.35s}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.loading-pulse{animation:pulse 1.4s ease infinite}
+.section:nth-child(1){animation-delay:.04s}.section:nth-child(2){animation-delay:.08s}
+.section:nth-child(3){animation-delay:.12s}.section:nth-child(4){animation-delay:.16s}
+.section:nth-child(5){animation-delay:.20s}.section:nth-child(6){animation-delay:.24s}
+.section:nth-child(7){animation-delay:.28s}
 
-/* ── SUPABASE STATE ── */
-.sb-status{display:flex;align-items:center;gap:6px;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:0.06em;margin-top:12px}
-.sb-dot{width:6px;height:6px;border-radius:50%}
-.sb-dot.ok{background:#2ECC8A}
-.sb-dot.err{background:#E8455A}
-.sb-dot.pending{background:var(--warm);animation:pulse 1.4s ease infinite}
+/* ── FLAG LANGUAGE SWITCHER ── */
+.tb-flags{display:flex;align-items:center;gap:2px;margin-left:auto;background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:999px;padding:2px 4px}
+.flag-btn{width:26px;height:26px;border:none;background:transparent;cursor:pointer;border-radius:50%;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;opacity:0.45;line-height:1}
+.flag-btn:hover{opacity:0.8;background:rgba(255,255,255,0.06)}
+.flag-btn.active{opacity:1;background:rgba(255,255,255,0.1)}
+.tb-lang-select{display:none;}
 
-/* ── UTILS ── */
-.hidden{display:none!important}
+/* ── MOBILE ── */
+@media(max-width:480px){
+  /* topbar — hide clock and mode label text on tiny screens */
+  .tb-clock{display:none}
+  .tb-ano{display:none}
+  .tb-flags{display:none}
+  .tb-lang-select{display:block;margin-left:auto;background:rgba(255,255,255,0.07);border:0.5px solid var(--border);color:var(--text1);font-size:11px;border-radius:6px;padding:4px 6px;cursor:pointer;font-family:var(--sans)}
+  .tb-page{display:none}
+  #mode-label{display:none}
+  .tb-mode{padding:3px 7px}
+  .tb-div{margin:0 8px}
+
+  /* shell padding tighter */
+  .shell{padding:12px 10px 100px}
+
+  /* hero compact */
+  .hero{margin-bottom:12px}
+  .hero-bc{font-size:8px;padding:3px 8px 3px 6px}
+  .hero-eyebrow{margin-bottom:6px}
+
+  /* progress rail — numbers only, no labels */
+  .pr-step{padding:7px 2px}
+  .pr-lbl{display:none}
+  .pr-num{width:22px;height:22px;font-size:9px}
+
+  /* enrolment cards — single row, ultra-compact */
+  .enroll-type-grid{grid-template-columns:repeat(3,1fr);gap:5px}
+  .enroll-card{padding:8px 4px}
+  .ec-icon{font-size:16px;margin-bottom:3px}
+  .ec-name{font-size:10px;margin-bottom:0}
+  .ec-desc{display:none}
+
+  /* lookup box stacks vertically */
+  .lookup-box-row{flex-direction:column;gap:8px}
+  .lbr-field{width:100%}
+  .btn-lookup-go{width:100%;justify-content:center}
+
+  /* field rows collapse to 1 col */
+  .fr-2,.fr-3{grid-template-columns:1fr}
+
+  /* section padding */
+  .sec-body{padding:14px 12px}
+  .sec-hdr{padding:11px 12px}
+}
+
 </style>
 </head>
 <body>
 
-<!-- ── HERO ── -->
-<div class="hero">
-  <div class="hero-inner">
-    <div class="hero-eyebrow"><span></span>Academia de Línguas da Madeira<span></span></div>
-    <div class="hero-bc-badge"><div class="bc-dot"></div>British Council Authorised Examination Centre</div>
-    <h1 class="hero-title">Ficha de <em>Matrícula</em></h1>
-    <p class="hero-sub">Ano Lectivo 2026 / 2027 · Setembro a Junho</p>
-    <div class="progress-rail" id="progress-rail">
-      <div class="pr-step active" data-step="0" onclick="goToStep(0)">
-        <div class="pr-num">1</div><div class="pr-lbl">Identificação</div>
-      </div>
-      <div class="pr-step" data-step="1" onclick="goToStep(1)">
-        <div class="pr-num">2</div><div class="pr-lbl">Contacto</div>
-      </div>
-      <div class="pr-step" data-step="2" onclick="goToStep(2)">
-        <div class="pr-num">3</div><div class="pr-lbl">Curso</div>
-      </div>
-      <div class="pr-step" data-step="3" onclick="goToStep(3)">
-        <div class="pr-num">4</div><div class="pr-lbl">Exames</div>
-      </div>
-      <div class="pr-step" data-step="4" onclick="goToStep(4)">
-        <div class="pr-num">5</div><div class="pr-lbl">Encarregado</div>
-      </div>
-      <div class="pr-step" data-step="5" onclick="goToStep(5)">
-        <div class="pr-num">6</div><div class="pr-lbl">RGPD</div>
-      </div>
-      <div class="pr-step" data-step="6" onclick="goToStep(6)">
-        <div class="pr-num">7</div><div class="pr-lbl">Revisão</div>
+<div class="bg-wrap">
+  <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 540C180 490,340 560,520 515C700 470,820 555,1000 508C1100 484,1160 502,1200 492L1200 700L0 700Z" fill="rgba(15,10,28,0.22)"/>
+    <path d="M0 570C140 538,300 600,480 562C660 524,780 592,960 552C1080 528,1150 546,1200 536L1200 700L0 700Z" fill="rgba(8,5,18,0.14)"/>
+    <radialGradient id="rg" cx="78%" cy="18%" r="38%">
+      <stop offset="0%" stop-color="rgba(220,185,100,0.1)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+    <rect width="100%" height="100%" fill="url(#rg)"/>
+  </svg>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-home-menu">
+    <a class="tb-home-ico" href="/admin/dashboard.html" title="Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+    <button class="tb-menu-word" onclick="openMenu()" id="tb-menu-btn">
+      <span id="tb-menu-lbl">Menu</span>
+    </button>
+  </div>
+  <div class="tb-div"></div>
+  <span class="tb-alm">ALM</span>
+  <span class="tb-page" id="tb-page-el">Matrícula</span>
+  <div class="tb-flags" id="tb-flags">
+    <button class="flag-btn active" onclick="setLang('pt',this)" data-lang="pt" title="Português">🇵🇹</button>
+    <button class="flag-btn" onclick="setLang('en',this)" data-lang="en" title="English">🇬🇧</button>
+    <button class="flag-btn" onclick="setLang('de',this)" data-lang="de" title="Deutsch">🇩🇪</button>
+    <button class="flag-btn" onclick="setLang('fr',this)" data-lang="fr" title="Français">🇫🇷</button>
+  </div>
+  <select class="tb-lang-select" id="tb-lang-select" onchange="setLang(this.value)">
+    <option value="pt">🇵🇹 PT</option>
+    <option value="en">🇬🇧 EN</option>
+    <option value="de">🇩🇪 DE</option>
+    <option value="fr">🇫🇷 FR</option>
+  </select>
+  <span class="tb-ano">ANO LECTIVO&nbsp;&nbsp;2026 / 2027</span>
+  <span class="tb-clock" id="clock">--:--:--</span>
+</div>
+
+<!-- MENU DRAWER -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()">
+  <div class="menu-drawer" onclick="event.stopPropagation()">
+    <div class="menu-drawer-hdr">
+      <span class="menu-drawer-brand">ALM</span>
+      <button class="menu-drawer-close" onclick="closeMenu()">×</button>
+    </div>
+    <nav class="menu-nav">
+      <a class="menu-nav-item" href="/index.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Portal</div><div class="mni-sub">Página principal ALM</div></div>
+      </a>
+      <a class="menu-nav-item" href="/admin/dashboard.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Painel Admin</div><div class="mni-sub">Dashboard de gestão</div></div>
+      </a>
+      <a class="menu-nav-item" href="/admin/command-centre.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Horários</div><div class="mni-sub">Gestão e alocação de turmas</div></div>
+      </a>
+      <a class="menu-nav-item" href="/admin/timetable-control-centre.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Verificar Pedidos</div><div class="mni-sub">Estado dos pedidos de horário</div></div>
+      </a>
+      <a class="menu-nav-item" href="/students/index.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Portal do Aluno</div><div class="mni-sub">Área reservada ao aluno</div></div>
+      </a>
+      <a class="menu-nav-item" href="/teachers/index.html">
+        <div class="mni-icon"><svg viewBox="0 0 24 24"><path d="M4 19V6a2 2 0 012-2h12a2 2 0 012 2v13"/><path d="M4 19h16M9 10h6M9 14h4"/></svg></div>
+        <div class="mni-text"><div class="mni-title">Portal do Professor</div><div class="mni-sub">Área reservada ao professor</div></div>
+      </a>
+    </nav>
+    <div class="menu-drawer-footer">
+      <div class="menu-mode-row" onclick="toggleMode()">
+        <div class="mmr-left">
+          <div class="mmr-dot" id="mmr-dot"></div>
+          <div class="mmr-text">
+            <div class="mmr-label" id="mmr-label">Secretariado</div>
+            <div class="mmr-sub" id="mmr-sub">Modo de preenchimento</div>
+          </div>
+        </div>
+        <div class="mmr-toggle" id="mmr-toggle">alternar</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── FORM STEPS ── -->
+<!-- FORM SHELL -->
 <div class="shell" id="form-shell">
 
-  <!-- STEP 0: IDENTITY -->
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow"><div class="hero-line"></div><span class="hero-lbl">Academia de Línguas da Madeira</span></div>
+    <div class="hero-bc"><div class="bc-dot"></div>British Council Authorised Exam Centre</div>
+    <div class="hero-title" id="hero-title-el">Ficha de Matrícula</div>
+    <div class="hero-sub" id="hero-sub-el">2026 / 2027 · Supabase sync activo</div>
+  </div>
+
+  <!-- PROGRESS RAIL -->
+  <div class="progress-rail" id="progress-rail">
+    <div class="pr-step active" data-step="0" onclick="goToStep(0)"><div class="pr-num">1</div><div class="pr-lbl">Aluno</div></div>
+    <div class="pr-step" data-step="1" onclick="goToStep(1)"><div class="pr-num">2</div><div class="pr-lbl">Contacto</div></div>
+    <div class="pr-step" data-step="2" onclick="goToStep(2)"><div class="pr-num">3</div><div class="pr-lbl">Nível</div></div>
+    <div class="pr-step" data-step="3" onclick="goToStep(3)"><div class="pr-num">4</div><div class="pr-lbl">Exames</div></div>
+    <div class="pr-step" data-step="4" onclick="goToStep(4)"><div class="pr-num">5</div><div class="pr-lbl">Encarregado</div></div>
+    <div class="pr-step" data-step="5" onclick="goToStep(5)"><div class="pr-num">6</div><div class="pr-lbl">RGPD</div></div>
+    <div class="pr-step" data-step="6" onclick="goToStep(6)"><div class="pr-num">7</div><div class="pr-lbl">Revisão</div></div>
+  </div>
+
+  <!-- ═══ STEP 0: IDENTITY ═══ -->
   <div class="section" id="step-0">
-    <div class="sec-hdr" onclick="toggleSection(0)">
+    <div class="sec-hdr" onclick="toggleSec(0)">
       <div class="sec-num">1</div>
-      <div><div class="sec-title">Identificação</div><div class="sec-sub">Dados pessoais do aluno</div></div>
+      <div><div class="sec-title">Identificação do aluno</div><div class="sec-sub">Dados pessoais e tipo de matrícula</div></div>
       <span class="sec-check">✓</span>
     </div>
     <div class="sec-body">
       <!-- Photo -->
       <div class="photo-zone" id="photo-zone">
         <input type="file" accept="image/*" capture="user" id="photo-input" onchange="handlePhoto(this)"/>
-        <img class="photo-preview hidden" id="photo-preview" src="" alt="Foto do aluno"/>
+        <img class="photo-preview hidden" id="photo-preview" src="" alt=""/>
         <div id="photo-placeholder">
           <div class="photo-icon">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 20c0-4-3.6-7-8-7s-8 3-8 7"/><path d="M12 16l1.5-3M21 6l-3 3-1.5-1.5" stroke-width="1.5"/><circle cx="17.5" cy="4.5" r="2.5" stroke-width="1.5"/><polyline points="16.5 4.5 17.5 5.5 19 4" stroke-width="1.5"/></svg>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 20c0-4-3.6-7-8-7s-8 3-8 7"/><circle cx="18" cy="4" r="2.5"/><polyline points="17 4 18 5 19.5 3.5"/></svg>
           </div>
           <div class="photo-lbl">Fotografia do aluno</div>
           <div class="photo-hint">Toque para fotografar ou escolher da galeria</div>
         </div>
       </div>
 
-      <div class="field-row fr-2">
-        <div class="field">
-          <label>Tipo de matrícula<span class="req">*</span></label>
-          <select id="enroll-type" onchange="handleEnrollType()">
-            <option value="">Selecionar…</option>
-            <option value="new">Novo aluno</option>
-            <option value="returning">Aluno existente — renovação</option>
-          </select>
+      <div class="enroll-type-grid">
+        <div class="enroll-card" id="ec-new" onclick="selectEnrollType('new')">
+          <div class="ec-icon">✦</div>
+          <div class="ec-name" id="ec-new-name">Novo aluno</div>
+          <div class="ec-desc" id="ec-new-desc">Nunca esteve na ALM · preencher tudo</div>
         </div>
-        <div class="field" id="existing-num-field" style="display:none">
-          <label>N.º de aluno ALM</label>
-          <input type="text" id="existing-num" placeholder="ALM-0001" oninput="lookupExisting()"/>
+        <div class="enroll-card" id="ec-existing" onclick="selectEnrollType('existing')">
+          <div class="ec-icon">↻</div>
+          <div class="ec-name" id="ec-existing-name">Existente</div>
+          <div class="ec-desc" id="ec-existing-desc">Matriculado no ano corrente · renovar</div>
+        </div>
+        <div class="enroll-card" id="ec-returning" onclick="selectEnrollType('returning')">
+          <div class="ec-icon">◎</div>
+          <div class="ec-name" id="ec-returning-name">Regresso</div>
+          <div class="ec-desc" id="ec-returning-desc">Esteve antes · regressou após pausa</div>
         </div>
       </div>
 
+      <!-- LOOKUP PANEL — shown for existing / returning -->
+      <div id="lookup-panel" style="display:none">
+        <div class="lookup-box">
+          <div class="lookup-box-label" id="lookup-box-lbl">Localizar registo anterior</div>
+          <div class="lookup-box-row">
+            <div class="lbr-field">
+              <div class="flabel" id="lbr-num-lbl">N.º ALM anterior</div>
+              <input type="text" class="finput" id="existing-num" placeholder="ALM-0001"
+                oninput="onExistingNumInput()" onkeydown="if(event.key==='Enter')doExistingLookup()"/>
+            </div>
+            <div class="lbr-field flex1">
+              <div class="flabel" id="lbr-name-lbl">Ou pesquisar por nome</div>
+              <input type="text" class="finput" id="existing-name" placeholder="Nome do aluno…"
+                oninput="onExistingNameInput()" onkeydown="handleExistingNameKey(event)" autocomplete="off"/>
+              <div class="ac-drop" id="existing-ac-drop"></div>
+            </div>
+            <button class="btn-lookup-go" id="btn-lookup-go" onclick="doExistingLookup()">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="4"/><path d="M11 11l3 3"/></svg>
+              <span id="lookup-btn-lbl">Localizar</span>
+            </button>
+          </div>
+          <div class="lookup-result" id="lookup-result" style="display:none">
+            <div class="lr-found">
+              <div class="lr-avatar" id="lr-avatar">—</div>
+              <div class="lr-info">
+                <div class="lr-name" id="lr-name">—</div>
+                <div class="lr-meta" id="lr-meta">—</div>
+              </div>
+              <div class="lr-badges" id="lr-badges"></div>
+              <button class="lr-use" id="lr-use-btn" onclick="applyExistingData()">Usar estes dados →</button>
+            </div>
+          </div>
+          <div class="lookup-not-found" id="lookup-not-found" style="display:none">
+            Registo não encontrado. Verifique o número ou o nome.
+          </div>
+        </div>
+      </div>
+
+      <div class="prefill-banner" id="prefill-banner" style="display:none">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 8 6 12 14 4"/></svg>
+        <span id="prefill-msg">Dados pré-preenchidos a partir do registo anterior. Verifique e actualize.</span>
+        <button class="prefill-clear" id="prefill-clear-btn" onclick="clearPrefill()">Limpar</button>
+      </div>
+
       <div class="field">
-        <label>Nome completo<span class="req">*</span></label>
-        <input type="text" id="name" placeholder="Nome próprio e apelido" autocomplete="name" oninput="markDirty()"/>
+        <div class="flabel">Nome completo<span class="req">*</span></div>
+        <input type="text" class="finput" id="name" placeholder="Nome próprio e apelido" autocomplete="name" oninput="markDirty()"/>
       </div>
 
       <div class="field-row fr-3">
         <div class="field">
-          <label>Data de nascimento<span class="req">*</span></label>
-          <input type="date" id="dob" onchange="checkMinor()"/>
+          <div class="flabel">Data de nascimento<span class="req">*</span></div>
+          <input type="date" class="finput" id="dob" onchange="checkMinor();calcAge()"/>
         </div>
         <div class="field">
-          <label>Nacionalidade</label>
-          <input type="text" id="nationality" placeholder="Ex: Portuguesa" oninput="markDirty()"/>
+          <div class="flabel">Nacionalidade</div>
+          <input type="text" class="finput" id="nationality" placeholder="Ex: Portuguesa" oninput="markDirty()"/>
         </div>
         <div class="field">
-          <label>Género</label>
-          <select id="gender">
+          <div class="flabel">Género</div>
+          <select class="fselect" id="gender">
             <option value="">—</option>
             <option value="F">Feminino</option>
             <option value="M">Masculino</option>
@@ -549,60 +673,46 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
         </div>
       </div>
 
-      <div class="field">
-        <label>N.º de identificação (CC / Passaporte)</label>
-        <input type="text" id="id-number" placeholder="12345678 A" oninput="markDirty()"/>
-      </div>
-
       <div class="field-row fr-2">
         <div class="field">
-          <label>NIF</label>
-          <input type="text" id="nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
+          <div class="flabel">N.º CC / Passaporte</div>
+          <input type="text" class="finput" id="id-number" placeholder="12345678 A" oninput="markDirty()"/>
         </div>
         <div class="field">
-          <label>País de residência</label>
-          <select id="country">
-            <option value="PT">Portugal</option>
-            <option value="BR">Brazil</option>
-            <option value="AO">Angola</option>
-            <option value="MZ">Moçambique</option>
-            <option value="UK">Reino Unido</option>
-            <option value="FR">França</option>
-            <option value="DE">Alemanha</option>
-            <option value="OTHER">Outro</option>
-          </select>
+          <div class="flabel">NIF</div>
+          <input type="text" class="finput" id="nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- STEP 1: CONTACT -->
+  <!-- ═══ STEP 1: CONTACT ═══ -->
   <div class="section" id="step-1">
-    <div class="sec-hdr" onclick="toggleSection(1)">
+    <div class="sec-hdr" onclick="toggleSec(1)">
       <div class="sec-num">2</div>
-      <div><div class="sec-title">Contacto</div><div class="sec-sub">Como chegamos ao aluno</div></div>
+      <div><div class="sec-title">Contacto</div><div class="sec-sub">Email, telefone e filial preferencial</div></div>
       <span class="sec-check">✓</span>
     </div>
     <div class="sec-body">
       <div class="field-row fr-2">
         <div class="field">
-          <label>Email<span class="req">*</span></label>
-          <input type="email" id="email" placeholder="email@exemplo.com" autocomplete="email" oninput="markDirty()"/>
+          <div class="flabel">Email<span class="req">*</span></div>
+          <input type="email" class="finput" id="email" placeholder="email@exemplo.com" autocomplete="email" oninput="markDirty()"/>
         </div>
         <div class="field">
-          <label>Telemóvel<span class="req">*</span></label>
-          <input type="tel" id="phone" placeholder="9XX XXX XXX" autocomplete="tel" oninput="markDirty()"/>
+          <div class="flabel">Telemóvel<span class="req">*</span></div>
+          <input type="tel" class="finput" id="phone" placeholder="9XX XXX XXX" autocomplete="tel" oninput="markDirty()"/>
         </div>
       </div>
       <div class="field">
-        <label>Morada</label>
-        <input type="text" id="address" placeholder="Rua, número, código postal, localidade" autocomplete="street-address" oninput="markDirty()"/>
+        <div class="flabel">Morada</div>
+        <input type="text" class="finput" id="address" placeholder="Rua, número, código postal, localidade" autocomplete="street-address" oninput="markDirty()"/>
       </div>
       <div class="field-row fr-2">
         <div class="field">
-          <label>Filial preferencial<span class="req">*</span></label>
-          <select id="branch" onchange="markDirty()">
-            <option value="">Selecionar filial…</option>
+          <div class="flabel">Filial preferencial<span class="req">*</span></div>
+          <select class="fselect" id="branch" onchange="markDirty()">
+            <option value="">Selecionar…</option>
             <option value="Funchal · Sede">Funchal · Sede</option>
             <option value="Machico">Machico</option>
             <option value="S. Cruz">Santa Cruz</option>
@@ -613,153 +723,103 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
           </select>
         </div>
         <div class="field">
-          <label>Como nos conheceu</label>
-          <div class="referral-grid">
-            <label class="ref-card" id="ref-friend">
-              <input type="radio" name="referral" value="friend" onchange="markDirty()"/>
-              <span class="ref-icon">👥</span>Amigo / Família
-            </label>
-            <label class="ref-card" id="ref-social">
-              <input type="radio" name="referral" value="social" onchange="markDirty()"/>
-              <span class="ref-icon">📱</span>Redes sociais
-            </label>
-            <label class="ref-card" id="ref-search">
-              <input type="radio" name="referral" value="search" onchange="markDirty()"/>
-              <span class="ref-icon">🔍</span>Pesquisa online
-            </label>
-            <label class="ref-card" id="ref-walk">
-              <input type="radio" name="referral" value="walk" onchange="markDirty()"/>
-              <span class="ref-icon">🚶</span>Passei na rua
-            </label>
-            <label class="ref-card" id="ref-school">
-              <input type="radio" name="referral" value="school" onchange="markDirty()"/>
-              <span class="ref-icon">🏫</span>Escola parceira
-            </label>
-            <label class="ref-card" id="ref-other">
-              <input type="radio" name="referral" value="other" onchange="markDirty()"/>
-              <span class="ref-icon">✨</span>Outro
-            </label>
+          <div class="flabel">Como nos conheceu</div>
+          <div class="ref-grid">
+            <label class="ref-card"><input type="radio" name="referral" value="friend" onchange="markDirty()"/><span class="ref-icon">👥</span>Amigo</label>
+            <label class="ref-card"><input type="radio" name="referral" value="social" onchange="markDirty()"/><span class="ref-icon">📱</span>Redes Sociais</label>
+            <label class="ref-card"><input type="radio" name="referral" value="search" onchange="markDirty()"/><span class="ref-icon">🔍</span>Online</label>
+            <label class="ref-card"><input type="radio" name="referral" value="walk" onchange="markDirty()"/><span class="ref-icon">🚶</span>Rua</label>
+            <label class="ref-card"><input type="radio" name="referral" value="school" onchange="markDirty()"/><span class="ref-icon">🏫</span>Escola</label>
+            <label class="ref-card"><input type="radio" name="referral" value="other" onchange="markDirty()"/><span class="ref-icon">✨</span>Outro</label>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- STEP 2: COURSE -->
+  <!-- ═══ STEP 2: LEVEL ═══ -->
   <div class="section" id="step-2">
-    <div class="sec-hdr" onclick="toggleSection(2)">
+    <div class="sec-hdr" onclick="toggleSec(2)">
       <div class="sec-num">3</div>
-      <div><div class="sec-title">Curso</div><div class="sec-sub">Língua, nível e tipo</div></div>
+      <div><div class="sec-title">Língua & Nível</div><div class="sec-sub">Selecione a língua e o nível actual do aluno</div></div>
       <span class="sec-check">✓</span>
     </div>
     <div class="sec-body">
+
       <div class="field-row fr-2">
         <div class="field">
-          <label>Língua<span class="req">*</span></label>
-          <select id="lang" onchange="markDirty()">
+          <div class="flabel">Língua<span class="req">*</span></div>
+          <select class="fselect" id="lang" onchange="markDirty()">
             <option value="">Selecionar…</option>
             <option value="English">🇬🇧 English</option>
-            <option value="Português">🇵🇹 Português (Língua estrangeira)</option>
+            <option value="Português">🇵🇹 Português (LE)</option>
             <option value="Español">🇪🇸 Español</option>
             <option value="Deutsch">🇩🇪 Deutsch</option>
             <option value="Français">🇫🇷 Français</option>
           </select>
         </div>
         <div class="field">
-          <label>Tipo de curso<span class="req">*</span></label>
+          <div class="flabel">Tipo de curso<span class="req">*</span></div>
           <div class="course-grid">
-            <label class="course-card">
-              <input type="radio" name="course" value="adults" onchange="updateCourseType('adults')"/>
-              <span class="cc-icon">👤</span>
-              <span class="cc-name">Adultos</span>
-              <span class="cc-desc">+12 anos · 80 min/sessão</span>
-            </label>
-            <label class="course-card">
-              <input type="radio" name="course" value="preparatórios" onchange="updateCourseType('kids')"/>
+            <label class="course-card" id="cc-prep">
+              <input type="radio" name="course" value="prep" onchange="onCourseChange('prep')"/>
               <span class="cc-icon">🧒</span>
-              <span class="cc-name">preparatórios</span>
-              <span class="cc-desc">até 12 anos · 80 min/sessão</span>
+              <span class="cc-name">PREP</span>
+              <span class="cc-desc">Até 12 anos · Pré-escolar a jovens</span>
             </label>
-            <label class="course-card">
-              <input type="radio" name="course" value="exam" onchange="updateCourseType('exam')"/>
-              <span class="cc-icon">🎓</span>
-              <span class="cc-name">Exame</span>
-              <span class="cc-desc">Cambridge / DELF · 110 min</span>
-            </label>
-            <label class="course-card">
-              <input type="radio" name="course" value="intensive" onchange="updateCourseType('intensive')"/>
-              <span class="cc-icon">⚡</span>
-              <span class="cc-name">Intensivo</span>
-              <span class="cc-desc">Férias / projectos</span>
+            <label class="course-card" id="cc-adults">
+              <input type="radio" name="course" value="adults" onchange="onCourseChange('adults')"/>
+              <span class="cc-icon">👤</span>
+              <span class="cc-name">Adultos / Anos</span>
+              <span class="cc-desc">13+ anos · Ano 1 → Ano 8</span>
             </label>
           </div>
         </div>
       </div>
 
-      <div class="field">
-        <label>Nível actual</label>
-        <div class="level-track">
-          <div class="level-labels">
-            <span class="level-lbl">preparatórios</span>
-            <span class="level-lbl">Iniciante</span>
-            <span class="level-lbl">A1</span>
-            <span class="level-lbl">A2</span>
-            <span class="level-lbl">B1</span>
-            <span class="level-lbl">B2</span>
-            <span class="level-lbl">C1</span>
-            <span class="level-lbl">C2</span>
-          </div>
-          <input type="range" id="level-slider" min="0" max="6" step="1" value="0" oninput="updateLevel(this.value)" style="--pct:0%"/>
-          <div class="level-val" id="level-val">Iniciante</div>
-        </div>
-        <div class="field-notice">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
-          Se não sabe o seu nível, a ALM realizará um teste de nivelamento gratuito antes do início das aulas.
-        </div>
+      <!-- LEVEL SELECTOR — changes based on course type -->
+      <div class="level-system" id="level-system">
+        <div class="fhint">Selecione o tipo de curso para ver os níveis disponíveis.</div>
+      </div>
+
+      <div class="notice">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        Se o nível for incerto, a ALM realiza um teste de nivelamento gratuito antes do início das aulas.
       </div>
 
       <div class="field">
-        <label>Observações sobre o curso</label>
-        <textarea id="course-notes" placeholder="Ex: experiência prévia, objectivos, preferências de horário…" oninput="markDirty()"></textarea>
+        <div class="flabel">Observações sobre o curso</div>
+        <textarea class="ftextarea" id="course-notes" placeholder="Experiência prévia, objectivos, contexto…" oninput="markDirty()"></textarea>
       </div>
     </div>
   </div>
 
-  <!-- STEP 3: EXAMS -->
+  <!-- ═══ STEP 3: EXAMS ═══ -->
   <div class="section" id="step-3">
-    <div class="sec-hdr" onclick="toggleSection(3)">
+    <div class="sec-hdr" onclick="toggleSec(3)">
       <div class="sec-num">4</div>
-      <div><div class="sec-title">Exames Cambridge</div><div class="sec-sub">British Council Examination Centre</div></div>
+      <div><div class="sec-title">Exames Cambridge</div><div class="sec-sub">British Council Authorised Examination Centre</div></div>
       <span class="sec-check">✓</span>
     </div>
     <div class="sec-body">
-      <div class="field-notice">
+      <div class="notice">
         <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        Como centro autorizado pelo British Council, podemos inscrever alunos em todos os exames Cambridge English (KET, PET, FCE, CAE, CPE, IELTS) e DELF/DALF.
+        Como centro autorizado, a ALM pode inscrever alunos em todos os exames Cambridge English, IELTS, DELF/DALF, DELE e Goethe.
       </div>
 
       <div class="field">
-        <label>Pretende realizar exame oficial este ano lectivo?</label>
+        <div class="flabel">Pretende realizar exame este ano lectivo?</div>
         <div class="exam-pills">
-          <label class="exam-pill">
-            <input type="radio" name="exam-intent" value="no" checked onchange="toggleExamDetails(false)"/>
-            Não por agora
-          </label>
-          <label class="exam-pill">
-            <input type="radio" name="exam-intent" value="yes" onchange="toggleExamDetails(true)"/>
-            Sim, quero inscrever-me
-          </label>
-          <label class="exam-pill">
-            <input type="radio" name="exam-intent" value="maybe" onchange="toggleExamDetails(false)"/>
-            Talvez — vou decidir depois
-          </label>
+          <label class="exam-pill selected"><input type="radio" name="exam-intent" value="no" checked onchange="toggleExamDetails(false)"/>Não por agora</label>
+          <label class="exam-pill"><input type="radio" name="exam-intent" value="yes" onchange="toggleExamDetails(true)"/>Sim — inscrever</label>
+          <label class="exam-pill"><input type="radio" name="exam-intent" value="maybe" onchange="toggleExamDetails(false)"/>Talvez — a decidir</label>
         </div>
       </div>
 
       <div id="exam-details" style="display:none">
         <div class="field">
-          <label>Exame pretendido<span class="req">*</span></label>
-          <div class="exam-pills" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <div class="flabel">Exame pretendido<span class="req">*</span></div>
+          <div class="exam-pills" style="flex-direction:column;align-items:flex-start;gap:7px">
             <label class="exam-pill"><input type="radio" name="exam-name" value="KET"/><span>Cambridge KET (A2)</span><span class="ep-badge">A2</span></label>
             <label class="exam-pill"><input type="radio" name="exam-name" value="PET"/><span>Cambridge PET (B1)</span><span class="ep-badge">B1</span></label>
             <label class="exam-pill"><input type="radio" name="exam-name" value="FCE"/><span>Cambridge FCE (B2)</span><span class="ep-badge">B2</span></label>
@@ -771,14 +831,14 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
             <label class="exam-pill"><input type="radio" name="exam-name" value="Goethe"/><span>Goethe-Zertifikat (Deutsch)</span><span class="ep-badge">DE</span></label>
           </div>
         </div>
-        <div class="field-row fr-2">
+        <div class="field-row fr-2" style="margin-top:10px">
           <div class="field">
-            <label>Data aproximada do exame</label>
-            <input type="month" id="exam-date"/>
+            <div class="flabel">Data aproximada</div>
+            <input type="month" class="finput" id="exam-date"/>
           </div>
           <div class="field">
-            <label>Sessão preferencial</label>
-            <select id="exam-session">
+            <div class="flabel">Sessão preferencial</div>
+            <select class="fselect" id="exam-session">
               <option value="">—</option>
               <option value="nov">Novembro 2025</option>
               <option value="feb">Fevereiro 2026</option>
@@ -787,34 +847,37 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
             </select>
           </div>
         </div>
-        <div class="field">
-          <label>Já realizou exames anteriores? Resultados?</label>
-          <textarea id="exam-history" placeholder="Ex: FCE em 2023 — nota B. Ou primeira vez a realizar exame." rows="2"></textarea>
+        <div class="field" style="margin-top:10px">
+          <div class="flabel">Exames anteriores / resultados</div>
+          <textarea class="ftextarea" id="exam-history" placeholder="Ex: FCE em 2023 — nota B. Primeira vez a realizar exame." rows="2"></textarea>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- STEP 4: GUARDIAN -->
+  <!-- ═══ STEP 4: GUARDIAN ═══ -->
   <div class="section" id="step-4">
-    <div class="sec-hdr" onclick="toggleSection(4)">
+    <div class="sec-hdr" onclick="toggleSec(4)">
       <div class="sec-num">5</div>
-      <div><div class="sec-title">Encarregado de Educação</div><div class="sec-sub" id="guardian-sub">Para menores de 18 anos</div></div>
+      <div>
+        <div class="sec-title">Encarregado de Educação</div>
+        <div class="sec-sub" id="guardian-sub">Para menores de 18 anos — obrigatório</div>
+      </div>
       <span class="sec-check">✓</span>
     </div>
-    <div class="sec-body" id="guardian-body">
+    <div class="sec-body">
       <div class="guardian-notice" id="guardian-notice" style="display:none">
         <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        O aluno é menor de idade. O consentimento e assinatura do encarregado de educação são obrigatórios por lei.
+        Aluno menor de idade. O consentimento e assinatura do encarregado de educação são obrigatórios por lei.
       </div>
       <div class="field">
-        <label>Nome do encarregado</label>
-        <input type="text" id="g-name" placeholder="Nome completo do encarregado" oninput="markDirty()"/>
+        <div class="flabel">Nome do encarregado</div>
+        <input type="text" class="finput" id="g-name" placeholder="Nome completo do encarregado" oninput="markDirty()"/>
       </div>
       <div class="field-row fr-3">
         <div class="field">
-          <label>Relação</label>
-          <select id="g-relation">
+          <div class="flabel">Relação</div>
+          <select class="fselect" id="g-relation">
             <option value="">—</option>
             <option value="pai">Pai</option>
             <option value="mae">Mãe</option>
@@ -824,36 +887,35 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
           </select>
         </div>
         <div class="field">
-          <label>Telemóvel</label>
-          <input type="tel" id="g-phone" placeholder="9XX XXX XXX" oninput="markDirty()"/>
+          <div class="flabel">Telemóvel</div>
+          <input type="tel" class="finput" id="g-phone" placeholder="9XX XXX XXX" oninput="markDirty()"/>
         </div>
         <div class="field">
-          <label>Email</label>
-          <input type="email" id="g-email" placeholder="encarregado@email.com" oninput="markDirty()"/>
+          <div class="flabel">Email</div>
+          <input type="email" class="finput" id="g-email" placeholder="encarregado@email.com" oninput="markDirty()"/>
         </div>
       </div>
       <div class="field">
-        <label>NIF do encarregado (para facturação)</label>
-        <input type="text" id="g-nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
+        <div class="flabel">NIF do encarregado (para facturação)</div>
+        <input type="text" class="finput" id="g-nif" placeholder="123 456 789" maxlength="11" oninput="markDirty()"/>
       </div>
-      <!-- Signature -->
       <div class="field" id="sig-field" style="display:none">
-        <label>Assinatura do encarregado</label>
+        <div class="flabel">Assinatura do encarregado</div>
         <div class="sig-wrap">
           <div class="sig-bar">
             <span class="sig-lbl">Assinar aqui</span>
             <button type="button" class="sig-clear" onclick="clearSig()">Apagar</button>
           </div>
-          <canvas id="sig-canvas" width="640" height="88"></canvas>
+          <canvas id="sig-canvas" width="600" height="80"></canvas>
           <div class="sig-hint">Assine com o dedo ou rato dentro desta área</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- STEP 5: GDPR -->
+  <!-- ═══ STEP 5: GDPR ═══ -->
   <div class="section" id="step-5">
-    <div class="sec-hdr" onclick="toggleSection(5)">
+    <div class="sec-hdr" onclick="toggleSec(5)">
       <div class="sec-num">6</div>
       <div><div class="sec-title">Privacidade & Consentimentos</div><div class="sec-sub">RGPD · Regulamento Geral de Proteção de Dados</div></div>
       <span class="sec-check">✓</span>
@@ -869,11 +931,11 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
       </div>
       <div class="gdpr-row">
         <label class="toggle"><input type="checkbox" id="gdpr-photo"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
-        <div class="gdpr-text"><strong>Imagem</strong> — Autorizo a utilização da minha imagem em materiais pedagógicos e de divulgação da escola (opcional).</div>
+        <div class="gdpr-text"><strong>Utilização de imagem</strong> — Autorizo a utilização da minha imagem em materiais pedagógicos e de divulgação da escola (opcional).</div>
       </div>
       <div class="gdpr-row">
         <label class="toggle"><input type="checkbox" id="gdpr-bc"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
-        <div class="gdpr-text"><strong>Partilha com o British Council</strong> — Para inscrição em exames Cambridge, autorizo a partilha dos meus dados com o British Council / Cambridge Assessment English (opcional).</div>
+        <div class="gdpr-text"><strong>Partilha com British Council</strong> — Para inscrição em exames Cambridge, autorizo a partilha dos meus dados com o British Council / Cambridge Assessment English (opcional).</div>
       </div>
       <div class="gdpr-row">
         <label class="toggle"><input type="checkbox" id="gdpr-comms"/><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
@@ -882,76 +944,62 @@ canvas{display:block;width:100%;height:88px;cursor:crosshair;touch-action:none}
     </div>
   </div>
 
-  <!-- STEP 6: REVIEW -->
+  <!-- ═══ STEP 6: REVIEW ═══ -->
   <div class="section" id="step-6">
-    <div class="sec-hdr" onclick="toggleSection(6)">
+    <div class="sec-hdr" onclick="toggleSec(6)">
       <div class="sec-num">7</div>
-      <div><div class="sec-title">Revisão final</div><div class="sec-sub">Confirme antes de enviar</div></div>
+      <div><div class="sec-title">Revisão final</div><div class="sec-sub">Confirme os dados antes de submeter</div></div>
       <span class="sec-check">✓</span>
     </div>
-    <div class="sec-body" id="review-body">
+    <div class="sec-body">
       <div id="review-content"></div>
-      <div class="field-notice" id="review-warnings" style="display:none">
-        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span id="review-warn-txt"></span>
-      </div>
     </div>
   </div>
 
 </div><!-- /shell -->
 
-<!-- ── CONFIRM SCREEN ── -->
+<!-- CONFIRM -->
 <div class="confirm-screen" id="confirm-screen">
-  <div class="confirm-icon">
-    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-  </div>
-  <h2 class="confirm-title">Matrícula registada</h2>
-  <p class="confirm-sub">A sua ficha foi submetida com sucesso. A equipa ALM irá confirmar a sua inscrição em breve.</p>
+  <div class="confirm-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+  <div class="confirm-title">Matrícula registada</div>
+  <p class="confirm-sub">A ficha foi submetida com sucesso e guardada no Supabase. O aluno será contactado em breve pela equipa ALM.</p>
   <div class="confirm-ref" id="confirm-ref">ALM-2026-0000</div>
-  <div class="confirm-card" id="confirm-summary"></div>
-  <div style="text-align:left;padding:14px 16px;background:var(--teal-bg);border:1px solid var(--teal-bdr);border-radius:10px;margin-bottom:20px">
-    <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:8px">Próximos passos</div>
-    <div style="font-size:12px;color:var(--ink2);line-height:1.8">
-      1. Receberá um email de confirmação em <strong id="confirm-email-txt">—</strong><br>
-      2. A ALM contactará para agendar teste de nivelamento (se aplicável)<br>
-      3. Receberá as informações do seu horário e turma em Setembro<br>
-      4. Pagamento da matrícula processado na primeira aula
-    </div>
+  <div class="next-steps">
+    <div class="ns-title">Próximos passos</div>
+    <div class="ns-row"><div class="ns-num">01</div><div class="ns-txt">Receberá email de confirmação em <strong id="confirm-email">—</strong></div></div>
+    <div class="ns-row"><div class="ns-num">02</div><div class="ns-txt">A ALM contactará para agendar teste de nivelamento (se aplicável)</div></div>
+    <div class="ns-row"><div class="ns-num">03</div><div class="ns-txt">O horário e turma serão comunicados em Setembro</div></div>
+    <div class="ns-row"><div class="ns-num">04</div><div class="ns-txt">O pagamento da matrícula é processado na primeira aula</div></div>
   </div>
-  <div class="confirm-actions">
-    <a href="students/index.html" class="ca-btn ca-primary">Portal do aluno →</a>
-    <a href="admin/dashboard.html" class="ca-btn ca-secondary">Painel ALM</a>
-    <button onclick="resetForm()" class="ca-btn ca-secondary">Nova matrícula</button>
-  </div>
-  <div class="sb-status" id="sb-status-confirm" style="justify-content:center;margin-top:16px">
+  <div class="sb-status">
     <div class="sb-dot pending" id="sb-dot"></div>
-    <span id="sb-txt" style="color:var(--ink3)">A guardar no Supabase…</span>
+    <span id="sb-txt">A guardar no Supabase…</span>
   </div>
 </div>
 
-<!-- ── FOOTER ── -->
-<div class="submit-footer" id="submit-footer">
-  <div class="footer-inner">
-    <div class="footer-progress">
-      <div class="fp-bar"><div class="fp-fill" id="fp-fill" style="width:14%"></div></div>
-      <div class="fp-txt" id="fp-txt">Passo 1 de 7</div>
-    </div>
-    <button class="btn-prev" id="btn-prev" onclick="prevStep()" style="display:none">← Anterior</button>
-    <button class="btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
+<!-- FOOTER -->
+<div class="form-footer" id="form-footer">
+  <div class="footer-progress">
+    <div class="fp-bar"><div class="fp-fill" id="fp-fill" style="width:14%"></div></div>
+    <div class="fp-txt" id="fp-txt">Passo 1 de 7</div>
   </div>
+  <button class="btn-prev" id="btn-prev" onclick="prevStep()" style="display:none">← Anterior</button>
+  <button class="btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
 </div>
 
-<!-- ── SAVE STRIP (magic auto-save) ── -->
+<!-- SAVE STRIP -->
 <div class="save-strip" id="save-strip">
   <div class="ss-inner">
-    <div class="ss-txt"><strong>Dados não guardados</strong> — quer guardar o progresso?</div>
+    <div class="ss-txt"><strong>Dados não guardados</strong> — guardar rascunho?</div>
     <button class="ss-btn ss-save" onclick="autoSave()">Guardar</button>
     <button class="ss-btn ss-dismiss" onclick="dismissSave()">Dispensar</button>
   </div>
 </div>
 
 <script>
-/* ── SUPABASE ── */
+/* ═══════════════════════════════════════════════════
+   SUPABASE
+═══════════════════════════════════════════════════ */
 const SB='https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
@@ -961,82 +1009,325 @@ async function sbPost(table,body){
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
-async function sbPatch(table,qs,body){
-  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
-  if(!r.ok)throw new Error(await r.text());
-  return r.json();
+
+/* ═══════════════════════════════════════════════════
+   ALM LEVEL SYSTEM
+═══════════════════════════════════════════════════ */
+const LEVELS={
+  prep:[
+    {
+      label:'Pi1a / Pi1b — Externos',
+      hint:'Alunos de outras escolas · pré-escolar',
+      items:[
+        {code:'Pi1a',desc:'Pré-escolar externos · nível a',badge:'badge-prep'},
+        {code:'Pi1b',desc:'Pré-escolar externos · nível b',badge:'badge-prep'},
+      ]
+    },
+    {
+      label:'Pi — Infants (escola ALM)',
+      hint:'Alunos internos da escola ALM · pré-escolar',
+      items:[
+        {code:'Pi1',desc:'Infants · 1º ano',badge:'badge-prep'},
+        {code:'Pi2',desc:'Infants · 2º ano',badge:'badge-prep'},
+        {code:'Pi3',desc:'Infants · 3º ano',badge:'badge-prep'},
+      ]
+    },
+    {
+      label:'Pj — Jovens (escola ALM)',
+      hint:'Jovens internos · transitam para Ano 1 após Pj3',
+      items:[
+        {code:'Pj1',desc:'Jovens · 1º ano',badge:'badge-prep'},
+        {code:'Pj2',desc:'Jovens · 2º ano',badge:'badge-prep'},
+        {code:'Pj3',desc:'Jovens · 3º ano → transição Ano 1',badge:'badge-teen'},
+      ]
+    }
+  ],
+  adults:[
+    {
+      label:'Anos — Progressão geral',
+      hint:'Turmas comuns a todos os alunos com 13+ anos',
+      items:[
+        {code:'Ano 1',desc:'Iniciante absoluto · primeiros passos',badge:'badge-adult'},
+        {code:'Ano 2',desc:'Pj3 fracos em transição',badge:'badge-adult'},
+        {code:'Ano 3',desc:'Pj3 fortes em transição',badge:'badge-adult'},
+        {code:'Ano 4',desc:'B1 inicial',badge:'badge-adult'},
+        {code:'Ano 5',desc:'B2 inicial · pré-FCE',badge:'badge-exam'},
+        {code:'Ano 6',desc:'Ano de exame · FCE / B2',badge:'badge-exam'},
+        {code:'Ano 7',desc:'C1 · pré-CAE',badge:'badge-exam'},
+        {code:'Ano 8',desc:'C2 · CPE',badge:'badge-exam'},
+      ]
+    }
+  ]
+};
+
+const LEVEL_CAMBRIDGE={
+  'Ano 1':'A1','Ano 2':'A1+','Ano 3':'A2','Ano 4':'B1',
+  'Ano 5':'B2','Ano 6':'B2 (Exame)','Ano 7':'C1','Ano 8':'C2'
+};
+
+function buildLevelUI(courseType){
+  const container=document.getElementById('level-system');
+  if(!courseType){
+    container.innerHTML='<div class="fhint">Selecione o tipo de curso para ver os níveis disponíveis.</div>';
+    return;
+  }
+  const groups=LEVELS[courseType]||[];
+  let html='';
+  groups.forEach(g=>{
+    html+=`<div class="level-track-label">${g.label}</div>`;
+    if(g.hint)html+=`<div class="fhint" style="margin-bottom:8px">${g.hint}</div>`;
+    html+='<div class="level-grid">';
+    g.items.forEach(item=>{
+      const cambridge=LEVEL_CAMBRIDGE[item.code]?` · ${LEVEL_CAMBRIDGE[item.code]}`:'';
+      html+=`<label class="lvl-card" id="lvl-${item.code.replace(/\s/g,'-')}">
+        <input type="radio" name="level" value="${item.code}" onchange="onLevelChange('${item.code}')"/>
+        <div class="lvl-code">${item.code}</div>
+        <div class="lvl-desc">${item.desc}${cambridge}</div>
+        <div class="lvl-badge ${item.badge}">${courseType==='prep'?'PREP':item.code.startsWith('Ano')?'ANOS':'ALM'}</div>
+      </label>`;
+    });
+    html+='</div>';
+  });
+  container.innerHTML=html;
+  initRadioStyles('level','lvl-card');
 }
 
-/* ── STATE ── */
-let currentStep=0;
-const TOTAL_STEPS=7;
-const LEVELS=['Iniciante','A1','A2','B1','B2','C1','C2'];
-let isDirty=false;
-let saveTimer=null;
-let isMinor=false;
+function onCourseChange(type){
+  buildLevelUI(type);
+  document.getElementById('cc-prep').classList.toggle('selected',type==='prep');
+  document.getElementById('cc-adults').classList.toggle('selected',type==='adults');
+  markDirty();
+  // Auto-suggest guardian section for prep
+  if(type==='prep'){
+    document.getElementById('guardian-notice').style.display='flex';
+    document.getElementById('sig-field').style.display='block';
+  }
+}
+
+function onLevelChange(code){
+  document.querySelectorAll('.lvl-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
+  markDirty();
+}
+
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+let currentStep=0,TOTAL=7;
+let isDirty=false,saveTimer=null;
+let isMinor=false,sigCtx=null,sigDrawing=false;
 let photoDataUrl=null;
-let sigDrawing=false;
-let sigCtx=null;
-let draftId=null; // Supabase draft row id
+let staffMode=!window.location.pathname.includes('/students/'); // auto-detect from path
 
-/* ── INIT ── */
-function init(){
-  initSig();
-  updateProgress();
-  restoreDraft();
-  updateReferralStyles();
-  initRadioStyles();
+/* ═══════════════════════════════════════════════════
+   LANGUAGE
+═══════════════════════════════════════════════════ */
+const STRINGS={
+  pt:{
+    back:'Painel',page:'Matrícula',
+    title:'Ficha de Matrícula',sub:'2026 / 2027 · Supabase sync activo',
+    enrollNew:'Novo aluno',enrollNewDesc:'Nunca esteve na ALM · preencher tudo',
+    enrollExisting:'Existente',enrollExistingDesc:'Matriculado este ano · renovar',
+    enrollReturning:'Regresso',enrollReturningDesc:'Regressou após pausa',
+    lookupLabel:'Localizar registo anterior',
+    lookupNumLabel:'N.º ALM anterior',lookupNameLabel:'Ou pesquisar por nome',
+    lookupBtn:'Localizar',lookupSearching:'A procurar…',
+    lookupUse:'Usar estes dados →',lookupNotFound:'Registo não encontrado.',
+    prefillMsg:'Dados pré-preenchidos. Verifique e actualize o nível.',
+    prefillClear:'Limpar',
+    step1:'Aluno',step2:'Contacto',step3:'Nível',step4:'Exames',step5:'Encarregado',step6:'RGPD',step7:'Revisão',
+    continue:'Continuar →',prev:'← Anterior',submit:'Submeter matrícula ✓',
+    staff:'Secretariado',student:'Auto-inscrição',
+  },
+  en:{
+    back:'Dashboard',page:'Enrolment',
+    title:'Enrolment Form',sub:'2026 / 2027 · Supabase sync active',
+    enrollNew:'New student',enrollNewDesc:'Never attended ALM · fill everything',
+    enrollExisting:'Existing',enrollExistingDesc:'Currently enrolled · renew',
+    enrollReturning:'Returning',enrollReturningDesc:'Returning after a break',
+    lookupLabel:'Find previous record',
+    lookupNumLabel:'Previous ALM number',lookupNameLabel:'Or search by name',
+    lookupBtn:'Find',lookupSearching:'Searching…',
+    lookupUse:'Use this data →',lookupNotFound:'Record not found.',
+    prefillMsg:'Data pre-filled from previous record. Review and update level.',
+    prefillClear:'Clear',
+    step1:'Student',step2:'Contact',step3:'Level',step4:'Exams',step5:'Guardian',step6:'GDPR',step7:'Review',
+    continue:'Continue →',prev:'← Back',submit:'Submit enrolment ✓',
+    staff:'Staff',student:'Self-service',
+  },
+  de:{
+    back:'Dashboard',page:'Anmeldung',
+    title:'Anmeldeformular',sub:'2026 / 2027 · Supabase sync aktiv',
+    enrollNew:'Neuer Schüler',enrollNewDesc:'Noch nie bei ALM · alles ausfüllen',
+    enrollExisting:'Bestehend',enrollExistingDesc:'Aktuell eingeschrieben · verlängern',
+    enrollReturning:'Rückkehr',enrollReturningDesc:'Kehrt nach Pause zurück',
+    lookupLabel:'Vorherigen Datensatz suchen',
+    lookupNumLabel:'Frühere ALM-Nummer',lookupNameLabel:'Oder nach Name suchen',
+    lookupBtn:'Suchen',lookupSearching:'Suche…',
+    lookupUse:'Diese Daten verwenden →',lookupNotFound:'Datensatz nicht gefunden.',
+    prefillMsg:'Daten aus früherem Datensatz vorausgefüllt. Bitte Niveau prüfen.',
+    prefillClear:'Löschen',
+    step1:'Schüler',step2:'Kontakt',step3:'Niveau',step4:'Prüfung',step5:'Erziehungsber.',step6:'DSGVO',step7:'Prüfung',
+    continue:'Weiter →',prev:'← Zurück',submit:'Anmeldung abschicken ✓',
+    staff:'Sekretariat',student:'Selbstregistrierung',
+  },
+  fr:{
+    back:'Tableau de bord',page:'Inscription',
+    title:"Fiche d'inscription",sub:'2026 / 2027 · Supabase sync actif',
+    enrollNew:'Nouvel élève',enrollNewDesc:"Jamais à l'ALM · tout remplir",
+    enrollExisting:'Existant',enrollExistingDesc:'Inscrit cette année · renouveler',
+    enrollReturning:'Retour',enrollReturningDesc:'Retour après une pause',
+    lookupLabel:'Rechercher le dossier précédent',
+    lookupNumLabel:'Ancien numéro ALM',lookupNameLabel:'Ou rechercher par nom',
+    lookupBtn:'Rechercher',lookupSearching:'Recherche…',
+    lookupUse:'Utiliser ces données →',lookupNotFound:'Dossier introuvable.',
+    prefillMsg:'Données pré-remplies. Vérifiez et mettez à jour le niveau.',
+    prefillClear:'Effacer',
+    step1:'Élève',step2:'Contact',step3:'Niveau',step4:'Examens',step5:'Tuteur',step6:'RGPD',step7:'Révision',
+    continue:'Continuer →',prev:'← Retour',submit:"Soumettre l'inscription ✓",
+    staff:'Secrétariat',student:'Auto-inscription',
+  }
+};
+
+let currentLang='pt';
+
+function setLang(lang,btn){
+  currentLang=lang;
+  document.querySelectorAll('.flag-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  else{
+    const b=document.querySelector(`.flag-btn[data-lang="${lang}"]`);
+    if(b)b.classList.add('active');
+  }
+  const sel=document.getElementById('tb-lang-select');
+  if(sel)sel.value=lang;
+  applyStrings();
 }
 
-/* ── STEP NAVIGATION ── */
+function applyStrings(){
+  const s=STRINGS[currentLang]||STRINGS.pt;
+  // topbar
+  setTxt('tb-page-el',s.page);
+  // hero
+  setTxt('hero-title-el',s.title);
+  setTxt('hero-sub-el',s.sub);
+  // progress steps
+  const steps=[s.step1,s.step2,s.step3,s.step4,s.step5,s.step6,s.step7];
+  document.querySelectorAll('.pr-lbl').forEach((el,i)=>{if(steps[i])el.textContent=steps[i];});
+  // enrolment cards
+  setTxt('ec-new-name',s.enrollNew);setTxt('ec-new-desc',s.enrollNewDesc);
+  setTxt('ec-existing-name',s.enrollExisting);setTxt('ec-existing-desc',s.enrollExistingDesc);
+  setTxt('ec-returning-name',s.enrollReturning);setTxt('ec-returning-desc',s.enrollReturningDesc);
+  // lookup
+  setTxt('lookup-box-lbl',s.lookupLabel);
+  setTxt('lbr-num-lbl',s.lookupNumLabel);setTxt('lbr-name-lbl',s.lookupNameLabel);
+  const goBtn=document.getElementById('btn-lookup-go');
+  if(goBtn&&!goBtn.disabled)goBtn.querySelector('span')||goBtn.lastChild&&(goBtn.lastChild.textContent=' '+s.lookupBtn);
+  setTxt('lr-use-btn',s.lookupUse);
+  setTxt('prefill-msg',s.prefillMsg);
+  setTxt('prefill-clear-btn',s.prefillClear);
+  // footer buttons
+  const btnPrev=document.getElementById('btn-prev');
+  const btnNext=document.getElementById('btn-next');
+  if(btnPrev)btnPrev.textContent=s.prev;
+  if(btnNext&&!btnNext.classList.contains('final'))btnNext.textContent=s.continue;
+  if(btnNext&&btnNext.classList.contains('final'))btnNext.textContent=s.submit;
+  // mode
+  syncModeUI();
+}
+
+function setTxt(id,val){const el=document.getElementById(id);if(el&&val)el.textContent=val;}
+
+/* ═══════════════════════════════════════════════════
+   MENU DRAWER
+═══════════════════════════════════════════════════ */
+function openMenu(){document.getElementById('menu-overlay').classList.add('open')}
+function closeMenu(){document.getElementById('menu-overlay').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+
+
+
+/* ═══════════════════════════════════════════════════
+   MODE TOGGLE
+═══════════════════════════════════════════════════ */
+function toggleMode(){
+  staffMode=!staffMode;
+  syncModeUI();
+}
+
+/* ═══════════════════════════════════════════════════
+   STEP NAVIGATION
+═══════════════════════════════════════════════════ */
 function nextStep(){
-  if(currentStep<TOTAL_STEPS-1){
+  if(currentStep<TOTAL-1){
     if(!validateStep(currentStep))return;
     markStepDone(currentStep);
     currentStep++;
     updateProgress();
-    if(currentStep===TOTAL_STEPS-1)buildReview();
-    scrollToTop();
+    if(currentStep===TOTAL-1)buildReview();
+    scrollTop();
   } else {
     submitForm();
   }
 }
 
 function prevStep(){
-  if(currentStep>0){currentStep--;updateProgress();scrollToTop();}
+  if(currentStep>0){currentStep--;updateProgress();scrollTop();}
 }
 
 function goToStep(step){
-  if(step>currentStep)return; // can only go back
+  if(step>=currentStep)return;
   currentStep=step;
-  updateProgress();
-  scrollToTop();
+  updateProgress();scrollTop();
 }
 
-function scrollToTop(){
-  document.querySelector('.hero').scrollIntoView({behavior:'smooth',block:'start'});
+function toggleSec(idx){
+  if(idx<currentStep){goToStep(idx);}
 }
 
+function scrollTop(){
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function markStepDone(step){
+  const pr=document.querySelector(`.pr-step[data-step="${step}"]`);
+  if(pr){pr.classList.remove('active');pr.classList.add('done');}
+  const sec=document.getElementById('step-'+step);
+  if(sec){const hdr=sec.querySelector('.sec-hdr');if(hdr)hdr.classList.add('done');}
+}
+
+function updateProgress(){
+  document.querySelectorAll('.pr-step').forEach((el,i)=>{
+    el.classList.toggle('active',i===currentStep);
+  });
+  const pct=Math.round((currentStep+1)/TOTAL*100);
+  document.getElementById('fp-fill').style.width=pct+'%';
+  document.getElementById('fp-txt').textContent=`Passo ${currentStep+1} de ${TOTAL}`;
+  document.getElementById('btn-prev').style.display=currentStep>0?'':'none';
+  const btnNext=document.getElementById('btn-next');
+  if(currentStep===TOTAL-1){
+    btnNext.textContent='Submeter matrícula ✓';
+    btnNext.classList.add('final');
+  } else {
+    btnNext.textContent='Continuar →';
+    btnNext.classList.remove('final');
+  }
+  for(let i=0;i<TOTAL;i++){
+    const sec=document.getElementById('step-'+i);
+    if(sec){sec.style.opacity=i<=currentStep?'1':'0.4';sec.style.pointerEvents=i===currentStep?'auto':'none';}
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   VALIDATION
+═══════════════════════════════════════════════════ */
 function validateStep(step){
   let ok=true;
-  if(step===0){
-    if(!v('name'))ok=false;
-    if(!v('dob'))ok=false;
-  }
-  if(step===1){
-    if(!v('email'))ok=false;
-    if(!v('phone'))ok=false;
-    if(!v('branch'))ok=false;
-  }
-  if(step===2){
-    if(!v('lang'))ok=false;
-    const course=document.querySelector('input[name="course"]:checked');
-    if(!course){ok=false;/* visual cue */}
-  }
+  if(step===0){if(!v('name'))ok=false;if(!v('dob'))ok=false;}
+  if(step===1){if(!v('email'))ok=false;if(!v('phone'))ok=false;if(!v('branch'))ok=false;}
+  if(step===2){if(!v('lang'))ok=false;const lv=document.querySelector('input[name="level"]:checked');if(!lv)ok=false;}
   if(step===5){
     if(!document.getElementById('gdpr-terms').checked||!document.getElementById('gdpr-data').checked){
-      alert('Os primeiros dois consentimentos são obrigatórios para prosseguir.');
-      ok=false;
+      alert('Os primeiros dois consentimentos (Termos e Tratamento de dados) são obrigatórios.');ok=false;
     }
   }
   return ok;
@@ -1050,94 +1341,9 @@ function v(id){
   return ok;
 }
 
-function markStepDone(step){
-  const sec=document.querySelector(`[id="step-${step}"] .sec-hdr`);
-  if(sec)sec.classList.add('done');
-  const pr=document.querySelector(`.pr-step[data-step="${step}"]`);
-  if(pr){pr.classList.remove('active');pr.classList.add('done');}
-}
-
-function updateProgress(){
-  // progress rail
-  document.querySelectorAll('.pr-step').forEach((el,i)=>{
-    el.classList.toggle('active',i===currentStep);
-  });
-  // footer bar
-  const pct=Math.round((currentStep+1)/TOTAL_STEPS*100);
-  document.getElementById('fp-fill').style.width=pct+'%';
-  document.getElementById('fp-txt').textContent=`Passo ${currentStep+1} de ${TOTAL_STEPS}`;
-  // buttons
-  const btnPrev=document.getElementById('btn-prev');
-  const btnNext=document.getElementById('btn-next');
-  btnPrev.style.display=currentStep>0?'':'none';
-  if(currentStep===TOTAL_STEPS-1){
-    btnNext.textContent='Submeter matrícula ✓';
-    btnNext.classList.add('final');
-  } else {
-    btnNext.textContent='Continuar →';
-    btnNext.classList.remove('final');
-  }
-  // show/hide sections based on step
-  for(let i=0;i<TOTAL_STEPS;i++){
-    const sec=document.getElementById('step-'+i);
-    if(sec){
-      sec.style.opacity=i<=currentStep?'1':'0.4';
-      sec.style.pointerEvents=i===currentStep?'auto':'none';
-    }
-  }
-  // hide footer in confirm state
-  if(document.getElementById('confirm-screen').classList.contains('show')){
-    document.getElementById('submit-footer').style.display='none';
-  }
-}
-
-function toggleSection(idx){
-  // allow re-opening done sections
-  if(idx<currentStep){currentStep=idx;updateProgress();}
-}
-
-/* ── LEVEL SLIDER ── */
-function updateLevel(val){
-  const pct=(val/6*100)+'%';
-  document.getElementById('level-slider').style.setProperty('--pct',pct);
-  document.getElementById('level-val').textContent=LEVELS[val];
-  markDirty();
-}
-
-/* ── COURSE TYPE ── */
-function updateCourseType(type){
-  document.querySelectorAll('.course-card').forEach(c=>{
-    c.classList.toggle('selected',c.querySelector('input').value===type);
-  });
-  markDirty();
-}
-function initRadioStyles(){
-  document.querySelectorAll('.course-card input').forEach(inp=>{
-    inp.addEventListener('change',()=>{
-      document.querySelectorAll('.course-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
-    });
-  });
-  document.querySelectorAll('.exam-pill input').forEach(inp=>{
-    inp.addEventListener('change',()=>{
-      const name=inp.getAttribute('name');
-      document.querySelectorAll(`.exam-pill input[name="${name}"]`).forEach(o=>{
-        o.closest('.exam-pill').classList.toggle('selected',o.checked);
-      });
-    });
-  });
-  document.querySelectorAll('.ref-card input').forEach(inp=>{
-    inp.addEventListener('change',()=>{
-      document.querySelectorAll('.ref-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
-    });
-  });
-}
-function updateReferralStyles(){
-  document.querySelectorAll('.ref-card').forEach(c=>{
-    c.classList.toggle('selected',c.querySelector('input').checked);
-  });
-}
-
-/* ── MINOR CHECK ── */
+/* ═══════════════════════════════════════════════════
+   MINOR / AGE CHECK
+═══════════════════════════════════════════════════ */
 function checkMinor(){
   const dob=document.getElementById('dob').value;
   if(!dob)return;
@@ -1146,297 +1352,239 @@ function checkMinor(){
   document.getElementById('guardian-notice').style.display=isMinor?'flex':'none';
   document.getElementById('sig-field').style.display=isMinor?'block':'none';
   const sub=document.getElementById('guardian-sub');
-  sub.textContent=isMinor?`⚠ Menor — ${age} anos — consentimento obrigatório`:'Para menores de 18 anos';
-  sub.style.color=isMinor?'var(--red)':'';
+  if(isMinor)sub.textContent=`Menor · ${age} anos · consentimento obrigatório`;
+  else sub.textContent='Para menores de 18 anos — obrigatório';
+  sub.style.color=isMinor?'var(--amber)':'';
   markDirty();
 }
 
-/* ── ENROLL TYPE ── */
-function handleEnrollType(){
-  const type=document.getElementById('enroll-type').value;
-  document.getElementById('existing-num-field').style.display=type==='returning'?'block':'none';
+function calcAge(){/* reuse checkMinor */checkMinor();}
+
+/* ═══════════════════════════════════════════════════
+   ENROLMENT TYPE
+═══════════════════════════════════════════════════ */
+let enrollType=null;
+let existingStudentData=null;
+
+function selectEnrollType(type){
+  enrollType=type;
+  ['new','existing','returning'].forEach(t=>{
+    document.getElementById('ec-'+t).classList.toggle('selected',t===type);
+  });
+  const lookupPanel=document.getElementById('lookup-panel');
+  const prefillBanner=document.getElementById('prefill-banner');
+  if(type==='new'){
+    lookupPanel.style.display='none';
+    prefillBanner.style.display='none';
+    clearAllFields();
+    existingStudentData=null;
+  } else {
+    lookupPanel.style.display='block';
+    // reset lookup state
+    document.getElementById('lookup-result').style.display='none';
+    document.getElementById('lookup-not-found').style.display='none';
+    document.getElementById('existing-num').value='';
+    document.getElementById('existing-name').value='';
+  }
+  markDirty();
 }
 
-async function lookupExisting(){
-  const num=document.getElementById('existing-num').value.trim();
-  if(num.length<7)return;
-  // Could fetch existing student data here
-  // For now just accept the number
+function clearAllFields(){
+  ['name','dob','nationality','gender','id-number','nif',
+   'email','phone','address','branch','lang','course-notes',
+   'g-name','g-relation','g-phone','g-email','g-nif'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.value='';
+  });
+  document.querySelectorAll('input[name="course"]').forEach(r=>r.checked=false);
+  document.querySelectorAll('input[name="level"]').forEach(r=>r.checked=false);
+  document.querySelectorAll('.course-card,.lvl-card').forEach(c=>c.classList.remove('selected'));
+  buildLevelUI(null);
 }
 
-/* ── EXAM TOGGLE ── */
+/* ── EXISTING NUM INPUT ── */
+function onExistingNumInput(){
+  const raw=document.getElementById('existing-num').value.replace(/\D/g,'');
+  document.getElementById('existing-num').value=raw;
+}
+
+/* ── EXISTING NAME AUTOCOMPLETE ── */
+let existingAcTimer=null;
+async function onExistingNameInput(){
+  const q=document.getElementById('existing-name').value.trim();
+  const drop=document.getElementById('existing-ac-drop');
+  if(q.length<2){drop.classList.remove('open');return}
+  clearTimeout(existingAcTimer);
+  existingAcTimer=setTimeout(async()=>{
+    try{
+      const rows=await sbGet('students',`name=ilike.*${encodeURIComponent(q)}*&select=num,name,initials,lang,level,course,branch,age,email,phone,nationality,dob,gender,address,nif,id_number,guardian_name,guardian_relation,guardian_phone,guardian_email,guardian_nif&limit=6`);
+      if(!rows.length){drop.classList.remove('open');return}
+      drop.innerHTML=rows.map(s=>`
+        <div class="ac-item" onclick="selectExistingAc(${JSON.stringify(s).replace(/"/g,'&quot;')})">
+          <div class="ac-initials">${s.initials||s.name.slice(0,2).toUpperCase()}</div>
+          <div class="ac-info">
+            <div class="ac-name">${highlightEx(s.name,q)}</div>
+            <div class="ac-num">${s.num} · ${s.lang||''} ${s.level||''} · ${s.branch||''}</div>
+          </div>
+        </div>`).join('');
+      drop.classList.add('open');
+    }catch(e){drop.classList.remove('open')}
+  },280);
+}
+
+function highlightEx(name,q){
+  const i=name.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0)return name;
+  return name.slice(0,i)+'<strong style="color:var(--gold-hi)">'+name.slice(i,i+q.length)+'</strong>'+name.slice(i+q.length);
+}
+
+function selectExistingAc(s){
+  document.getElementById('existing-name').value=s.name;
+  document.getElementById('existing-ac-drop').classList.remove('open');
+  showLookupResult(s);
+}
+
+function handleExistingNameKey(e){
+  if(e.key==='Enter'){document.getElementById('existing-ac-drop').classList.remove('open');doExistingLookup();}
+  if(e.key==='Escape')document.getElementById('existing-ac-drop').classList.remove('open');
+}
+
+/* ── MAIN LOOKUP ── */
+async function doExistingLookup(){
+  const rawNum=document.getElementById('existing-num').value.trim();
+  const num=rawNum?'ALM-'+rawNum.padStart(4,'0'):'';
+  const nameQ=document.getElementById('existing-name').value.trim();
+  const btn=document.getElementById('btn-lookup-go');
+  btn.textContent='A procurar…';btn.disabled=true;
+  document.getElementById('lookup-result').style.display='none';
+  document.getElementById('lookup-not-found').style.display='none';
+  try{
+    let rows=[];
+    if(num)rows=await sbGet('students',`num=eq.${encodeURIComponent(num)}&limit=1`);
+    if(!rows.length&&nameQ.length>1)
+      rows=await sbGet('students',`name=ilike.*${encodeURIComponent(nameQ)}*&select=num,name,initials,lang,level,course,branch,age,email,phone,nationality,dob,gender,address,nif,id_number,guardian_name,guardian_relation,guardian_phone,guardian_email,guardian_nif&limit=1`);
+    if(rows.length){
+      showLookupResult(rows[0]);
+    } else {
+      document.getElementById('lookup-not-found').style.display='block';
+    }
+  }catch(e){
+    document.getElementById('lookup-not-found').textContent='Erro de ligação. Tente novamente.';
+    document.getElementById('lookup-not-found').style.display='block';
+  }finally{
+    btn.innerHTML=`<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="4"/><path d="M11 11l3 3"/></svg> Localizar`;
+    btn.disabled=false;
+  }
+}
+
+function showLookupResult(s){
+  existingStudentData=s;
+  document.getElementById('lr-avatar').textContent=s.initials||s.name.slice(0,2).toUpperCase();
+  document.getElementById('lr-name').textContent=s.name;
+  document.getElementById('lr-meta').textContent=`${s.num} · ${s.age||'—'} anos · ${s.branch||'—'}`;
+  document.getElementById('lr-badges').innerHTML=`
+    ${s.lang?`<span class="badge b-lang">${s.lang}</span>`:''}
+    ${s.level?`<span class="badge b-level">${s.level}</span>`:''}
+    ${s.course?`<span class="badge b-course-${s.course}">${{prep:'PREP',adults:'Adultos',exam:'Exame'}[s.course]||s.course}</span>`:''}`;
+  document.getElementById('lookup-result').style.display='block';
+  document.getElementById('lookup-not-found').style.display='none';
+}
+
+function applyExistingData(){
+  const s=existingStudentData;
+  if(!s)return;
+  // Personal
+  setVal('name',s.name);
+  setVal('dob',s.dob);
+  setVal('nationality',s.nationality);
+  setVal('gender',s.gender);
+  setVal('id-number',s.id_number);
+  setVal('nif',s.nif);
+  // Contact
+  setVal('email',s.email);
+  setVal('phone',s.phone);
+  setVal('address',s.address);
+  setVal('branch',s.branch);
+  // Course — pre-select but staff can change for new year
+  setVal('lang',s.lang);
+  if(s.course){
+    const r=document.querySelector(`input[name="course"][value="${s.course}"]`);
+    if(r){r.checked=true;onCourseChange(s.course);}
+    // then pre-select level
+    if(s.level){
+      setTimeout(()=>{
+        const lv=document.querySelector(`input[name="level"][value="${CSS.escape(s.level)}"]`);
+        if(lv){lv.checked=true;onLevelChange(s.level);}
+      },50);
+    }
+  }
+  // Guardian
+  setVal('g-name',s.guardian_name);
+  setVal('g-relation',s.guardian_relation);
+  setVal('g-phone',s.guardian_phone);
+  setVal('g-email',s.guardian_email);
+  setVal('g-nif',s.guardian_nif);
+
+  checkMinor();
+
+  // Show prefill banner
+  const typeLabel={existing:'Existente',returning:'Regresso'}[enrollType]||'anterior';
+  document.getElementById('prefill-msg').textContent=
+    `Dados pré-preenchidos a partir do registo ${typeLabel} (${s.num}). Verifique e actualize o nível para o novo ano.`;
+  document.getElementById('prefill-banner').style.display='flex';
+
+  // Hide lookup panel, scroll to form
+  document.getElementById('lookup-panel').style.display='none';
+  markDirty();
+}
+
+function setVal(id,val){
+  const el=document.getElementById(id);
+  if(el&&val!=null)el.value=val;
+}
+
+function clearPrefill(){
+  clearAllFields();
+  existingStudentData=null;
+  document.getElementById('prefill-banner').style.display='none';
+  document.getElementById('lookup-panel').style.display='block';
+  document.getElementById('lookup-result').style.display='none';
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#existing-ac-drop')&&!e.target.closest('#existing-name'))
+    document.getElementById('existing-ac-drop').classList.remove('open');
+});
+
+/* ═══════════════════════════════════════════════════
+   EXAM TOGGLE
+═══════════════════════════════════════════════════ */
 function toggleExamDetails(show){
   document.getElementById('exam-details').style.display=show?'block':'none';
-  document.querySelectorAll('.exam-pill').forEach(p=>{
-    p.classList.toggle('selected',p.querySelector('input').checked);
-  });
+  initPillStyles('exam-intent');
 }
 
-/* ── GDPR CHECK ── */
-function checkGdpr(){
-  const ok=document.getElementById('gdpr-terms').checked&&document.getElementById('gdpr-data').checked;
-  document.getElementById('btn-next').disabled=!ok&&currentStep===5;
-}
+/* ═══════════════════════════════════════════════════
+   GDPR
+═══════════════════════════════════════════════════ */
+function checkGdpr(){}
 
-/* ── PHOTO ── */
+/* ═══════════════════════════════════════════════════
+   PHOTO
+═══════════════════════════════════════════════════ */
 function handlePhoto(input){
-  const file=input.files[0];
-  if(!file)return;
+  const file=input.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
     photoDataUrl=e.target.result;
     const img=document.getElementById('photo-preview');
-    img.src=photoDataUrl;
-    img.classList.remove('hidden');
+    img.src=photoDataUrl;img.classList.remove('hidden');
     document.getElementById('photo-placeholder').classList.add('hidden');
     markDirty();
   };
   reader.readAsDataURL(file);
 }
 
-/* ── SIGNATURE ── */
-function initSig(){
-  const canvas=document.getElementById('sig-canvas');
-  const ctx=canvas.getContext('2d');
-  sigCtx=ctx;
-  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()||'#1C1814';
-  ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
-  const onStart=e=>{
-    e.preventDefault();sigDrawing=true;ctx.beginPath();
-    const pos=getPos(e,canvas);ctx.moveTo(pos.x,pos.y);
-  };
-  const onMove=e=>{
-    e.preventDefault();if(!sigDrawing)return;
-    const pos=getPos(e,canvas);ctx.lineTo(pos.x,pos.y);ctx.stroke();
-    markDirty();
-  };
-  const onEnd=()=>sigDrawing=false;
-  canvas.addEventListener('mousedown',onStart);canvas.addEventListener('mousemove',onMove);
-  canvas.addEventListener('mouseup',onEnd);canvas.addEventListener('mouseleave',onEnd);
-  canvas.addEventListener('touchstart',onStart,{passive:false});
-  canvas.addEventListener('touchmove',onMove,{passive:false});
-  canvas.addEventListener('touchend',onEnd);
-}
-function getPos(e,canvas){
-  const r=canvas.getBoundingClientRect();
-  const src=e.touches?e.touches[0]:e;
-  return{x:(src.clientX-r.left)*(canvas.width/r.width),y:(src.clientY-r.top)*(canvas.height/r.height)};
-}
-function clearSig(){
-  const canvas=document.getElementById('sig-canvas');
-  sigCtx.clearRect(0,0,canvas.width,canvas.height);
-}
-
-/* ── REVIEW BUILD ── */
-function buildReview(){
-  const lang=document.getElementById('lang').value;
-  const course=document.querySelector('input[name="course"]:checked');
-  const exam=document.querySelector('input[name="exam-name"]:checked');
-  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
-  const lvl=LEVELS[document.getElementById('level-slider').value];
-
-  const warnings=[];
-  if(!document.getElementById('name').value)warnings.push('Nome do aluno em falta');
-  if(!document.getElementById('email').value)warnings.push('Email em falta');
-  if(!lang)warnings.push('Língua não seleccionada');
-  if(!course)warnings.push('Tipo de curso não seleccionado');
-
-  document.getElementById('review-content').innerHTML=`
-    <div class="confirm-card" style="margin-bottom:0">
-      <div class="cc-row"><span class="cc-k">Nome</span><span class="cc-v">${document.getElementById('name').value||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Data de nascimento</span><span class="cc-v">${formatDate(document.getElementById('dob').value)}</span></div>
-      <div class="cc-row"><span class="cc-k">Email</span><span class="cc-v">${document.getElementById('email').value||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Telemóvel</span><span class="cc-v">${document.getElementById('phone').value||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Filial</span><span class="cc-v">${document.getElementById('branch').value||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Língua</span><span class="cc-v">${lang||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Tipo de curso</span><span class="cc-v">${course?.value||'—'}</span></div>
-      <div class="cc-row"><span class="cc-k">Nível actual</span><span class="cc-v">${lvl}</span></div>
-      ${examIntent?.value==='yes'?`<div class="cc-row"><span class="cc-k">Exame</span><span class="cc-v">${exam?.value||'A definir'}</span></div>`:''}
-      ${document.getElementById('g-name').value?`<div class="cc-row"><span class="cc-k">Encarregado</span><span class="cc-v">${document.getElementById('g-name').value}</span></div>`:''}
-    </div>`;
-
-  const warnEl=document.getElementById('review-warnings');
-  const warnTxt=document.getElementById('review-warn-txt');
-  if(warnings.length){
-    warnEl.style.display='flex';
-    warnTxt.textContent='Atenção: '+warnings.join(' · ');
-  } else {
-    warnEl.style.display='none';
-  }
-}
-
-function formatDate(d){
-  if(!d)return'—';
-  const dt=new Date(d+'T12:00:00');
-  return dt.toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
-}
-
-/* ── SUBMIT ── */
-async function submitForm(){
-  const btn=document.getElementById('btn-next');
-  btn.textContent='A submeter…';btn.disabled=true;
-
-  const course=document.querySelector('input[name="course"]:checked');
-  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
-  const examName=document.querySelector('input[name="exam-name"]:checked');
-  const referral=document.querySelector('input[name="referral"]:checked');
-
-  const ref='ALM-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9999)+1).padStart(4,'0');
-
-  const payload={
-    ref,
-    enroll_type:document.getElementById('enroll-type').value||'new',
-    name:document.getElementById('name').value.trim(),
-    dob:document.getElementById('dob').value,
-    nationality:document.getElementById('nationality').value,
-    gender:document.getElementById('gender').value,
-    id_number:document.getElementById('id-number').value,
-    nif:document.getElementById('nif').value,
-    country:document.getElementById('country').value,
-    email:document.getElementById('email').value.trim(),
-    phone:document.getElementById('phone').value.trim(),
-    address:document.getElementById('address').value,
-    branch:document.getElementById('branch').value,
-    referral:referral?.value||null,
-    lang:document.getElementById('lang').value,
-    course:course?.value||null,
-    level:document.getElementById('level-slider').value,
-    level_label:LEVELS[document.getElementById('level-slider').value],
-    course_notes:document.getElementById('course-notes').value,
-    exam_intent:examIntent?.value||'no',
-    exam_name:examName?.value||null,
-    exam_session:document.getElementById('exam-session').value||null,
-    exam_history:document.getElementById('exam-history').value||null,
-    guardian_name:document.getElementById('g-name').value,
-    guardian_relation:document.getElementById('g-relation').value,
-    guardian_phone:document.getElementById('g-phone').value,
-    guardian_email:document.getElementById('g-email').value,
-    guardian_nif:document.getElementById('g-nif').value,
-    gdpr_terms:document.getElementById('gdpr-terms').checked,
-    gdpr_data:document.getElementById('gdpr-data').checked,
-    gdpr_photo:document.getElementById('gdpr-photo').checked,
-    gdpr_bc:document.getElementById('gdpr-bc').checked,
-    gdpr_comms:document.getElementById('gdpr-comms').checked,
-    is_minor:isMinor,
-    photo_url:null, // would upload to Supabase Storage in production
-    submitted_at:new Date().toISOString(),
-    academic_year:'2026/2027',
-    status:'pending_review',
-  };
-
-  // Show confirm screen immediately for UX
-  document.getElementById('form-shell').classList.add('hidden');
-  document.getElementById('submit-footer').style.display='none';
-  document.getElementById('save-strip').classList.remove('show');
-  const cs=document.getElementById('confirm-screen');
-  cs.classList.add('show');
-  document.getElementById('confirm-ref').textContent=ref;
-  document.getElementById('confirm-email-txt').textContent=payload.email||'—';
-  buildConfirmSummary(payload);
-
-  // Try Supabase
-  try{
-    await sbPost('students',{
-      num:ref,name:payload.name,initials:(payload.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()),
-      email:payload.email,phone:payload.phone,
-      lang:payload.lang,level:payload.level_label,
-      course:payload.course,branch:payload.branch,
-      age:payload.dob?Math.floor((Date.now()-new Date(payload.dob))/(365.25*24*60*60*1000)):null,
-      nationality:payload.nationality,nif:payload.nif,
-      gender:payload.gender,address:payload.address,
-      guardian_name:payload.guardian_name,guardian_phone:payload.guardian_phone,guardian_email:payload.guardian_email,
-      exam_intent:payload.exam_intent,exam_name:payload.exam_name,
-      gdpr_photo:payload.gdpr_photo,gdpr_comms:payload.gdpr_comms,
-      status:'active',enrolled_at:payload.submitted_at,
-      academic_year:payload.academic_year,
-    });
-    setSbStatus(true,'Guardado com sucesso no Supabase');
-    localStorage.removeItem('alm-draft');
-  }catch(e){
-    console.error('Supabase insert failed:',e);
-    setSbStatus(false,'Guardado localmente. A sincronizar…');
-    // Save to localStorage as fallback
-    localStorage.setItem('alm-submission-'+ref,JSON.stringify(payload));
-  }
-}
-
-function setSbStatus(ok,txt){
-  const dot=document.getElementById('sb-dot');
-  const t=document.getElementById('sb-txt');
-  dot.className='sb-dot '+(ok?'ok':'err');
-  t.textContent=txt;
-}
-
-function buildConfirmSummary(p){
-  document.getElementById('confirm-summary').innerHTML=`
-    <div class="cc-row"><span class="cc-k">Nome</span><span class="cc-v">${p.name||'—'}</span></div>
-    <div class="cc-row"><span class="cc-k">Filial</span><span class="cc-v">${p.branch||'—'}</span></div>
-    <div class="cc-row"><span class="cc-k">Curso</span><span class="cc-v">${p.lang||'—'} · ${p.course||'—'} · ${p.level_label||'—'}</span></div>
-    <div class="cc-row"><span class="cc-k">Exame</span><span class="cc-v">${p.exam_intent==='yes'?(p.exam_name||'A confirmar'):'—'}</span></div>
-    <div class="cc-row"><span class="cc-k">Referência</span><span class="cc-v" style="font-family:'DM Mono',monospace;color:var(--gold)">${p.ref}</span></div>
-    <div class="cc-row"><span class="cc-k">Ano lectivo</span><span class="cc-v">${p.academic_year}</span></div>`;
-}
-
-/* ── DRAFT AUTO-SAVE ── */
-function markDirty(){
-  isDirty=true;
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{
-    if(isDirty)document.getElementById('save-strip').classList.add('show');
-  },4000);
-}
-
-function autoSave(){
-  const data={
-    name:document.getElementById('name').value,
-    email:document.getElementById('email').value,
-    phone:document.getElementById('phone').value,
-    lang:document.getElementById('lang').value,
-    branch:document.getElementById('branch').value,
-    dob:document.getElementById('dob').value,
-    step:currentStep,
-    ts:Date.now(),
-  };
-  localStorage.setItem('alm-draft',JSON.stringify(data));
-  isDirty=false;
-  document.getElementById('save-strip').classList.remove('show');
-  // Optional: also POST draft to Supabase enrollment_drafts table
-}
-
-function dismissSave(){
-  document.getElementById('save-strip').classList.remove('show');
-  isDirty=false;
-}
-
-function restoreDraft(){
-  const d=localStorage.getItem('alm-draft');
-  if(!d)return;
-  try{
-    const data=JSON.parse(d);
-    // Only restore if less than 24h old
-    if(Date.now()-data.ts>86400000){localStorage.removeItem('alm-draft');return;}
-    if(data.name)document.getElementById('name').value=data.name;
-    if(data.email)document.getElementById('email').value=data.email;
-    if(data.phone)document.getElementById('phone').value=data.phone;
-    if(data.lang)document.getElementById('lang').value=data.lang;
-    if(data.branch)document.getElementById('branch').value=data.branch;
-    if(data.dob){document.getElementById('dob').value=data.dob;checkMinor();}
-    // Show restore notice
-    const strip=document.getElementById('save-strip');
-    const txt=strip.querySelector('.ss-txt');
-    txt.innerHTML=`<strong>Rascunho recuperado</strong> — ${new Date(data.ts).toLocaleString('pt-PT')}`;
-    strip.querySelector('.ss-save').textContent='Continuar';
-    strip.querySelector('.ss-save').onclick=()=>{strip.classList.remove('show');if(data.step)goToStep(data.step);};
-    strip.querySelector('.ss-dismiss').onclick=()=>{localStorage.removeItem('alm-draft');dismissSave();};
-    strip.classList.add('show');
-  }catch(e){localStorage.removeItem('alm-draft');}
-}
-
-function resetForm(){
-  location.reload();
-}
-
-/* ── DRAG OVER PHOTO ── */
 const pz=document.getElementById('photo-zone');
 pz.addEventListener('dragover',e=>{e.preventDefault();pz.classList.add('drag')});
 pz.addEventListener('dragleave',()=>pz.classList.remove('drag'));
@@ -1450,7 +1598,264 @@ pz.addEventListener('drop',e=>{
   }
 });
 
-/* ── INIT ── */
+/* ═══════════════════════════════════════════════════
+   SIGNATURE
+═══════════════════════════════════════════════════ */
+function initSig(){
+  const canvas=document.getElementById('sig-canvas');
+  const ctx=canvas.getContext('2d');
+  sigCtx=ctx;
+  ctx.strokeStyle='#E8C97A';ctx.lineWidth=1.8;ctx.lineCap='round';ctx.lineJoin='round';
+  const getPos=(e,c)=>{
+    const r=c.getBoundingClientRect();
+    const src=e.touches?e.touches[0]:e;
+    return{x:(src.clientX-r.left)*(c.width/r.width),y:(src.clientY-r.top)*(c.height/r.height)};
+  };
+  canvas.addEventListener('mousedown',e=>{sigDrawing=true;ctx.beginPath();const p=getPos(e,canvas);ctx.moveTo(p.x,p.y)});
+  canvas.addEventListener('mousemove',e=>{if(!sigDrawing)return;const p=getPos(e,canvas);ctx.lineTo(p.x,p.y);ctx.stroke();markDirty()});
+  canvas.addEventListener('mouseup',()=>sigDrawing=false);
+  canvas.addEventListener('mouseleave',()=>sigDrawing=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();sigDrawing=true;ctx.beginPath();const p=getPos(e,canvas);ctx.moveTo(p.x,p.y)},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;const p=getPos(e,canvas);ctx.lineTo(p.x,p.y);ctx.stroke();markDirty()},{passive:false});
+  canvas.addEventListener('touchend',()=>sigDrawing=false);
+}
+function clearSig(){const c=document.getElementById('sig-canvas');sigCtx.clearRect(0,0,c.width,c.height);}
+
+/* ═══════════════════════════════════════════════════
+   RADIO STYLE HELPERS
+═══════════════════════════════════════════════════ */
+function initRadioStyles(name,cls){
+  document.querySelectorAll(`input[name="${name}"]`).forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      document.querySelectorAll(`.${cls}`).forEach(c=>c.classList.toggle('selected',c.querySelector('input')?.checked));
+    });
+  });
+}
+
+function initPillStyles(name){
+  document.querySelectorAll(`input[name="${name}"]`).forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      document.querySelectorAll(`.exam-pill input[name="${name}"]`).forEach(o=>{
+        o.closest('.exam-pill').classList.toggle('selected',o.checked);
+      });
+    });
+  });
+}
+
+function initAllRadioStyles(){
+  initRadioStyles('course','course-card');
+  initPillStyles('exam-intent');
+  initPillStyles('exam-name');
+  document.querySelectorAll('input[name="referral"]').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      document.querySelectorAll('.ref-card').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   REVIEW
+═══════════════════════════════════════════════════ */
+function buildReview(){
+  const level=document.querySelector('input[name="level"]:checked');
+  const course=document.querySelector('input[name="course"]:checked');
+  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
+  const examName=document.querySelector('input[name="exam-name"]:checked');
+
+  const courseLabel={'prep':'PREP (até 12 anos)','adults':'Adultos / Anos'};
+  const cambridge=level?LEVEL_CAMBRIDGE[level.value]||'—':'—';
+
+  document.getElementById('review-content').innerHTML=`
+    <div class="review-card">
+      <div class="rv-row"><span class="rv-k">Nome</span><span class="rv-v">${g('name')||'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Data de nascimento</span><span class="rv-v">${fmtDate(g('dob'))}</span></div>
+      <div class="rv-row"><span class="rv-k">Email</span><span class="rv-v">${g('email')||'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Telemóvel</span><span class="rv-v">${g('phone')||'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Filial</span><span class="rv-v">${g('branch')||'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Língua</span><span class="rv-v">${g('lang')||'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Tipo de curso</span><span class="rv-v">${course?courseLabel[course.value]||course.value:'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Nível ALM</span><span class="rv-v">${level?level.value:'—'}</span></div>
+      <div class="rv-row"><span class="rv-k">Equivalência Cambridge</span><span class="rv-v">${cambridge}</span></div>
+      <div class="rv-row"><span class="rv-k">Exame</span><span class="rv-v">${examIntent?.value==='yes'?(examName?.value||'A confirmar'):'—'}</span></div>
+      ${g('g-name')?`<div class="rv-row"><span class="rv-k">Encarregado</span><span class="rv-v">${g('g-name')}</span></div>`:''}
+    </div>
+    <div class="notice" style="margin-top:12px">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+      Verifique todos os dados antes de submeter. Após a submissão, contacte o secretariado para alterações.
+    </div>`;
+}
+
+function g(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function fmtDate(d){
+  if(!d)return'—';
+  return new Date(d+'T12:00:00').toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
+}
+
+/* ═══════════════════════════════════════════════════
+   SUBMIT
+═══════════════════════════════════════════════════ */
+async function submitForm(){
+  const btn=document.getElementById('btn-next');
+  btn.textContent='A submeter…';btn.disabled=true;
+
+  const level=document.querySelector('input[name="level"]:checked');
+  const course=document.querySelector('input[name="course"]:checked');
+  const examIntent=document.querySelector('input[name="exam-intent"]:checked');
+  const examName=document.querySelector('input[name="exam-name"]:checked');
+  const referral=document.querySelector('input[name="referral"]:checked');
+  const name=g('name');
+  const YEAR='2026';
+
+  // ── SAFE SEQUENTIAL ANNUAL NUMBER ──
+  // Read current max seq for this academic year, then increment
+  let annualRef;
+  try{
+    const existing=await sbGet('enrolments',
+      `academic_year=eq.${YEAR}%2F2027&select=seq&order=seq.desc&limit=1`);
+    const nextSeq=(existing.length?existing[0].seq:0)+1;
+    annualRef=`ALM-${YEAR}-${String(nextSeq).padStart(4,'0')}`;
+  }catch(e){
+    // Fallback if enrolments table doesn't exist yet
+    annualRef=`ALM-${YEAR}-${String(Math.floor(Math.random()*9000)+1000).padStart(4,'0')}`;
+  }
+
+  const cambridge=level?LEVEL_CAMBRIDGE[level.value]||null:null;
+
+  const payload={
+    ref:annualRef,
+    mode:staffMode?'staff':'self',
+    enroll_type:enrollType||'new',
+    previous_num:existingStudentData?.num||null,
+    name,initials:(name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()),
+    dob:g('dob'),
+    age:g('dob')?Math.floor((Date.now()-new Date(g('dob')))/(365.25*24*60*60*1000)):null,
+    nationality:g('nationality'),gender:g('gender'),
+    id_number:g('id-number'),nif:g('nif'),
+    email:g('email'),phone:g('phone'),address:g('address'),
+    branch:g('branch'),referral:referral?.value||null,
+    lang:g('lang'),
+    course:course?.value||null,
+    level:level?.value||null,
+    level_cambridge:cambridge,
+    course_notes:g('course-notes'),
+    exam_intent:examIntent?.value||'no',
+    exam_name:examName?.value||null,
+    exam_session:g('exam-session')||null,
+    exam_date:g('exam-date')||null,
+    exam_history:g('exam-history')||null,
+    guardian_name:g('g-name'),guardian_relation:g('g-relation'),
+    guardian_phone:g('g-phone'),guardian_email:g('g-email'),guardian_nif:g('g-nif'),
+    gdpr_terms:document.getElementById('gdpr-terms').checked,
+    gdpr_data:document.getElementById('gdpr-data').checked,
+    gdpr_photo:document.getElementById('gdpr-photo').checked,
+    gdpr_bc:document.getElementById('gdpr-bc').checked,
+    gdpr_comms:document.getElementById('gdpr-comms').checked,
+    is_minor:isMinor,
+    submitted_at:new Date().toISOString(),
+    academic_year:`${YEAR}/2027`,
+    status:'pending_review',
+  };
+
+  // Show confirm immediately
+  document.getElementById('form-shell').classList.add('hidden');
+  document.getElementById('form-footer').style.display='none';
+  document.getElementById('save-strip').classList.remove('show');
+  document.getElementById('confirm-screen').classList.add('show');
+  document.getElementById('confirm-ref').textContent=annualRef;
+  document.getElementById('confirm-email').textContent=payload.email||'—';
+
+  // Supabase — try enrolments table first, fall back to students
+  try{
+    await sbPost('enrolments',payload);
+    setSbStatus(true,`Guardado · ${annualRef}`);
+    localStorage.removeItem('alm-draft');
+  }catch(e){
+    try{
+      await sbPost('students',payload);
+      setSbStatus(true,`Guardado · ${annualRef}`);
+      localStorage.removeItem('alm-draft');
+    }catch(e2){
+      console.error(e2);
+      setSbStatus(false,'Erro Supabase — guardado localmente');
+      localStorage.setItem('alm-submit-'+annualRef,JSON.stringify(payload));
+    }
+  }
+}
+
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
+
+function setSbStatus(ok,txt){
+  document.getElementById('sb-dot').className='sb-dot '+(ok?'ok':'err');
+  document.getElementById('sb-txt').textContent=txt;
+}
+
+/* ═══════════════════════════════════════════════════
+   DRAFT AUTO-SAVE
+═══════════════════════════════════════════════════ */
+function markDirty(){
+  isDirty=true;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{if(isDirty)document.getElementById('save-strip').classList.add('show');},4000);
+}
+
+function autoSave(){
+  const data={name:g('name'),email:g('email'),phone:g('phone'),lang:g('lang'),branch:g('branch'),dob:g('dob'),step:currentStep,ts:Date.now()};
+  localStorage.setItem('alm-draft',JSON.stringify(data));
+  isDirty=false;document.getElementById('save-strip').classList.remove('show');
+}
+
+function dismissSave(){
+  document.getElementById('save-strip').classList.remove('show');isDirty=false;
+}
+
+function restoreDraft(){
+  const d=localStorage.getItem('alm-draft');
+  if(!d)return;
+  try{
+    const data=JSON.parse(d);
+    if(Date.now()-data.ts>86400000){localStorage.removeItem('alm-draft');return;}
+    if(data.name)document.getElementById('name').value=data.name;
+    if(data.email)document.getElementById('email').value=data.email;
+    if(data.phone)document.getElementById('phone').value=data.phone;
+    if(data.lang)document.getElementById('lang').value=data.lang;
+    if(data.branch)document.getElementById('branch').value=data.branch;
+    if(data.dob){document.getElementById('dob').value=data.dob;checkMinor();}
+    const strip=document.getElementById('save-strip');
+    const txt=strip.querySelector('.ss-txt');
+    txt.innerHTML=`<strong>Rascunho recuperado</strong> — ${new Date(data.ts).toLocaleString('pt-PT')}`;
+    strip.querySelector('.ss-save').textContent='Continuar';
+    strip.querySelector('.ss-save').onclick=()=>{strip.classList.remove('show');if(data.step)goToStep(data.step);};
+    strip.querySelector('.ss-dismiss').onclick=()=>{localStorage.removeItem('alm-draft');dismissSave();};
+    strip.classList.add('show');
+  }catch(e){localStorage.removeItem('alm-draft');}
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════ */
+function syncModeUI(){
+  const s=STRINGS[currentLang]||STRINGS.pt;
+  // drawer footer
+  const dot=document.getElementById('mmr-dot');
+  const lbl=document.getElementById('mmr-label');
+  const sub=document.getElementById('mmr-sub');
+  if(dot){dot.style.background=staffMode?'var(--amber)':'var(--green)';}
+  if(lbl)lbl.textContent=staffMode?s.staff:s.student;
+  if(sub)sub.textContent=staffMode?'Preenchido pela secretaria':'Preenchido pelo aluno';
+  // keep mode-toggle in sync in case it's referenced elsewhere
+  const tog=document.getElementById('mode-toggle');
+  if(tog)tog.className='tb-mode '+(staffMode?'mode-staff':'mode-student');
+}
+
+function init(){
+  syncModeUI();
+  applyStrings();
+  initSig();
+  updateProgress();
+  initAllRadioStyles();
+  restoreDraft();
+}
 init();
 </script>
 </body>
