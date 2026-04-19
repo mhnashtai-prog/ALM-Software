@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -33,8 +32,6 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 }
 .hdr-back:hover{color:var(--gold)}
 .hdr-back svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-
-/* home icon button — matches tb-icon-btn style from other portals */
 .hdr-home{
   width:28px;height:28px;border-radius:50%;
   background:var(--gold-faint);border:0.5px solid var(--border);
@@ -43,7 +40,6 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 }
 .hdr-home:hover{background:rgba(210,180,100,0.18);border-color:rgba(210,180,100,0.4)}
 .hdr-home svg{width:13px;height:13px;stroke:rgba(210,180,100,0.6);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
-
 .hdr-sep{width:.5px;height:28px;background:rgba(210,180,100,0.15);margin:0 14px 0 4px;flex-shrink:0}
 .hdr-brand{font-family:'Cinzel',serif;font-size:17px;font-weight:700;color:var(--gold);letter-spacing:2px;flex-shrink:0}
 .hdr-brand-full{font-size:10px;font-weight:500;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;margin-left:10px;flex-shrink:0}
@@ -91,7 +87,6 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 .ac-info{display:flex;flex-direction:column;gap:1px}
 .ac-name{font-size:12px;color:var(--text);font-weight:500}
 .ac-num{font-size:9px;color:var(--text-dim);letter-spacing:0.06em}
-
 .not-found{display:none;padding:10px 12px;background:rgba(232,100,100,0.08);border:.5px solid rgba(232,100,100,0.2);border-radius:8px;font-size:11px;color:rgba(232,150,150,0.8);margin-top:8px}
 .not-found.visible{display:block}
 
@@ -220,13 +215,18 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 .btn-modal-close{padding:9px 22px;background:rgba(93,202,165,0.14);border:.5px solid rgba(93,202,165,0.35);border-radius:10px;font-size:12px;font-weight:600;color:var(--teal);cursor:pointer;transition:all .15s;font-family:'Outfit',sans-serif}
 .btn-modal-close:hover{background:rgba(93,202,165,0.24)}
 
-/* readonly notice */
+/* ── READONLY BANNER ─────────────────────────────────────── */
+/* FIX: display:none only, no duplicate display:flex in same rule */
 .readonly-banner{
-  display:none;position:relative;
-  padding:9px 14px;background:rgba(93,202,165,0.07);
+  display:none;
+  position:relative;
+  padding:9px 14px;
+  background:rgba(93,202,165,0.07);
   border-bottom:.5px solid rgba(93,202,165,0.2);
-  font-size:11px;color:rgba(93,202,165,0.8);
-  align-items:center;gap:7px
+  font-size:11px;
+  color:rgba(93,202,165,0.8);
+  align-items:center;
+  gap:7px
 }
 .readonly-banner.show{display:flex}
 .rb-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
@@ -278,7 +278,7 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
           <div class="lookup-label" id="lk-num-lbl">N.º aluno</div>
           <div class="num-wrap" id="num-wrap">
             <span class="num-prefix">ALM-</span>
-            <input class="num-input" id="inp-num" placeholder="0001" maxlength="4"
+            <input class="num-input" id="inp-num" placeholder="8814" maxlength="6"
               oninput="onNumInput()" onkeydown="if(event.key==='Enter')doLookup()"/>
           </div>
         </div>
@@ -424,6 +424,7 @@ function applyStaticLang(){
 
 /* ── LOOKUP NUM INPUT ─────────────────────────────────── */
 function onNumInput(){
+  // Allow digits only; no length restriction beyond maxlength attr
   const raw=document.getElementById('inp-num').value.replace(/\D/g,'');
   document.getElementById('inp-num').value=raw;
   closeAcDrop();
@@ -453,7 +454,7 @@ async function onNameInput(){
   },280);
 }
 function highlight(name,q){
-  const i=name.toLowerCase().indexOf(q);
+  const i=name.toLowerCase().indexOf(q.toLowerCase());
   if(i<0)return name;
   return name.slice(0,i)+'<strong style="color:var(--gold)">'+name.slice(i,i+q.length)+'</strong>'+name.slice(i+q.length);
 }
@@ -475,7 +476,8 @@ document.addEventListener('click',e=>{
 async function doLookup(){
   closeAcDrop();
   const rawNum=document.getElementById('inp-num').value.trim();
- const num=rawNum?'ALM-'+rawNum:'';
+  // FIX: use rawNum directly — no padStart — to match real ALM numbers like ALM-8814
+  const num=rawNum?'ALM-'+rawNum:'';
   const nameQ=document.getElementById('inp-name').value.trim();
   const nf=document.getElementById('not-found');
   const btn=document.getElementById('btn-find');
