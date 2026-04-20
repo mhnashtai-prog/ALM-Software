@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Staff Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --g:#C9A84C;--g2:#E8C97A;--g3:rgba(201,168,76,0.18);--g4:rgba(201,168,76,0.07);--g5:rgba(201,168,76,0.04);
+  --green:#27AE60;--green-d:rgba(39,174,96,0.12);
+  --red:#E8455A;--red-d:rgba(232,69,90,0.1);
+  --amber:#E8B84B;--amber-d:rgba(232,184,75,0.1);
+  --blue:#4A90D9;--blue-d:rgba(74,144,217,0.1);
+  --teal:#2ECC8A;--teal-d:rgba(46,204,138,0.1);
+  --purple:#9B59B6;--purple-d:rgba(155,89,182,0.1);
+  --bg:#080612;--bg2:#0F0B1C;--bg3:#181228;--bg4:#211A35;
+  --b:rgba(201,168,76,0.1);--b2:rgba(201,168,76,0.18);--b3:rgba(201,168,76,0.28);
+  --t:rgba(240,225,180,0.92);--t2:rgba(210,185,140,0.55);--t3:rgba(210,185,140,0.3);
+  --mono:'IBM Plex Mono',monospace;
+  --cond:'IBM Plex Sans Condensed',sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--t);font-family:var(--body);font-size:13px;-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff;color:#000}
+  :root{--bg:#fff;--bg2:#f8f8f8;--bg3:#f0f0f0;--t:#000;--t2:#444;--t3:#888;--b:rgba(0,0,0,0.1);--b2:rgba(0,0,0,0.2)}
+  .page-break{page-break-before:always}
+}
+
+/* ── TOPBAR ── */
+.bar{position:sticky;top:0;z-index:200;height:46px;display:flex;align-items:center;gap:0;
+  background:rgba(8,6,18,0.97);border-bottom:0.5px solid var(--b);padding:0 18px;backdrop-filter:blur(12px)}
+.bar-home{display:flex;align-items:center;border:0.5px solid var(--b);border-radius:6px;overflow:hidden;flex-shrink:0}
+.bar-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--t2);text-decoration:none;transition:all .15s;border-right:0.5px solid var(--b)}
+.bar-ico:hover{background:var(--g3);color:var(--g2)}
+.bar-ico svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bar-back{display:flex;align-items:center;padding:0 10px;height:30px;background:transparent;border:none;cursor:pointer;font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--t2);font-family:var(--body);transition:all .15s}
+.bar-back:hover{background:var(--g3);color:var(--g2)}
+.bar-sep{width:0.5px;height:16px;background:var(--b);margin:0 12px}
+.bar-brand{font-family:var(--cond);font-size:16px;font-weight:700;color:var(--g2);letter-spacing:3px}
+.bar-page{font-size:11px;font-weight:500;color:var(--t2);margin-left:10px;letter-spacing:0.04em}
+.bar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.bar-clock{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.bar-btn{display:flex;align-items:center;gap:5px;padding:4px 11px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;border:0.5px solid;font-family:var(--body);transition:all .12s;letter-spacing:0.04em}
+.bb-print{background:var(--g4);border-color:var(--b2);color:var(--g)}
+.bb-print:hover{background:var(--g3);border-color:var(--b3);color:var(--g2)}
+.bb-mode{background:rgba(74,144,217,0.08);border-color:rgba(74,144,217,0.2);color:var(--blue)}
+.bb-mode:hover{background:rgba(74,144,217,0.15)}
+.bar-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round}
+.bar-live{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(39,174,96,0.08);border:0.5px solid rgba(39,174,96,0.22)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.live-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.08em}
+
+/* ── FILTER BAR ── */
+.filter-bar{background:rgba(8,6,18,0.92);border-bottom:0.5px solid var(--b);padding:8px 18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:46px;z-index:190;backdrop-filter:blur(8px)}
+.ftab{padding:3px 10px;border-radius:999px;font-size:9.5px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--b);background:transparent;color:var(--t3);white-space:nowrap;transition:all .12s;font-family:var(--body)}
+.ftab:hover{border-color:var(--b2);color:var(--t2)}
+.ftab.on{background:var(--g3);border-color:var(--b3);color:var(--g2)}
+.ftab.fl-en.on{background:rgba(74,144,217,0.12);border-color:rgba(74,144,217,0.3);color:var(--blue)}
+.ftab.fl-pt.on{background:var(--g3);border-color:var(--b3);color:var(--g2)}
+.ftab.fl-es.on{background:rgba(232,184,75,0.12);border-color:rgba(232,184,75,0.3);color:var(--amber)}
+.ftab.fl-de.on{background:rgba(46,204,138,0.1);border-color:rgba(46,204,138,0.3);color:var(--teal)}
+.ftab.fl-fr.on{background:rgba(155,89,182,0.12);border-color:rgba(155,89,182,0.3);color:var(--purple)}
+.f-sep{width:0.5px;height:16px;background:var(--b);flex-shrink:0}
+.f-search{background:var(--bg3);border:0.5px solid var(--b);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--t);outline:none;width:180px;font-family:var(--body)}
+.f-search::placeholder{color:var(--t3)}
+.f-search:focus{border-color:var(--b2)}
+.f-label{font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);flex-shrink:0}
+.f-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.view-btn{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;font-size:9px;font-weight:600;cursor:pointer;border:0.5px solid;font-family:var(--body);transition:all .12s}
+.vb-table{background:var(--g4);border-color:var(--b);color:var(--t3)}
+.vb-table.on,.vb-table:hover{background:var(--g3);border-color:var(--b2);color:var(--g2)}
+.vb-cards{background:var(--g4);border-color:var(--b);color:var(--t3)}
+.vb-cards.on,.vb-cards:hover{background:var(--g3);border-color:var(--b2);color:var(--g2)}
+
+/* ── SHELL ── */
+.shell{padding:14px 18px 60px}
+
+/* ── TICKER ── */
+.ticker-wrap{background:var(--bg2);border:0.5px solid var(--b);border-radius:8px;padding:0;overflow:hidden;margin-bottom:14px;display:flex}
+.ticker-label{flex-shrink:0;padding:0 14px;background:var(--g3);border-right:0.5px solid var(--b2);display:flex;align-items:center;font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--g2);white-space:nowrap}
+.ticker-track{flex:1;overflow:hidden;position:relative;height:32px}
+.ticker-inner{display:flex;align-items:center;gap:0;height:100%;white-space:nowrap;animation:ticker 60s linear infinite}
+.ticker-inner:hover{animation-play-state:paused}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tick-item{display:inline-flex;align-items:center;gap:6px;padding:0 18px;border-right:0.5px solid var(--b);height:100%;font-family:var(--mono);font-size:10px;cursor:default}
+.tick-name{color:var(--t2)}
+.tick-val{font-weight:600}
+.tick-delta{font-size:8px;font-weight:600;padding:1px 4px;border-radius:3px}
+.td-up{color:var(--teal);background:rgba(46,204,138,0.08)}
+.td-dn{color:var(--red);background:var(--red-d)}
+.td-eq{color:var(--t3);background:rgba(201,168,76,0.06)}
+.tick-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+/* ── KPI STRIP ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:14px}
+.kpi{background:var(--bg2);border:0.5px solid var(--b);border-radius:8px;padding:10px 12px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1.5px}
+.kpi.cg::after{background:linear-gradient(90deg,transparent,var(--g),transparent)}
+.kpi.cgr::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.kpi.cr::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.kpi.ca::after{background:linear-gradient(90deg,transparent,var(--amber),transparent)}
+.kpi.cb::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.kpi.ct::after{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.kpi-l{font-size:7px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
+.kpi-v{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1;color:var(--g2)}
+.kpi-v.g{color:var(--green)}.kpi-v.r{color:var(--red)}.kpi-v.a{color:var(--amber)}.kpi-v.b{color:var(--blue)}.kpi-v.t{color:var(--teal)}
+.kpi-s{font-size:8px;color:var(--t3);margin-top:2px}
+.kpi-d{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;font-weight:600;padding:1px 4px;border-radius:3px}
+.ku{color:var(--teal);background:rgba(46,204,138,0.1)}.kd{color:var(--red);background:var(--red-d)}
+
+/* ── SECTION ── */
+.sec{font-size:8px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-top:18px}
+.sec::after{content:'';flex:1;height:0.5px;background:var(--b)}
+.sec-count{font-family:var(--mono);font-size:8px;color:var(--g);opacity:.8}
+
+/* ── TEACHER ROSTER ── */
+.teacher-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.tcard{background:var(--bg2);border:0.5px solid var(--b);border-radius:10px;overflow:hidden;transition:border-color .15s;cursor:pointer}
+.tcard:hover{border-color:var(--b2)}
+.tcard.selected{border-color:var(--b3);background:var(--bg3)}
+.tc-hdr{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.15)}
+.tc-av{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--b2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;flex-shrink:0}
+.tc-av.en{background:rgba(74,144,217,0.12);border-color:rgba(74,144,217,0.3);color:var(--blue)}
+.tc-av.pt{background:var(--g3);border-color:var(--b2);color:var(--g2)}
+.tc-av.es{background:rgba(232,184,75,0.1);border-color:rgba(232,184,75,0.3);color:var(--amber)}
+.tc-av.de{background:rgba(46,204,138,0.08);border-color:rgba(46,204,138,0.25);color:var(--teal)}
+.tc-av.fr{background:rgba(155,89,182,0.1);border-color:rgba(155,89,182,0.28);color:var(--purple)}
+.tc-av.multi{background:var(--bg3);border-color:var(--b2);color:var(--t2)}
+.tc-info{flex:1;min-width:0}
+.tc-name{font-size:12px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-role{font-size:9px;color:var(--t3);margin-top:1px}
+.tc-langs{display:flex;gap:3px;flex-wrap:wrap}
+.tc-lang{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;font-family:var(--mono)}
+.tl-en{background:rgba(74,144,217,0.1);color:var(--blue);border:0.5px solid rgba(74,144,217,0.25)}
+.tl-pt{background:var(--g4);color:var(--g);border:0.5px solid var(--b2)}
+.tl-es{background:rgba(232,184,75,0.08);color:var(--amber);border:0.5px solid rgba(232,184,75,0.25)}
+.tl-de{background:rgba(46,204,138,0.07);color:var(--teal);border:0.5px solid rgba(46,204,138,0.22)}
+.tl-fr{background:rgba(155,89,182,0.1);color:var(--purple);border:0.5px solid rgba(155,89,182,0.25)}
+.tc-body{padding:10px 12px}
+.tc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px}
+.tcs{display:flex;flex-direction:column;gap:1px;background:var(--bg3);border:0.5px solid var(--b);border-radius:5px;padding:5px 6px;text-align:center}
+.tcs-v{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--g2);line-height:1}
+.tcs-v.g{color:var(--green)}.tcs-v.r{color:var(--red)}.tcs-v.a{color:var(--amber)}
+.tcs-l{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:0.1em;margin-top:2px}
+.tc-load{height:4px;background:rgba(201,168,76,0.1);border-radius:999px;overflow:hidden;margin-bottom:6px}
+.tc-load-fill{height:100%;border-radius:999px;transition:width .8s ease}
+.tc-groups{display:flex;flex-wrap:wrap;gap:3px}
+.tc-group-pill{font-size:8px;font-weight:600;padding:2px 6px;border-radius:3px;border:0.5px solid var(--b);background:var(--bg3);color:var(--t2);font-family:var(--mono);cursor:default;transition:all .12s}
+.tc-group-pill:hover{border-color:var(--b2);color:var(--t)}
+.tc-alerts{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.tc-alert{font-size:8px;font-weight:600;padding:2px 7px;border-radius:3px;display:flex;align-items:center;gap:3px}
+.ta-warn{background:rgba(232,184,75,0.1);border:0.5px solid rgba(232,184,75,0.25);color:var(--amber)}
+.ta-red{background:var(--red-d);border:0.5px solid rgba(232,69,90,0.25);color:var(--red)}
+.ta-ok{background:rgba(39,174,96,0.08);border:0.5px solid rgba(39,174,96,0.22);color:var(--green)}
+.tc-alert-dot{width:4px;height:4px;border-radius:50%;background:currentColor}
+
+/* ── GROUPS TABLE ── */
+.groups-table-wrap{overflow-x:auto;border:0.5px solid var(--b);border-radius:10px;background:var(--bg2)}
+.groups-table{width:100%;border-collapse:collapse;min-width:900px}
+.gt-thead th{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);padding:8px 12px;text-align:left;border-bottom:0.5px solid var(--b);white-space:nowrap;cursor:pointer;user-select:none;transition:color .12s}
+.gt-thead th:hover{color:var(--g)}
+.gt-thead th.sorted{color:var(--g2)}
+.gt-thead th:not(:first-child){text-align:center}
+.gt-thead th svg{display:inline;width:8px;height:8px;stroke:currentColor;stroke-width:2;fill:none;vertical-align:middle;margin-left:3px;opacity:.5}
+.gt-thead th.sorted svg{opacity:1}
+.gt-row{border-bottom:0.5px solid rgba(201,168,76,0.04);transition:background .1s;cursor:pointer}
+.gt-row:last-child{border-bottom:none}
+.gt-row:hover{background:rgba(201,168,76,0.025)}
+.gt-row.highlighted{background:rgba(201,168,76,0.05)}
+td.gt-td{padding:7px 12px;vertical-align:middle;font-size:11px}
+.gt-lang{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;font-family:var(--mono)}
+.gl-flag{font-size:12px}
+.gt-level{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--g4);color:var(--g2);border:0.5px solid var(--b)}
+.gt-branch{font-size:10px;color:var(--t2)}
+.gt-teacher{font-size:11px;font-weight:500;color:var(--t)}
+.gt-no-teacher{font-size:10px;color:var(--red);font-style:italic}
+.size-bar{display:flex;align-items:center;gap:6px}
+.sb{height:5px;width:60px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;flex-shrink:0}
+.sb-fill{height:100%;border-radius:999px}
+.sb-n{font-family:var(--mono);font-size:10px;font-weight:600;min-width:20px;text-align:right}
+.sbf-ok{background:var(--green)}.sbf-warn{background:var(--amber)}.sbf-crit{background:var(--red)}
+.gt-status{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.gst-ok{background:rgba(39,174,96,0.1);border:0.5px solid rgba(39,174,96,0.25);color:var(--green)}
+.gst-forming{background:rgba(232,184,75,0.1);border:0.5px solid rgba(232,184,75,0.25);color:var(--amber)}
+.gst-crit{background:var(--red-d);border:0.5px solid rgba(232,69,90,0.25);color:var(--red)}
+.gst-pending{background:rgba(74,144,217,0.1);border:0.5px solid rgba(74,144,217,0.25);color:var(--blue)}
+.gt-time{font-family:var(--mono);font-size:10px;color:var(--t2)}
+.gt-reg-bar{display:flex;align-items:center;gap:5px}
+.rb{height:4px;width:50px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden}
+.rb-fill{height:100%;border-radius:999px}
+.rb-n{font-family:var(--mono);font-size:9px;font-weight:600;min-width:28px;text-align:right}
+.gt-expand-btn{width:18px;height:18px;border-radius:4px;background:var(--bg3);border:0.5px solid var(--b);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);transition:all .12s;flex-shrink:0}
+.gt-expand-btn:hover{border-color:var(--b2);color:var(--g)}
+.gt-expand-btn svg{width:9px;height:9px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+.detail-row{display:none;background:rgba(201,168,76,0.02)}
+.detail-row.open{display:table-row}
+.detail-cell{padding:0!important;border-bottom:0.5px solid var(--b)!important}
+.detail-inner{padding:10px 14px 12px 38px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.di-block{background:var(--bg3);border:0.5px solid var(--b);border-radius:7px;padding:8px 10px}
+.di-title{font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.di-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:0.5px solid rgba(201,168,76,0.04)}
+.di-row:last-child{border-bottom:none}
+.di-k{font-size:9px;color:var(--t3)}
+.di-v{font-size:9px;font-weight:600;color:var(--t);font-family:var(--mono)}
+.di-v.g{color:var(--green)}.di-v.r{color:var(--red)}.di-v.a{color:var(--amber)}
+.student-chips{display:flex;flex-wrap:wrap;gap:3px}
+.sch{font-size:8.5px;padding:2px 7px;border-radius:4px;background:var(--bg4);border:0.5px solid var(--b);color:var(--t2);font-family:var(--mono)}
+
+/* ── CARDS VIEW ── */
+.groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.gcard{background:var(--bg2);border:0.5px solid var(--b);border-radius:10px;overflow:hidden;transition:all .15s;cursor:pointer}
+.gcard:hover{border-color:var(--b2);transform:translateY(-2px)}
+.gcard.viable{border-left:3px solid var(--green)}
+.gcard.marginal{border-left:3px solid var(--amber)}
+.gcard.critical{border-left:3px solid var(--red)}
+.gcard.pending{border-left:3px solid var(--blue)}
+.gc-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.12)}
+.gc-lang{display:flex;align-items:center;gap:6px}
+.gc-flag{font-size:14px}
+.gc-title{font-size:11px;font-weight:700;color:var(--t);font-family:var(--mono)}
+.gc-meta{font-size:9px;color:var(--t3)}
+.gc-status{font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px}
+.gc-body{padding:10px 12px}
+.gc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px}
+.gcs{display:flex;flex-direction:column;gap:1px;text-align:center}
+.gcs-v{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--g2)}
+.gcs-v.g{color:var(--green)}.gcs-v.r{color:var(--red)}.gcs-v.a{color:var(--amber)}
+.gcs-l{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:0.1em}
+.gc-teacher{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg3);border:0.5px solid var(--b);border-radius:6px;margin-bottom:7px}
+.gc-t-av{width:20px;height:20px;border-radius:50%;background:var(--g3);border:0.5px solid var(--b2);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:var(--g2);font-family:var(--mono);flex-shrink:0}
+.gc-t-name{font-size:10px;font-weight:500;color:var(--t)}
+.gc-t-none{font-size:10px;color:var(--red);font-style:italic}
+.gc-times{display:flex;flex-direction:column;gap:2px}
+.gc-time-row{display:flex;align-items:center;gap:5px;font-size:9px}
+.gc-time-day{width:22px;font-family:var(--mono);font-weight:600;color:var(--g);font-size:9px}
+.gc-time-slot{color:var(--t2)}
+.gc-bar{height:3px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;margin-top:8px}
+.gc-bar-fill{height:100%;border-radius:999px;transition:width .8s}
+
+/* ── HEAT MAP ── */
+.heatmap-wrap{overflow-x:auto;margin-bottom:18px}
+.heatmap{border-collapse:collapse;min-width:700px}
+.hm-th{font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);padding:6px 8px;text-align:center;border-bottom:0.5px solid var(--b);white-space:nowrap}
+.hm-th.left{text-align:left}
+.hm-td{width:42px;height:32px;text-align:center;border:0.5px solid rgba(201,168,76,0.04);cursor:default;transition:opacity .12s;position:relative}
+.hm-td:hover{opacity:.7}
+.hm-td-label{font-size:9px;font-weight:600;font-family:var(--mono);padding:4px 8px;text-align:left;white-space:nowrap;color:var(--t2);font-size:10px}
+.hm-inner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600}
+.hm-0{background:rgba(201,168,76,0.04)}
+.hm-1{background:rgba(39,174,96,0.1);color:rgba(46,204,138,.7)}
+.hm-2{background:rgba(39,174,96,0.18);color:var(--teal)}
+.hm-3{background:rgba(39,174,96,0.3);color:var(--green)}
+.hm-4{background:rgba(39,174,96,0.45);color:var(--green)}
+.hm-busy{background:rgba(232,69,90,0.2);color:var(--red)}
+
+/* ── PRINT LIST ── */
+.print-list{display:none}
+@media print{
+  .print-list{display:block}
+  .groups-table-wrap,.teacher-grid,.groups-grid,.heatmap-wrap,.ticker-wrap,.kpi-strip,.filter-bar,.bar{display:none!important}
+}
+.pl-title{font-size:18px;font-weight:700;color:var(--g2);margin-bottom:4px}
+.pl-sub{font-size:11px;color:var(--t2);margin-bottom:16px}
+.pl-table{width:100%;border-collapse:collapse;font-size:11px}
+.pl-table th{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:6px 10px;border-bottom:1px solid var(--b);text-align:left}
+.pl-table td{padding:5px 10px;border-bottom:0.5px solid var(--b);vertical-align:middle}
+.pl-table tr:last-child td{border-bottom:none}
+.pl-section-hdr{background:var(--bg3);font-weight:600;color:var(--g2)}
+
+/* ── UTIL ── */
+.hidden{display:none!important}
+.dot-live{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;display:inline-block;margin-right:3px}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="bar no-print">
+  <div class="bar-home">
+    <a class="bar-ico" href="/admin/dashboard.html">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+    <button class="bar-back" onclick="history.back()">← Painel</button>
+  </div>
+  <div class="bar-sep"></div>
+  <span class="bar-brand">ALM</span>
+  <span class="bar-page">Inteligência Operacional · Grupos &amp; Professores</span>
+  <div class="bar-right">
+    <div class="bar-live"><div class="live-dot"></div><span class="live-lbl">AO VIVO</span></div>
+    <button class="bar-btn bb-mode" onclick="toggleView()">
+      <svg viewBox="0 0 12 12"><rect x="1" y="1" width="4" height="4" rx=".5"/><rect x="7" y="1" width="4" height="4" rx=".5"/><rect x="1" y="7" width="4" height="4" rx=".5"/><rect x="7" y="7" width="4" height="4" rx=".5"/></svg>
+      <span id="view-lbl">Vista Cartões</span>
+    </button>
+    <button class="bar-btn bb-print" onclick="window.print()">
+      <svg viewBox="0 0 12 12"><path d="M3 3V1h6v2"/><rect x="1" y="3" width="10" height="7" rx="1"/><path d="M3 10v-2h6v2"/></svg>
+      Imprimir
+    </button>
+    <span class="bar-clock" id="clock">--:--</span>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar no-print">
+  <span class="f-label">Língua</span>
+  <button class="ftab on" onclick="setLang('all',this)">Todas</button>
+  <button class="ftab fl-en" onclick="setLang('EN',this)">🇬🇧 English</button>
+  <button class="ftab fl-pt" onclick="setLang('PT',this)">🇵🇹 Português</button>
+  <button class="ftab fl-es" onclick="setLang('ES',this)">🇪🇸 Español</button>
+  <button class="ftab fl-de" onclick="setLang('DE',this)">🇩🇪 Deutsch</button>
+  <button class="ftab fl-fr" onclick="setLang('FR',this)">🇫🇷 Français</button>
+  <div class="f-sep"></div>
+  <span class="f-label">Filial</span>
+  <button class="ftab on" onclick="setBranch('all',this)" id="branch-all">Todas</button>
+  <button class="ftab" onclick="setBranch('Funchal',this)">Funchal</button>
+  <button class="ftab" onclick="setBranch('Machico',this)">Machico</button>
+  <button class="ftab" onclick="setBranch('S. Cruz',this)">S. Cruz</button>
+  <button class="ftab" onclick="setBranch('R. Brava',this)">R. Brava</button>
+  <button class="ftab" onclick="setBranch('Calheta',this)">Calheta</button>
+  <button class="ftab" onclick="setBranch('Estreito',this)">Estreito</button>
+  <div class="f-sep"></div>
+  <span class="f-label">Estado</span>
+  <button class="ftab on" onclick="setStatus('all',this)">Todos</button>
+  <button class="ftab" onclick="setStatus('viable',this)">✓ Viável</button>
+  <button class="ftab" onclick="setStatus('marginal',this)">⚠ Marginal</button>
+  <button class="ftab" onclick="setStatus('critical',this)">✕ Crítico</button>
+  <div class="f-right no-print">
+    <input class="f-search" type="text" placeholder="Pesquisar grupo ou professor…" id="search-inp" oninput="applyFilters()"/>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- TICKER -->
+  <div class="ticker-wrap no-print">
+    <div class="ticker-label">GRUPOS · AO VIVO</div>
+    <div class="ticker-track">
+      <div class="ticker-inner" id="ticker-inner"></div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip no-print">
+    <div class="kpi cg"><div class="kpi-l">Grupos Activos</div><div class="kpi-v" id="k-groups">—</div><div class="kpi-s">língua · nível · filial</div></div>
+    <div class="kpi cgr"><div class="kpi-l">Turmas Viáveis</div><div class="kpi-v g" id="k-viable">—</div><div class="kpi-s">≥ 8 alunos</div></div>
+    <div class="kpi ca"><div class="kpi-l">Marginais</div><div class="kpi-v a" id="k-marginal">—</div><div class="kpi-s">5–7 alunos</div></div>
+    <div class="kpi cr"><div class="kpi-l">Críticos</div><div class="kpi-v r" id="k-critical">—</div><div class="kpi-s">menos de 5</div></div>
+    <div class="kpi cb"><div class="kpi-l">Professores</div><div class="kpi-v b" id="k-teachers">—</div><div class="kpi-s">activos</div></div>
+    <div class="kpi ct"><div class="kpi-l">Carga Média</div><div class="kpi-v t" id="k-load">—</div><div class="kpi-s">turmas / professor</div></div>
+    <div class="kpi cg"><div class="kpi-l">Total Alunos</div><div class="kpi-v" id="k-students">—</div><div class="kpi-s">alocados</div></div>
+    <div class="kpi cr"><div class="kpi-l">Sem Professor</div><div class="kpi-v r" id="k-noteacher">—</div><div class="kpi-s">grupos a descoberto</div><span class="kpi-d kd" id="k-noteacher-urgency"></span></div>
+  </div>
+
+  <!-- TEACHERS -->
+  <div class="sec"><span class="sec-count" id="tc-count">18 professores</span>Corpo Docente</div>
+  <div class="teacher-grid" id="teacher-grid"></div>
+
+  <!-- HEAT MAP -->
+  <div class="sec">Mapa de Carga · Horas por Dia e Professor</div>
+  <div class="heatmap-wrap no-print">
+    <table class="heatmap" id="heatmap"></table>
+  </div>
+
+  <!-- GROUPS TABLE / CARDS -->
+  <div class="sec"><span class="sec-count" id="gc-count">— grupos</span>Mapa de Grupos</div>
+
+  <!-- Sort controls -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px" class="no-print">
+    <span class="f-label">Ordenar por</span>
+    <button class="ftab on" onclick="setSort('lang',this)">Língua</button>
+    <button class="ftab" onclick="setSort('size',this)">Dimensão ↓</button>
+    <button class="ftab" onclick="setSort('reg',this)">Inscrição ↓</button>
+    <button class="ftab" onclick="setSort('branch',this)">Filial</button>
+    <button class="ftab" onclick="setSort('status',this)">Estado</button>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="view-btn vb-table on" id="btn-table" onclick="setView('table')">
+        <svg style="width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none" viewBox="0 0 12 12"><path d="M1 3h10M1 6h10M1 9h10M4 1v10"/></svg>
+        Tabela
+      </button>
+      <button class="view-btn vb-cards" id="btn-cards" onclick="setView('cards')">
+        <svg style="width:10px;height:10px;stroke:currentColor;stroke-width:1.8;fill:none" viewBox="0 0 12 12"><rect x="1" y="1" width="4" height="4" rx=".5"/><rect x="7" y="1" width="4" height="4" rx=".5"/><rect x="1" y="7" width="4" height="4" rx=".5"/><rect x="7" y="7" width="4" height="4" rx=".5"/></svg>
+        Cartões
+      </button>
+    </div>
+  </div>
+
+  <div id="table-view">
+    <div class="groups-table-wrap">
+      <table class="groups-table">
+        <thead class="gt-thead" id="gt-thead"></thead>
+        <tbody id="gt-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="cards-view" class="hidden">
+    <div class="groups-grid" id="groups-grid"></div>
+  </div>
+
+  <!-- PRINT LIST -->
+  <div class="print-list" id="print-list"></div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════
+   DATA
+═══════════════════════════════════ */
+const TEACHERS=[
+  {id:'NB',name:'Nélia Baptista',initials:'NB',lang:'EN',langs:['EN'],role:'Docente · English',turmas:7,hours:21,alunos:66,sumarios_missing:0,conflicts:0,branch:'Funchal',load_pct:88,schedule:{Seg:[9,14,18],Ter:[9,14],Qua:[9,18],Qui:[14],Sex:[9,14]}},
+  {id:'SM',name:'Sally Macedo',initials:'SM',lang:'EN',langs:['EN'],role:'Docente · English',turmas:6,hours:18,alunos:55,sumarios_missing:0,conflicts:1,branch:'Funchal',load_pct:75,schedule:{Seg:[10,16],Ter:[10,16,18],Qua:[10,16],Qui:[10,18],Sex:[16]}},
+  {id:'TK',name:'Tony Kennedy',initials:'TK',lang:'EN',langs:['EN'],role:'Docente · English (Nativo)',turmas:8,hours:24,alunos:74,sumarios_missing:1,conflicts:2,branch:'Funchal',load_pct:100,schedule:{Seg:[9,10,16,18],Ter:[9,16],Qua:[10,16,18],Qui:[9,18],Sex:[10,16]}},
+  {id:'CF',name:'Cristina Ferreira',initials:'CF',lang:'EN',langs:['EN'],role:'Docente · English',turmas:5,hours:15,alunos:44,sumarios_missing:0,conflicts:0,branch:'Estreito',load_pct:62,schedule:{Seg:[9,16],Ter:[9],Qua:[9,16],Qui:[9,16],Sex:[9]}},
+  {id:'SP',name:'Salomé Portugal',initials:'SP',lang:'EN',langs:['EN'],role:'Docente · English',turmas:7,hours:21,alunos:63,sumarios_missing:0,conflicts:1,branch:'Funchal',load_pct:88,schedule:{Seg:[10,14,18],Ter:[14,18],Qua:[10,14],Qui:[10,14,18],Sex:[10]}},
+  {id:'AG',name:'Agueda Correia',initials:'AG',lang:'EN',langs:['EN'],role:'Docente · English',turmas:6,hours:18,alunos:57,sumarios_missing:1,conflicts:0,branch:'Funchal',load_pct:75,schedule:{Seg:[9,16],Ter:[9,16],Qua:[16,18],Qui:[9,16],Sex:[18]}},
+  {id:'DS',name:'Dina Silva',initials:'DS',lang:'EN',langs:['EN'],role:'Docente · English',turmas:6,hours:18,alunos:52,sumarios_missing:0,conflicts:0,branch:'Funchal',load_pct:75,schedule:{Seg:[10,18],Ter:[10,18],Qua:[10,14],Qui:[10,14],Sex:[14]}},
+  {id:'MN',name:'Majid Nashtai',initials:'MN',lang:'EN',langs:['EN'],role:'Docente · English (Nativo)',turmas:5,hours:15,alunos:46,sumarios_missing:0,conflicts:0,branch:'Funchal',load_pct:62,schedule:{Seg:[14,18],Ter:[14,18],Qua:[14,18],Qui:[14],Sex:[18]}},
+  {id:'CM2',name:'Catherine Moreau',initials:'CM',lang:'EN',langs:['EN','FR'],role:'Docente · EN / Français',turmas:5,hours:15,alunos:43,sumarios_missing:0,conflicts:0,branch:'Funchal',load_pct:62,schedule:{Seg:[9,14],Ter:[9,14],Qua:[9],Qui:[9,14],Sex:[9]}},
+  {id:'IB',name:'Isabel Barbier',initials:'IB',lang:'FR',langs:['FR'],role:'Docente · Français',turmas:4,hours:12,alunos:36,sumarios_missing:0,conflicts:0,branch:'Funchal',load_pct:50,schedule:{Seg:[14,18],Ter:[14],Qua:[14,18],Qui:[14,18],Sex:[]}},
+  {id:'JG',name:'Jackie Gonçalves',initials:'JG',lang:'EN',langs:['EN'],role:'Docente · English',turmas:6,hours:18,alunos:54,sumarios_missing:0,conflicts:1,branch:'Funchal',load_pct:75,schedule:{Seg:[10,14,18],Ter:[10,18],Qua:[10,14],Qui:[10,18],Sex:[14]}},
+  {id:'ED',name:'Edite',initials:'ED',lang:'EN',langs:['EN'],role:'Docente · English',turmas:4,hours:12,alunos:38,sumarios_missing:0,conflicts:0,branch:'Calheta',load_pct:50,schedule:{Seg:[9,16],Ter:[9],Qua:[9,16],Qui:[9,16],Sex:[9]}},
+  {id:'TP',name:'Teresa Pontes',initials:'TP',lang:'EN',langs:['EN'],role:'Docente · English',turmas:5,hours:15,alunos:46,sumarios_missing:0,conflicts:0,branch:'S. Cruz',load_pct:62,schedule:{Seg:[9,16],Ter:[9,16],Qua:[16],Qui:[9,16],Sex:[9]}},
+];
+
+const GROUPS=[
+  {id:'g01',lang:'EN',level:'Kids',levelFull:'Kids (Pi)',branch:'Funchal',teacher:'NB',size:11,reg:91,status:'viable',days:[{d:'Seg',t:'09:00–10:30'},{d:'Qua',t:'09:00–10:30'}],room:'Sala 1',exam:null,notes:'Turma A'},
+  {id:'g02',lang:'EN',level:'Kids',levelFull:'Kids (Pi)',branch:'S. Cruz',teacher:'TP',size:9,reg:82,status:'viable',days:[{d:'Ter',t:'09:00–10:30'},{d:'Qui',t:'09:00–10:30'}],room:'Sala 3',exam:null,notes:''},
+  {id:'g03',lang:'EN',level:'A1',levelFull:'Ano 1 · A1',branch:'Funchal',teacher:'SM',size:9,reg:82,status:'viable',days:[{d:'Seg',t:'10:00–11:30'},{d:'Qua',t:'10:00–11:30'}],room:'Sala 2',exam:null,notes:''},
+  {id:'g04',lang:'EN',level:'A1',levelFull:'Ano 1 · A1',branch:'Funchal',teacher:'AG',size:8,reg:78,status:'viable',days:[{d:'Ter',t:'09:00–10:30'},{d:'Sex',t:'09:00–10:30'}],room:'Sala 4',exam:null,notes:'Turma B'},
+  {id:'g05',lang:'EN',level:'A1',levelFull:'Ano 1 · A1',branch:'Estreito',teacher:'CF',size:7,reg:72,status:'marginal',days:[{d:'Seg',t:'09:00–10:30'},{d:'Qua',t:'09:00–10:30'}],room:'Sala E1',exam:null,notes:''},
+  {id:'g06',lang:'EN',level:'A1',levelFull:'Ano 1 · A1',branch:'Calheta',teacher:'ED',size:8,reg:80,status:'viable',days:[{d:'Ter',t:'09:00–10:30'},{d:'Qui',t:'09:00–10:30'}],room:'Sala C1',exam:null,notes:''},
+  {id:'g07',lang:'EN',level:'A2',levelFull:'Ano 3 · A2',branch:'Funchal',teacher:'DS',size:10,reg:91,status:'viable',days:[{d:'Seg',t:'10:00–11:30'},{d:'Qua',t:'10:00–11:30'}],room:'Sala 2',exam:null,notes:''},
+  {id:'g08',lang:'EN',level:'A2',levelFull:'Ano 3 · A2',branch:'Funchal',teacher:'SP',size:9,reg:85,status:'viable',days:[{d:'Ter',t:'14:00–15:30'},{d:'Qui',t:'14:00–15:30'}],room:'Sala 1',exam:null,notes:'Turma B'},
+  {id:'g09',lang:'EN',level:'A2',levelFull:'Ano 3 · A2',branch:'S. Cruz',teacher:'TP',size:8,reg:84,status:'viable',days:[{d:'Qua',t:'16:00–17:30'},{d:'Sex',t:'09:00–10:30'}],room:'Sala 3',exam:null,notes:''},
+  {id:'g10',lang:'EN',level:'A2',levelFull:'Ano 3 · A2',branch:'Estreito',teacher:'CF',size:6,reg:68,status:'marginal',days:[{d:'Ter',t:'09:00–10:30'},{d:'Qui',t:'09:00–10:30'}],room:'Sala E2',exam:null,notes:''},
+  {id:'g11',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'Funchal',teacher:'TK',size:10,reg:83,status:'viable',days:[{d:'Seg',t:'09:00–10:30'},{d:'Qui',t:'09:00–10:30'}],room:'Sala 3',exam:null,notes:''},
+  {id:'g12',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'Funchal',teacher:'JG',size:9,reg:80,status:'viable',days:[{d:'Ter',t:'10:00–11:30'},{d:'Qui',t:'10:00–11:30'}],room:'Sala 5',exam:null,notes:''},
+  {id:'g13',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'Funchal',teacher:'MN',size:8,reg:79,status:'viable',days:[{d:'Seg',t:'14:00–15:30'},{d:'Qua',t:'14:00–15:30'}],room:'Sala 6',exam:null,notes:'Noite'},
+  {id:'g14',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'Funchal',teacher:'NB',size:7,reg:74,status:'marginal',days:[{d:'Ter',t:'18:00–19:30'},{d:'Qui',t:'14:00–15:30'}],room:'Sala 1',exam:null,notes:''},
+  {id:'g15',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'S. Cruz',teacher:'TP',size:6,reg:70,status:'marginal',days:[{d:'Seg',t:'18:00–19:30'},{d:'Qua',t:'16:00–17:30'}],room:'Sala 4',exam:null,notes:''},
+  {id:'g16',lang:'EN',level:'B1',levelFull:'Ano 4 · B1',branch:'Calheta',teacher:'ED',size:7,reg:75,status:'marginal',days:[{d:'Seg',t:'16:00–17:30'},{d:'Qua',t:'09:00–10:30'}],room:'Sala C2',exam:null,notes:''},
+  {id:'g17',lang:'EN',level:'B2',levelFull:'Ano 5 · B2',branch:'Funchal',teacher:'TK',size:9,reg:87,status:'viable',days:[{d:'Ter',t:'16:00–17:30'},{d:'Qui',t:'16:00–17:30'}],room:'Sala 3',exam:'FCE',notes:'Exame Mai'},
+  {id:'g18',lang:'EN',level:'B2',levelFull:'Ano 5 · B2',branch:'Funchal',teacher:'SP',size:8,reg:83,status:'viable',days:[{d:'Seg',t:'18:00–19:30'},{d:'Qua',t:'14:00–15:30'}],room:'Sala 1',exam:'FCE',notes:'Turma B'},
+  {id:'g19',lang:'EN',level:'B2',levelFull:'Ano 5 · B2',branch:'Funchal',teacher:'AG',size:5,reg:71,status:'marginal',days:[{d:'Qua',t:'16:00–17:30'},{d:'Sex',t:'18:00–19:30'}],room:'Sala 4',exam:'FCE',notes:''},
+  {id:'g20',lang:'EN',level:'B2',levelFull:'Ano 5 · B2',branch:'S. Cruz',teacher:null,size:4,reg:62,status:'critical',days:[],room:null,exam:'FCE',notes:'Sem professor — aguarda atribuição'},
+  {id:'g21',lang:'EN',level:'C1',levelFull:'Ano 7 · C1',branch:'Funchal',teacher:'TK',size:8,reg:85,status:'viable',days:[{d:'Seg',t:'10:00–11:30'},{d:'Qua',t:'18:00–19:30'}],room:'Sala 2',exam:'CAE',notes:''},
+  {id:'g22',lang:'EN',level:'C1',levelFull:'Ano 7 · C1',branch:'Funchal',teacher:'SM',size:7,reg:80,status:'viable',days:[{d:'Ter',t:'16:00–17:30'},{d:'Sex',t:'16:00–17:30'}],room:'Sala 2',exam:'CAE',notes:'Turma B'},
+  {id:'g23',lang:'EN',level:'C1',levelFull:'Ano 7 · C1',branch:'Funchal',teacher:'MN',size:4,reg:65,status:'critical',days:[{d:'Qui',t:'14:00–15:30'}],room:'Sala 6',exam:'CAE',notes:'⚠ abaixo mínimo'},
+  {id:'g24',lang:'EN',level:'C1',levelFull:'Ano 7 · C1',branch:'S. Cruz',teacher:'TP',size:5,reg:68,status:'marginal',days:[{d:'Ter',t:'09:00–10:30'},{d:'Qui',t:'16:00–17:30'}],room:'Sala 5',exam:'CAE',notes:''},
+  {id:'g25',lang:'EN',level:'C2',levelFull:'Ano 8 · C2',branch:'Funchal',teacher:'TK',size:5,reg:65,status:'marginal',days:[{d:'Seg',t:'16:00–17:30'},{d:'Qui',t:'18:00–19:30'}],room:'Sala 3',exam:'CPE',notes:'Sessão dupla'},
+  {id:'g26',lang:'EN',level:'C2',levelFull:'Ano 8 · C2',branch:'Funchal',teacher:null,size:3,reg:55,status:'critical',days:[],room:null,exam:'CPE',notes:'Sem professor — 3 alunos aguardam'},
+  {id:'g27',lang:'FR',level:'A1',levelFull:'Année 1 · A1',branch:'Funchal',teacher:'IB',size:8,reg:83,status:'viable',days:[{d:'Seg',t:'14:00–15:30'},{d:'Qua',t:'14:00–15:30'}],room:'Sala 8',exam:null,notes:''},
+  {id:'g28',lang:'FR',level:'A1',levelFull:'Année 1 · A1',branch:'Funchal',teacher:'CM2',size:7,reg:79,status:'marginal',days:[{d:'Ter',t:'09:00–10:30'},{d:'Qui',t:'09:00–10:30'}],room:'Sala 9',exam:null,notes:'Catherine Moreau'},
+  {id:'g29',lang:'FR',level:'A2',levelFull:'Année 3 · A2',branch:'Funchal',teacher:'IB',size:6,reg:75,status:'marginal',days:[{d:'Ter',t:'14:00–15:30'},{d:'Qui',t:'14:00–15:30'}],room:'Sala 8',exam:null,notes:''},
+  {id:'g30',lang:'FR',level:'A2',levelFull:'Année 3 · A2',branch:'Funchal',teacher:'CM2',size:5,reg:70,status:'marginal',days:[{d:'Seg',t:'09:00–10:30'},{d:'Qui',t:'14:00–15:30'}],room:'Sala 9',exam:null,notes:''},
+  {id:'g31',lang:'FR',level:'B1',levelFull:'Année 4 · B1',branch:'Funchal',teacher:'IB',size:7,reg:76,status:'marginal',days:[{d:'Seg',t:'18:00–19:30'},{d:'Qua',t:'18:00–19:30'}],room:'Sala 8',exam:'DELF',notes:''},
+  {id:'g32',lang:'FR',level:'B1',levelFull:'Année 4 · B1',branch:'Funchal',teacher:null,size:4,reg:62,status:'critical',days:[],room:null,exam:'DELF',notes:'Sem professor'},
+];
+
+const LANG_FLAGS={EN:'🇬🇧',PT:'🇵🇹',ES:'🇪🇸',DE:'🇩🇪',FR:'🇫🇷'};
+const LANG_COLORS={EN:'var(--blue)',PT:'var(--g)',ES:'var(--amber)',DE:'var(--teal)',FR:'var(--purple)'};
+const LANG_CLS={EN:'en',PT:'pt',ES:'es',DE:'de',FR:'fr'};
+const STATUS_MAP={viable:{cls:'gst-ok',lbl:'Viável'},marginal:{cls:'gst-forming',lbl:'Marginal'},critical:{cls:'gst-crit',lbl:'Crítico'},pending:{cls:'gst-pending',lbl:'Pendente'}};
+const DAYS_ORDER=['Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+let filterLang='all',filterBranch='all',filterStatus='all',sortKey='lang',currentView='table',searchQ='';
+
+/* ── CLOCK ── */
+function tick(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}
+tick();setInterval(tick,30000);
+
+/* ── HELPERS ── */
+function getTeacher(id){return id?TEACHERS.find(t=>t.id===id):null;}
+function groupsByTeacher(tid){return GROUPS.filter(g=>g.teacher===tid);}
+
+/* ── TICKER ── */
+function buildTicker(){
+  const items=GROUPS.map(g=>{
+    const col=LANG_COLORS[g.lang];
+    const statusDot=g.status==='viable'?'var(--green)':g.status==='marginal'?'var(--amber)':'var(--red)';
+    const t=getTeacher(g.teacher);
+    return`<div class="tick-item"><span class="tick-dot" style="background:${statusDot}"></span><span class="tick-name">${LANG_FLAGS[g.lang]} ${g.lang} ${g.level} · ${g.branch}</span><span class="tick-val" style="color:${col}">${g.size} alunos</span><span class="tick-delta ${g.reg>=80?'td-up':g.reg>=65?'td-eq':'td-dn'}">${g.reg}%</span></div>`;
+  });
+  const doubled=items.join('')+items.join('');
+  document.getElementById('ticker-inner').innerHTML=doubled;
+}
+
+/* ── KPIs ── */
+function buildKPIs(){
+  const viable=GROUPS.filter(g=>g.status==='viable').length;
+  const marginal=GROUPS.filter(g=>g.status==='marginal').length;
+  const critical=GROUPS.filter(g=>g.status==='critical').length;
+  const noTeacher=GROUPS.filter(g=>!g.teacher).length;
+  const totalStudents=GROUPS.reduce((a,g)=>a+g.size,0);
+  const avgLoad=(TEACHERS.reduce((a,t)=>a+t.turmas,0)/TEACHERS.length).toFixed(1);
+  document.getElementById('k-groups').textContent=GROUPS.length;
+  document.getElementById('k-viable').textContent=viable;
+  document.getElementById('k-marginal').textContent=marginal;
+  document.getElementById('k-critical').textContent=critical;
+  document.getElementById('k-teachers').textContent=TEACHERS.length;
+  document.getElementById('k-load').textContent=avgLoad;
+  document.getElementById('k-students').textContent=totalStudents;
+  document.getElementById('k-noteacher').textContent=noTeacher;
+  if(noTeacher>0)document.getElementById('k-noteacher-urgency').textContent='urgente';
+}
+
+/* ── TEACHERS GRID ── */
+function buildTeachers(){
+  document.getElementById('tc-count').textContent=TEACHERS.length+' professores';
+  document.getElementById('teacher-grid').innerHTML=TEACHERS.map(t=>{
+    const groups=groupsByTeacher(t.id);
+    const loadCol=t.load_pct>=90?'var(--red)':t.load_pct>=70?'var(--amber)':'var(--green)';
+    const avCls=t.langs.length>1?'multi':LANG_CLS[t.lang]||'multi';
+    const alerts=[];
+    if(t.sumarios_missing>0)alerts.push(`<span class="tc-alert ta-warn"><span class="tc-alert-dot"></span>${t.sumarios_missing} sumário${t.sumarios_missing>1?'s':''} em falta</span>`);
+    if(t.conflicts>0)alerts.push(`<span class="tc-alert ta-red"><span class="tc-alert-dot"></span>${t.conflicts} conflito${t.conflicts>1?'s':''}</span>`);
+    if(t.load_pct>=90)alerts.push(`<span class="tc-alert ta-red"><span class="tc-alert-dot"></span>Sobrecarga</span>`);
+    if(alerts.length===0)alerts.push(`<span class="tc-alert ta-ok"><span class="tc-alert-dot"></span>OK</span>`);
+    const langTags=t.langs.map(l=>`<span class="tc-lang tl-${l.toLowerCase()}">${l}</span>`).join('');
+    return`<div class="tcard">
+      <div class="tc-hdr">
+        <div class="tc-av ${avCls}">${t.initials}</div>
+        <div class="tc-info">
+          <div class="tc-name">${t.name}</div>
+          <div class="tc-role">${t.role} · ${t.branch}</div>
+        </div>
+        <div class="tc-langs">${langTags}</div>
+      </div>
+      <div class="tc-body">
+        <div class="tc-stats">
+          <div class="tcs"><div class="tcs-v ${t.turmas>=8?'r':t.turmas>=6?'a':'g'}">${t.turmas}</div><div class="tcs-l">Turmas</div></div>
+          <div class="tcs"><div class="tcs-v">${t.hours}h</div><div class="tcs-l">h/sem</div></div>
+          <div class="tcs"><div class="tcs-v">${t.alunos}</div><div class="tcs-l">Alunos</div></div>
+          <div class="tcs"><div class="tcs-v ${t.load_pct>=90?'r':t.load_pct>=70?'a':'g'}">${t.load_pct}%</div><div class="tcs-l">Carga</div></div>
+        </div>
+        <div class="tc-load"><div class="tc-load-fill" style="width:${t.load_pct}%;background:${loadCol}"></div></div>
+        <div class="tc-groups">${groups.map(g=>`<span class="tc-group-pill" style="border-color:${LANG_COLORS[g.lang]}44;color:${LANG_COLORS[g.lang]}">${g.lang} ${g.level}</span>`).join('')}</div>
+        <div class="tc-alerts" style="margin-top:6px">${alerts.join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── HEAT MAP ── */
+function buildHeatmap(){
+  const hours=[8,9,10,11,12,14,15,16,17,18,19];
+  const days=DAYS_ORDER.slice(0,5);
+  let html=`<thead><tr><th class="hm-th left" style="width:130px">Professor</th>`;
+  days.forEach(d=>hours.forEach(h=>{html+=`<th class="hm-th">${d[0]}${h}h</th>`;}));
+  html+=`</tr></thead><tbody>`;
+  TEACHERS.slice(0,10).forEach(t=>{
+    html+=`<tr><td class="hm-td-label">${t.name.split(' ')[0]} ${t.name.split(' ').slice(-1)[0]}</td>`;
+    days.forEach(d=>hours.forEach(h=>{
+      const busy=t.schedule[d]&&t.schedule[d].includes(h);
+      const busyCount=busy?1:0;
+      html+=`<td class="hm-td hm-${busyCount===0?0:busyCount>=1?'busy':busyCount}"><div class="hm-inner">${busy?'●':''}</div></td>`;
+    }));
+    html+=`</tr>`;
+  });
+  html+=`</tbody>`;
+  document.getElementById('heatmap').innerHTML=html;
+}
+
+/* ── TABLE HEADER ── */
+function buildTableHeader(){
+  const cols=[
+    {k:'lang',lbl:'Língua'},
+    {k:'level',lbl:'Nível'},
+    {k:'branch',lbl:'Filial'},
+    {k:'teacher',lbl:'Professor'},
+    {k:'size',lbl:'Dimensão'},
+    {k:'reg',lbl:'Inscrição'},
+    {k:'status',lbl:'Estado'},
+    {k:'schedule',lbl:'Horário'},
+    {k:'exam',lbl:'Exame'},
+    {k:'',lbl:''},
+  ];
+  document.getElementById('gt-thead').innerHTML=`<tr>${cols.map(c=>`<th class="${sortKey===c.k?'sorted':''}" onclick="${c.k?'setSort(\''+c.k+'\',this)':'void(0)'}">${c.lbl}${c.k?`<svg viewBox="0 0 8 8"><path d="M1 2l3 3 3-3"/></svg>`:''}</th>`).join('')}</tr>`;
+}
+
+/* ── FILTERED GROUPS ── */
+function filteredGroups(){
+  let data=[...GROUPS];
+  if(filterLang!=='all')data=data.filter(g=>g.lang===filterLang);
+  if(filterBranch!=='all')data=data.filter(g=>g.branch===filterBranch);
+  if(filterStatus!=='all')data=data.filter(g=>g.status===filterStatus);
+  if(searchQ){
+    const q=searchQ.toLowerCase();
+    data=data.filter(g=>{
+      const t=getTeacher(g.teacher);
+      return g.lang.toLowerCase().includes(q)||g.level.toLowerCase().includes(q)||g.branch.toLowerCase().includes(q)||(t&&t.name.toLowerCase().includes(q))||g.levelFull.toLowerCase().includes(q);
+    });
+  }
+  data.sort((a,b)=>{
+    if(sortKey==='lang')return(a.lang+a.level).localeCompare(b.lang+b.level);
+    if(sortKey==='size')return b.size-a.size;
+    if(sortKey==='reg')return b.reg-a.reg;
+    if(sortKey==='branch')return a.branch.localeCompare(b.branch);
+    if(sortKey==='status'){const o={viable:0,marginal:1,critical:2,pending:3};return o[a.status]-o[b.status];}
+    return 0;
+  });
+  return data;
+}
+
+/* ── TABLE ── */
+function buildTable(){
+  buildTableHeader();
+  const data=filteredGroups();
+  document.getElementById('gc-count').textContent=data.length+' grupos';
+  const tbody=document.getElementById('gt-tbody');
+  tbody.innerHTML=data.map(g=>{
+    const t=getTeacher(g.teacher);
+    const sizeClass=g.size>=8?'sbf-ok':g.size>=5?'sbf-warn':'sbf-crit';
+    const sizeNumClass=g.size>=8?'':'g.size>=5?\'a\':\'r\'';
+    const sn=g.size>=8?'g':g.size>=5?'a':'r';
+    const regCol=g.reg>=80?'var(--green)':g.reg>=65?'var(--amber)':'var(--red)';
+    const sch=g.days.length?g.days.map(d=>`<span style="font-size:9px;color:var(--t2)">${d.d} ${d.t}</span>`).join('<br/>'):'-';
+    const sm=STATUS_MAP[g.status]||STATUS_MAP.pending;
+    return`<tr class="gt-row" id="row-${g.id}">
+      <td class="gt-td"><span class="gt-lang"><span class="gl-flag">${LANG_FLAGS[g.lang]}</span>${g.lang}</span></td>
+      <td class="gt-td"><span class="gt-level">${g.level}</span></td>
+      <td class="gt-td"><span class="gt-branch">${g.branch}</span></td>
+      <td class="gt-td">${t?`<span class="gt-teacher">${t.name}</span>`:`<span class="gt-no-teacher">Sem professor</span>`}</td>
+      <td class="gt-td"><div class="size-bar"><div class="sb"><div class="sb-fill ${sizeClass}" style="width:${Math.min(100,g.size/12*100)}%"></div></div><span class="sb-n" style="color:${g.size>=8?'var(--green)':g.size>=5?'var(--amber)':'var(--red)'}">${g.size}</span></div></td>
+      <td class="gt-td"><div class="gt-reg-bar"><div class="rb"><div class="rb-fill" style="width:${g.reg}%;background:${regCol}"></div></div><span class="rb-n" style="color:${regCol}">${g.reg}%</span></div></td>
+      <td class="gt-td"><span class="gt-status ${sm.cls}">${sm.lbl}</span></td>
+      <td class="gt-td" style="font-size:9px;line-height:1.6">${sch}</td>
+      <td class="gt-td">${g.exam?`<span style="font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(74,144,217,0.1);border:0.5px solid rgba(74,144,217,0.25);color:var(--blue)">${g.exam}</span>`:`<span style="color:var(--t3);font-size:9px">—</span>`}</td>
+      <td class="gt-td"><div class="gt-expand-btn" onclick="toggleDetail('${g.id}')"><svg viewBox="0 0 10 10"><path d="M2 3l3 3 3-3"/></svg></div></td>
+    </tr>
+    <tr class="detail-row" id="detail-${g.id}">
+      <td class="detail-cell" colspan="10">
+        <div class="detail-inner">
+          <div class="di-block">
+            <div class="di-title">Informação do Grupo</div>
+            <div class="di-row"><span class="di-k">ID</span><span class="di-v">${g.id.toUpperCase()}</span></div>
+            <div class="di-row"><span class="di-k">Língua completa</span><span class="di-v">${g.levelFull}</span></div>
+            <div class="di-row"><span class="di-k">Filial</span><span class="di-v">${g.branch}</span></div>
+            <div class="di-row"><span class="di-k">Sala</span><span class="di-v">${g.room||'—'}</span></div>
+            <div class="di-row"><span class="di-k">Exame</span><span class="di-v ${g.exam?'b':'g'}">${g.exam||'Nenhum'}</span></div>
+            ${g.notes?`<div class="di-row"><span class="di-k">Notas</span><span class="di-v a">${g.notes}</span></div>`:''}
+          </div>
+          <div class="di-block">
+            <div class="di-title">Professor</div>
+            ${t?`
+            <div class="di-row"><span class="di-k">Nome</span><span class="di-v">${t.name}</span></div>
+            <div class="di-row"><span class="di-k">Carga total</span><span class="di-v ${t.load_pct>=90?'r':t.load_pct>=70?'a':'g'}">${t.turmas} turmas · ${t.hours}h/sem</span></div>
+            <div class="di-row"><span class="di-k">Outros grupos</span><span class="di-v">${groupsByTeacher(t.id).filter(x=>x.id!==g.id).map(x=>`${x.lang} ${x.level}`).join(', ')||'—'}</span></div>
+            <div class="di-row"><span class="di-k">Sumários em falta</span><span class="di-v ${t.sumarios_missing>0?'r':'g'}">${t.sumarios_missing===0?'OK':t.sumarios_missing}</span></div>
+            <div class="di-row"><span class="di-k">Conflitos</span><span class="di-v ${t.conflicts>0?'r':'g'}">${t.conflicts===0?'Nenhum':t.conflicts}</span></div>
+            `:`<div style="padding:8px 0;font-size:11px;color:var(--red);font-style:italic">Sem professor atribuído — intervenção necessária</div>`}
+          </div>
+          <div class="di-block">
+            <div class="di-title">Horário &amp; Estatísticas</div>
+            ${g.days.map(d=>`<div class="di-row"><span class="di-k">${d.d}</span><span class="di-v">${d.t}</span></div>`).join('')||'<div class="di-row"><span class="di-k" style="color:var(--red)">Sem horário definido</span></div>'}
+            <div class="di-row" style="margin-top:4px"><span class="di-k">Dimensão</span><span class="di-v ${g.size>=8?'g':g.size>=5?'a':'r'}">${g.size} / 12 alunos</span></div>
+            <div class="di-row"><span class="di-k">Taxa inscrição</span><span class="di-v">${g.reg}%</span></div>
+            <div class="di-row"><span class="di-k">Estado</span><span class="di-v ${g.status==='viable'?'g':g.status==='critical'?'r':'a'}">${STATUS_MAP[g.status]?.lbl||g.status}</span></div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── CARDS ── */
+function buildCards(){
+  const data=filteredGroups();
+  document.getElementById('gc-count').textContent=data.length+' grupos';
+  const barCol=(g)=>g.reg>=80?'var(--green)':g.reg>=65?'var(--amber)':'var(--red)';
+  document.getElementById('groups-grid').innerHTML=data.map(g=>{
+    const t=getTeacher(g.teacher);
+    const sm=STATUS_MAP[g.status]||STATUS_MAP.pending;
+    return`<div class="gcard ${g.status}">
+      <div class="gc-hdr">
+        <div class="gc-lang"><span class="gc-flag">${LANG_FLAGS[g.lang]}</span><span class="gc-title" style="color:${LANG_COLORS[g.lang]}">${g.lang} ${g.level}</span><span class="gc-meta">· ${g.levelFull}</span></div>
+        <span class="gc-status ${sm.cls}">${sm.lbl}</span>
+      </div>
+      <div class="gc-body">
+        <div class="gc-stats">
+          <div class="gcs"><div class="gcs-v ${g.size>=8?'g':g.size>=5?'a':'r'}">${g.size}</div><div class="gcs-l">Alunos</div></div>
+          <div class="gcs"><div class="gcs-v">${g.reg}%</div><div class="gcs-l">Inscrição</div></div>
+          <div class="gcs"><div class="gcs-v">${g.branch}</div><div class="gcs-l">Filial</div></div>
+        </div>
+        <div class="gc-teacher">
+          ${t?`<div class="gc-t-av">${t.initials}</div><span class="gc-t-name">${t.name}</span><span style="margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--t3)">${t.turmas}T</span>`:
+          `<span class="gc-t-none">Sem professor atribuído</span>`}
+        </div>
+        ${g.days.length?`<div class="gc-times">${g.days.map(d=>`<div class="gc-time-row"><span class="gc-time-day">${d.d}</span><span class="gc-time-slot">${d.t}</span></div>`).join('')}</div>`:'<span style="font-size:9px;color:var(--red)">Sem horário definido</span>'}
+        ${g.exam?`<div style="margin-top:6px"><span style="font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px;background:rgba(74,144,217,0.1);border:0.5px solid rgba(74,144,217,0.25);color:var(--blue)">${g.exam}</span></div>`:''}
+        <div class="gc-bar"><div class="gc-bar-fill" style="width:${g.reg}%;background:${barCol(g)}"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── PRINT LIST ── */
+function buildPrintList(){
+  const date=new Date().toLocaleDateString('pt-PT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  let html=`<div class="pl-title">ALM · Grupos &amp; Professores</div><div class="pl-sub">Impresso em ${date} · Ano Lectivo 2025/2026 · ${GROUPS.length} grupos · ${TEACHERS.length} professores</div>`;
+  html+=`<table class="pl-table"><thead><tr><th>Grupo</th><th>Língua</th><th>Filial</th><th>Professor</th><th>Alunos</th><th>Horário</th><th>Estado</th><th>Exame</th></tr></thead><tbody>`;
+  let lastLang='';
+  [...GROUPS].sort((a,b)=>(a.lang+a.level).localeCompare(b.lang+b.level)).forEach(g=>{
+    if(g.lang!==lastLang){html+=`<tr><td colspan="8" class="pl-section-hdr" style="padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.1em">${LANG_FLAGS[g.lang]} ${g.lang}</td></tr>`;lastLang=g.lang;}
+    const t=getTeacher(g.teacher);
+    html+=`<tr><td>${g.levelFull}</td><td>${g.lang}</td><td>${g.branch}</td><td>${t?t.name:'— SEM PROFESSOR'}</td><td>${g.size}</td><td>${g.days.map(d=>d.d+' '+d.t).join(', ')||'—'}</td><td>${STATUS_MAP[g.status]?.lbl||g.status}</td><td>${g.exam||'—'}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  html+=`<div style="margin-top:24px;page-break-before:always"><div class="pl-title">Corpo Docente</div>`;
+  html+=`<table class="pl-table"><thead><tr><th>Professor</th><th>Línguas</th><th>Filial</th><th>Turmas</th><th>h/sem</th><th>Alunos</th><th>Carga</th></tr></thead><tbody>`;
+  TEACHERS.forEach(t=>{html+=`<tr><td>${t.name}</td><td>${t.langs.join(', ')}</td><td>${t.branch}</td><td>${t.turmas}</td><td>${t.hours}h</td><td>${t.alunos}</td><td>${t.load_pct}%</td></tr>`;});
+  html+=`</tbody></table></div>`;
+  document.getElementById('print-list').innerHTML=html;
+}
+
+/* ── CONTROLS ── */
+function setLang(v,el){filterLang=v;document.querySelectorAll('.filter-bar .ftab').forEach(b=>{if(['all','EN','PT','ES','DE','FR'].some(x=>b.textContent.includes(x))||b.textContent==='Todas'){}});applyFilters();}
+function setBranch(v,el){filterBranch=v;applyFilters();}
+function setStatus(v,el){filterStatus=v;applyFilters();}
+function setSort(k,el){sortKey=k;applyFilters();document.querySelectorAll('.gt-thead th').forEach(t=>t.classList.remove('sorted'));if(el)el.classList.add('sorted');}
+function setView(v){currentView=v;document.getElementById('table-view').classList.toggle('hidden',v==='cards');document.getElementById('cards-view').classList.toggle('hidden',v==='table');document.getElementById('btn-table').classList.toggle('on',v==='table');document.getElementById('btn-cards').classList.toggle('on',v==='cards');applyFilters();}
+function toggleView(){setView(currentView==='table'?'cards':'table');document.getElementById('view-lbl').textContent=currentView==='table'?'Vista Cartões':'Vista Tabela';}
+function applyFilters(){searchQ=(document.getElementById('search-inp')||{value:''}).value;if(currentView==='table')buildTable();else buildCards();}
+function toggleDetail(id){const row=document.getElementById('detail-'+id);const btn=document.getElementById('row-'+id).querySelector('.gt-expand-btn');const open=row.classList.toggle('open');btn.style.transform=open?'rotate(180deg)':'';}
+
+/* ── FILTER BUTTON STATES ── (simplified: just rebuild on each click) */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.filter-bar .ftab').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      const siblings=[...this.parentElement.querySelectorAll('.ftab')].filter(b=>b!==this&&this.parentElement===b.parentElement);
+      // handled by setLang/setBranch/setStatus
+    });
+  });
+});
+
+// make filter tabs mutually exclusive per group
+function activateFTab(btn,group){
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+/* ── INIT ── */
+buildTicker();
+buildKPIs();
+buildTeachers();
+buildHeatmap();
+buildTable();
+buildPrintList();
+</script>
+</body>
+</html>
