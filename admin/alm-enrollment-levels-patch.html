@@ -1,0 +1,139 @@
+<!--
+  ALM LEVEL SYSTEM PATCH
+  Replace the LEVELS_DEF and LEVEL_MAP constants in master-enrollment-file.html
+  with these exact values.
+  
+  Also replace the "Tipo de curso" chips section HTML:
+  - Remove: PREP (até 12 anos) chip
+  - Replace with: the two chips below (Prep · Crianças and Adultos)
+  
+  And replace the level grid render in pickCourse() — see JS below.
+-->
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT CONSTANTS (replace in <script>)
+══════════════════════════════════════════ -->
+<script>
+/*
+  ALM CANONICAL LEVEL SYSTEM 2026/2027
+  ─────────────────────────────────────
+  Children (5–12)  →  Prep programme
+  Adults   (12+)   →  Ano 1–8
+*/
+
+const LEVEL_MAP = {
+  /* ── PREP · Crianças 5–12 anos ── */
+  'Pia1': 'Pre-A1',   // Infants novos · primeiro contacto · externos pré-escolar
+  'Pib1': 'Pre-A1',   // Infants · continuação · externos pré-escolar
+  'Pj1':  'A1',       // Jovens 1 · 1.º ano no programa Jovens
+  'Pj2':  'A1+',      // Jovens 2 · 2.º ano
+  'Pj3':  'A2',       // Jovens 3 · 3.º ano → transição para Adultos Ano 2
+
+  /* ── ADULTOS · 12+ anos ── */
+  'Ano 1': 'A1',        // Iniciante absoluto
+  'Ano 2': 'A2',        // Elementar · também recebe ex-Pj3
+  'Ano 3': 'A2+',       // Pré-intermédio
+  'Ano 4': 'B1',        // Intermédio
+  'Ano 5': 'B1+',       // Upper-intermédio / Pré-FCE
+  'Ano 6': 'B2',        // FCE · First Certificate / Business English
+  'Ano 7': 'C1',        // CAE · Certificate in Advanced English
+  'Ano 8': 'C2',        // CPE · Certificate of Proficiency in English
+};
+
+const LEVELS_DEF = {
+
+  /* ── PREP programme · Crianças 5–12 anos ── */
+  prep: [
+    {
+      g: 'Infants · 5–7 anos · externos',
+      items: [
+        { c: 'Pia1', d: 'Infants novos · primeiro contacto com a língua' },
+        { c: 'Pib1', d: 'Infants · continuação do ano anterior' },
+      ]
+    },
+    {
+      g: 'Jovens · 8–12 anos (programa escolar ALM)',
+      items: [
+        { c: 'Pj1', d: 'Jovens 1 · A1 · 1.º ano no programa' },
+        { c: 'Pj2', d: 'Jovens 2 · A1+ · 2.º ano' },
+        { c: 'Pj3', d: 'Jovens 3 · A2 · 3.º ano → transição para Adultos Ano 2' },
+      ]
+    },
+  ],
+
+  /* ── ADULTOS programme · 12+ anos ── */
+  adults: [
+    {
+      g: 'Anos 1–5 · Progressão geral · 12+ anos',
+      items: [
+        { c: 'Ano 1', d: 'Iniciante absoluto · A1 · sem conhecimento prévio' },
+        { c: 'Ano 2', d: 'Elementar · A2 · inclui transição de Pj3' },
+        { c: 'Ano 3', d: 'Pré-intermédio · A2+' },
+        { c: 'Ano 4', d: 'Intermédio · B1' },
+        { c: 'Ano 5', d: 'Upper-intermédio · B1+ · pré-FCE' },
+      ]
+    },
+    {
+      g: 'Anos 6–8 · Exames Cambridge / Proficiência',
+      items: [
+        { c: 'Ano 6', d: 'B2 · FCE · First Certificate / Business English' },
+        { c: 'Ano 7', d: 'C1 · CAE · Certificate in Advanced English' },
+        { c: 'Ano 8', d: 'C2 · CPE · Certificate of Proficiency' },
+      ]
+    },
+  ],
+
+};
+</script>
+
+<!-- ══════════════════════════════════════════
+     HTML — replace the "Tipo de curso" chips
+     (section 08 · Língua & Nível)
+══════════════════════════════════════════ -->
+
+<!-- OLD (remove this):
+<div class="chip" onclick="pickCourse(this,'prep')">🧒 PREP (até 12 anos)</div>
+<div class="chip" onclick="pickCourse(this,'adults')">🧑 Adultos / Anos</div>
+-->
+
+<!-- NEW (replace with): -->
+<div class="chips" id="course-chips">
+  <div class="chip" onclick="pickCourse(this,'prep')">
+    🧒 Prep · Crianças (5–12 anos)
+  </div>
+  <div class="chip" onclick="pickCourse(this,'adults')">
+    🧑 Adultos · Anos 1–8 (12+ anos)
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     LEVEL GRID RENDER
+     The pickCourse() and pickLevel() functions
+     already read from LEVELS_DEF and LEVEL_MAP,
+     so replacing those constants above is
+     sufficient — no function changes needed.
+     
+     The rendered grid will automatically show:
+     
+     PREP:
+       Group: "Infants · 5–7 anos · externos"
+         Pia1 · Pre-A1  — Infants novos
+         Pib1 · Pre-A1  — Infants · continuação
+       Group: "Jovens · 8–12 anos"
+         Pj1  · A1      — Jovens 1
+         Pj2  · A1+     — Jovens 2
+         Pj3  · A2      — Jovens 3 → transição
+     
+     ADULTOS:
+       Group: "Anos 1–5 · Progressão geral"
+         Ano 1 · A1    — Iniciante absoluto
+         Ano 2 · A2    — Elementar
+         Ano 3 · A2+   — Pré-intermédio
+         Ano 4 · B1    — Intermédio
+         Ano 5 · B1+   — Upper-intermédio
+       Group: "Anos 6–8 · Exames Cambridge"
+         Ano 6 · B2    — FCE / Business English
+         Ano 7 · C1    — CAE
+         Ano 8 · C2    — CPE
+══════════════════════════════════════════ -->
