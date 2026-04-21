@@ -162,6 +162,186 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
+/* ══════════════════════════════════════════
+   PRESENÇAS — student rows with action tray
+   ══════════════════════════════════════════ */
+.att-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.att-class{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--g2)}
+.att-count{font-size:9px;color:var(--t3);font-family:var(--mono)}
+.att-bulk{display:flex;gap:6px;margin-left:auto}
+.ab-btn{padding:4px 10px;border-radius:5px;font-size:9.5px;font-weight:600;cursor:pointer;font-family:var(--body);
+  border:0.5px solid;transition:all .12s}
+.ab-all{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.ab-none{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
+
+/* Legend for action icons */
+.att-legend{display:flex;align-items:center;gap:12px;padding:7px 10px;margin-bottom:8px;
+  background:rgba(255,255,255,0.015);border:0.5px solid var(--b);border-radius:6px;flex-wrap:wrap}
+.al-item{display:flex;align-items:center;gap:4px;font-size:8px;color:var(--t3)}
+.al-dot{width:7px;height:7px;border-radius:50%}
+
+.student-list{display:flex;flex-direction:column;gap:3px}
+
+.stu-row{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;
+  background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.04);
+  transition:all .12s;user-select:none;position:relative;min-height:44px;
+}
+.stu-row:hover{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.07)}
+.stu-row.present{background:rgba(39,174,96,0.08);border-color:rgba(39,174,96,0.2)}
+.stu-row.late   {background:rgba(232,184,75,0.07);border-color:rgba(232,184,75,0.2)}
+.stu-row.absent {background:rgba(232,69,90,0.06);border-color:rgba(232,69,90,0.15)}
+
+/* Left: check toggle (click target) */
+.stu-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0}
+.stu-check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--b2);display:flex;
+  align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all .15s}
+.stu-row.present .stu-check{background:var(--green);border-color:var(--green);color:#fff}
+.stu-row.late    .stu-check{background:var(--amber);border-color:var(--amber);color:#000}
+.stu-row.absent  .stu-check{background:var(--red);  border-color:var(--red);  color:#fff}
+
+.stu-num{font-family:var(--mono);font-size:9px;color:var(--t3);width:24px;flex-shrink:0;text-align:right}
+
+/* Student avatar */
+.stu-av{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.02em;
+  border:1.5px solid transparent;
+  transition:transform .15s, box-shadow .15s;
+  pointer-events:none; /* avatar itself is decorative; row handles clicks */
+}
+.stu-row:hover .stu-av{transform:scale(1.08);box-shadow:0 0 0 2px rgba(255,255,255,0.06)}
+/* When present/absent, add a thin ring that echoes the state */
+.stu-row.present .stu-av{box-shadow:0 0 0 1.5px rgba(39,174,96,0.45)}
+.stu-row.late    .stu-av{box-shadow:0 0 0 1.5px rgba(232,184,75,0.5)}
+.stu-row.absent  .stu-av{box-shadow:0 0 0 1.5px rgba(232,69,90,0.4)}
+
+/* Middle: name + status */
+.stu-mid{flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:8px}
+.stu-name{font-size:12.5px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stu-status{font-size:7.5px;font-family:var(--mono);font-weight:700;letter-spacing:0.06em;flex-shrink:0}
+.stu-row.present .stu-status{color:var(--green)}
+.stu-row.late    .stu-status{color:var(--amber)}
+.stu-row.absent  .stu-status{color:var(--red)}
+.stu-row:not(.present):not(.late):not(.absent) .stu-status{color:transparent}
+
+/* Right: action icons — always visible, unobtrusive */
+.stu-actions{
+  display:flex;align-items:center;gap:3px;flex-shrink:0;
+  margin-left:auto;padding-left:6px;
+}
+
+.sab{ /* student action button */
+  width:26px;height:26px;border-radius:6px;border:0.5px solid transparent;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  cursor:pointer;transition:all .14s;position:relative;flex-shrink:0;
+  background:transparent;color:rgba(200,175,130,0.2);
+  /* subtle by default */
+}
+.sab:hover{transform:scale(1.18);color:rgba(200,175,130,0.9)}
+
+/* each icon gets its own hover accent */
+.sab-msg:hover    {background:rgba(74,144,217,0.15); border-color:rgba(74,144,217,0.3);  color:var(--blue)}
+.sab-hist:hover   {background:rgba(201,168,76,0.12); border-color:rgba(201,168,76,0.28); color:var(--g2)}
+.sab-grade:hover  {background:rgba(155,94,202,0.15); border-color:rgba(155,94,202,0.3);  color:var(--purple)}
+.sab-abs:hover    {background:rgba(232,184,75,0.12); border-color:rgba(232,184,75,0.28); color:var(--amber)}
+.sab-photo:hover  {background:rgba(46,204,138,0.12); border-color:rgba(46,204,138,0.28); color:var(--teal)}
+.sab-flag:hover   {background:rgba(232,69,90,0.12);  border-color:rgba(232,69,90,0.28);  color:var(--red)}
+.sab-note:hover   {background:rgba(39,174,96,0.12);  border-color:rgba(39,174,96,0.28);  color:var(--green)}
+
+/* absence badge on the abs button */
+.sab-abs-count{
+  position:absolute;top:-3px;right:-3px;
+  min-width:13px;height:13px;border-radius:999px;
+  background:var(--amber);color:#000;
+  font-family:var(--mono);font-size:7px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 2px;line-height:1;
+  opacity:0.85;pointer-events:none;
+}
+/* hide badge if zero */
+.sab-abs-count.zero{display:none}
+
+/* Tooltip on each action button */
+.sab-tip{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:rgba(8,5,18,0.97);border:0.5px solid var(--b2);
+  border-radius:5px;padding:3px 8px;white-space:nowrap;
+  font-size:8.5px;font-family:var(--body);color:var(--g2);font-weight:500;
+  pointer-events:none;opacity:0;transition:opacity .12s;z-index:20;
+  letter-spacing:0.02em;
+}
+.sab:hover .sab-tip{opacity:1}
+.sab-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:4px solid transparent;border-top-color:var(--b2)}
+
+/* ── STUDENT DETAIL MODAL (secondary) ── */
+.stu-modal-overlay{display:none;position:fixed;inset:0;background:rgba(4,2,12,0.6);z-index:500;
+  align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.stu-modal-overlay.open{display:flex}
+.stu-modal{background:var(--bg3);border:0.5px solid var(--b2);border-radius:12px;
+  width:min(420px,96vw);max-height:80vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,0.9);animation:modal-in .18s ease;scrollbar-width:none}
+.stu-modal::-webkit-scrollbar{display:none}
+.sm-header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:0.5px solid var(--b)}
+.sm-av{width:38px;height:38px;border-radius:50%;background:var(--g3);border:1px solid var(--b2);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;
+  font-weight:700;color:var(--g2);flex-shrink:0}
+.sm-name{font-size:14px;font-weight:600;color:var(--g2)}
+.sm-meta{font-size:9px;color:var(--t3);margin-top:2px}
+.sm-close{margin-left:auto;width:26px;height:26px;border-radius:50%;border:0.5px solid var(--b);
+  background:transparent;color:var(--t2);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .12s}
+.sm-close:hover{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
+.sm-body{padding:14px 16px}
+.sm-section{margin-bottom:14px}
+.sm-sec-title{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--t3);margin-bottom:8px}
+.sm-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sm-stat{padding:8px 10px;background:rgba(255,255,255,0.02);border:0.5px solid var(--b);border-radius:6px}
+.sm-stat-v{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--g2);line-height:1}
+.sm-stat-l{font-size:8px;color:var(--t3);margin-top:3px;text-transform:uppercase;letter-spacing:0.08em}
+.sm-stat.warn .sm-stat-v{color:var(--amber)}
+.sm-stat.danger .sm-stat-v{color:var(--red)}
+.sm-stat.good .sm-stat-v{color:var(--green)}
+.sm-history{display:flex;flex-direction:column;gap:3px}
+.sm-hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;
+  background:rgba(255,255,255,0.02);border:0.5px solid var(--b);border-radius:4px}
+.sm-hr-date{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.sm-hr-status{font-size:8px;font-weight:700;font-family:var(--mono)}
+.sm-hr-status.p{color:var(--green)}.sm-hr-status.f{color:var(--red)}.sm-hr-status.j{color:var(--amber)}
+.sm-note-area{width:100%;padding:8px 10px;background:rgba(0,0,0,0.3);border:0.5px solid var(--b2);
+  border-radius:6px;font-size:11px;font-family:var(--body);color:var(--t);outline:none;resize:vertical;
+  min-height:70px;line-height:1.5;transition:border-color .12s}
+.sm-note-area::placeholder{color:var(--t3)}
+.sm-note-area:focus{border-color:var(--g)}
+.sm-footer{padding:10px 16px;border-top:0.5px solid var(--b);display:flex;gap:6px;justify-content:flex-end}
+.sm-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;
+  font-family:var(--body);border:0.5px solid;transition:all .12s}
+.sm-btn-ghost{background:transparent;border-color:var(--b);color:var(--t2)}
+.sm-btn-ghost:hover{border-color:var(--b2);color:var(--t)}
+.sm-btn-gold{background:var(--g3);border-color:var(--b2);color:var(--g2)}
+.sm-btn-gold:hover{background:rgba(201,168,76,0.25)}
+/* photo placeholder */
+.sm-photo{width:100%;height:100px;background:rgba(255,255,255,0.03);border:0.5px dashed var(--b2);
+  border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.sm-photo-icon{font-size:28px;opacity:0.35}
+.sm-photo-lbl{font-size:9px;color:var(--t3)}
+/* grade bars */
+.grade-bars{display:flex;flex-direction:column;gap:5px}
+.gb-row{display:flex;align-items:center;gap:8px}
+.gb-lbl{font-size:9px;color:var(--t3);width:70px;flex-shrink:0}
+.gb-track{flex:1;height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden}
+.gb-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.gb-val{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t2);width:28px;text-align:right;flex-shrink:0}
+/* flag form */
+.flag-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.flag-chip{padding:3px 10px;border-radius:999px;border:0.5px solid var(--b);font-size:9px;
+  font-family:var(--mono);cursor:pointer;color:var(--t2);transition:all .12s}
+.flag-chip:hover{border-color:var(--b2);color:var(--t)}
+.flag-chip.on{background:rgba(232,69,90,0.12);border-color:var(--red-b);color:var(--red)}
+
 /* SUMÁRIO tab */
 .sum-heading{font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
 .sum-textarea{width:100%;padding:10px;background:#1a1530;border:0.5px solid var(--b2);
@@ -178,33 +358,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sf-inp::placeholder{color:rgba(210,185,140,0.35)}
 .sf-inp option{background:#1a1530;color:rgba(240,225,180,0.95);padding:6px 10px}
 select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 5 5-5' stroke='%23C9A84C' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
-
-/* PRESENÇAS tab */
-.att-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.att-class{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--g2)}
-.att-count{font-size:9px;color:var(--t3);font-family:var(--mono)}
-.att-bulk{display:flex;gap:6px;margin-left:auto}
-.ab-btn{padding:4px 10px;border-radius:5px;font-size:9.5px;font-weight:600;cursor:pointer;font-family:var(--body);
-  border:0.5px solid;transition:all .12s}
-.ab-all{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
-.ab-none{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-.student-list{display:flex;flex-direction:column;gap:4px}
-.stu-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;
-  background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.04);cursor:pointer;
-  transition:all .12s;user-select:none}
-.stu-row:hover{background:rgba(255,255,255,0.04)}
-.stu-row.present{background:rgba(39,174,96,0.08);border-color:rgba(39,174,96,0.2)}
-.stu-row.absent{background:rgba(232,69,90,0.06);border-color:rgba(232,69,90,0.15)}
-.stu-check{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--b2);display:flex;
-  align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all .15s}
-.stu-row.present .stu-check{background:var(--green);border-color:var(--green);color:#fff}
-.stu-row.absent  .stu-check{background:var(--red);border-color:var(--red);color:#fff}
-.stu-num{font-family:var(--mono);font-size:9px;color:var(--t3);width:30px;flex-shrink:0}
-.stu-name{flex:1;font-size:12px}
-.stu-status{font-size:8px;font-family:var(--mono);font-weight:700}
-.stu-row.present .stu-status{color:var(--green)}
-.stu-row.absent  .stu-status{color:var(--red)}
-.stu-row:not(.present):not(.absent) .stu-status{color:var(--t3)}
 
 /* FOTOCÓPIAS tab */
 .fotoc-form{display:flex;flex-direction:column;gap:12px}
@@ -288,6 +441,8 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   .sum-fields{grid-template-columns:1fr}
   .ff-row{grid-template-columns:1fr}
   .print-opts{grid-template-columns:1fr}
+  .sab{width:24px;height:24px;font-size:11px}
+  .sm-grid{grid-template-columns:1fr 1fr}
 }
 </style>
 </head>
@@ -367,7 +522,7 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   <div class="sb-status" id="sb-status">Pronto · <span id="current-date">—</span></div>
 </div>
 
-<!-- ACTION MODAL -->
+<!-- ACTION MODAL (main) -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
   <div class="action-modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -393,6 +548,7 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
     </div>
 
     <div class="modal-body">
+
       <!-- SUMÁRIO -->
       <div class="tab-pane active" id="tab-sumario">
         <div class="sum-heading">Sumário da aula</div>
@@ -406,23 +562,15 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
             <div class="sf-label">Competência principal</div>
             <select class="sf-inp" id="sum-skill">
               <option value="">Selecionar…</option>
-              <option>Speaking</option>
-              <option>Listening</option>
-              <option>Reading</option>
-              <option>Writing</option>
-              <option>Grammar</option>
-              <option>Vocabulary</option>
-              <option>Pronunciation</option>
+              <option>Speaking</option><option>Listening</option><option>Reading</option>
+              <option>Writing</option><option>Grammar</option><option>Vocabulary</option><option>Pronunciation</option>
             </select>
           </div>
           <div>
             <div class="sf-label">Nível de participação</div>
             <select class="sf-inp" id="sum-part">
               <option value="">Selecionar…</option>
-              <option>Excelente</option>
-              <option>Boa</option>
-              <option>Satisfatória</option>
-              <option>Fraca</option>
+              <option>Excelente</option><option>Boa</option><option>Satisfatória</option><option>Fraca</option>
             </select>
           </div>
           <div>
@@ -444,6 +592,18 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
             <button class="ab-btn ab-none" onclick="markAll(false)">✕ Nenhum</button>
           </div>
         </div>
+
+        <!-- Icon legend -->
+        <div class="att-legend">
+          <span style="font-size:8px;color:var(--t3);font-weight:600;letter-spacing:0.1em">ÍCONES:</span>
+          <div class="al-item"><div class="al-dot" style="background:var(--blue)"></div>Mensagem</div>
+          <div class="al-item"><div class="al-dot" style="background:var(--g2)"></div>Histórico</div>
+          <div class="al-item"><div class="al-dot" style="background:var(--purple)"></div>Notas</div>
+          <div class="al-item"><div class="al-dot" style="background:var(--amber)"></div>Faltas</div>
+          <div class="al-item"><div class="al-dot" style="background:var(--red)"></div>Alerta</div>
+          <div class="al-item"><div class="al-dot" style="background:var(--green)"></div>Nota pessoal</div>
+        </div>
+
         <div class="student-list" id="student-list"></div>
       </div>
 
@@ -467,14 +627,8 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
             <textarea class="sum-textarea" id="tpc-desc" style="min-height:70px" placeholder="Ex: Workbook p.35 ex.1–4, Grammar focus tenses…"></textarea>
           </div>
           <div class="ff-row">
-            <div>
-              <div class="sf-label">Página / Referência</div>
-              <input class="sf-inp" id="tpc-ref" type="text" placeholder="p. 35, ex. 1-4"/>
-            </div>
-            <div>
-              <div class="sf-label">Entregar em</div>
-              <input class="sf-inp" id="tpc-due" type="date"/>
-            </div>
+            <div><div class="sf-label">Página / Referência</div><input class="sf-inp" id="tpc-ref" type="text" placeholder="p. 35, ex. 1-4"/></div>
+            <div><div class="sf-label">Entregar em</div><input class="sf-inp" id="tpc-due" type="date"/></div>
           </div>
         </div>
       </div>
@@ -482,43 +636,26 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
       <!-- FOTOCÓPIAS -->
       <div class="tab-pane" id="tab-fotoc">
         <div class="fotoc-form">
-          <div>
-            <div class="sf-label">Documento / Ficha</div>
-            <input class="sf-inp" id="fotoc-doc" type="text" placeholder="ex: Grammar test U3, Reading comprehension…"/>
-          </div>
+          <div><div class="sf-label">Documento / Ficha</div><input class="sf-inp" id="fotoc-doc" type="text" placeholder="ex: Grammar test U3, Reading comprehension…"/></div>
           <div class="ff-row">
-            <div>
-              <div class="sf-label">Nº de cópias</div>
-              <input class="sf-inp" id="fotoc-copies" type="number" min="1" max="200" value="16" placeholder="16"/>
-            </div>
-            <div>
-              <div class="sf-label">Frente / Verso</div>
-              <select class="sf-inp" id="fotoc-sides">
-                <option>Só frente</option>
-                <option>Frente e verso</option>
-              </select>
-            </div>
+            <div><div class="sf-label">Nº de cópias</div><input class="sf-inp" id="fotoc-copies" type="number" min="1" max="200" value="16"/></div>
+            <div><div class="sf-label">Frente / Verso</div><select class="sf-inp" id="fotoc-sides"><option>Só frente</option><option>Frente e verso</option></select></div>
           </div>
-          <div>
-            <div class="sf-label">Urgência</div>
+          <div><div class="sf-label">Urgência</div>
             <div class="urgency-chips">
               <div class="urg-chip" onclick="pickUrgency('normal',this)">Normal (48h)</div>
               <div class="urg-chip" onclick="pickUrgency('urgent',this)">Urgente (24h)</div>
               <div class="urg-chip" onclick="pickUrgency('express',this)">Express (hoje)</div>
             </div>
           </div>
-          <div>
-            <div class="sf-label">Observações ao operador</div>
-            <textarea class="sum-textarea" id="fotoc-obs" style="min-height:55px" placeholder="Instruções especiais para quem vai tirar as cópias…"></textarea>
-          </div>
+          <div><div class="sf-label">Observações ao operador</div><textarea class="sum-textarea" id="fotoc-obs" style="min-height:55px" placeholder="Instruções especiais…"></textarea></div>
         </div>
       </div>
 
       <!-- MENSAGEM -->
       <div class="tab-pane" id="tab-mensagem">
         <div class="msg-form">
-          <div>
-            <div class="sf-label">Para</div>
+          <div><div class="sf-label">Para</div>
             <div class="msg-to-chips">
               <div class="msg-chip" onclick="toggleChip(this,'msg')">Direcção</div>
               <div class="msg-chip" onclick="toggleChip(this,'msg')">Secretaria</div>
@@ -528,16 +665,9 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
               <div class="msg-chip" onclick="toggleChip(this,'msg')">Cristina Ferreira</div>
             </div>
           </div>
-          <div>
-            <div class="sf-label">Assunto</div>
-            <input class="sf-inp" id="msg-subject" type="text" placeholder="ex: Mudança de sala, Material em falta…"/>
-          </div>
-          <div>
-            <div class="sf-label">Mensagem</div>
-            <textarea class="sum-textarea" id="msg-body" style="min-height:90px" placeholder="Escreva a sua mensagem…"></textarea>
-          </div>
-          <div>
-            <div class="sf-label">Prioridade</div>
+          <div><div class="sf-label">Assunto</div><input class="sf-inp" id="msg-subject" type="text" placeholder="ex: Mudança de sala, Material em falta…"/></div>
+          <div><div class="sf-label">Mensagem</div><textarea class="sum-textarea" id="msg-body" style="min-height:90px" placeholder="Escreva a sua mensagem…"></textarea></div>
+          <div><div class="sf-label">Prioridade</div>
             <div class="urgency-chips">
               <div class="urg-chip" onclick="pickUrgency('normal',this,'msg')">Normal</div>
               <div class="urg-chip" onclick="pickUrgency('urgent',this,'msg')">Urgente</div>
@@ -549,31 +679,16 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
       <!-- IMPRIMIR -->
       <div class="tab-pane" id="tab-imprimir">
         <div class="print-opts">
-          <div class="print-card" onclick="doPrint('sumario')">
-            <div class="pc-icon">📄</div>
-            <div class="pc-title">Sumário</div>
-            <div class="pc-sub">Folha de registo de aula</div>
-          </div>
-          <div class="print-card" onclick="doPrint('presencas')">
-            <div class="pc-icon">✅</div>
-            <div class="pc-title">Lista de Presenças</div>
-            <div class="pc-sub">Imprime a folha de assinaturas</div>
-          </div>
-          <div class="print-card" onclick="doPrint('horario')">
-            <div class="pc-icon">📅</div>
-            <div class="pc-title">Horário Semanal</div>
-            <div class="pc-sub">Vista completa da semana</div>
-          </div>
-          <div class="print-card" onclick="doPrint('tpc')">
-            <div class="pc-icon">📚</div>
-            <div class="pc-title">Ficha de TPC</div>
-            <div class="pc-sub">Para distribuir à turma</div>
-          </div>
+          <div class="print-card" onclick="doPrint('sumario')"><div class="pc-icon">📄</div><div class="pc-title">Sumário</div><div class="pc-sub">Folha de registo de aula</div></div>
+          <div class="print-card" onclick="doPrint('presencas')"><div class="pc-icon">✅</div><div class="pc-title">Lista de Presenças</div><div class="pc-sub">Imprime a folha de assinaturas</div></div>
+          <div class="print-card" onclick="doPrint('horario')"><div class="pc-icon">📅</div><div class="pc-title">Horário Semanal</div><div class="pc-sub">Vista completa da semana</div></div>
+          <div class="print-card" onclick="doPrint('tpc')"><div class="pc-icon">📚</div><div class="pc-title">Ficha de TPC</div><div class="pc-sub">Para distribuir à turma</div></div>
         </div>
         <div style="margin-top:14px;padding:10px;background:rgba(255,255,255,0.02);border:0.5px solid var(--b);border-radius:6px;font-size:10px;color:var(--t3)">
-          💡 Os documentos serão abertos numa nova janela para impressão. Certifique-se que a impressora está disponível.
+          💡 Os documentos serão abertos numa nova janela para impressão.
         </div>
       </div>
+
     </div>
 
     <div class="modal-footer">
@@ -584,34 +699,38 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   </div>
 </div>
 
+<!-- STUDENT DETAIL MODAL (secondary) -->
+<div class="stu-modal-overlay" id="stu-modal-overlay" onclick="closeStuModal()">
+  <div class="stu-modal" onclick="event.stopPropagation()">
+    <div class="sm-header">
+      <div class="sm-av" id="sm-av">—</div>
+      <div>
+        <div class="sm-name" id="sm-name">—</div>
+        <div class="sm-meta" id="sm-meta">—</div>
+      </div>
+      <button class="sm-close" onclick="closeStuModal()">✕</button>
+    </div>
+    <div class="sm-body" id="sm-body"></div>
+    <div class="sm-footer">
+      <button class="sm-btn sm-btn-ghost" onclick="closeStuModal()">Fechar</button>
+      <button class="sm-btn sm-btn-gold" onclick="saveStuNote()">💾 Guardar nota</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-/* ── DATA ────────────────────────────────────────────────────── */
+/* ── DATA ── */
 const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const MORNING   = [8,9,10,11];
 const AFTERNOON = [14,15,16,17,18,19,20];
-const ALL_HOURS = [...MORNING,...AFTERNOON];
-
-// Nélia's timetable — loaded from screenshot
-const SCHEDULE = {
-  SEG:{ 8:{start:'08:00',end:'10:00',dur:120,turma:'A2.3 · Inglês',sala:'Sala 1',students:sampleStudents('A2.3')},
-        14:{start:'14:00',end:'16:00',dur:120,turma:'B1.1 · Inglês',sala:'Sala 3',students:sampleStudents('B1.1')},
-        18:{start:'18:00',end:'20:00',dur:120,turma:'C1.2 · Inglês',sala:'Sala 2',students:sampleStudents('C1.2')}},
-  TER:{ 14:{start:'14:00',end:'16:00',dur:120,turma:'A1.2 · Inglês',sala:'Sala 4',students:sampleStudents('A1.2')}},
-  QUA:{ 8:{start:'08:00',end:'10:00',dur:120,turma:'B2.1 · Inglês',sala:'Sala 1',students:sampleStudents('B2.1')},
-        9:{start:'09:00',end:'11:00',dur:120,turma:'A2.3 · Inglês',sala:'Sala 5',students:sampleStudents('A2.3')},
-        14:{start:'14:00',end:'16:00',dur:120,turma:'C1.1 · Inglês',sala:'Sala 3',students:sampleStudents('C1.1')},
-        16:{start:'16:00',end:'18:00',dur:120,turma:'B1.2 · Inglês',sala:'Sala 2',students:sampleStudents('B1.2')},
-        19:{start:'19:00',end:'21:00',dur:120,turma:'A2.1 · Inglês',sala:'Sala 1',students:sampleStudents('A2.1')}},
-  QUI:{ 11:{start:'11:00',end:'13:00',dur:120,turma:'B2.2 · Inglês',sala:'Sala 3',students:sampleStudents('B2.2')},
-        18:{start:'18:00',end:'20:00',dur:120,turma:'C1.2 · Inglês',sala:'Sala 4',students:sampleStudents('C1.2')}},
-  SEX:{},
-  SÁB:{}
-};
-
 const DAY_NAMES_PT = {SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira',SÁB:'Sábado'};
-const DAY_JS_MAP   = [null,'SEG','TER','QUA','QUI','SEX','SÁB']; // JS getDay() 1=Mon
+const DAY_JS_MAP   = [null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+
+// Random absence counts per student (0–6) and grades
+function rndAbs(seed){ return (seed*7+3)%7; }
+function rndGrade(seed){ return 55 + (seed*13+7)%45; }
 
 function sampleStudents(turma) {
   const pools = {
@@ -626,13 +745,41 @@ function sampleStudents(turma) {
     'B2.2':['Agostinha Costa','Bártolo Gonçalves','Caetana Leal','Dionísio Figueira','Eduarda Sequeira','Filomena Saraiva','Gervásio Torres','Hortência Sá','Ilídio Borges','Justina Carmo','Laudelino Luz','Milagres Varela','Natividade Ribeiro','Ofélia Sousa','Rodrigo Neto'],
   };
   const list = pools[turma] || pools['A2.1'];
-  return list.map((n,i) => ({id:i+1,name:n,present:null}));
+  return list.map((n,i) => ({
+    id:i+1, name:n, present:null,
+    absences: rndAbs(i),
+    grade: rndGrade(i),
+    flagged: i===1 || i===5,
+    note: '',
+    history: genHistory(i)
+  }));
 }
+
+function genHistory(seed) {
+  const statuses = ['p','p','p','f','p','p','j','p','p','f'];
+  const dates = ['07 Abr','05 Abr','02 Abr','31 Mar','28 Mar','26 Mar','24 Mar','21 Mar','19 Mar','17 Mar'];
+  return dates.map((d,i) => ({date:d, status: statuses[(i+seed)%statuses.length]}));
+}
+
+const SCHEDULE = {
+  SEG:{ 8:{start:'08:00',end:'10:00',dur:120,turma:'A2.3 · Inglês',sala:'Sala 1',students:sampleStudents('A2.3')},
+        14:{start:'14:00',end:'16:00',dur:120,turma:'B1.1 · Inglês',sala:'Sala 3',students:sampleStudents('B1.1')},
+        18:{start:'18:00',end:'20:00',dur:120,turma:'C1.2 · Inglês',sala:'Sala 2',students:sampleStudents('C1.2')}},
+  TER:{ 14:{start:'14:00',end:'16:00',dur:120,turma:'A1.2 · Inglês',sala:'Sala 4',students:sampleStudents('A1.2')}},
+  QUA:{ 8:{start:'08:00',end:'10:00',dur:120,turma:'B2.1 · Inglês',sala:'Sala 1',students:sampleStudents('B2.1')},
+        9:{start:'09:00',end:'11:00',dur:120,turma:'A2.3 · Inglês',sala:'Sala 5',students:sampleStudents('A2.3')},
+        14:{start:'14:00',end:'16:00',dur:120,turma:'C1.1 · Inglês',sala:'Sala 3',students:sampleStudents('C1.1')},
+        16:{start:'16:00',end:'18:00',dur:120,turma:'B1.2 · Inglês',sala:'Sala 2',students:sampleStudents('B1.2')},
+        19:{start:'19:00',end:'21:00',dur:120,turma:'A2.1 · Inglês',sala:'Sala 1',students:sampleStudents('A2.1')}},
+  QUI:{ 11:{start:'11:00',end:'13:00',dur:120,turma:'B2.2 · Inglês',sala:'Sala 3',students:sampleStudents('B2.2')},
+        18:{start:'18:00',end:'20:00',dur:120,turma:'C1.2 · Inglês',sala:'Sala 4',students:sampleStudents('C1.2')}},
+  SEX:{}, SÁB:{}
+};
 
 /* ── STATE ── */
 let currentSlot = null;
-let urgencyState = {};
-let urgencyMsgState = 'normal';
+let currentStuIdx = null;
+let stuModalMode = null;
 
 /* ── BOOT ── */
 function boot() {
@@ -655,27 +802,19 @@ function buildTodayStrip() {
   const jsDay = new Date().getDay();
   const todayKey = DAY_JS_MAP[jsDay];
   const container = document.getElementById('today-slots');
-  if (!todayKey || !SCHEDULE[todayKey]) {
-    container.innerHTML = '<span class="no-sessions">Sem sessões hoje.</span>';
-    return;
-  }
+  if (!todayKey || !SCHEDULE[todayKey]) { container.innerHTML='<span class="no-sessions">Sem sessões hoje.</span>'; return; }
   const slots = Object.entries(SCHEDULE[todayKey]).filter(([,v])=>v&&v.start);
-  if (!slots.length) {
-    container.innerHTML = '<span class="no-sessions">Sem sessões hoje.</span>';
-    return;
-  }
+  if (!slots.length) { container.innerHTML='<span class="no-sessions">Sem sessões hoje.</span>'; return; }
   document.getElementById('stat-today').textContent = slots.length;
   const now = new Date();
-  const nowMin = now.getHours()*60 + now.getMinutes();
+  const nowMin = now.getHours()*60+now.getMinutes();
   container.innerHTML = slots.map(([h,s]) => {
-    const [sh,sm] = s.start.split(':').map(Number);
-    const [eh,em] = s.end.split(':').map(Number);
-    const startMin = sh*60+sm, endMin = eh*60+em;
-    const isNow = nowMin >= startMin && nowMin < endMin;
+    const [sh,sm]=s.start.split(':').map(Number);
+    const [eh,em]=s.end.split(':').map(Number);
+    const isNow = nowMin>=sh*60+sm && nowMin<eh*60+em;
     return `<div class="today-slot${isNow?' now':''}" onclick="openSlot('${todayKey}',${h})">
       ${isNow?'<span class="ts-now-badge">AGORA</span>':''}
-      <b>${s.start}–${s.end}</b>
-      <span class="ts-turma">${s.turma}</span>
+      <b>${s.start}–${s.end}</b><span class="ts-turma">${s.turma}</span>
     </div>`;
   }).join('');
 }
@@ -684,69 +823,60 @@ function buildTodayStrip() {
 function buildGrid() {
   const jsDay = new Date().getDay();
   const todayKey = DAY_JS_MAP[jsDay];
-  const now = new Date();
-  const nowMin = now.getHours()*60+now.getMinutes();
-
+  const nowMin = new Date().getHours()*60+new Date().getMinutes();
   let html = '<thead><tr><th class="th-day">Dia</th>';
-  MORNING.forEach(h   => { html += `<th style="min-width:58px">${h}h</th>`; });
+  MORNING.forEach(h   => { html+=`<th style="min-width:58px">${h}h</th>`; });
   html += '<th class="th-break">·</th>';
-  AFTERNOON.forEach(h => { html += `<th style="min-width:58px">${h}h</th>`; });
+  AFTERNOON.forEach(h => { html+=`<th style="min-width:58px">${h}h</th>`; });
   html += '</tr></thead><tbody>';
-
   DAYS.forEach(day => {
-    const isToday = day === todayKey;
-    html += `<tr class="day-row"><td class="day-lbl">
-      <div class="dl-wrap">
-        <div class="dl-name">${day}</div>
-        ${isToday?'<div class="dl-today">HOJE</div>':''}
-      </div>
-    </td>`;
-    MORNING.forEach(h => { html += slotCell(day,h,nowMin,isToday); });
+    const isToday = day===todayKey;
+    html += `<tr class="day-row"><td class="day-lbl"><div class="dl-wrap">
+      <div class="dl-name">${day}</div>
+      ${isToday?'<div class="dl-today">HOJE</div>':''}
+    </div></td>`;
+    MORNING.forEach(h   => { html+=slotCell(day,h,nowMin,isToday); });
     html += '<td class="slot-cell break-col"><div class="slot-inner break-inner"></div></td>';
-    AFTERNOON.forEach(h => { html += slotCell(day,h,nowMin,isToday); });
+    AFTERNOON.forEach(h => { html+=slotCell(day,h,nowMin,isToday); });
     html += '</tr>';
   });
-  document.getElementById('grid-table').innerHTML = html + '</tbody>';
+  document.getElementById('grid-table').innerHTML = html+'</tbody>';
 }
 
-function slotCell(day, h, nowMin, isToday) {
+function slotCell(day,h,nowMin,isToday) {
   const s = SCHEDULE[day]?.[h];
   if (s && s.start) {
-    const [sh,sm] = s.start.split(':').map(Number);
-    const [eh,em] = s.end.split(':').map(Number);
-    const startMin = sh*60+sm, endMin = eh*60+em;
-    const isNow = isToday && nowMin >= startMin && nowMin < endMin;
-    return `<td class="slot-cell"><div class="slot-inner booked${isNow?' is-now':''}"
-      onclick="openSlot('${day}',${h})">
+    const [sh,sm]=s.start.split(':').map(Number);
+    const [eh,em]=s.end.split(':').map(Number);
+    const isNow = isToday && nowMin>=sh*60+sm && nowMin<eh*60+em;
+    return `<td class="slot-cell"><div class="slot-inner booked${isNow?' is-now':''}" onclick="openSlot('${day}',${h})">
       ${isNow?'<div class="si-now"></div>':''}
       <div class="si-time">${s.start}–${s.end}</div>
       <div class="si-dur">${s.dur} min</div>
       <div class="si-turma">${s.turma}</div>
       <div class="si-actions">
-        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'sumario')" title="Sumário">📝</div>
+        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'sumario')"   title="Sumário">📝</div>
         <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'presencas')" title="Presenças">📋</div>
-        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'tpc')" title="TPC">📚</div>
-        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'fotoc')" title="Cópias">🖨️</div>
+        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'tpc')"       title="TPC">📚</div>
+        <div class="sa-icon" onclick="event.stopPropagation();openSlot('${day}',${h},'fotoc')"     title="Cópias">🖨️</div>
       </div>
     </div></td>`;
   }
   return `<td class="slot-cell"><div class="slot-inner empty"></div></td>`;
 }
 
-/* ── MODAL ── */
+/* ── MAIN MODAL ── */
 function openSlot(day, h, tab) {
   const s = SCHEDULE[day]?.[h];
-  if (!s || !s.start) return;
-  currentSlot = {day, h, ...s};
-
-  document.getElementById('mh-time').textContent  = s.start + '–' + s.end;
-  document.getElementById('mh-day').textContent   = day + ' · ' + DAY_NAMES_PT[day] + ' · ' + s.dur + ' min';
+  if (!s||!s.start) return;
+  currentSlot = {day,h,...s};
+  document.getElementById('mh-time').textContent  = s.start+'–'+s.end;
+  document.getElementById('mh-day').textContent   = day+' · '+DAY_NAMES_PT[day]+' · '+s.dur+' min';
   document.getElementById('mh-turma').textContent = s.turma;
-  document.getElementById('mh-sub').textContent   = (s.students?.length||0) + ' alunos · ' + (s.sala||'');
+  document.getElementById('mh-sub').textContent   = (s.students?.length||0)+' alunos · '+(s.sala||'');
   document.getElementById('att-class').textContent = s.turma;
   buildStudentList(s.students||[]);
-  // Default tab
-  const tabKey = tab || 'sumario';
+  const tabKey = tab||'sumario';
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.mt-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tabKey)?.classList.add('active');
@@ -755,62 +885,148 @@ function openSlot(day, h, tab) {
 }
 
 function openQuickAction(tab) {
-  // Open first today slot or first available slot
   const jsDay = new Date().getDay();
   const todayKey = DAY_JS_MAP[jsDay];
   let found = null;
   if (todayKey) {
     const slots = Object.entries(SCHEDULE[todayKey]||{}).filter(([,v])=>v&&v.start);
-    if (slots.length) found = {day:todayKey, h:+slots[0][0]};
+    if (slots.length) found={day:todayKey,h:+slots[0][0]};
   }
   if (!found) {
     for (const d of DAYS) {
       const slots = Object.entries(SCHEDULE[d]||{}).filter(([,v])=>v&&v.start);
-      if (slots.length) { found = {day:d, h:+slots[0][0]}; break; }
+      if (slots.length) { found={day:d,h:+slots[0][0]}; break; }
     }
   }
-  if (found) openSlot(found.day, found.h, tab);
+  if (found) openSlot(found.day,found.h,tab);
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 
-function switchTab(id, btn) {
+function switchTab(id,btn) {
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.mt-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+id)?.classList.add('active');
   btn.classList.add('active');
 }
 
-/* ── STUDENTS ── */
+/* ══════════════════════════════════════════
+   STUDENT LIST with per-student action icons
+   ══════════════════════════════════════════ */
+
+/* Deterministic avatar colour from name — same name always → same colour */
+function avatarColor(name) {
+  // Hash the name to a number
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
+  }
+  // Pick hue from a curated palette that looks good on the dark bg
+  // Avoid muddy mid-browns — skip 30–50° range
+  const hues = [8, 22, 195, 215, 230, 255, 270, 285, 300, 160, 175, 340, 355];
+  const hue = hues[Math.abs(hash) % hues.length];
+  const sat = 55 + (Math.abs(hash >> 4) % 25);   // 55–80%
+  const lit = 58 + (Math.abs(hash >> 8) % 14);   // 58–72%  (light enough to read on dark)
+  // Background is hue at low lightness, text is light
+  const bg  = `hsl(${hue},${sat}%,22%)`;
+  const border = `hsl(${hue},${sat}%,38%)`;
+  const text = `hsl(${hue},${sat+10}%,${lit}%)`;
+  return { bg, border, text };
+}
+
 function buildStudentList(students) {
   const list = document.getElementById('student-list');
-  list.innerHTML = students.map((s,i)=>
-    `<div class="stu-row" id="stu-${i}" onclick="toggleStudent(${i})">
-      <div class="stu-check">${s.present===true?'✓':s.present===false?'✕':''}</div>
-      <div class="stu-num">${String(i+1).padStart(2,'0')}</div>
-      <div class="stu-name">${s.name}</div>
-      <div class="stu-status">${s.present===true?'PRESENTE':s.present===false?'FALTA':''}</div>
-    </div>`
-  ).join('');
+  list.innerHTML = students.map((s,i) => {
+    const initials = s.name.split(' ').map(w=>w[0]).slice(0,2).join('');
+    const stateClass = s.present===true?' present':s.present==='late'?' late':s.present===false?' absent':'';
+    const checkIcon  = s.present===true?'✓':s.present==='late'?'⏱':s.present===false?'✕':'';
+    const statusTxt  = s.present===true?'PRESENTE':s.present==='late'?'ATRASO':s.present===false?'FALTA':'';
+    const av = avatarColor(s.name);
+    return `
+    <div class="stu-row${stateClass}" id="stu-${i}">
+
+      <!-- Attendance toggle (left) -->
+      <div class="stu-toggle" onclick="toggleStudent(${i})">
+        <div class="stu-check">${checkIcon}</div>
+        <div class="stu-num">${String(i+1).padStart(2,'0')}</div>
+      </div>
+
+      <!-- Avatar -->
+      <div class="stu-av" style="background:${av.bg};border-color:${av.border};color:${av.text}">${initials}</div>
+
+      <!-- Name + status (click = toggle attendance) -->
+      <div class="stu-mid" onclick="toggleStudent(${i})">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-status">${statusTxt}</div>
+      </div>
+
+      <!-- Per-student action icons (right) -->
+      <div class="stu-actions">
+
+        <!-- ✉ Mensagem -->
+        <div class="sab sab-msg" onclick="stuAction(event,${i},'msg')">
+          ✉️
+          <span class="sab-tip">Mensagem</span>
+        </div>
+
+        <!-- 📋 Histórico -->
+        <div class="sab sab-hist" onclick="stuAction(event,${i},'hist')">
+          📋
+          <span class="sab-tip">Histórico</span>
+        </div>
+
+        <!-- 🎓 Notas / Grades -->
+        <div class="sab sab-grade" onclick="stuAction(event,${i},'grade')">
+          🎓
+          <span class="sab-tip">Notas</span>
+        </div>
+
+        <!-- 📅 Faltas (with count badge) -->
+        <div class="sab sab-abs" onclick="stuAction(event,${i},'abs')">
+          📅
+          <span class="sab-abs-count ${s.absences===0?'zero':''}">${s.absences}</span>
+          <span class="sab-tip">Faltas (${s.absences})</span>
+        </div>
+
+        <!-- ⚑ Alerta -->
+        <div class="sab sab-flag${s.flagged?' flagged':''}" id="flag-${i}" onclick="stuAction(event,${i},'flag')">
+          ${s.flagged?'🚩':'⚑'}
+          <span class="sab-tip">${s.flagged?'Alerta activo':'Marcar alerta'}</span>
+        </div>
+
+        <!-- 📝 Nota pessoal -->
+        <div class="sab sab-note" onclick="stuAction(event,${i},'note')">
+          📝
+          <span class="sab-tip">Nota pessoal</span>
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
   updateAttCount();
 }
 
+/* ── Toggle attendance (click on check or name) ── */
 function toggleStudent(i) {
   if (!currentSlot) return;
   const stu = currentSlot.students[i];
-  stu.present = stu.present === true ? false : stu.present === false ? null : true;
+  // Cycle: null → present → late → absent → null
+  if      (stu.present === null  || stu.present === undefined) stu.present = true;
+  else if (stu.present === true)   stu.present = 'late';
+  else if (stu.present === 'late') stu.present = false;
+  else                             stu.present = null;
+
   const row = document.getElementById('stu-'+i);
-  row.className = 'stu-row' + (stu.present===true?' present':stu.present===false?' absent':'');
-  row.querySelector('.stu-check').textContent = stu.present===true?'✓':stu.present===false?'✕':'';
-  row.querySelector('.stu-status').textContent = stu.present===true?'PRESENTE':stu.present===false?'FALTA':'';
+  const stateClass = stu.present===true ? ' present' : stu.present==='late' ? ' late' : stu.present===false ? ' absent' : '';
+  row.className = 'stu-row' + stateClass;
+  row.querySelector('.stu-check').textContent  = stu.present===true ? '✓' : stu.present==='late' ? '⏱' : stu.present===false ? '✕' : '';
+  row.querySelector('.stu-status').textContent = stu.present===true ? 'PRESENTE' : stu.present==='late' ? 'ATRASO' : stu.present===false ? 'FALTA' : '';
   updateAttCount();
 }
 
 function markAll(v) {
   if (!currentSlot) return;
-  currentSlot.students.forEach(s => s.present = v);
+  currentSlot.students.forEach(s=>s.present=v);
   buildStudentList(currentSlot.students);
 }
 
@@ -818,61 +1034,266 @@ function updateAttCount() {
   if (!currentSlot) return;
   const total = currentSlot.students.length;
   const pres  = currentSlot.students.filter(s=>s.present===true).length;
-  document.getElementById('att-count').textContent = pres + ' / ' + total + ' presentes';
+  const late  = currentSlot.students.filter(s=>s.present==='late').length;
+  let txt = `${pres} / ${total} presentes`;
+  if (late > 0) txt += ` · ${late} atraso${late>1?'s':''}`;
+  document.getElementById('att-count').textContent = txt;
 }
 
-/* ── CHIPS ── */
-function toggleChip(el, group) {
-  el.classList.toggle('active');
+/* ══════════════════════════════════════════
+   PER-STUDENT ACTIONS → open detail modal
+   ══════════════════════════════════════════ */
+function stuAction(event, idx, mode) {
+  event.stopPropagation(); // don't trigger attendance toggle
+  if (!currentSlot) return;
+  const stu = currentSlot.students[idx];
+  currentStuIdx = idx;
+  stuModalMode = mode;
+
+  // Initials + colour for avatar
+  const initials = stu.name.split(' ').map(w=>w[0]).slice(0,2).join('');
+  const av = avatarColor(stu.name);
+  const smAv = document.getElementById('sm-av');
+  smAv.textContent = initials;
+  smAv.style.background = av.bg;
+  smAv.style.borderColor = av.border;
+  smAv.style.color = av.text;
+  document.getElementById('sm-name').textContent = stu.name;
+  document.getElementById('sm-meta').textContent = currentSlot.turma + ' · Nº ' + String(idx+1).padStart(2,'0');
+
+  // Build body based on mode
+  let body = '';
+
+  if (mode === 'msg') {
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">✉️ Enviar mensagem</div>
+        <div class="sf-label" style="margin-bottom:5px">Assunto</div>
+        <input class="sf-inp" id="sm-msg-subject" style="margin-bottom:10px" type="text" placeholder="ex: Falta na última aula, Progresso excelente…"/>
+        <div class="sf-label" style="margin-bottom:5px">Mensagem</div>
+        <textarea class="sm-note-area" id="sm-msg-body" placeholder="Escreva a mensagem para o encarregado de educação / aluno…"></textarea>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <div class="msg-chip active" onclick="toggleChip(this,'smsg')">Encarregado</div>
+          <div class="msg-chip" onclick="toggleChip(this,'smsg')">Aluno</div>
+          <div class="msg-chip" onclick="toggleChip(this,'smsg')">Secretaria</div>
+        </div>
+      </div>`;
+
+  } else if (mode === 'hist') {
+    const statusLabel = {p:'PRESENTE',f:'FALTA',j:'JUST.'};
+    const statusColor = {p:'var(--green)',f:'var(--red)',j:'var(--amber)'};
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">📋 Histórico de presenças (últimas 10 aulas)</div>
+        <div class="sm-history">
+          ${stu.history.map(h=>`
+            <div class="sm-hist-row">
+              <span class="sm-hr-date">${h.date}</span>
+              <span class="sm-hr-status ${h.status}" style="color:${statusColor[h.status]}">${statusLabel[h.status]}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="sm-section">
+        <div class="sm-grid">
+          <div class="sm-stat ${stu.absences>=5?'danger':stu.absences>=3?'warn':'good'}">
+            <div class="sm-stat-v">${stu.absences}</div>
+            <div class="sm-stat-l">Total faltas</div>
+          </div>
+          <div class="sm-stat">
+            <div class="sm-stat-v">${stu.history.filter(h=>h.status==='p').length}</div>
+            <div class="sm-stat-l">Presenças</div>
+          </div>
+        </div>
+      </div>`;
+
+  } else if (mode === 'grade') {
+    const g = stu.grade;
+    const gradeColor = g>=75?'var(--green)':g>=55?'var(--amber)':'var(--red)';
+    const skills = [
+      {label:'Speaking',    val: Math.min(100, g + (idx%2===0?8:-5))},
+      {label:'Listening',   val: Math.min(100, g + (idx%3===0?5:-8))},
+      {label:'Reading',     val: Math.min(100, g + 10)},
+      {label:'Writing',     val: Math.min(100, g - 5)},
+      {label:'Grammar',     val: Math.min(100, g + (idx%2===0?-3:6))},
+      {label:'Vocabulary',  val: Math.min(100, g + 4)},
+    ];
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">🎓 Notas e avaliação</div>
+        <div class="sm-grid" style="margin-bottom:12px">
+          <div class="sm-stat ${g>=75?'good':g>=55?'warn':'danger'}">
+            <div class="sm-stat-v">${g}%</div>
+            <div class="sm-stat-l">Média geral</div>
+          </div>
+          <div class="sm-stat">
+            <div class="sm-stat-v" style="font-size:14px;color:${gradeColor}">${g>=75?'Bom':g>=55?'Suficiente':'Insuficiente'}</div>
+            <div class="sm-stat-l">Classificação</div>
+          </div>
+        </div>
+        <div class="sm-sec-title">Por competência</div>
+        <div class="grade-bars">
+          ${skills.map(s=>`
+            <div class="gb-row">
+              <span class="gb-lbl">${s.label}</span>
+              <div class="gb-track"><div class="gb-fill" style="width:${s.val}%;background:${s.val>=75?'var(--green)':s.val>=55?'var(--amber)':'var(--red)'}"></div></div>
+              <span class="gb-val">${s.val}%</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+  } else if (mode === 'abs') {
+    const absColor = stu.absences>=5?'var(--red)':stu.absences>=3?'var(--amber)':'var(--green)';
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">📅 Registo de faltas</div>
+        <div class="sm-grid" style="margin-bottom:12px">
+          <div class="sm-stat ${stu.absences>=5?'danger':stu.absences>=3?'warn':'good'}">
+            <div class="sm-stat-v">${stu.absences}</div>
+            <div class="sm-stat-l">Faltas injustificadas</div>
+          </div>
+          <div class="sm-stat">
+            <div class="sm-stat-v">${stu.history.filter(h=>h.status==='j').length}</div>
+            <div class="sm-stat-l">Faltas justificadas</div>
+          </div>
+          <div class="sm-stat ${stu.absences>=5?'danger':''}">
+            <div class="sm-stat-v" style="font-size:14px">${stu.absences>=5?'⚠️ Excesso':'✓ OK'}</div>
+            <div class="sm-stat-l">Estado</div>
+          </div>
+          <div class="sm-stat">
+            <div class="sm-stat-v">${Math.round((1 - stu.absences/20)*100)}%</div>
+            <div class="sm-stat-l">Taxa presença</div>
+          </div>
+        </div>
+        ${stu.absences>=5?`<div style="padding:8px 10px;background:var(--red-d);border:0.5px solid var(--red-b);border-radius:6px;font-size:10px;color:var(--red)">⚠️ Número de faltas excede o limite regulamentar. Recomenda-se contacto com o encarregado de educação.</div>`:''}
+      </div>`;
+
+  } else if (mode === 'photo') {
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">📷 Fotografia do aluno</div>
+        <div class="sm-photo">
+          <div class="sm-photo-icon">📷</div>
+          <div class="sm-photo-lbl">Sem fotografia registada</div>
+          <div style="margin-top:8px">
+            <button class="sm-btn sm-btn-gold" onclick="showToast('Funcionalidade em desenvolvimento','info')">+ Adicionar foto</button>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.02);border:0.5px solid var(--b);border-radius:6px;font-size:9px;color:var(--t3);line-height:1.5">
+          As fotografias são usadas para verificação de identidade nas sessões de avaliação e testes. Formatos aceites: JPG, PNG. Máximo 2MB.
+        </div>
+      </div>`;
+
+  } else if (mode === 'flag') {
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">🚩 Alertas e ocorrências</div>
+        <div style="margin-bottom:10px;font-size:11px;color:var(--t2)">
+          Estado actual: <strong style="color:${stu.flagged?'var(--red)':'var(--green)'}">${stu.flagged?'⚠️ Alerta activo':'✓ Sem alertas'}</strong>
+        </div>
+        <div class="sf-label" style="margin-bottom:5px">Motivo do alerta</div>
+        <div class="flag-chips">
+          <div class="flag-chip${stu.flagged?' on':''}" onclick="toggleChip(this,'flag')">Comportamento</div>
+          <div class="flag-chip" onclick="toggleChip(this,'flag')">Pagamento em falta</div>
+          <div class="flag-chip" onclick="toggleChip(this,'flag')">Falta de material</div>
+          <div class="flag-chip" onclick="toggleChip(this,'flag')">Baixo desempenho</div>
+          <div class="flag-chip" onclick="toggleChip(this,'flag')">Excesso de faltas</div>
+          <div class="flag-chip" onclick="toggleChip(this,'flag')">Outro</div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="sf-label" style="margin-bottom:5px">Descrição da ocorrência</div>
+          <textarea class="sm-note-area" id="sm-flag-desc" placeholder="Descreva brevemente a ocorrência ou motivo do alerta…">${stu.flagged?'Aluno com comportamento disruptivo nas últimas sessões.':''}</textarea>
+        </div>
+        <div style="margin-top:8px">
+          <button class="sm-btn" style="background:var(--red-d);border-color:var(--red-b);color:var(--red)" onclick="toggleFlag(${idx})">
+            ${stu.flagged?'🔕 Remover alerta':'🚩 Activar alerta'}
+          </button>
+        </div>
+      </div>`;
+
+  } else if (mode === 'note') {
+    body = `
+      <div class="sm-section">
+        <div class="sm-sec-title">📝 Nota pessoal do professor</div>
+        <textarea class="sm-note-area" id="sm-note-text" style="min-height:100px"
+          placeholder="Nota privada sobre este aluno — visível apenas para si…">${stu.note||''}</textarea>
+        <div style="margin-top:8px;font-size:9px;color:var(--t3)">
+          💡 Esta nota é privada e não é partilhada com outros professores ou com a direcção.
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('sm-body').innerHTML = body;
+  document.getElementById('stu-modal-overlay').classList.add('open');
 }
 
-function pickUrgency(level, el, ctx) {
-  const parent = el.parentElement;
-  parent.querySelectorAll('.urg-chip').forEach(c => { c.className='urg-chip'; });
+function closeStuModal() {
+  document.getElementById('stu-modal-overlay').classList.remove('open');
+}
+
+function saveStuNote() {
+  if (!currentSlot || currentStuIdx===null) return;
+  const stu = currentSlot.students[currentStuIdx];
+  if (stuModalMode==='note') {
+    stu.note = document.getElementById('sm-note-text')?.value||'';
+    showToast('Nota guardada ✓','ok');
+  } else if (stuModalMode==='msg') {
+    showToast('Mensagem enviada ✓','ok');
+  } else if (stuModalMode==='flag') {
+    showToast('Alerta actualizado ✓','ok');
+  } else {
+    showToast('Guardado ✓','ok');
+  }
+  closeStuModal();
+}
+
+function toggleFlag(idx) {
+  if (!currentSlot) return;
+  const stu = currentSlot.students[idx];
+  stu.flagged = !stu.flagged;
+  // Update the flag icon in the list
+  const flagBtn = document.getElementById('flag-'+idx);
+  if (flagBtn) {
+    flagBtn.innerHTML = (stu.flagged?'🚩':'⚑') + `<span class="sab-tip">${stu.flagged?'Alerta activo':'Marcar alerta'}</span>`;
+  }
+  showToast(stu.flagged?'Alerta activado 🚩':'Alerta removido ✓', stu.flagged?'err':'ok');
+  closeStuModal();
+}
+
+/* ── SHARED HELPERS ── */
+function toggleChip(el,group) { el.classList.toggle('active'); }
+function pickUrgency(level,el,ctx) {
+  el.parentElement.querySelectorAll('.urg-chip').forEach(c=>{ c.className='urg-chip'; });
   el.classList.add('on-'+level);
 }
-
-/* ── CONFIRM ── */
 function confirmAction() {
   const activeTab = document.querySelector('.tab-pane.active');
   if (!activeTab) return;
   const id = activeTab.id.replace('tab-','');
-  const msgs = {
-    sumario:'Sumário registado ✓',
-    presencas:'Presenças guardadas ✓',
-    tpc:'TPC atribuído ✓',
-    fotoc:'Pedido de fotocópias enviado ✓',
-    mensagem:'Mensagem enviada ✓',
-    imprimir:'Enviado para impressão ✓'
-  };
+  const msgs = {sumario:'Sumário registado ✓',presencas:'Presenças guardadas ✓',tpc:'TPC atribuído ✓',
+    fotoc:'Pedido de fotocópias enviado ✓',mensagem:'Mensagem enviada ✓',imprimir:'Enviado para impressão ✓'};
   showToast(msgs[id]||'Guardado ✓','ok');
   const saved = document.getElementById('mf-saved');
   saved.classList.add('show');
   setTimeout(()=>saved.classList.remove('show'),2500);
 }
-
-function doPrint(type) {
-  showToast('A abrir pré-visualização de impressão…','info');
-  setTimeout(()=>window.print(),300);
-}
-
-/* ── UTILS ── */
+function doPrint(type) { showToast('A abrir pré-visualização de impressão…','info'); }
 function tick() {
   const e = document.getElementById('clock');
   if(e) e.textContent = new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
 }
-
-let toastT = null;
-function showToast(msg, type='info') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast '+type+' show';
+let toastT=null;
+function showToast(msg,type='info') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type+' show';
   clearTimeout(toastT);
-  toastT = setTimeout(()=>t.classList.remove('show'),2600);
+  toastT=setTimeout(()=>t.classList.remove('show'),2600);
 }
-
-document.addEventListener('keydown', e => {
-  if (e.key==='Escape') closeModal();
-  if ((e.ctrlKey||e.metaKey) && e.key==='Enter') confirmAction();
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(document.getElementById('stu-modal-overlay').classList.contains('open')) closeStuModal();
+    else closeModal();
+  }
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter') confirmAction();
 });
 
 boot();
