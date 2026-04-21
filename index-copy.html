@@ -1,1 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Portal de Acesso</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
 
+.shell{
+  width:100%;min-height:100dvh;
+  background:linear-gradient(155deg,#1A1520 0%,#2E2240 45%,#5C3D6E 75%,#C49A5A 100%);
+  position:relative;font-family:'Outfit','Inter',system-ui,sans-serif;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+.wave-bg{position:absolute;inset:0;pointer-events:none;z-index:1}
+
+.taskbar{
+  height:42px;flex-shrink:0;background:rgba(12,8,20,0.72);
+  border-bottom:0.5px solid rgba(210,180,120,0.1);
+  display:flex;align-items:center;padding:0 18px;gap:10px;z-index:20;position:relative;
+}
+.tb-logo{font-size:15px;font-weight:700;color:#E8C97A;letter-spacing:2px;flex-shrink:0}
+.tb-sep{width:0.5px;height:12px;background:rgba(210,180,120,0.2);flex-shrink:0}
+.tb-sub{font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(210,180,100,0.35)}
+.tb-time{font-size:10px;color:rgba(210,180,100,0.35);flex-shrink:0;margin-left:auto}
+
+.body{
+  flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  position:relative;z-index:10;padding:32px 24px;
+}
+
+.pre{
+  font-size:9px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;
+  color:rgba(210,180,100,0.4);margin-bottom:20px;
+}
+.alm{
+  font-size:clamp(72px,18vw,168px);font-weight:900;letter-spacing:.068em;
+  color:#E8C97A;line-height:1;text-transform:uppercase;font-family:'Outfit',sans-serif;
+  transform:scaleY(0.88);transform-origin:center bottom;display:block;
+}
+.sub{
+  font-size:9px;font-weight:500;letter-spacing:.26em;text-transform:uppercase;
+  color:rgba(210,180,100,0.32);margin-top:14px;margin-bottom:32px;
+}
+
+.login-area{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:300px}
+
+.role-tabs{display:flex;gap:4px;width:100%;margin-bottom:4px}
+.role-tab{
+  flex:1;padding:8px 4px;border-radius:6px;border:0.5px solid rgba(210,180,100,0.18);
+  background:rgba(210,180,100,0.04);cursor:pointer;
+  font-family:'Outfit',sans-serif;font-size:9px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:rgba(210,180,100,0.35);
+  transition:all .18s;text-align:center;user-select:none;
+}
+.role-tab:hover{background:rgba(210,180,100,0.09);color:rgba(210,180,100,0.6)}
+.role-tab.active{background:rgba(210,180,100,0.14);border-color:rgba(210,180,100,0.45);color:#E8C97A}
+
+.login-label{
+  font-size:8px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;
+  color:rgba(210,180,100,0.38);align-self:flex-start;
+}
+.name-in{
+  width:100%;background:rgba(210,180,100,0.06);border:0.5px solid rgba(210,180,100,0.2);
+  border-radius:6px;padding:13px 18px;font-family:'Outfit',sans-serif;
+  font-size:15px;font-weight:400;color:#F0EAD6;outline:none;
+  letter-spacing:.04em;text-align:center;transition:border-color .2s,background .2s;
+}
+.name-in::placeholder{color:rgba(240,234,214,0.18);font-size:12px;letter-spacing:.06em}
+.name-in:focus{border-color:rgba(210,180,100,0.5);background:rgba(210,180,100,0.09)}
+
+.btn{
+  width:100%;padding:12px;background:#C9A84C;border:none;border-radius:6px;
+  font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;
+  letter-spacing:.28em;text-transform:uppercase;color:#0F0A1C;
+  cursor:pointer;opacity:.18;pointer-events:none;transition:opacity .2s,background .2s;
+}
+.btn.ready{opacity:1;pointer-events:auto}
+.btn.ready:hover{background:#E8C97A}
+
+.hint{
+  font-size:10px;letter-spacing:.04em;color:rgba(210,180,100,0.35);
+  text-align:center;min-height:15px;transition:color .2s;
+}
+.hint.found{color:#C9A84C}
+.hint.error{color:rgba(232,80,80,0.7)}
+
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
+.shake{animation:shake .3s ease}
+
+.footer{
+  height:32px;flex-shrink:0;background:rgba(10,6,18,0.5);
+  border-top:0.5px solid rgba(210,180,100,0.06);
+  display:flex;align-items:center;justify-content:center;z-index:10;
+}
+.footer-text{
+  font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(210,180,100,0.18);
+}
+
+@media(max-width:480px){
+  .tb-sub{display:none}
+  .alm{letter-spacing:.04em}
+  .pre{margin-bottom:14px}
+  .sub{margin-bottom:24px;letter-spacing:.18em}
+  .body{padding:24px 20px}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Wave background -->
+  <div class="wave-bg">
+    <svg viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice"
+         xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <path d="M0 480 C180 430,340 500,520 460 C700 420,820 500,1000 455
+               C1100 432,1160 448,1200 440 L1200 600 L0 600 Z"
+            fill="rgba(15,10,28,0.2)"/>
+      <path d="M0 510 C140 480,300 540,480 505 C660 470,780 530,960 495
+               C1080 472,1150 488,1200 480 L1200 600 L0 600 Z"
+            fill="rgba(8,5,18,0.12)"/>
+      <path d="M 150 370 C 260 310, 380 260, 490 290 C 570 310, 600 360, 580 390
+               C 560 420, 520 420, 490 400 C 450 372, 470 320, 540 300
+               C 620 278, 740 250, 880 230 C 1020 210, 1160 225, 1280 195
+               L 1380 180 L 1380 202 C 1160 248, 1020 232, 880 252
+               C 740 272, 620 301, 540 323 C 470 344, 450 396, 490 424
+               C 520 444, 560 444, 580 414 C 600 384, 570 334, 490 314
+               C 380 284, 260 334, 150 394 Z"
+            fill="rgba(200,160,80,0.06)"/>
+      <path d="M 150 370 C 260 310, 380 260, 490 290 C 570 310, 600 360, 580 390
+               C 560 420, 520 420, 490 400 C 450 372, 470 320, 540 300
+               C 620 278, 740 250, 880 230 C 1020 210, 1160 225, 1280 195 L 1380 180"
+            fill="none" stroke="rgba(220,185,100,0.16)" stroke-width="1.4" stroke-linecap="round"/>
+      <radialGradient id="rg" cx="80%" cy="15%" r="40%">
+        <stop offset="0%"   stop-color="rgba(220,185,100,0.14)"/>
+        <stop offset="55%"  stop-color="rgba(140,90,160,0.05)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+      <rect width="100%" height="100%" fill="url(#rg)"/>
+    </svg>
+  </div>
+
+  <!-- Topbar -->
+  <div class="taskbar">
+    <span class="tb-logo">ALM</span>
+    <div class="tb-sep"></div>
+    <span class="tb-sub">Academia de Línguas da Madeira</span>
+    <span class="tb-time" id="t"></span>
+  </div>
+
+  <!-- Main -->
+  <div class="body">
+    <div class="pre">Portal de Acesso</div>
+    <div class="alm">ALM</div>
+    <div class="sub">Academia de Línguas da Madeira · Funchal</div>
+
+    <div class="login-area">
+      <div class="role-tabs">
+        <div class="role-tab active" id="tab-teacher" onclick="setRole('teacher')">Professor</div>
+        <div class="role-tab"        id="tab-student" onclick="setRole('student')">Aluno</div>
+        <div class="role-tab"        id="tab-admin"   onclick="setRole('admin')">Direcção</div>
+      </div>
+
+      <div class="login-label" id="lbl">Nome do professor</div>
+
+      <input class="name-in" id="ni" type="text"
+             placeholder="o seu nome"
+             autocomplete="off" autocorrect="off" spellcheck="false" autofocus
+             oninput="ot()" onkeydown="if(event.key==='Enter')go()"/>
+
+      <button class="btn" id="btn" onclick="go()">Entrar</button>
+
+      <div class="hint" id="hint"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-text">Academia de Línguas da Madeira · Funchal</span>
+  </div>
+
+</div>
+
+<script>
+/* ── Clock ── */
+(function tick(){
+  const d = new Date();
+  document.getElementById('t').textContent =
+    d.toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'}) +
+    ' · ' +
+    d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+})();
+
+/* ── Access lists ── */
+const TEACHERS = new Set([
+  'majidnashtai','anapaula','tonykennedy','sallymacedo','teresapontes',
+  'salomeportugal','john','jenettecoelho','aguedacorreia','neliabaptista','cindy'
+]);
+
+const ADMINS = new Set([
+  'vitorkennedy','neliagomes','jenettecoelho','carina',
+  'liliana','fatimacarvalho','marisa'
+]);
+
+/* ── Role config ── */
+const LABELS       = { teacher:'Nome do professor',    student:'Primeiro e último nome', admin:'Nome de utilizador' };
+const PLACEHOLDERS = { teacher:'o seu nome',           student:'nome e apelido',         admin:'o seu nome'         };
+const DESTS        = { teacher:'teachers/index.html',  student:'students/index.html',    admin:'admin/dashboard.html' };
+
+let role = 'teacher';
+
+/* ── Helpers ── */
+function norm(s){
+  return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function setRole(r){
+  role = r;
+  ['teacher','student','admin'].forEach(x =>
+    document.getElementById('tab-'+x).classList.toggle('active', x === r)
+  );
+  document.getElementById('lbl').textContent        = LABELS[r];
+  document.getElementById('ni').placeholder         = PLACEHOLDERS[r];
+  document.getElementById('ni').value               = '';
+  document.getElementById('hint').className         = 'hint';
+  document.getElementById('hint').textContent       = '';
+  document.getElementById('btn').classList.remove('ready');
+  document.getElementById('ni').focus();
+}
+
+function validate(v){
+  const n = norm(v);
+  if(role === 'teacher') return TEACHERS.has(n) ? '✓  Professor' : null;
+  if(role === 'admin')   return ADMINS.has(n)   ? '✓  Direcção'  : null;
+  if(role === 'student'){
+    const parts = v.trim().split(/\s+/);
+    return parts.length >= 2 ? '✓  Aluno' : null;
+  }
+  return null;
+}
+
+/* ── Events ── */
+const ni   = document.getElementById('ni');
+const btn  = document.getElementById('btn');
+const hint = document.getElementById('hint');
+
+function ot(){
+  const v = ni.value.trim();
+  btn.classList.toggle('ready', v.length > 0);
+  if(!v){ hint.className = 'hint'; hint.textContent = ''; return; }
+  const ok = validate(v);
+  if(ok){ hint.className = 'hint found'; hint.textContent = ok; }
+  else  { hint.className = 'hint';       hint.textContent = ''; }
+}
+
+function go(){
+  const v = ni.value.trim();
+  if(!v) return;
+  const ok = validate(v);
+  if(ok){
+    hint.className   = 'hint found';
+    hint.textContent = 'A entrar…';
+    setTimeout(() => { window.location.href = DESTS[role]; }, 380);
+  } else {
+    ni.classList.remove('shake');
+    void ni.offsetWidth;
+    ni.classList.add('shake');
+    hint.className   = 'hint error';
+    hint.textContent = role === 'student' ? 'Introduza primeiro e último nome' : 'Acesso negado';
+  }
+}
+</script>
+</body>
+</html>
