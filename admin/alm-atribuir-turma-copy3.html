@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>ALM · Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Geist:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ══════════════════════════════════════
+   DESIGN SYSTEM
+══════════════════════════════════════ */
+:root {
+  --ink:    #07060E;
+  --ink2:   #0D0B18;
+  --ink3:   #141220;
+  --ink4:   #1C1928;
+  --smoke:  #F0EDE8;
+  --smoke2: #C8C4BC;
+  --smoke3: #7A7670;
+  --smoke4: #3A3830;
+  --gold:   #C9A84C;
+  --gold2:  #E8C97A;
+  --gold3:  #A8882C;
+  --gold-a: rgba(201,168,76,0.15);
+  --gold-b: rgba(201,168,76,0.06);
+  --green:  #22C55E;
+  --green-a:rgba(34,197,94,0.14);
+  --red:    #EF4444;
+  --red-a:  rgba(239,68,68,0.12);
+  --amber:  #F59E0B;
+  --amber-a:rgba(245,158,11,0.12);
+  --blue:   #60A5FA;
+  --blue-a: rgba(96,165,250,0.12);
+  --teal:   #2DD4BF;
+  --purple: #A78BFA;
+  --rule:   rgba(201,168,76,0.08);
+  --rule2:  rgba(201,168,76,0.14);
+  --panel-w:460px;
+  --serif:  'Cormorant Garamond',Georgia,serif;
+  --mono:   'DM Mono',monospace;
+  --sans:   'Geist',system-ui,sans-serif;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html { font-size:13px; background:var(--ink); color:var(--smoke); font-family:var(--sans); -webkit-font-smoothing:antialiased; overflow:hidden; height:100%; }
+body { height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+/* ── GRAIN OVERLAY ── */
+body::after {
+  content:''; position:fixed; inset:0; z-index:1000; pointer-events:none; opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:200px;
+}
+
+/* ══════════════════════════════════════
+   TOPBAR — the command ribbon
+══════════════════════════════════════ */
+.topbar {
+  height:48px; flex-shrink:0;
+  display:flex; align-items:center;
+  background:rgba(7,6,14,0.98);
+  border-bottom:0.5px solid var(--rule2);
+  padding:0 0 0 0;
+  position:relative; z-index:300;
+}
+
+/* Wordmark section */
+.tb-brand {
+  display:flex; align-items:center; gap:0;
+  border-right:0.5px solid var(--rule2);
+  height:100%; padding:0 20px; flex-shrink:0;
+}
+.tb-alm {
+  font-family:var(--serif); font-size:22px; font-weight:300;
+  color:var(--gold2); letter-spacing:4px; line-height:1;
+  font-style:italic;
+}
+.tb-dot { width:4px; height:4px; border-radius:50%; background:var(--gold); margin:0 10px; flex-shrink:0; }
+.tb-sub {
+  font-family:var(--sans); font-size:8.5px; font-weight:500;
+  letter-spacing:0.24em; text-transform:uppercase; color:var(--smoke3);
+  line-height:1;
+}
+
+/* Breadcrumb pipeline */
+.tb-pipeline {
+  display:flex; align-items:center; gap:0;
+  padding:0 16px; border-right:0.5px solid var(--rule);
+  height:100%; flex-shrink:0;
+}
+.tbp-step {
+  display:flex; align-items:center; gap:6px;
+  padding:0 10px; height:100%; cursor:pointer;
+  border-right:0.5px solid var(--rule);
+  transition:background .14s; text-decoration:none; position:relative;
+}
+.tbp-step:first-child { padding-left:0; }
+.tbp-step:last-child { border-right:none; }
+.tbp-step:hover { background:var(--gold-b); }
+.tbp-step.active { background:var(--gold-b); }
+.tbp-step.active::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1.5px;
+  background:var(--gold);
+}
+.tbp-num {
+  width:16px; height:16px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:7.5px; font-weight:500; flex-shrink:0;
+}
+.tbp-step.done .tbp-num   { background:var(--green); color:#fff; }
+.tbp-step.active .tbp-num { background:var(--gold); color:#000; }
+.tbp-step.wait .tbp-num   { background:rgba(255,255,255,0.06); color:var(--smoke4); border:0.5px solid var(--rule2); }
+.tbp-lbl {
+  font-size:9px; font-weight:500; letter-spacing:0.06em; white-space:nowrap;
+}
+.tbp-step.done .tbp-lbl   { color:var(--smoke3); }
+.tbp-step.active .tbp-lbl { color:var(--gold2); }
+.tbp-step.wait .tbp-lbl   { color:var(--smoke4); }
+
+/* Year badge + clock */
+.tb-meta {
+  margin-left:auto; display:flex; align-items:center; gap:16px;
+  padding:0 16px; border-left:0.5px solid var(--rule);
+  height:100%; flex-shrink:0;
+}
+.tb-year {
+  font-family:var(--mono); font-size:9px; color:var(--smoke3);
+  letter-spacing:0.1em; padding:3px 9px;
+  border:0.5px solid var(--rule2); border-radius:999px;
+}
+.tb-clock { font-family:var(--mono); font-size:11px; color:var(--smoke3); letter-spacing:0.06em; }
+.tb-clock span { color:var(--gold2); }
+
+/* Supabase status pill */
+.tb-sb {
+  display:flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:999px; border:0.5px solid;
+  cursor:pointer; transition:all .14s; flex-shrink:0;
+}
+.tb-sb.ok   { background:var(--green-a); border-color:rgba(34,197,94,0.25); }
+.tb-sb.err  { background:var(--red-a); border-color:rgba(239,68,68,0.25); }
+.tb-sb.load { background:var(--amber-a); border-color:rgba(245,158,11,0.25); }
+.tb-sb-dot  { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.tb-sb.ok  .tb-sb-dot  { background:var(--green); animation:blink 2s infinite; }
+.tb-sb.err .tb-sb-dot  { background:var(--red); }
+.tb-sb.load .tb-sb-dot { background:var(--amber); animation:blink 0.9s infinite; }
+.tb-sb-txt { font-size:9px; font-weight:500; letter-spacing:0.06em; }
+.tb-sb.ok  .tb-sb-txt  { color:var(--green); }
+.tb-sb.err .tb-sb-txt  { color:var(--red); }
+.tb-sb.load .tb-sb-txt { color:var(--amber); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* ══════════════════════════════════════
+   MAIN CANVAS — ultra-minimal
+══════════════════════════════════════ */
+.canvas {
+  flex:1; display:flex; overflow:hidden; position:relative;
+}
+
+/* The vast empty stage */
+.stage {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:0; overflow:hidden; position:relative;
+  transition:margin-right .3s cubic-bezier(.4,0,.2,1);
+}
+.stage.panel-open { margin-right:var(--panel-w); }
+
+/* Stage background — subtle geometric */
+.stage::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(42,20,80,.35) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 80% 75%, rgba(12,35,25,.4) 0%, transparent 55%);
+}
+.stage::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(201,168,76,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,0.025) 1px, transparent 1px);
+  background-size:52px 52px;
+  mask-image:radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 80%);
+}
+
+/* Centre hero */
+.stage-hero {
+  position:relative; z-index:1; text-align:center;
+  animation:heroIn .7s cubic-bezier(.22,1,.36,1) both;
+  transition:opacity .3s, transform .3s;
+}
+.stage-hero.dimmed { opacity:.35; transform:scale(.98); }
+@keyframes heroIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+
+.hero-eyebrow {
+  font-family:var(--mono); font-size:8.5px; letter-spacing:0.28em;
+  text-transform:uppercase; color:var(--smoke4); margin-bottom:14px;
+}
+.hero-title {
+  font-family:var(--serif); font-size:64px; font-weight:300;
+  color:var(--gold2); letter-spacing:6px; line-height:1;
+  font-style:italic; margin-bottom:8px;
+}
+.hero-sub {
+  font-family:var(--serif); font-size:18px; font-weight:300;
+  color:var(--smoke3); letter-spacing:2px; font-style:italic;
+  margin-bottom:32px;
+}
+.hero-divider {
+  width:100px; height:0.5px; background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  margin:0 auto 32px;
+}
+.hero-stats {
+  display:flex; align-items:center; gap:0; justify-content:center;
+  border:0.5px solid var(--rule2); border-radius:10px; overflow:hidden;
+  background:rgba(13,11,24,0.7); backdrop-filter:blur(12px);
+}
+.hstat {
+  padding:14px 24px; text-align:center;
+  border-right:0.5px solid var(--rule);
+  cursor:pointer; transition:background .14s;
+}
+.hstat:last-child { border-right:none; }
+.hstat:hover { background:var(--gold-b); }
+.hstat-v {
+  font-family:var(--mono); font-size:22px; font-weight:500;
+  line-height:1; margin-bottom:4px;
+}
+.hstat-l {
+  font-size:7.5px; font-weight:500; letter-spacing:0.14em;
+  text-transform:uppercase; color:var(--smoke3);
+}
+.hstat.c-green .hstat-v { color:var(--green); }
+.hstat.c-gold  .hstat-v { color:var(--gold2); }
+.hstat.c-amber .hstat-v { color:var(--amber); }
+.hstat.c-red   .hstat-v { color:var(--red); }
+.hstat.c-blue  .hstat-v { color:var(--blue); }
+.hstat.c-teal  .hstat-v { color:var(--teal); }
+
+/* Hint text */
+.stage-hint {
+  position:absolute; bottom:28px; left:50%;
+  transform:translateX(-50%);
+  font-family:var(--mono); font-size:8px; letter-spacing:0.18em;
+  color:var(--smoke4); text-transform:uppercase; z-index:1;
+  display:flex; align-items:center; gap:10px;
+  animation:hintIn 1.2s .8s both;
+}
+@keyframes hintIn { from{opacity:0} to{opacity:1} }
+.stage-hint::before, .stage-hint::after {
+  content:''; width:30px; height:0.5px;
+  background:linear-gradient(90deg,transparent,var(--smoke4));
+}
+.stage-hint::after { background:linear-gradient(90deg,var(--smoke4),transparent); }
+
+/* ══════════════════════════════════════
+   RIGHT EDGE — icon dock
+══════════════════════════════════════ */
+.dock {
+  position:fixed; right:0; top:0; bottom:0; z-index:400;
+  width:44px; background:rgba(7,6,14,0.98);
+  border-left:0.5px solid var(--rule2);
+  display:flex; flex-direction:column; align-items:center;
+  padding:48px 0 0 0; /* offset topbar height */
+}
+.dock-group { display:flex; flex-direction:column; gap:2px; padding:6px 4px; }
+.dock-rule { width:20px; height:0.5px; background:var(--rule2); margin:4px auto; }
+
+.di {
+  width:36px; height:36px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .14s; position:relative;
+  border:0.5px solid transparent;
+}
+.di:hover { background:var(--gold-b); border-color:var(--rule2); }
+.di.active { background:var(--gold-a); border-color:rgba(201,168,76,0.3); }
+.di-ico {
+  font-size:14px; line-height:1; user-select:none;
+  transition:transform .14s;
+}
+.di:hover .di-ico { transform:scale(1.1); }
+.di-badge {
+  position:absolute; top:2px; right:2px;
+  min-width:12px; height:12px; border-radius:999px;
+  background:var(--red); color:#fff;
+  font-family:var(--mono); font-size:6.5px; font-weight:500;
+  display:flex; align-items:center; justify-content:center;
+  padding:0 2px; pointer-events:none;
+  border:1.5px solid var(--ink);
+}
+.di-badge.hide { display:none; }
+.di-badge.g { background:var(--green); }
+.di-badge.a { background:var(--amber); }
+.di-tooltip {
+  position:absolute; right:calc(100% + 8px); top:50%;
+  transform:translateY(-50%);
+  background:rgba(7,6,14,0.97); border:0.5px solid var(--rule2);
+  border-radius:6px; padding:4px 10px; white-space:nowrap;
+  font-size:8.5px; font-family:var(--sans); color:var(--smoke2);
+  pointer-events:none; opacity:0; transition:opacity .12s;
+  z-index:10;
+}
+.di:hover .di-tooltip { opacity:1; }
+
+/* ══════════════════════════════════════
+   SLIDE PANELS — the real magic
+══════════════════════════════════════ */
+.panel {
+  position:fixed; top:48px; right:44px; bottom:0;
+  width:var(--panel-w); z-index:350;
+  background:var(--ink2);
+  border-left:0.5px solid var(--rule2);
+  display:flex; flex-direction:column;
+  transform:translateX(calc(100% + 44px));
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  box-shadow:-24px 0 60px rgba(0,0,0,.7);
+}
+.panel.open { transform:translateX(0); }
+
+.panel-hdr {
+  display:flex; align-items:center; gap:10px;
+  padding:0 16px; height:44px; flex-shrink:0;
+  border-bottom:0.5px solid var(--rule2);
+  background:rgba(0,0,0,.18);
+}
+.panel-icon { font-size:14px; flex-shrink:0; }
+.panel-title {
+  font-size:9px; font-weight:600; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--gold2); flex:1;
+}
+.panel-meta { font-family:var(--mono); font-size:8.5px; color:var(--smoke4); }
+.panel-close {
+  width:24px; height:24px; border-radius:50%;
+  border:0.5px solid var(--rule2); background:transparent;
+  color:var(--smoke3); font-size:12px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .12s; flex-shrink:0;
+}
+.panel-close:hover { background:var(--red-a); border-color:rgba(239,68,68,.3); color:var(--red); }
+
+.panel-body {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color:var(--rule2) transparent;
+}
+.panel-body::-webkit-scrollbar { width:3px; }
+.panel-body::-webkit-scrollbar-thumb { background:var(--rule2); border-radius:999px; }
+
+/* ══════════════════════════════════════
+   PANEL CONTENT COMPONENTS
+══════════════════════════════════════ */
+
+/* Section labels */
+.p-sec {
+  font-size:7.5px; font-weight:700; letter-spacing:0.2em;
+  text-transform:uppercase; color:var(--smoke4);
+  padding:12px 16px 6px; display:flex; align-items:center; gap:8px;
+}
+.p-sec::after { content:''; flex:1; height:0.5px; background:var(--rule); }
+
+/* KPI grid inside panel */
+.p-kgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:10px 14px; }
+.p-kpi {
+  padding:10px 12px; background:rgba(255,255,255,.02);
+  border:0.5px solid var(--rule); border-radius:8px;
+}
+.p-kpi-v { font-family:var(--mono); font-size:20px; font-weight:500; line-height:1; }
+.p-kpi-l { font-size:7px; letter-spacing:0.1em; text-transform:uppercase; color:var(--smoke4); margin-top:3px; }
+.p-kpi.g .p-kpi-v { color:var(--green); }
+.p-kpi.a .p-kpi-v { color:var(--amber); }
+.p-kpi.r .p-kpi-v { color:var(--red); }
+.p-kpi.b .p-kpi-v { color:var(--blue); }
+.p-kpi.t .p-kpi-v { color:var(--teal); }
+.p-kpi.gold .p-kpi-v { color:var(--gold2); }
+
+/* Bar rows */
+.p-bar-row {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 14px; border-bottom:0.5px solid rgba(201,168,76,.03);
+}
+.p-bar-row:last-child { border-bottom:none; }
+.p-bar-lbl { font-size:9px; color:var(--smoke2); width:100px; flex-shrink:0; }
+.p-bar-track { flex:1; height:4px; background:rgba(255,255,255,.04); border-radius:999px; overflow:hidden; }
+.p-bar-fill { height:100%; border-radius:999px; transition:width .6s ease; }
+.p-bar-val { font-family:var(--mono); font-size:8.5px; color:var(--smoke4); width:36px; text-align:right; }
+
+/* Table rows */
+.p-row {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 14px; border-bottom:0.5px solid rgba(201,168,76,.03);
+  cursor:pointer; transition:background .1s;
+}
+.p-row:last-child { border-bottom:none; }
+.p-row:hover { background:var(--gold-b); }
+.p-row-main { flex:1; min-width:0; }
+.p-row-title { font-size:10.5px; font-weight:500; color:var(--smoke); }
+.p-row-sub { font-size:8px; color:var(--smoke4); margin-top:1px; font-family:var(--mono); }
+.p-row-val { font-family:var(--mono); font-size:10px; font-weight:500; flex-shrink:0; }
+
+/* Alert rows */
+.p-alert {
+  display:flex; gap:9px; padding:9px 14px;
+  border-bottom:0.5px solid rgba(201,168,76,.03);
+}
+.p-alert-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.p-alert-body { flex:1; }
+.p-alert-title { font-size:10px; font-weight:500; color:var(--smoke); }
+.p-alert-sub { font-size:8px; color:var(--smoke4); margin-top:1px; line-height:1.5; }
+.pa-red   .p-alert-dot { background:var(--red); }
+.pa-amber .p-alert-dot { background:var(--amber); }
+.pa-green .p-alert-dot { background:var(--green); }
+.pa-blue  .p-alert-dot { background:var(--blue); }
+
+/* Branch card */
+.p-branch {
+  margin:6px 14px; padding:10px 12px;
+  background:rgba(255,255,255,.02); border:0.5px solid var(--rule);
+  border-radius:8px; cursor:pointer; transition:all .12s;
+}
+.p-branch:hover { border-color:var(--rule2); background:var(--gold-b); }
+.p-branch-top { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.p-branch-name { font-size:11px; font-weight:500; color:var(--smoke2); flex:1; }
+.p-branch-pct { font-family:var(--mono); font-size:11px; font-weight:500; }
+.p-branch-bar { height:2.5px; background:rgba(255,255,255,.05); border-radius:999px; overflow:hidden; }
+.p-branch-fill { height:100%; border-radius:999px; transition:width .7s ease; }
+.p-branch-row { display:flex; justify-content:space-between; margin-top:5px; }
+.p-branch-stat { font-size:8px; color:var(--smoke4); font-family:var(--mono); }
+
+/* Teacher row */
+.p-teacher {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 14px; border-bottom:0.5px solid rgba(201,168,76,.03);
+  cursor:pointer; transition:background .1s;
+}
+.p-teacher:hover { background:var(--gold-b); }
+.p-teacher-av {
+  width:32px; height:32px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-size:9px; font-weight:600;
+  border:1.5px solid; letter-spacing:0.04em;
+}
+.p-teacher-info { flex:1; min-width:0; }
+.p-teacher-name { font-size:10.5px; font-weight:500; color:var(--smoke); }
+.p-teacher-meta { font-size:8px; color:var(--smoke4); margin-top:1px; font-family:var(--mono); }
+.p-teacher-bar-wrap { width:60px; flex-shrink:0; }
+.p-teacher-bar { height:3px; background:rgba(255,255,255,.06); border-radius:999px; overflow:hidden; margin-bottom:2px; }
+.p-teacher-fill { height:100%; border-radius:999px; transition:width .5s; }
+.p-teacher-pct { font-family:var(--mono); font-size:7.5px; color:var(--smoke4); text-align:right; }
+
+/* Heatmap */
+.p-heatmap { padding:10px 14px; }
+.hm-grid { display:grid; gap:2px; }
+.hm-row { display:grid; gap:2px; }
+.hm-cell {
+  height:20px; border-radius:3px; display:flex; align-items:center;
+  justify-content:center; cursor:pointer; transition:all .12s;
+  position:relative;
+}
+.hm-cell:hover { transform:scale(1.12); z-index:2; }
+.hm-day-lbl { font-size:7px; color:var(--smoke4); text-align:center; font-family:var(--mono); }
+.hm-h-lbl { font-size:7px; color:var(--smoke4); text-align:right; padding-right:3px; font-family:var(--mono); display:flex; align-items:center; justify-content:flex-end; }
+.hm-val { font-size:6.5px; font-weight:600; font-family:var(--mono); }
+
+/* Log items */
+.p-log {
+  display:flex; gap:8px; padding:7px 14px;
+  border-bottom:0.5px solid rgba(201,168,76,.03);
+}
+.p-log-code { font-family:var(--mono); font-size:9px; color:var(--teal); flex-shrink:0; width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-log-desc { flex:1; font-size:9px; color:var(--smoke3); line-height:1.4; }
+.p-log-time { font-family:var(--mono); font-size:7.5px; color:var(--smoke4); flex-shrink:0; }
+
+/* Pipeline stage */
+.p-stage {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; border-bottom:0.5px solid rgba(201,168,76,.03);
+}
+.p-stage-ico {
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:10px;
+  border:0.5px solid;
+}
+.ps-done  { background:var(--green-a); border-color:rgba(34,197,94,.3); }
+.ps-run   { background:var(--amber-a); border-color:rgba(245,158,11,.3); animation:blink 1.4s infinite; }
+.ps-wait  { background:rgba(255,255,255,.03); border-color:var(--rule); }
+.p-stage-info { flex:1; }
+.p-stage-name { font-size:10px; font-weight:500; color:var(--smoke); }
+.p-stage-meta { font-size:8px; color:var(--smoke4); margin-top:1px; }
+.p-stage-val { font-family:var(--mono); font-size:9.5px; font-weight:600; }
+.psv-done { color:var(--green); }
+.psv-run  { color:var(--amber); }
+.psv-wait { color:var(--smoke4); }
+
+/* Empty state */
+.p-empty {
+  padding:40px 20px; text-align:center; display:flex;
+  flex-direction:column; align-items:center; gap:8px;
+}
+.p-empty-title { font-size:11px; color:var(--smoke3); }
+.p-empty-sub { font-size:9px; color:var(--smoke4); line-height:1.6; max-width:260px; }
+
+/* Footer action bar inside panel */
+.panel-foot {
+  padding:10px 14px; border-top:0.5px solid var(--rule2);
+  display:flex; gap:7px; flex-shrink:0;
+  background:rgba(0,0,0,.15);
+}
+.pf-btn {
+  flex:1; padding:7px; border-radius:6px;
+  font-size:10px; font-weight:600; cursor:pointer;
+  border:0.5px solid; font-family:var(--sans); transition:all .12s; text-align:center;
+  letter-spacing:0.04em;
+}
+.pf-gold { background:var(--gold-a); border-color:rgba(201,168,76,.3); color:var(--gold2); }
+.pf-gold:hover { background:rgba(201,168,76,.22); }
+.pf-green { background:var(--green-a); border-color:rgba(34,197,94,.3); color:var(--green); }
+.pf-green:hover { background:rgba(34,197,94,.22); }
+.pf-ghost { background:transparent; border-color:var(--rule2); color:var(--smoke3); }
+.pf-ghost:hover { border-color:var(--rule2); color:var(--smoke2); background:rgba(255,255,255,.03); }
+
+/* ══════════════════════════════════════
+   OVERLAY (backdrop)
+══════════════════════════════════════ */
+.overlay {
+  position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.3);
+  opacity:0; pointer-events:none;
+  transition:opacity .3s;
+  backdrop-filter:blur(0px);
+}
+.overlay.show { opacity:1; pointer-events:auto; backdrop-filter:blur(1px); }
+
+/* ══════════════════════════════════════
+   UTILITY
+══════════════════════════════════════ */
+.badge {
+  font-size:7.5px; font-weight:600; padding:1.5px 6px;
+  border-radius:3px; border:0.5px solid; font-family:var(--mono);
+  letter-spacing:0.04em; white-space:nowrap; display:inline-block;
+}
+.b-en  { background:rgba(96,165,250,.1); border-color:rgba(96,165,250,.3); color:var(--blue); }
+.b-fr  { background:rgba(167,139,250,.1); border-color:rgba(167,139,250,.3); color:var(--purple); }
+.b-pt  { background:var(--gold-a); border-color:rgba(201,168,76,.3); color:var(--gold2); }
+.b-de  { background:rgba(45,212,191,.1); border-color:rgba(45,212,191,.3); color:var(--teal); }
+.b-es  { background:rgba(245,158,11,.1); border-color:rgba(245,158,11,.3); color:var(--amber); }
+.b-ok  { background:var(--green-a); border-color:rgba(34,197,94,.3); color:var(--green); }
+.b-warn{ background:var(--amber-a); border-color:rgba(245,158,11,.3); color:var(--amber); }
+.b-err { background:var(--red-a); border-color:rgba(239,68,68,.3); color:var(--red); }
+
+/* Action log entry animation */
+@keyframes logIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:none} }
+.p-log { animation:logIn .2s ease both; }
+
+/* Demand heatmap tooltip */
+.hm-tip {
+  position:absolute; bottom:calc(100% + 5px); left:50%; transform:translateX(-50%);
+  background:rgba(7,6,14,.97); border:0.5px solid var(--rule2);
+  border-radius:5px; padding:3px 8px; white-space:nowrap;
+  font-size:8px; color:var(--gold2); opacity:0; transition:opacity .1s;
+  z-index:20; pointer-events:none;
+}
+.hm-cell:hover .hm-tip { opacity:1; }
+
+/* scroll tabs inside panel */
+.p-tabs { display:flex; border-bottom:0.5px solid var(--rule2); flex-shrink:0; }
+.p-tab {
+  flex:1; padding:8px 4px; text-align:center;
+  font-size:8px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--smoke4); cursor:pointer; border-bottom:1.5px solid transparent;
+  transition:all .12s;
+}
+.p-tab.on { color:var(--gold2); border-bottom-color:var(--gold); }
+.p-tab:hover:not(.on) { color:var(--smoke2); }
+.p-tab-body { display:none; }
+.p-tab-body.on { display:block; }
+
+/* Responsive */
+@media(max-width:700px) {
+  .tb-pipeline,.tb-meta .tb-year { display:none; }
+  .panel { width:min(92vw, var(--panel-w)); right:44px; }
+  .stage.panel-open { margin-right:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════
+     TOPBAR
+═══════════════════════════════════ -->
+<div class="topbar">
+  <div class="tb-brand">
+    <span class="tb-alm">ALM</span>
+    <span class="tb-dot"></span>
+    <span class="tb-sub">Centro de Comando</span>
+  </div>
+
+  <!-- Pipeline breadcrumb -->
+  <div class="tb-pipeline">
+    <a class="tbp-step done" href="alm-analise.html">
+      <div class="tbp-num">1</div>
+      <span class="tbp-lbl">Matrículas</span>
+    </a>
+    <a class="tbp-step done" href="alm-horarios.html">
+      <div class="tbp-num">2</div>
+      <span class="tbp-lbl">Horários</span>
+    </a>
+    <a class="tbp-step done" href="alm-motor.html">
+      <div class="tbp-num">3</div>
+      <span class="tbp-lbl">Motor</span>
+    </a>
+    <a class="tbp-step done" href="alm-group-formation.html">
+      <div class="tbp-num">4</div>
+      <span class="tbp-lbl">Turmas</span>
+    </a>
+    <a class="tbp-step active" href="alm-atribuir-turmas.html">
+      <div class="tbp-num">5</div>
+      <span class="tbp-lbl">Atribuição</span>
+    </a>
+    <a class="tbp-step wait" href="#">
+      <div class="tbp-num">6</div>
+      <span class="tbp-lbl">Professor</span>
+    </a>
+  </div>
+
+  <div class="tb-meta">
+    <div class="tb-sb load" id="sb-pill" onclick="refreshData()">
+      <div class="tb-sb-dot"></div>
+      <span class="tb-sb-txt" id="sb-txt">A ligar…</span>
+    </div>
+    <span class="tb-year">2026 / 2027</span>
+    <span class="tb-clock"><span id="clock-h">--</span>:<span id="clock-m">--</span>:<span id="clock-s" style="color:var(--smoke4)">--</span></span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     MAIN CANVAS
+═══════════════════════════════════ -->
+<div class="canvas">
+
+  <!-- Overlay backdrop -->
+  <div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+  <!-- ── THE STAGE ── -->
+  <div class="stage" id="stage">
+    <div class="stage-hero" id="stage-hero">
+      <div class="hero-eyebrow">Ano Lectivo 2026 · 2027 · Madeira</div>
+      <div class="hero-title">ALM</div>
+      <div class="hero-sub">Academia de Línguas da Madeira</div>
+      <div class="hero-divider"></div>
+      <div class="hero-stats" id="hero-stats">
+        <div class="hstat c-gold" onclick="openPanel(0)" title="Matrículas">
+          <div class="hstat-v" id="hs-total">1 287</div>
+          <div class="hstat-l">Alunos</div>
+        </div>
+        <div class="hstat c-green" onclick="openPanel(2)" title="Turmas">
+          <div class="hstat-v" id="hs-groups">94</div>
+          <div class="hstat-l">Turmas</div>
+        </div>
+        <div class="hstat c-teal" onclick="openPanel(3)" title="Professores">
+          <div class="hstat-v">16</div>
+          <div class="hstat-l">Professores</div>
+        </div>
+        <div class="hstat c-amber" onclick="openPanel(4)" title="Pipeline">
+          <div class="hstat-v" id="hs-pending">163</div>
+          <div class="hstat-l">Pendentes</div>
+        </div>
+        <div class="hstat c-red" onclick="openPanel(5)" title="Alertas">
+          <div class="hstat-v" id="hs-alerts">8</div>
+          <div class="hstat-l">Alertas</div>
+        </div>
+      </div>
+    </div>
+    <div class="stage-hint">Seleccione um painel à direita</div>
+  </div>
+
+  <!-- ═══════════════════════════════
+       PANELS (all 7)
+  ═══════════════════════════════ -->
+
+  <!-- PANEL 0 · MATRÍCULAS (Análise) -->
+  <div class="panel" id="panel-0">
+    <div class="panel-hdr">
+      <span class="panel-icon">🎓</span>
+      <span class="panel-title">Matrículas</span>
+      <span class="panel-meta" id="p0-meta">Análise de Matrículas</span>
+      <button class="panel-close" onclick="closePanel(0)">✕</button>
+    </div>
+    <div class="panel-body" id="p0-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-analise.html')">↗ Abrir completo</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(0)">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- PANEL 1 · HORÁRIOS (Gestão) -->
+  <div class="panel" id="panel-1">
+    <div class="panel-hdr">
+      <span class="panel-icon">🕐</span>
+      <span class="panel-title">Horários</span>
+      <span class="panel-meta" id="p1-meta">Pedidos de Horário</span>
+      <button class="panel-close" onclick="closePanel(1)">✕</button>
+    </div>
+    <div class="panel-body" id="p1-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-horarios.html')">↗ Abrir completo</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(1)">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- PANEL 2 · TURMAS (Groups) -->
+  <div class="panel" id="panel-2">
+    <div class="panel-hdr">
+      <span class="panel-icon">👥</span>
+      <span class="panel-title">Turmas Formadas</span>
+      <span class="panel-meta" id="p2-meta">Formação de Turmas</span>
+      <button class="panel-close" onclick="closePanel(2)">✕</button>
+    </div>
+    <div class="panel-body" id="p2-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-group-formation.html')">↗ Formação</button>
+      <button class="pf-btn pf-green" onclick="window.open('alm-atribuir-turmas.html')">→ Atribuir</button>
+    </div>
+  </div>
+
+  <!-- PANEL 3 · PROFESSORES -->
+  <div class="panel" id="panel-3">
+    <div class="panel-hdr">
+      <span class="panel-icon">⏱</span>
+      <span class="panel-title">Professores · Horas</span>
+      <span class="panel-meta" id="p3-meta">16 docentes</span>
+      <button class="panel-close" onclick="closePanel(3)">✕</button>
+    </div>
+    <div class="panel-body" id="p3-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-atribuir-turmas.html')">↗ Atribuição</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(3)">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- PANEL 4 · PIPELINE -->
+  <div class="panel" id="panel-4">
+    <div class="panel-hdr">
+      <span class="panel-icon">📊</span>
+      <span class="panel-title">Pipeline · Visão Geral</span>
+      <span class="panel-meta" id="p4-meta">2026/2027</span>
+      <button class="panel-close" onclick="closePanel(4)">✕</button>
+    </div>
+    <div class="panel-body" id="p4-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-operacional.html')">↗ Painel Operacional</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(4)">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- PANEL 5 · ALERTAS -->
+  <div class="panel" id="panel-5">
+    <div class="panel-hdr">
+      <span class="panel-icon">⚠️</span>
+      <span class="panel-title">Alertas do Sistema</span>
+      <span class="panel-meta" id="p5-meta">—</span>
+      <button class="panel-close" onclick="closePanel(5)">✕</button>
+    </div>
+    <div class="panel-body" id="p5-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="closePanel(5)">Fechar</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(5)">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- PANEL 6 · FILIAIS -->
+  <div class="panel" id="panel-6">
+    <div class="panel-hdr">
+      <span class="panel-icon">📍</span>
+      <span class="panel-title">Filiais · Saúde</span>
+      <span class="panel-meta" id="p6-meta">7 escolas</span>
+      <button class="panel-close" onclick="closePanel(6)">✕</button>
+    </div>
+    <div class="panel-body" id="p6-body">
+      <div class="p-empty"><div class="p-empty-title">A carregar…</div></div>
+    </div>
+    <div class="panel-foot">
+      <button class="pf-btn pf-ghost" onclick="window.open('alm-analise.html')">↗ Análise completa</button>
+      <button class="pf-btn pf-gold" onclick="refreshPanel(6)">↻ Actualizar</button>
+    </div>
+  </div>
+
+</div><!-- /canvas -->
+
+<!-- ═══════════════════════════════════
+     DOCK
+═══════════════════════════════════ -->
+<div class="dock">
+  <div class="dock-group">
+    <div class="di" id="di-0" onclick="togglePanel(0)" title="">
+      <span class="di-ico">🎓</span>
+      <div class="di-badge hide" id="db-0">!</div>
+      <div class="di-tooltip">Matrículas</div>
+    </div>
+    <div class="di" id="di-1" onclick="togglePanel(1)">
+      <span class="di-ico">🕐</span>
+      <div class="di-badge a hide" id="db-1">!</div>
+      <div class="di-tooltip">Horários</div>
+    </div>
+    <div class="di" id="di-2" onclick="togglePanel(2)">
+      <span class="di-ico">👥</span>
+      <div class="di-badge g hide" id="db-2">!</div>
+      <div class="di-tooltip">Turmas</div>
+    </div>
+    <div class="di" id="di-3" onclick="togglePanel(3)">
+      <span class="di-ico">⏱</span>
+      <div class="di-badge hide" id="db-3">!</div>
+      <div class="di-tooltip">Professores</div>
+    </div>
+  </div>
+  <div class="dock-rule"></div>
+  <div class="dock-group">
+    <div class="di" id="di-4" onclick="togglePanel(4)">
+      <span class="di-ico">📊</span>
+      <div class="di-badge hide" id="db-4">!</div>
+      <div class="di-tooltip">Pipeline</div>
+    </div>
+    <div class="di" id="di-5" onclick="togglePanel(5)">
+      <span class="di-ico">⚠️</span>
+      <div class="di-badge" id="db-5">8</div>
+      <div class="di-tooltip">Alertas</div>
+    </div>
+    <div class="di" id="di-6" onclick="togglePanel(6)">
+      <span class="di-ico">📍</span>
+      <div class="di-badge hide" id="db-6">!</div>
+      <div class="di-tooltip">Filiais</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════ -->
+<script>
+/* ══════ CONSTANTS ══════ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+
+const DAYS  = ['Seg','Ter','Qua','Qui','Sex','Sáb'];
+const ALL_H = [8,9,10,11,14,15,16,17,18,19,20];
+const FLAGS = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const LCOL  = {EN:'#60A5FA',PT:'#C9A84C',FR:'#A78BFA',ES:'#F59E0B',DE:'#2DD4BF'};
+const LBADGE= {EN:'b-en',PT:'b-pt',FR:'b-fr',ES:'b-es',DE:'b-de'};
+
+const TEACHERS = [
+  {num:'P-01',code:'NB',name:'Nélia Baptista',    lang:'EN',contractH:22},
+  {num:'P-02',code:'SM',name:'Sally Macedo',      lang:'EN',contractH:22},
+  {num:'P-03',code:'TK',name:'Tony Kennedy',      lang:'EN',contractH:22,native:true},
+  {num:'P-04',code:'CF',name:'Cristina Ferreira', lang:'EN',contractH:22},
+  {num:'P-05',code:'SP',name:'Salomé Portugal',   lang:'EN',contractH:22},
+  {num:'P-06',code:'AG',name:'Águeda Correia',    lang:'EN',contractH:22},
+  {num:'P-07',code:'DS',name:'Dina Silva',        lang:'EN',contractH:22},
+  {num:'P-08',code:'MJ',name:'Majid Jafari',      lang:'EN',contractH:22,native:true},
+  {num:'P-09',code:'CM',name:'Catherine Moreau',  lang:'FR',contractH:22},
+  {num:'P-10',code:'IB',name:'Isabel Barbier',    lang:'FR',contractH:14},
+  {num:'P-11',code:'JG',name:'Jackie Gonçalves',  lang:'EN',contractH:22},
+  {num:'P-12',code:'AP',name:'Ana Paula',         lang:'EN',contractH:22},
+  {num:'P-13',code:'PN',name:'Paula Noia',        lang:'EN',contractH:22},
+  {num:'P-14',code:'SI',name:'Simone',            lang:'PT',contractH:14},
+  {num:'P-15',code:'ED',name:'Edite',             lang:'EN',contractH:14},
+  {num:'P-16',code:'TP',name:'Teresa Pontes',     lang:'EN',contractH:22},
+];
+
+const BRANCH_DATA = {
+  Funchal:   {total:412,active:367,pct:89,trend:'↑↑'},
+  Machico:   {total:198,active:147,pct:74,trend:'↓'},
+  'S. Cruz': {total:221,active:184,pct:83,trend:'↑'},
+  'R. Brava':{total:156,active:95, pct:61,trend:'↓↓'},
+  Calheta:   {total:178,active:153,pct:86,trend:'↑'},
+  Estreito:  {total:122,active:85, pct:70,trend:'↓'},
+  'P. do Sol':{total:90,active:63, pct:70,trend:'→'},
+};
+
+const PIPELINE = {
+  totalStudents:1287, requestsReceived:1041, requestsPct:81,
+  groupsFormed:94, hardCases:31, toConfirm:18, assigned:847
+};
+
+/* ══════ STATE ══════ */
+let GROUPS = [], GRIDS = {}, activePanel = -1;
+const ACTION_LOG = [];
+
+/* ══════ CLOCK ══════ */
+function tick(){
+  const n=new Date();
+  const pad=x=>String(x).padStart(2,'0');
+  document.getElementById('clock-h').textContent=pad(n.getHours());
+  document.getElementById('clock-m').textContent=pad(n.getMinutes());
+  document.getElementById('clock-s').textContent=pad(n.getSeconds());
+}
+tick(); setInterval(tick,1000);
+
+/* ══════ SUPABASE ══════ */
+async function sbGet(t,q=''){
+  const r=await fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H});
+  if(!r.ok)throw new Error();
+  return r.json();
+}
+
+function setSb(type,txt){
+  const p=document.getElementById('sb-pill');
+  p.className='tb-sb '+type;
+  document.getElementById('sb-txt').textContent=txt;
+}
+
+async function refreshData(){
+  setSb('load','A sincronizar…');
+  loadGrids();
+  try{
+    let data=[];
+    try{
+      data=await sbGet('enrolments','select=*&academic_year=eq.2026%2F2027&status=neq.archived&limit=3000');
+    }catch(e){
+      data=await sbGet('students','select=*&limit=3000');
+    }
+    if(!data.length)throw new Error('empty');
+    buildGroupsFromData(data);
+    setSb('ok',`${data.length} alunos · ${new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}`);
+  }catch(e){
+    setSb('err','Offline · dados demo');
+    buildGroupsFromDemo();
+  }
+  updateBadges();
+  updateHeroStats();
+  if(activePanel>=0) renderPanel(activePanel);
+}
+
+function loadGrids(){
+  GRIDS={};
+  TEACHERS.forEach(t=>{
+    const s=localStorage.getItem('alm-teacher-timetable-'+t.num);
+    GRIDS[t.num]=s?JSON.parse(s):{};
+  });
+}
+
+function buildGroupsFromData(students){
+  const map={};
+  students.forEach(s=>{
+    const lang=(s.lang||'EN').toUpperCase();
+    const level=s.level||'A1';
+    const branch=(s.branch||'Funchal').split('·')[0].trim();
+    const key=`${lang}|${level}|${branch}`;
+    if(!map[key])map[key]={key,lang,level,branch,students:[],assigned:false};
+    map[key].students.push({ref:s.ref||s.id||'—',name:s.name||'—',lang,level});
+  });
+  GROUPS=Object.values(map);
+  GROUPS.forEach(g=>{
+    const n=g.students.length;
+    g.viability=n>=8?'viable':n>=5?'min':'low';
+    const d=localStorage.getItem('alm-group-'+g.key);
+    if(d){const x=JSON.parse(d);g.assigned=true;g.turmaCode=x.turmaCode;g.teacher=x.teacher;}
+  });
+}
+
+function buildGroupsFromDemo(){
+  const names=[['Maria','Silva'],['João','Ferreira'],['Ana','Costa'],['Pedro','Santos'],
+    ['Sofia','Gomes'],['Carlos','Lima'],['Inês','Rodrigues'],['Rui','Pereira']];
+  const cfg=[
+    {lang:'EN',level:'B2',branch:'Funchal',n:11},
+    {lang:'EN',level:'B1',branch:'Funchal',n:10},
+    {lang:'EN',level:'A2',branch:'Funchal',n:9},
+    {lang:'EN',level:'A1',branch:'Funchal',n:8},
+    {lang:'EN',level:'B1',branch:'Machico',n:7},
+    {lang:'EN',level:'A2',branch:'Machico',n:6},
+    {lang:'PT',level:'A1',branch:'Funchal',n:8},
+    {lang:'PT',level:'A2',branch:'Funchal',n:6},
+    {lang:'ES',level:'A1',branch:'Funchal',n:7},
+    {lang:'DE',level:'A1',branch:'Funchal',n:4},
+    {lang:'FR',level:'A1',branch:'Funchal',n:5},
+    {lang:'EN',level:'A1',branch:'S. Cruz',n:9},
+    {lang:'EN',level:'B1',branch:'Calheta',n:6},
+    {lang:'EN',level:'A2',branch:'R. Brava',n:3},
+  ];
+  GROUPS=cfg.map(c=>{
+    const key=`${c.lang}|${c.level}|${c.branch}`;
+    const students=Array.from({length:c.n},(_,i)=>{
+      const nm=names[i%names.length];
+      return{ref:`ALM-${String(i+1).padStart(4,'0')}`,name:nm[0]+' '+nm[1],lang:c.lang,level:c.level};
+    });
+    const n=c.n;
+    const viability=n>=8?'viable':n>=5?'min':'low';
+    const d=localStorage.getItem('alm-group-'+key);
+    let assigned=false,turmaCode=null,teacher=null;
+    if(d){const x=JSON.parse(d);assigned=true;turmaCode=x.turmaCode;teacher=x.teacher;}
+    return{key,lang:c.lang,level:c.level,branch:c.branch,students,viability,assigned,turmaCode,teacher};
+  });
+}
+
+/* ══════ PANEL MANAGEMENT ══════ */
+function togglePanel(id){
+  if(activePanel===id){ closeAll(); return; }
+  openPanel(id);
+}
+function openPanel(id){
+  if(activePanel>=0){
+    document.getElementById('panel-'+activePanel).classList.remove('open');
+    document.getElementById('di-'+activePanel).classList.remove('active');
+  }
+  activePanel=id;
+  document.getElementById('panel-'+id).classList.add('open');
+  document.getElementById('di-'+id).classList.add('active');
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('stage').classList.add('panel-open');
+  document.getElementById('stage-hero').classList.add('dimmed');
+  renderPanel(id);
+}
+function closePanel(id){
+  document.getElementById('panel-'+id).classList.remove('open');
+  document.getElementById('di-'+id).classList.remove('active');
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('stage').classList.remove('panel-open');
+  document.getElementById('stage-hero').classList.remove('dimmed');
+  activePanel=-1;
+}
+function closeAll(){ if(activePanel>=0) closePanel(activePanel); }
+
+/* ESC key */
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(); });
+
+function refreshPanel(id){ renderPanel(id); }
+
+function renderPanel(id){
+  const fns=[renderP0,renderP1,renderP2,renderP3,renderP4,renderP5,renderP6];
+  if(fns[id]) fns[id]();
+}
+
+/* ══════ PANEL 0 · MATRÍCULAS ══════ */
+function renderP0(){
+  const total=GROUPS.reduce((a,g)=>a+g.students.length,0)||1287;
+  const assigned=GROUPS.filter(g=>g.assigned).length;
+  const unassigned=GROUPS.length-assigned;
+
+  // Lang breakdown
+  const langs={};
+  GROUPS.forEach(g=>{langs[g.lang]=(langs[g.lang]||0)+g.students.length;});
+  const maxL=Math.max(...Object.values(langs),1);
+
+  // Branch breakdown from BRANCH_DATA
+  const branches=Object.entries(BRANCH_DATA);
+
+  document.getElementById('p0-meta').textContent=`${total} alunos`;
+  document.getElementById('p0-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi gold"><div class="p-kpi-v">${total.toLocaleString('pt-PT')}</div><div class="p-kpi-l">Total alunos</div></div>
+    <div class="p-kpi g"><div class="p-kpi-v">${PIPELINE.requestsReceived}</div><div class="p-kpi-l">Inscrições</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">${total-PIPELINE.requestsReceived}</div><div class="p-kpi-l">Sem pedido</div></div>
+    <div class="p-kpi r"><div class="p-kpi-v">${PIPELINE.hardCases}</div><div class="p-kpi-l">Casos difíceis</div></div>
+  </div>
+  <div class="p-sec">Distribuição por Língua</div>
+  ${Object.entries(langs).sort((a,b)=>b[1]-a[1]).map(([lang,n])=>`
+    <div class="p-bar-row">
+      <div class="p-bar-lbl">${FLAGS[lang]||''} ${lang}</div>
+      <div class="p-bar-track"><div class="p-bar-fill" style="width:${Math.round(n/maxL*100)}%;background:${LCOL[lang]||'var(--gold)'}"></div></div>
+      <div class="p-bar-val">${n}</div>
+    </div>`).join('')}
+  <div class="p-sec">Filiais</div>
+  ${branches.map(([name,d])=>{
+    const col=d.pct>=80?'var(--green)':d.pct>=65?'var(--amber)':'var(--red)';
+    return`<div class="p-branch">
+      <div class="p-branch-top">
+        <span class="p-branch-name">${name}</span>
+        <span class="p-branch-pct" style="color:${col}">${d.pct}%</span>
+        <span style="font-size:12px;color:${d.trend.includes('↑')?'var(--green)':'d.trend.includes(\'↓\')?\'var(--red)\':\'var(--smoke4)\''}">${d.trend}</span>
+      </div>
+      <div class="p-branch-bar"><div class="p-branch-fill" style="width:${d.pct}%;background:${col}"></div></div>
+      <div class="p-branch-row">
+        <span class="p-branch-stat">Total: ${d.total}</span>
+        <span class="p-branch-stat">Activos: ${d.active}</span>
+        <span class="p-branch-stat" style="color:${col}">${d.pct>=80?'✓ Saudável':d.pct>=65?'⚠ Atenção':'✕ Crítica'}</span>
+      </div>
+    </div>`;
+  }).join('')}`;
+}
+
+/* ══════ PANEL 1 · HORÁRIOS ══════ */
+function renderP1(){
+  const p=PIPELINE;
+  const stats=[
+    {label:'Total pedidos',val:p.requestsReceived,pct:p.requestsPct,col:'var(--green)'},
+    {label:'Atribuídos',val:p.assigned,pct:Math.round(p.assigned/p.requestsReceived*100),col:'var(--teal)'},
+    {label:'Em análise',val:163,pct:16,col:'var(--amber)'},
+    {label:'Conflitos',val:p.hardCases,pct:Math.round(p.hardCases/p.requestsReceived*100),col:'var(--red)'},
+    {label:'Sem pedido',val:1287-p.requestsReceived,pct:19,col:'var(--blue)'},
+  ];
+  const max=stats[0].val;
+  document.getElementById('p1-meta').textContent=`${p.requestsReceived} pedidos`;
+  document.getElementById('p1-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi g"><div class="p-kpi-v">${p.requestsReceived}</div><div class="p-kpi-l">Pedidos recebidos</div></div>
+    <div class="p-kpi r"><div class="p-kpi-v">${p.hardCases}</div><div class="p-kpi-l">Conflitos</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">163</div><div class="p-kpi-l">Em análise</div></div>
+    <div class="p-kpi b"><div class="p-kpi-v">${1287-p.requestsReceived}</div><div class="p-kpi-l">Sem pedido</div></div>
+  </div>
+  <div class="p-sec">Volume por estado</div>
+  ${stats.map(s=>`
+    <div class="p-bar-row">
+      <div class="p-bar-lbl">${s.label}</div>
+      <div class="p-bar-track"><div class="p-bar-fill" style="width:${Math.round(s.val/max*100)}%;background:${s.col}"></div></div>
+      <div class="p-bar-val" style="color:${s.col}">${s.val}</div>
+    </div>`).join('')}
+  <div class="p-sec">Períodos preferidos</div>
+  ${[
+    {p:'Manhã',n:312,pct:30},
+    {p:'Tarde',n:478,pct:46},
+    {p:'Noite',n:251,pct:24},
+  ].map(s=>`
+    <div class="p-bar-row">
+      <div class="p-bar-lbl">${s.p}</div>
+      <div class="p-bar-track"><div class="p-bar-fill" style="width:${s.pct*2}%;background:var(--gold)"></div></div>
+      <div class="p-bar-val">${s.n}</div>
+    </div>`).join('')}
+  <div class="p-sec">Casos difíceis activos</div>
+  ${[
+    {name:'Maria Rodrigues',reason:'EN B2 · Sáb 09h única opção',br:'R. Brava'},
+    {name:'João Ferreira',reason:'Única aluna C2 Deutsch',br:'Funchal'},
+    {name:'Ana Silva',reason:'3 conflitos sobrepostos · ES B1',br:'Machico'},
+    {name:'Paulo Lima',reason:'Grupo &lt;5 · EN C1',br:'Estreito'},
+    {name:'Clara Melo',reason:'Sem sobreposição PT B2',br:'Calheta'},
+  ].map(c=>`
+    <div class="p-row">
+      <div class="p-row-main">
+        <div class="p-row-title">${c.name}</div>
+        <div class="p-row-sub">${c.reason} · ${c.br}</div>
+      </div>
+      <span class="badge b-err">difícil</span>
+    </div>`).join('')}`;
+}
+
+/* ══════ PANEL 2 · TURMAS ══════ */
+function renderP2(){
+  const viable=GROUPS.filter(g=>g.viability==='viable').length;
+  const min_v=GROUPS.filter(g=>g.viability==='min').length;
+  const low=GROUPS.filter(g=>g.viability==='low').length;
+  const assigned=GROUPS.filter(g=>g.assigned).length;
+  const pending=GROUPS.filter(g=>!g.assigned);
+  const done=GROUPS.filter(g=>g.assigned);
+
+  document.getElementById('p2-meta').textContent=`${GROUPS.length} turmas`;
+  document.getElementById('db-2').textContent=pending.length;
+  document.getElementById('db-2').classList.toggle('hide',pending.length===0);
+
+  document.getElementById('p2-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi g"><div class="p-kpi-v">${viable}</div><div class="p-kpi-l">Viáveis ≥8</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">${min_v}</div><div class="p-kpi-l">Mínimos 5-7</div></div>
+    <div class="p-kpi r"><div class="p-kpi-v">${low}</div><div class="p-kpi-l">Pequenos &lt;5</div></div>
+    <div class="p-kpi t"><div class="p-kpi-v">${assigned}</div><div class="p-kpi-l">Atribuídos</div></div>
+  </div>
+  ${pending.length?`<div class="p-sec">⏳ Por atribuir (${pending.length})</div>
+  ${pending.map(g=>{
+    const viabCol=g.viability==='viable'?'var(--green)':g.viability==='min'?'var(--amber)':'var(--red)';
+    return`<div class="p-row">
+      <span style="font-size:14px">${FLAGS[g.lang]||'🌐'}</span>
+      <div class="p-row-main">
+        <div class="p-row-title">${g.lang} ${g.level} · ${g.branch}</div>
+        <div class="p-row-sub">${g.students.length} alunos</div>
+      </div>
+      <span style="width:7px;height:7px;border-radius:50%;background:${viabCol};flex-shrink:0;display:inline-block"></span>
+    </div>`;}).join('')}`:''}
+  ${done.length?`<div class="p-sec">✓ Atribuídos (${done.length})</div>
+  ${done.map(g=>`
+    <div class="p-row">
+      <span style="font-size:14px">${FLAGS[g.lang]||'🌐'}</span>
+      <div class="p-row-main">
+        <div class="p-row-title">${g.lang} ${g.level} · ${g.branch}</div>
+        <div class="p-row-sub">${g.turmaCode||'—'} · ${g.students.length} alunos</div>
+      </div>
+      <span class="badge b-ok">✓</span>
+    </div>`).join('')}`:''}`;
+}
+
+/* ══════ PANEL 3 · PROFESSORES ══════ */
+function renderP3(){
+  function tHours(num){
+    const g=GRIDS[num]||{};let m=0;
+    DAYS.forEach(d=>ALL_H.forEach(h=>{if(g[d]?.[h])m+=g[d][h].durationMin||0;}));
+    return+(m/60).toFixed(1);
+  }
+
+  const langColors={EN:'#60A5FA',FR:'#A78BFA',PT:'#C9A84C',DE:'#2DD4BF',ES:'#F59E0B'};
+
+  document.getElementById('p3-meta').textContent='16 docentes';
+  document.getElementById('p3-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi gold"><div class="p-kpi-v">16</div><div class="p-kpi-l">Professores</div></div>
+    <div class="p-kpi g"><div class="p-kpi-v">14</div><div class="p-kpi-l">Com aulas</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">2</div><div class="p-kpi-l">Por atribuir</div></div>
+    <div class="p-kpi b"><div class="p-kpi-v">3</div><div class="p-kpi-l">Nativos</div></div>
+  </div>
+  <div class="p-sec">Horas por professor</div>
+  ${TEACHERS.map(t=>{
+    const h=tHours(t.num);
+    const pct=Math.min(100,h/t.contractH*100);
+    const col=h>=t.contractH?'var(--red)':h>t.contractH*0.75?'var(--amber)':'var(--green)';
+    const lc=langColors[t.lang]||'var(--gold)';
+    return`<div class="p-teacher">
+      <div class="p-teacher-av" style="background:${lc}18;border-color:${lc}44;color:${lc}">${t.code}</div>
+      <div class="p-teacher-info">
+        <div class="p-teacher-name">${t.name}${t.native?' ★':''}</div>
+        <div class="p-teacher-meta">${t.num} · ${t.contractH}h contrato · ${t.lang}</div>
+      </div>
+      <div class="p-teacher-bar-wrap">
+        <div class="p-teacher-bar"><div class="p-teacher-fill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="p-teacher-pct" style="color:${col}">${h}/${t.contractH}h</div>
+      </div>
+    </div>`;}).join('')}`;
+}
+
+/* ══════ PANEL 4 · PIPELINE ══════ */
+function renderP4(){
+  const p=PIPELINE;
+  const assigned=GROUPS.filter(g=>g.assigned).length;
+  document.getElementById('p4-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi gold"><div class="p-kpi-v">${p.totalStudents.toLocaleString('pt-PT')}</div><div class="p-kpi-l">Total alunos</div></div>
+    <div class="p-kpi g"><div class="p-kpi-v">${p.requestsReceived}</div><div class="p-kpi-l">Pedidos</div></div>
+    <div class="p-kpi b"><div class="p-kpi-v">${p.groupsFormed}</div><div class="p-kpi-l">Grupos</div></div>
+    <div class="p-kpi t"><div class="p-kpi-v">${assigned}</div><div class="p-kpi-l">Atribuídos</div></div>
+  </div>
+  <div class="p-sec">Etapas do Pipeline</div>
+  ${[
+    {label:'Matrículas recebidas',val:p.totalStudents,col:'var(--green)',state:'done'},
+    {label:'Pedidos de horário',val:p.requestsReceived,col:'var(--blue)',state:'done'},
+    {label:'Motor de alocação',val:p.groupsFormed+' turmas',col:'var(--gold)',state:'done'},
+    {label:'Formação de turmas',val:p.groupsFormed+' grupos',col:'var(--teal)',state:'done'},
+    {label:'Atribuição de professor',val:assigned+' atribuídos',col:'var(--amber)',state:'run'},
+    {label:'Confirmação final',val:p.toConfirm+' pendentes',col:'var(--smoke4)',state:'wait'},
+  ].map(s=>`
+    <div class="p-stage">
+      <div class="p-stage-ico ps-${s.state}">${s.state==='done'?'✓':s.state==='run'?'⟳':'○'}</div>
+      <div class="p-stage-info">
+        <div class="p-stage-name">${s.label}</div>
+      </div>
+      <div class="p-stage-val psv-${s.state}" style="color:${s.col}">${s.val}</div>
+    </div>`).join('')}
+  <div class="p-sec">Por Língua</div>
+  ${Object.entries(
+    GROUPS.reduce((a,g)=>{a[g.lang]=(a[g.lang]||0)+g.students.length;return a;},{})
+  ).sort((a,b)=>b[1]-a[1]).map(([lang,n])=>{
+    const tot=GROUPS.reduce((a,g)=>a+g.students.length,0)||1;
+    const pct=Math.round(n/tot*100);
+    return`<div class="p-bar-row">
+      <div class="p-bar-lbl">${FLAGS[lang]||''} ${lang}</div>
+      <div class="p-bar-track"><div class="p-bar-fill" style="width:${pct*2}%;background:${LCOL[lang]||'var(--gold)'}"></div></div>
+      <div class="p-bar-val">${n}</div>
+    </div>`;}).join('')}`;
+}
+
+/* ══════ PANEL 5 · ALERTAS ══════ */
+function renderP5(){
+  const alerts=buildAlerts();
+  document.getElementById('p5-meta').textContent=`${alerts.length} activos`;
+  document.getElementById('db-5').textContent=alerts.filter(a=>a.sev==='high').length||alerts.length;
+  document.getElementById('db-5').classList.toggle('hide',alerts.length===0);
+
+  if(!alerts.length){
+    document.getElementById('p5-body').innerHTML=`<div class="p-empty"><div class="p-empty-title" style="color:var(--green)">✓ Sem alertas activos</div><div class="p-empty-sub">Todos os sistemas operacionais.</div></div>`;
+    return;
+  }
+  document.getElementById('p5-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi r"><div class="p-kpi-v">${alerts.filter(a=>a.sev==='high').length}</div><div class="p-kpi-l">Críticos</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">${alerts.filter(a=>a.sev==='med').length}</div><div class="p-kpi-l">Atenção</div></div>
+    <div class="p-kpi b"><div class="p-kpi-v">${alerts.filter(a=>a.sev==='info').length}</div><div class="p-kpi-l">Info</div></div>
+    <div class="p-kpi g"><div class="p-kpi-v">0</div><div class="p-kpi-l">Resolvidos</div></div>
+  </div>
+  <div class="p-sec">Alertas Activos</div>
+  ${alerts.map(a=>
+    `<div class="p-alert pa-${a.sev==='high'?'red':a.sev==='med'?'amber':'blue'}">
+      <div class="p-alert-dot"></div>
+      <div class="p-alert-body">
+        <div class="p-alert-title">${a.title}</div>
+        <div class="p-alert-sub">${a.msg}</div>
+      </div>
+    </div>`).join('')}`;
+}
+
+/* ══════ PANEL 6 · FILIAIS ══════ */
+function renderP6(){
+  const entries=Object.entries(BRANCH_DATA);
+  const healthy=entries.filter(([,d])=>d.pct>=80).length;
+  const warn=entries.filter(([,d])=>d.pct>=65&&d.pct<80).length;
+  const crit=entries.filter(([,d])=>d.pct<65).length;
+
+  document.getElementById('p6-meta').textContent='7 escolas';
+  document.getElementById('p6-body').innerHTML=`
+  <div class="p-kgrid">
+    <div class="p-kpi g"><div class="p-kpi-v">${healthy}</div><div class="p-kpi-l">Saudáveis ≥80%</div></div>
+    <div class="p-kpi a"><div class="p-kpi-v">${warn}</div><div class="p-kpi-l">Atenção</div></div>
+    <div class="p-kpi r"><div class="p-kpi-v">${crit}</div><div class="p-kpi-l">Críticas</div></div>
+    <div class="p-kpi gold"><div class="p-kpi-v">${entries.reduce((a,[,d])=>a+d.total,0)}</div><div class="p-kpi-l">Total alunos</div></div>
+  </div>
+  <div class="p-sec">Estado de cada filial</div>
+  ${entries.map(([name,d])=>{
+    const col=d.pct>=80?'var(--green)':d.pct>=65?'var(--amber)':'var(--red)';
+    const trendCol=d.trend.includes('↑')?'var(--green)':d.trend.includes('↓')?'var(--red)':'var(--smoke4)';
+    return`<div class="p-branch">
+      <div class="p-branch-top">
+        <span class="p-branch-name">${name}</span>
+        <span style="font-size:13px;color:${trendCol};font-family:var(--mono)">${d.trend}</span>
+        <span class="p-branch-pct" style="color:${col}">${d.pct}%</span>
+      </div>
+      <div class="p-branch-bar"><div class="p-branch-fill" style="width:${d.pct}%;background:${col}"></div></div>
+      <div class="p-branch-row">
+        <span class="p-branch-stat">Total: <span style="color:var(--smoke2)">${d.total}</span></span>
+        <span class="p-branch-stat">Activos: <span style="color:${col}">${d.active}</span></span>
+        <span class="p-branch-stat" style="color:${col}">${d.pct>=80?'✓ Saudável':d.pct>=65?'⚠ Atenção':'✕ Crítica'}</span>
+      </div>
+    </div>`;}).join('')}`;
+}
+
+/* ══════ ALERTS ENGINE ══════ */
+function buildAlerts(){
+  const out=[];
+  Object.entries(BRANCH_DATA).forEach(([name,d])=>{
+    if(d.pct<65) out.push({sev:'high',title:`${name} — taxa crítica`,msg:`${d.pct}% de inscrição · ${d.total} alunos · intervenção urgente`});
+    else if(d.pct<75) out.push({sev:'med',title:`${name} — taxa baixa`,msg:`${d.pct}% · acompanhamento recomendado`});
+  });
+  TEACHERS.forEach(t=>{
+    const h=tHoursForTeacher(t.num);
+    if(h>t.contractH) out.push({sev:'high',title:`${t.name} excede contrato`,msg:`${h}h atribuídas vs ${t.contractH}h de contrato`});
+  });
+  if(PIPELINE.hardCases>0) out.push({sev:'med',title:`${PIPELINE.hardCases} casos difíceis`,msg:'Slots únicos ou conflitos irresolvíveis — requerem decisão manual'});
+  const smallGroups=GROUPS.filter(g=>g.viability==='low').length;
+  if(smallGroups>0) out.push({sev:'med',title:`${smallGroups} grupos com < 5 alunos`,msg:'Considere fundir grupos do mesmo nível noutras filiais'});
+  TEACHERS.forEach(t=>{
+    if(tHoursForTeacher(t.num)===0) out.push({sev:'info',title:`${t.name} sem aulas atribuídas`,msg:`Contrato: ${t.contractH}h · nenhuma sessão marcada`});
+  });
+  return out;
+}
+
+function tHoursForTeacher(num){
+  const g=GRIDS[num]||{};let m=0;
+  DAYS.forEach(d=>ALL_H.forEach(h=>{if(g[d]?.[h])m+=g[d][h].durationMin||0;}));
+  return+(m/60).toFixed(1);
+}
+
+/* ══════ HERO STATS ══════ */
+function updateHeroStats(){
+  const total=GROUPS.reduce((a,g)=>a+g.students.length,0)||1287;
+  const assigned=GROUPS.filter(g=>g.assigned).length;
+  const pending=GROUPS.length-assigned;
+  const alerts=buildAlerts().filter(a=>a.sev==='high').length;
+  document.getElementById('hs-total').textContent=total.toLocaleString('pt-PT');
+  document.getElementById('hs-groups').textContent=GROUPS.length||94;
+  document.getElementById('hs-pending').textContent=pending||163;
+  document.getElementById('hs-alerts').textContent=alerts||8;
+}
+
+/* ══════ BADGES ══════ */
+function updateBadges(){
+  const pending=GROUPS.filter(g=>!g.assigned).length;
+  const b2=document.getElementById('db-2');
+  b2.textContent=pending; b2.classList.toggle('hide',pending===0);
+
+  const alerts=buildAlerts();
+  const b5=document.getElementById('db-5');
+  b5.textContent=alerts.length; b5.classList.toggle('hide',alerts.length===0);
+}
+
+/* ══════ BOOT ══════ */
+(async function boot(){
+  setSb('load','A ligar ao Supabase…');
+  loadGrids();
+  // Try loading groups from localStorage first (fast)
+  const formed=localStorage.getItem('alm-groups-full-2627');
+  if(formed){
+    try{
+      const p=JSON.parse(formed);
+      if(p&&p.length){
+        GROUPS=p.map(g=>({...g,assigned:false,turmaCode:null,teacher:null}));
+        // Restore assignments
+        GROUPS.forEach(g=>{
+          const d=localStorage.getItem('alm-group-'+g.key);
+          if(d){const x=JSON.parse(d);g.assigned=true;g.turmaCode=x.turmaCode;g.teacher=x.teacher;}
+        });
+      }
+    }catch(e){}
+  }
+  if(!GROUPS.length) buildGroupsFromDemo();
+  updateHeroStats();
+  updateBadges();
+
+  // Then sync with Supabase in background
+  await refreshData();
+})();
+</script>
+</body>
+</html>
