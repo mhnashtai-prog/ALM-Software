@@ -1570,8 +1570,15 @@ function stuAction(event,idx,mode) {
   const s=SM_STUDENTS[idx]; SM_STU_IDX=idx; SM_STU_MODE=mode;
   const av=avatarColor(s.name);
   const smAv=document.getElementById('sm-av');
-  smAv.textContent=s.initials; smAv.style.background=av.bg; smAv.style.borderColor=av.border; smAv.style.color=av.text;
-  document.getElementById('sm-name').textContent=s.name||'—';
+  const grp=SM_SLOT?.slotData?.groupKey ? GROUPS.find(g=>g.key===SM_SLOT.slotData.groupKey) : null;
+const lc=levelColor(grp?.course);
+smAv.textContent=s.initials;
+smAv.style.background=lc+'22';
+smAv.style.borderColor=lc+'88';
+smAv.style.color=lc;
+document.getElementById('sm-name').textContent=s.name||'—';
+document.getElementById('sm-name').style.color=lc;
+document.querySelector('.sm-header').style.borderBottom=`1px solid ${lc}44`;
   document.getElementById('sm-meta-txt').textContent=`${SM_SLOT?.slotData?.turmaCode||'—'} · Nº${String(idx+1).padStart(2,'0')} · Ref: ${s.ref}`;
   let body='';
   if(mode==='note'){
@@ -1620,6 +1627,30 @@ function stuAction(event,idx,mode) {
       <textarea class="sm-note-area" placeholder="Escreva a mensagem…"></textarea></div>`;
   }
   document.getElementById('sm-body-area').innerHTML=body;
+  document.getElementById('stu-modal-overlay').classList.add('open');
+}
+  function openPopStudentCard(ref, name) {
+  const smAv = document.getElementById('sm-av');
+  const grp = SEL;
+  const lc = levelColor(grp?.course);
+  const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  SM_STU_IDX = null; SM_STU_MODE = 'hist';
+  smAv.textContent = initials;
+  smAv.style.background = lc+'22';
+  smAv.style.borderColor = lc+'88';
+  smAv.style.color = lc;
+  document.getElementById('sm-name').textContent = name;
+  document.getElementById('sm-name').style.color = lc;
+  document.querySelector('.sm-header').style.borderBottom = `1px solid ${lc}44`;
+  document.getElementById('sm-meta-txt').textContent = `Ref: ${ref} · ${grp?.branch||'—'}`;
+  const s = grp?.students?.find(x=>x.ref===ref) || {absences:0,grade:0,flagged:false};
+  document.getElementById('sm-body-area').innerHTML=`<div class="sm-section"><div class="sm-sec-title">📋 Perfil do aluno</div>
+    <div class="sm-grid">
+      <div class="sm-stat ${(s.absences||0)>=5?'danger':(s.absences||0)>=3?'warn':'good'}"><div class="sm-stat-v">${s.absences||0}</div><div class="sm-stat-l">Faltas</div></div>
+      <div class="sm-stat"><div class="sm-stat-v" style="font-size:11px">${ref}</div><div class="sm-stat-l">Ref. ALM</div></div>
+      <div class="sm-stat ${(s.grade||0)>=75?'good':(s.grade||0)>=55?'warn':'danger'}"><div class="sm-stat-v">${s.grade||'—'}</div><div class="sm-stat-l">Nota</div></div>
+      <div class="sm-stat"><div class="sm-stat-v" style="color:${s.flagged?'var(--red)':'var(--green)'}">${s.flagged?'⚠️':'✓'}</div><div class="sm-stat-l">${s.flagged?'Alerta':'OK'}</div></div>
+    </div></div>`;
   document.getElementById('stu-modal-overlay').classList.add('open');
 }
 function closeStuModal() { document.getElementById('stu-modal-overlay').classList.remove('open'); }
@@ -1673,7 +1704,12 @@ function avatarColor(name) {
   const sat=55+(Math.abs(hash>>4)%25); const lit=58+(Math.abs(hash>>8)%14);
   return{bg:`hsl(${hue},${sat}%,18%)`,border:`hsl(${hue},${sat}%,35%)`,text:`hsl(${hue},${sat+10}%,${lit}%)`};
 }
-
+function levelColor(course) {
+  if (course === 'kids')  return '#28C8B0';
+  if (course === 'exam')  return '#9B5ECA';
+  return '#C8A44A';
+}
+  
 /* ══════════════════════════════════════
    BOOKING POPOVER
 ══════════════════════════════════════ */
@@ -1748,7 +1784,7 @@ function renderStudentPreview() {
     const name=SEL.students[i]?.name||ref;
     const ini=name.split(' ').map(w=>w[0]).slice(0,2).join('');
     const avail=(PREFS[ref]||[]).some(p=>p.day===SLOT.day&&p.h===SLOT.h);
-    return`<div class="s-av" title="${name}" style="background:${lc}${avail?'22':'0C'};border-color:${lc}${avail?'50':'1F'};color:${lc}">${ini}</div>`;
+   return`<div class="s-av" title="${name}" style="background:${lc}${avail?'22':'0C'};border-color:${lc}${avail?'50':'1F'};color:${lc};cursor:pointer" onclick="openPopStudentCard('${ref}','${name}')">${ini}</div>`;
   }).join('');
   const total=refs.length;
   document.getElementById('pop-stus').innerHTML=avs+(total>16?`<span style="font-family:var(--mono);font-size:7.5px;color:var(--ink3);align-self:center;margin-left:3px">+${total-16}</span>`:'');
