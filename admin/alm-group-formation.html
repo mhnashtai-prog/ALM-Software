@@ -859,9 +859,10 @@ async function boot() {
 
   setStep('req','run','…'); loPct(75,'A carregar pedidos…');
   try {
-    const rawR = await sbGet('student_requests','select=ref,lang,level_cefr,sessions_per_week,day_preferences,preferred_days,preferred_times,constraints,flexible,priority&academic_year=eq.2026%2F2027&limit=2000');
+    const rawR = await sbGet('student_requests','select=ref,student_name,branch,lang,family,level_cefr,sessions_per_week,day_preferences,academic_year&academic_year=eq.2026%2F2027&limit=2000');
     rawR.forEach(r => { RMAP[r.ref] = r; });
     setStep('req','done', rawR.length+' pedidos'); loPct(82);
+    document.getElementById('wz-badge').textContent = rawR.length > 0 ? rawR.length : '!';
   } catch(e) { setStep('req','warn','Sem pedidos'); }
 
   setStep('split','run','…'); loPct(88,'A calcular divisão automática…');
@@ -933,21 +934,59 @@ function attachStudents(g) {
   }
 }
 
+/* ── day number → ALM day code ── */
+const DAY_NUM = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+const DAY_NAME_MAP = {
+  'segunda':'SEG','seg':'SEG','monday':'SEG','mon':'SEG',
+  'terça':'TER','ter':'TER','tuesday':'TER','tue':'TER',
+  'quarta':'QUA','qua':'QUA','wednesday':'QUA','wed':'QUA',
+  'quinta':'QUI','qui':'QUI','thursday':'QUI','thu':'QUI',
+  'sexta':'SEX','sex':'SEX','friday':'SEX','fri':'SEX',
+  'sábado':'SÁB','sabado':'SÁB','saturday':'SÁB','sat':'SÁB',
+};
+
+function resolveDay(p) {
+  // numeric day: 1=Mon..6=Sat
+  if (typeof p.day === 'number') return DAY_NUM[p.day] || null;
+  if (typeof p.day === 'string') {
+    const k = p.day.toLowerCase().trim();
+    return DAY_NUM[parseInt(k)] || DAY_NAME_MAP[k] || k.toUpperCase().slice(0,3) || null;
+  }
+  if (p.day_name) {
+    const k = p.day_name.toLowerCase().trim();
+    return DAY_NAME_MAP[k] || k.toUpperCase().slice(0,3);
+  }
+  return null;
+}
+
+function resolveHour(p) {
+  // session_start: "18:00" or "18" or number
+  if (p.session_start) return parseInt(p.session_start);
+  if (p.start_time)    return parseInt(p.start_time);
+  if (p.hour != null)  return parseInt(p.hour);
+  if (p.h    != null)  return parseInt(p.h);
+  if (p.time != null)  return parseInt(p.time);
+  return 9; // default
+}
+
 function getSlotPrefs(ref) {
   const r = RMAP[ref]; if (!r) return [];
   if (r.day_preferences) {
     try {
-      const dp = typeof r.day_preferences==='string' ? JSON.parse(r.day_preferences) : r.day_preferences;
-      if (Array.isArray(dp)) return dp.map(p=>({day:p.day||p, h:parseInt(p.h||p.hour||9)}));
-      if (typeof dp==='object') return Object.entries(dp).map(([day,h])=>({day, h:parseInt(h)}));
-    } catch(e){}
-  }
-  if (r.preferred_days && r.preferred_times) {
-    const days  = Array.isArray(r.preferred_days)  ? r.preferred_days  : [r.preferred_days];
-    const times = Array.isArray(r.preferred_times) ? r.preferred_times : [r.preferred_times];
-    const out=[];
-    days.forEach(d=>times.forEach(t=>out.push({day:d,h:parseInt(t)})));
-    return out;
+      const dp = typeof r.day_preferences === 'string'
+        ? JSON.parse(r.day_preferences)
+        : r.day_preferences;
+      if (Array.isArray(dp)) {
+        return dp
+          .map(p => ({ day: resolveDay(p), h: resolveHour(p) }))
+          .filter(p => p.day !== null);
+      }
+      if (dp && typeof dp === 'object') {
+        return Object.entries(dp)
+          .map(([k,v]) => ({ day: resolveDay({day:k}), h: parseInt(v)||9 }))
+          .filter(p => p.day !== null);
+      }
+    } catch(e) { console.warn('day_preferences parse error', ref, e); }
   }
   return seededSlotPrefs(ref);
 }
