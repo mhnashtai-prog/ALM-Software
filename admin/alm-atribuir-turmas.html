@@ -1200,17 +1200,30 @@ function selectGroupFromDrawer(gKey){
 
 /* ── TURMAS DRAWER ── */
 function buildTurmasDrawer(body){
-  const assigned=GROUPS.filter(g=>g.assigned);
-  if(!assigned.length){body.innerHTML='<div style="padding:16px;font-family:var(--mono);font-size:8px;color:var(--ink3)">Nenhuma turma atribuída ainda.</div>';return;}
-  let html='';
+  const assigned = GROUPS.filter(g=>g.assigned).sort((a,b)=>{
+    const ta=TEACHERS.find(x=>x.id===a.teacher), tb=TEACHERS.find(x=>x.id===b.teacher);
+    return (ta?.code||'').localeCompare(tb?.code||'');
+  });
+  if(!assigned.length){
+    body.innerHTML='<div style="padding:18px 14px;font-family:var(--mono);font-size:8px;color:var(--ink3);text-align:center">Nenhuma turma atribuída ainda.</div>';return;
+  }
+  let html='', lastTeacher='';
   assigned.forEach(g=>{
     const t=TEACHERS.find(x=>x.id===g.teacher);
     const lc=LCOL[g.lang]||'#C8A44A';
-    html+=`<div class="d-teacher" onclick="highlightGroup('${g.key}')">
-      <div class="d-t-badge" style="background:${lc}18;border-color:${lc}44;color:${lc}">${t?.code||'?'}</div>
+    const lvl=displayLevel(g.levelCefr,g.course);
+    if(t?.code!==lastTeacher){
+      if(lastTeacher) html+=`<div style="height:1px;background:var(--seam);margin:4px 10px"></div>`;
+      html+=`<div style="font-family:var(--mono);font-size:6.5px;font-weight:700;letter-spacing:.14em;color:${lc};padding:7px 12px 3px">${t?.code||'?'} · ${t?.name||'—'}</div>`;
+      lastTeacher=t?.code||'?';
+    }
+    const dayLabel=DAYS_PT[g.day]||g.day||'—';
+    const slotInfo=g.h?`${dayLabel} ${g.h}h`:'—';
+    html+=`<div class="d-teacher" onclick="pickTeacher('${g.teacher||''}');closeDrawer()">
+      <div class="d-t-badge" style="background:${lc}18;border-color:${lc}44;color:${lc}">${g.turmaCode?.slice(-4)||'?'}</div>
       <div class="d-t-info">
-        <div class="d-t-name">${g.turmaCode} · ${displayLevel(g.levelCefr,g.course)}</div>
-        <div class="d-t-meta">${g.branch} · ${DAYS_PT[g.day]||g.day||'—'} ${g.h?g.h+'h':'—'}</div>
+        <div class="d-t-name" style="color:var(--ink)">${lvl} · ${(g.branch||'').replace(/_/g,' ')}</div>
+        <div class="d-t-meta">${slotInfo} · ${g.studentCount||g.students?.length||0} alunos</div>
       </div>
       <div class="d-t-dot" style="background:var(--green)"></div>
     </div>`;
@@ -1220,21 +1233,20 @@ function buildTurmasDrawer(body){
 
 /* ── LISTAS DRAWER ── */
 function buildListasDrawer(body){
-  const pending=GROUPS.filter(g=>!g.assigned).length;
   const assigned=GROUPS.filter(g=>g.assigned).length;
-  body.innerHTML=`
-    <div class="d-teacher" onclick="exportCSV()">
-      <div style="font-size:18px">📄</div>
-      <div class="d-t-info"><div class="d-t-name">Exportar CSV</div><div class="d-t-meta">${assigned} turmas atribuídas</div></div>
-    </div>
-    <div class="d-teacher">
-      <div style="font-size:18px">⏳</div>
-      <div class="d-t-info"><div class="d-t-name">Grupos pendentes</div><div class="d-t-meta">${pending} grupos sem professor</div></div>
-    </div>
-    <div class="d-teacher">
-      <div style="font-size:18px">👥</div>
-      <div class="d-t-info"><div class="d-t-name">Todos os alunos</div><div class="d-t-meta">${ALL_STUDENTS.length} matriculados</div></div>
-    </div>`;
+  const pending=GROUPS.filter(g=>!g.assigned).length;
+  const totalH=TEACHERS.reduce((a,t)=>a+tHours(t.id),0);
+  const rows=[
+    {icon:'📊',label:'Resumo geral',sub:`${assigned} turmas atribuídas · ${pending} pendentes`,fn:'showSummaryToast'},
+    {icon:'📄',label:'Exportar CSV',sub:`${assigned} turmas · ${GROUPS.reduce((a,g)=>a+(g.studentCount||0),0)} alunos`,fn:'exportCSV'},
+    {icon:'⏳',label:'Grupos pendentes',sub:`${pending} grupos sem professor`,fn:'showPendingToast'},
+    {icon:'⏱',label:'Horas atribuídas',sub:`Total escola: ${totalH.toFixed(1)}hl`,fn:'showHoursToast'},
+    {icon:'👥',label:'Todos os alunos',sub:`${Object.keys(EMAP||{}).length||1000} matriculados`,fn:''},
+  ];
+  body.innerHTML=rows.map(r=>`<div class="d-teacher" onclick="${r.fn}&&${r.fn}()">
+    <div style="font-size:18px;flex-shrink:0">${r.icon}</div>
+    <div class="d-t-info"><div class="d-t-name">${r.label}</div><div class="d-t-meta">${r.sub}</div></div>
+  </div>`).join('');
 }
 
 /* ── PIPELINE DRAWER ── */
@@ -1282,6 +1294,20 @@ function exportCSV(){
 /* ══════════════════════════════════════
    TEACHER SELECTION
 ══════════════════════════════════════ */
+function updateTeacherHeader(t){
+  if(!t) return;
+  const h=tHours(t.id);
+  const col=h>=t.contractH?'var(--red)':h>=t.contractH*.8?'var(--amber)':'var(--green)';
+  const el=document.getElementById('th-hours');
+  if(el){el.textContent=h+'hl';el.style.color=col;}
+  const et=document.getElementById('th-turmas'); if(et) et.textContent=tTurmas(t.id);
+  const ea=document.getElementById('th-alunos'); if(ea) ea.textContent=tAlunos(t.id);
+  const en=document.getElementById('th-next-code'); if(en) en.textContent=nxtCode();
+  // Flash red border if over contract
+  const hdr=document.getElementById('t-header');
+  if(hdr) hdr.style.borderBottomColor=h>=t.contractH?'var(--red)':'';
+}
+
 function pickTeacher(tid){
   T=TEACHERS.find(t=>t.id===tid)||null;
   closeDrawer();
@@ -1297,9 +1323,8 @@ function pickTeacher(tid){
   document.getElementById('th-hours').textContent=h+'hl'; document.getElementById('th-hours').style.color=col;
   document.getElementById('th-turmas').textContent=tTurmas(T.id);
   document.getElementById('th-alunos').textContent=tAlunos(T.id);
-  document.getElementById('th-next-code').textContent=nxtCode();
   buildGrid();
-  // Rebuild grupos drawer if open
+  updateTeacherHeader(T);
   if(ACTIVE_DRAWER==='grupos') buildGruposDrawer(document.getElementById('drawer-body'));
 }
 
@@ -1550,10 +1575,7 @@ async function confirmAssignment(){
 
   btn.disabled=false; btn.textContent='✓  Confirmar atribuição';
   closePop(); buildGrid();
-  document.getElementById('th-hours').textContent=tHours(t.id)+'hl';
-  document.getElementById('th-turmas').textContent=tTurmas(t.id);
-  document.getElementById('th-alunos').textContent=tAlunos(t.id);
-  document.getElementById('th-next-code').textContent=nxtCode();
+  updateTeacherHeader(t);
   updateBotStats();
   showToast(`${code} · ${t.code} · ${day} ${start}–${end}`,'ok');
 }
@@ -1875,6 +1897,16 @@ const FALLBACK_TEACHERS=[
   {id:'P-11',code:'ZL',name:'Zélia',lang:'EN',contractH:22,branch:'Machico',branches:['Machico'],native:false,spec:{primary:['adults','kids'],capable:[],occasional:['exam']}},
 ];
 
+
+function showSummaryToast(){showToast(`${GROUPS.filter(g=>g.assigned).length} atribuídas · ${GROUPS.filter(g=>!g.assigned).length} pendentes`,'info');}
+function showPendingToast(){
+  const p=GROUPS.filter(g=>!g.assigned);
+  showToast(p.length ? p.slice(0,3).map(g=>displayLevel(g.levelCefr,g.course)+' '+g.branch).join(' · ')+'…' : 'Todos atribuídos ✓', p.length?'warn':'ok');
+}
+function showHoursToast(){
+  const h=TEACHERS.map(t=>({name:t.code,h:tHours(t.id),max:t.contractH})).filter(t=>t.h>0).map(t=>`${t.name}:${t.h}hl`).join(' · ');
+  showToast(h||'Sem horas atribuídas','info');
+}
 /* ══════════════════════════════════════
    CLOCK + UTILS
 ══════════════════════════════════════ */
@@ -1900,7 +1932,11 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{
   const pop=document.getElementById('popover');
   if(pop.classList.contains('show')&&!pop.contains(e.target)&&!e.target.closest('.slot')) closePop();
-  if(ACTIVE_DRAWER&&!e.target.closest('.nav')&&!e.target.closest('.acc-drawer')) closeDrawer();
+  // Only close drawer when clicking truly outside — not on branch pills or drawer content
+  if(ACTIVE_DRAWER
+    && !e.target.closest('.nav')
+    && !e.target.closest('#acc-drawer')
+    && !e.target.closest('.popover')) closeDrawer();
 });
 window.addEventListener('resize',()=>{if(T) buildGrid();});
 
@@ -2221,6 +2257,5 @@ boot();
 
 
 <script src="alm-dossier.js"></script>
-<script src="alm-phase1-patch.js"></script> 
 </body>
 </html>
