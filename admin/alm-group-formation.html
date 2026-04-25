@@ -2274,7 +2274,87 @@ function divideOverflow() {
 
 </script>
 
-<script src="alm-dossier.js"></script>
-<script src="alm-phase1-patch.js"></script>
+<script src="alm-dossier.js">/* ══════════════════════════════════════
+<script src="alm-phase1-patch.js"></script> 
+   WIZARD
+══════════════════════════════════════ */
+function openWizard(){
+  buildWizardContent();
+  document.getElementById('wiz-overlay').classList.add('open');
+}
+function closeWizard(){
+  document.getElementById('wiz-overlay').classList.remove('open');
+}
+
+function buildWizardContent(){
+  const total     = GROUPS.length;
+  const viable    = GROUPS.filter(g=>g.viability!=='inviavel').length;
+  const small     = GROUPS.filter(g=>{const n=g.studentCount||g.students?.length||0;return n>0&&n<8;}).length;
+  const approved  = GROUPS.filter(g=>g.approved).length;
+  const enrolled  = Object.keys(EMAP).length;
+  const submitted = Object.keys(RMAP).length;
+  const missing   = enrolled - submitted;
+  const teachers  = (window.TEACHERS||[]).length;
+
+  // KPIs
+  const kpis = [
+    {lbl:'Inscritos',    val:enrolled,   sub:'total matriculados',        col:'var(--gold2)'},
+    {lbl:'Submetidos',   val:submitted,  sub:`${Math.round(submitted/Math.max(enrolled,1)*100)}% enviaram pedido`, col:'var(--green)'},
+    {lbl:'Sem pedido',   val:missing,    sub:'ainda não submeteram',       col:missing>0?'var(--amber)':'var(--ink3)'},
+    {lbl:'Grupos',       val:total,      sub:`${viable} viáveis · ${small} pequenos`, col:'var(--teal)'},
+    {lbl:'Aprovados',    val:approved,   sub:`${total-approved} por aprovar`, col:'var(--purple)'},
+  ];
+  document.getElementById('wz-kpi-row').innerHTML = kpis.map(k=>`
+    <div class="wiz-kpi" style="color:${k.col}">
+      <div class="wiz-kpi-lbl">${k.lbl}</div>
+      <div class="wiz-kpi-val">${k.val}</div>
+      <div class="wiz-kpi-sub">${k.sub}</div>
+    </div>`).join('');
+
+  // Branch tabs
+  const tabEl = document.getElementById('wz-branch-tabs');
+  if(tabEl){
+    tabEl.innerHTML = ['Todos',...BRANCHES].map((b,i)=>`
+      <div class="wiz-tab${i===0?' active':''}" onclick="switchWizTab('${b}',this)">${b.replace(/_/g,' ')}</div>`).join('');
+  }
+
+  buildWizardTable('Todos');
+}
+
+function switchWizTab(branch, el){
+  document.querySelectorAll('.wiz-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  buildWizardTable(branch);
+}
+
+function buildWizardTable(branch){
+  const el = document.getElementById('wz-table-body');
+  if(!el) return;
+
+  const filtered = branch==='Todos' ? GROUPS : GROUPS.filter(g=>g.branch===branch);
+  if(!filtered.length){el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:16px;font-family:var(--mono);font-size:8px;color:var(--ink3)">Sem grupos</td></tr>';return;}
+
+  el.innerHTML = filtered.map(g=>{
+    const n = g.studentCount||g.students?.length||0;
+    const req = g.students.filter(s=>RMAP[s.ref]).length || (g.studentRefs||[]).filter(r=>RMAP[r]).length;
+    const viaCol = n<5?'var(--red)':n<8?'var(--amber)':'var(--green)';
+    const lvl = displayLevel(g.cefr, g.course);
+    const rec = g.recommendedDay ? `${g.recommendedDay} ${g.recommendedH}h` : '—';
+    const status = g.approved ? `<span style="color:var(--green)">✓ Aprovado</span>` :
+                   g.assigned ? `<span style="color:var(--teal)">→ Atribuído</span>` :
+                   `<span style="color:var(--ink3)">Pendente</span>`;
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:8.5px;color:${levelColor(g.course)};font-weight:700">${lvl}</td>
+      <td style="font-family:var(--mono);font-size:8px;color:var(--ink2)">${g.branch.replace(/_/g,' ')}</td>
+      <td style="font-family:var(--mono);font-size:9px;font-weight:700;color:${viaCol};text-align:center">${n}</td>
+      <td style="font-family:var(--mono);font-size:8px;text-align:center;color:var(--ink2)">${req}</td>
+      <td style="font-family:var(--mono);font-size:7.5px;color:var(--teal)">${rec}</td>
+      <td style="font-family:var(--mono);font-size:8px">${g.split||'—'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+</script>
 </body>
 </html>
