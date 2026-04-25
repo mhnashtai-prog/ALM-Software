@@ -898,8 +898,7 @@ function saveAll(){saveCells();showToast('Atribuições guardadas ✓','ok');}
    RENDER ALL
 ══════════════════════════════════════ */
 function branchTeachers(){
-  const filtered=TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.some(b=>normBranch(b)===normBranch(SEL_BRANCH))||normBranch(t.branch)===normBranch(SEL_BRANCH));
-  return filtered.length?filtered:TEACHERS;
+  return TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.includes(SEL_BRANCH)||t.branch===SEL_BRANCH);
 }
 
 function selectBranch(b){
@@ -1199,29 +1198,14 @@ function wzSetMode(mode){
   document.getElementById('mode-manual').classList.toggle('active',mode==='manual');
   document.getElementById('wz-auto-summary').style.display=mode==='auto'?'':'none';
   document.getElementById('wz-manual-list').style.display=mode==='manual'?'':'none';
-  if(mode==='auto'){
-    wzAutoSummary();
-  } else {
-    // Pre-select top WZ_TARGET students: available at this slot first, then rest
-    SP_SELECTED=new Set();
-    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
-    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
-    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
-    wzRenderStudents();
-  }
+  if(mode==='auto') wzAutoSummary();
+  else { SP_SELECTED=new Set(); wzRenderStudents(); }
 }
 
 function wzOnTargetChange(){
   WZ_TARGET=parseInt(document.getElementById('sp-target').value)||17;
   if(WZ_MODE==='auto') wzAutoSummary();
-  else {
-    // Re-apply pre-selection to new target
-    SP_SELECTED=new Set();
-    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
-    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
-    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
-    wzRenderStudents();
-  }
+  else wzUpdateCount();
 }
 
 function wzAutoSummary(){
@@ -1299,8 +1283,8 @@ function wzUpdateCount(){
   const target=WZ_TARGET;
   const el=document.getElementById('sp-stu-count');
   if(el){
-    const col=n===target?'var(--green)':n>target?'var(--amber)':'var(--t3)';
-    el.innerHTML=`<span style="color:${col};font-weight:700">${n}</span><span style="color:var(--t3)"> / ${target}</span>`;
+    const col=n>=target?'var(--green)':n>0?'var(--amber)':'var(--t3)';
+    el.innerHTML=`<span style="color:${col};font-weight:700">${n}</span> / ${target} seleccionados`;
   }
 }
 
