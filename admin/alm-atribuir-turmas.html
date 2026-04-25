@@ -930,6 +930,8 @@ async function boot(){
   restoreAssignments();
 
   loPct(100,'Pronto');
+  // Expose globals for dossier engine
+  window.EMAP=EMAP; window.RMAP=RMAP; window.GROUPS=GROUPS;
   updateBotStats();
   document.getElementById('bot-src').textContent='⬆ Supabase ao vivo'; 
   document.getElementById('bot-src').textContent='⬆ Supabase ao vivo';
@@ -1042,18 +1044,28 @@ function closeDrawer(){
   ACTIVE_DRAWER=null;
   document.querySelectorAll('.acc-hdr').forEach(h=>h.classList.remove('open'));
   document.getElementById('acc-drawer').classList.remove('show');
+  // Clean up injected search
+  const sw=document.getElementById('prof-srch-wrap');
+  if(sw) sw.remove();
 }
 
 /* ── PROF DRAWER ── */
 function buildProfDrawer(body){
   if(!TEACHERS.length){body.innerHTML='<div style="padding:14px;font-family:var(--mono);font-size:8px;color:var(--ink3)">A carregar…</div>';return;}
-
-  // Search
-  const srch=document.createElement('div');
-  srch.className='drawer-srch';
-  srch.innerHTML='<input class="drawer-srch-i" id="prof-srch" placeholder="Filtrar professor…" oninput="rebuildProfList()"/>';
-  body.parentElement.insertBefore(srch, body);
-
+  // Use existing drawer search input — set it up
+  const existing=document.getElementById('prof-srch');
+  if(!existing){
+    // Inject once into drawer header area
+    const hdr=document.getElementById('acc-drawer');
+    const srchDiv=document.createElement('div');
+    srchDiv.className='drawer-srch';
+    srchDiv.id='prof-srch-wrap';
+    srchDiv.innerHTML='<input class="drawer-srch-i" id="prof-srch" placeholder="Filtrar professor…" oninput="rebuildProfList()"/>';
+    const drawerBody=document.getElementById('drawer-body');
+    hdr.insertBefore(srchDiv, drawerBody);
+  } else {
+    existing.value='';
+  }
   rebuildProfList();
 }
 
@@ -1323,9 +1335,11 @@ function pickTeacher(tid){
   document.getElementById('th-hours').textContent=h+'hl'; document.getElementById('th-hours').style.color=col;
   document.getElementById('th-turmas').textContent=tTurmas(T.id);
   document.getElementById('th-alunos').textContent=tAlunos(T.id);
-  buildGrid();
-  updateTeacherHeader(T);
-  if(ACTIVE_DRAWER==='grupos') buildGruposDrawer(document.getElementById('drawer-body'));
+  // Let drawer close animation complete before measuring grid
+  requestAnimationFrame(()=>{
+    buildGrid();
+    updateTeacherHeader(T);
+  });
 }
 
 /* ══════════════════════════════════════
@@ -1337,7 +1351,8 @@ function buildGrid(){
   const todayKey=DAY_JS[new Date().getDay()];
   const nowMin=new Date().getHours()*60+new Date().getMinutes();
   const scroll=document.getElementById('grid-scroll');
-  const rowH=Math.max(56,Math.floor((scroll.clientHeight-22)/6));
+  const scrollH=scroll.clientHeight||Math.floor(window.innerHeight*0.72);
+  const rowH=Math.max(56,Math.floor((scrollH-22)/6));
 
   // Grid layout: 1 col for day labels + 1 col per hour (12 including null)
   const hrCols=HRS.length;
@@ -2256,6 +2271,6 @@ boot();
 </div>
 
 
-<script src="alm-dossier.js"></script>
+<script src="/admin/alm-dossier.js"></script>
 </body>
 </html>
