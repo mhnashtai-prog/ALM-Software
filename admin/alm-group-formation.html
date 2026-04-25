@@ -826,7 +826,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
    SUPABASE
 ════════════════════════════════════════════════════ */
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+window.SB = SB;
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+window.KEY = KEY;
 const H   = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
 const sbGet = (t,q='') => fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();});
 
@@ -1009,9 +1011,18 @@ function attachStudents(g) {
       return {ref:e.ref, name:e.name||'—', slotPref:getSlotPrefs(e.ref)};
     });
   } else if (g.studentCount > 0) {
-    g.students = Array.from({length:g.studentCount}, (_,i) => ({
-      ref:`${g.key}-${i+1}`, name:`Aluno ${String(i+1).padStart(3,'0')}`, slotPref:seededSlotPrefs(g.key+i)
-    }));
+    // No student_refs in Supabase — build from EMAP filtered by level+branch+lang
+    const cefr = g.cefr, branch = g.branch, lang = g.lang;
+    const matching = Object.values(EMAP).filter(e =>
+      e.level_cefr === cefr && e.lang === lang &&
+      (e.branch||'').replace(/\s*-\s*sede/i,'').trim() === branch.replace(/_/g,' ')
+    );
+    if (matching.length) {
+      g.students = matching.map(e => ({
+        ref: e.ref, name: e.name||e.ref, slotPref: getSlotPrefs(e.ref)
+      }));
+      g.studentRefs = g.students.map(s => s.ref);
+    }
   }
 }
 
@@ -1308,7 +1319,7 @@ function buildPivot() {
   const deptLevels={};
   GROUPS.forEach(g=>{if(!deptLevels[g.dept])deptLevels[g.dept]=new Set();deptLevels[g.dept].add(g.cefr);});
 
-  let grandE=0, grandR=0, grandG=0;
+  let grandE=0, grandR=0, grandG=0, grandM=0;
   const brTotals={};
   BRANCHES.forEach(b=>{brTotals[b]={e:0,r:0,g:0};});
 
@@ -1357,7 +1368,7 @@ function buildPivot() {
       const pct=enrolled?Math.round(requests/enrolled*100):0;
 
       brTotals[branch].e+=enrolled; brTotals[branch].r+=requests; brTotals[branch].g+=numGroups;
-      grandE+=enrolled; grandR+=requests; grandG+=numGroups;
+      grandE+=enrolled; grandR+=requests; grandG+=numGroups; grandM+=(enrolled-requests);
 
       const chips=groups.map(g=>{
         const n=g.students.length||g.studentCount;
@@ -1371,10 +1382,12 @@ function buildPivot() {
       html+=`<td class="pt-cell${isCollapsed?' collapsed-col':''}" onclick="${isCollapsed?`toggleBranch('${branch}')`:`openList('${row.dept}','${row.cefr}','${branch}')`}">
         <div class="pt-inner">
           <div class="pt-nums">
-            <span class="pt-n-e">${enrolled}</span>
+            <span class="pt-n-e" title="Inscritos">${enrolled}</span>
             <span class="pt-n-sep">·</span>
-            <span class="pt-n-r">${requests}</span>
-            <span class="pt-n-g">${numGroups}T</span>
+            <span class="pt-n-r" title="Submetidos">${requests}</span>
+            <span class="pt-n-sep">·</span>
+            <span class="pt-n-g" title="Turmas">${numGroups}T</span>
+            ${(enrolled-requests)>0?`<span class="pt-n-sep">·</span><span class="pt-n-m" title="Sem pedido" style="color:var(--red);font-size:8.5px">${enrolled-requests}✗</span>`:''}
           </div>
           <div class="pt-bar"><div class="pt-bar-fill" style="width:${pct}%"></div></div>
           <div class="pt-chips">${chips}</div>
