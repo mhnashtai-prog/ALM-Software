@@ -136,24 +136,25 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .st-line{flex:1;height:2px;background:rgba(255,255,255,.07);margin:0 5px;margin-bottom:16px;border-radius:1px;transition:background .4s;min-width:24px}
 .st-line.done{background:linear-gradient(90deg,#c89830,#f0d060)}
 
-/* ── WIZARD STEPS INSIDE PANEL ── */
-.sp-steps{display:flex;align-items:center;padding:8px 14px;border-bottom:.5px solid var(--b);gap:0;flex-shrink:0;background:rgba(0,0,0,.1)}
-.sp-step{display:flex;align-items:center;gap:5px;cursor:default;opacity:.35;transition:all .15s}
-.sp-step.active{opacity:1}
-.sp-step.done{opacity:.85;cursor:pointer}
-.sp-step.done:hover{opacity:1}
-.sp-step-circle{width:18px;height:18px;border-radius:50%;border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
-.sp-step.active .sp-step-circle{border-color:var(--g2);background:var(--g3)}
-.sp-step.done .sp-step-circle{border-color:var(--g);background:var(--g3)}
-.sp-step-tick{font-size:8px;color:var(--g2);display:none}
-.sp-step-n{font-family:var(--mono);font-size:7px;font-weight:700;color:var(--t3)}
-.sp-step.active .sp-step-n{color:var(--g2)}
-.sp-step.done .sp-step-tick{display:block}
-.sp-step.done .sp-step-n{display:none}
-.sp-step-lbl{font-family:var(--mono);font-size:8px;color:var(--t3)}
-.sp-step.active .sp-step-lbl{color:var(--g2);font-weight:700}
-.sp-step.done .sp-step-lbl{color:var(--g)}
-.sp-step-line{flex:1;height:1px;background:var(--b);margin:0 8px}
+/* ── SLOT PANEL ── */
+.spanel{position:fixed;z-index:600;background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;width:290px;box-shadow:0 12px 40px rgba(0,0,0,.8);display:none;flex-direction:column;overflow:hidden;max-height:92vh}
+.spanel.open{display:flex;animation:ctxIn .13s ease}
+.sp-hdr{padding:10px 12px 8px;background:rgba(0,0,0,.25);border-bottom:.5px solid var(--b);display:flex;align-items:flex-start;gap:8px;flex-shrink:0}
+.sp-day{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--g2);flex:1}
+.sp-hdr-sub{font-family:var(--mono);font-size:7.5px;color:var(--t3);margin-top:2px}
+.sp-close{width:20px;height:20px;background:rgba(0,0,0,.4);border:.5px solid var(--b);color:var(--t3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sp-close:hover{background:var(--red-d);color:var(--red)}
+/* Config row */
+.sp-cfg-row{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:.5px solid var(--b);flex-shrink:0}
+/* Footer */
+.sp-footer{flex-shrink:0;padding:8px 10px;border-top:.5px solid var(--b);background:rgba(0,0,0,.15);display:flex;flex-direction:column;gap:5px}
+.sp-footer-meta{display:flex;align-items:center;justify-content:space-between;min-height:14px}
+/* Discord action row */
+.sp-dc-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.sp-dc-act{width:28px;height:28px;background:rgba(255,255,255,.03);border:.5px solid var(--b);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.sp-dc-act:hover{background:var(--g3);border-color:var(--b2)}
+.sp-dc-confirm{flex:1;padding:7px;background:var(--green-d);border:.5px solid var(--green-b);font-family:var(--mono);font-size:8.5px;font-weight:700;color:var(--green);cursor:pointer;transition:all .12s;letter-spacing:.04em;text-align:center}
+.sp-dc-confirm:hover{background:rgba(39,174,96,.25)}
 
 /* ── MODE TOGGLE ── */
 .sp-mode-bar{display:flex;align-items:center;padding:8px 10px;border-bottom:.5px solid var(--b);gap:8px;flex-shrink:0}
@@ -528,96 +529,82 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
   </div>
 </div>
 
-<!-- SLOT PANEL WIZARD -->
+<!-- SLOT PANEL — unified -->
 <div class="spanel" id="spanel">
+
+  <!-- HEADER -->
   <div class="sp-hdr">
-    <div class="sp-day" id="sp-day">—</div>
+    <div>
+      <div class="sp-day" id="sp-day">—</div>
+      <div class="sp-hdr-sub" id="sp-mode-info">— alunos no pool</div>
+    </div>
     <button class="sp-close" onclick="closeSpanel()">✕</button>
   </div>
-  <!-- WIZARD MINI-STEPS -->
-  <div class="sp-steps">
-    <div class="sp-step active" id="wz-s3" onclick="wzGoStep(3)">
-      <div class="sp-step-circle"><span class="sp-step-tick">✓</span><span class="sp-step-n">3</span></div>
-      <span class="sp-step-lbl">Alunos</span>
-    </div>
-    <div class="sp-step-line"></div>
-    <div class="sp-step" id="wz-s4" onclick="wzGoStep(4)">
-      <div class="sp-step-circle"><span class="sp-step-tick">✓</span><span class="sp-step-n">4</span></div>
-      <span class="sp-step-lbl">Professor</span>
+
+  <!-- CONFIG ROW -->
+  <div class="sp-cfg-row">
+    <span class="sp-lbl">Tamanho</span>
+    <input class="sp-target-input" id="sp-target" type="number" min="1" max="99" value="17" oninput="wzOnTargetChange()"/>
+    <div class="sp-mode-pills">
+      <div class="sp-mode-pill active" id="mode-auto" onclick="wzSetMode('auto')">⚡ Auto</div>
+      <div class="sp-mode-pill" id="mode-manual" onclick="wzSetMode('manual')">● Manual</div>
     </div>
   </div>
-  <!-- STEP 3: STUDENT SELECTION -->
-  <div id="wz-step3">
-    <!-- Mode toggle -->
-    <div class="sp-mode-bar">
-      <div class="sp-mode-info" id="sp-mode-info">— / — alunos</div>
-      <div class="sp-mode-pills">
-        <div class="sp-mode-pill active" id="mode-auto" onclick="wzSetMode('auto')">⚡ Automático</div>
-        <div class="sp-mode-pill" id="mode-manual" onclick="wzSetMode('manual')">● Manual</div>
-      </div>
+
+  <!-- AUTO SUMMARY -->
+  <div id="wz-auto-summary" class="sp-auto-summary">
+    <div class="sp-auto-row">
+      <div class="sp-auto-stat" id="sp-auto-avail">—</div>
+      <div class="sp-auto-lbl">disponíveis neste slot</div>
     </div>
-    <!-- Target size (both modes) -->
-    <div class="sp-target-row">
-      <span class="sp-lbl">Tamanho</span>
-      <input class="sp-target-input" id="sp-target" type="number" min="1" max="99" value="17" oninput="wzOnTargetChange()"/>
-      <span class="sp-target-hint" id="sp-target-hint">máx. recomendado</span>
+    <div class="sp-auto-row" id="sp-auto-fill-row">
+      <div class="sp-auto-stat" id="sp-auto-fill" style="color:var(--amber)">—</div>
+      <div class="sp-auto-lbl">completam do pool restante</div>
     </div>
-    <!-- Auto mode: summary only -->
-    <div id="wz-auto-summary" class="sp-auto-summary">
-      <div class="sp-auto-row">
-        <div class="sp-auto-stat" id="sp-auto-avail">—</div>
-        <div class="sp-auto-lbl">disponíveis neste slot</div>
-      </div>
-      <div class="sp-auto-row">
-        <div class="sp-auto-stat" id="sp-auto-fill">—</div>
-        <div class="sp-auto-lbl">completam do pool restante</div>
-      </div>
-      <div class="sp-auto-total" id="sp-auto-total">— alunos serão atribuídos</div>
+    <div class="sp-auto-total" id="sp-auto-total">— alunos serão atribuídos</div>
+  </div>
+
+  <!-- MANUAL LIST -->
+  <div id="wz-manual-list" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden">
+    <div class="sp-stu-search">
+      <input class="sp-stu-srch" id="sp-stu-srch" placeholder="Filtrar alunos…" oninput="wzRenderStudents()"/>
     </div>
-    <!-- Manual mode: list -->
-    <div id="wz-manual-list" style="display:none">
-      <div class="sp-stu-search">
-        <input class="sp-stu-srch" id="sp-stu-srch" placeholder="Filtrar alunos…" oninput="wzRenderStudents()"/>
-      </div>
-      <div class="sp-stu-list" id="sp-stu-list"></div>
-    </div>
-    <div class="sp-stu-foot">
+    <div class="sp-stu-list" id="sp-stu-list"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="sp-footer">
+    <div class="sp-footer-meta">
       <div class="sp-stu-count" id="sp-stu-count"></div>
-      <button class="sp-btn sp-btn-confirm" onclick="wzGoStep(4)" id="wz-next-btn">Seguinte → Professor</button>
-    </div>
-  </div>
-  <!-- STEP 4: PROFESSOR + CONFIG -->
-  <div id="wz-step4" style="display:none">
-    <div class="sp-cfg">
-      <div class="sp-row">
-        <span class="sp-lbl">Professor</span>
-        <select class="sp-select" id="sp-teacher" onchange="updateSpPreview()">
-          <option value="">— opcional —</option>
-        </select>
-      </div>
-      <div class="sp-row">
-        <span class="sp-lbl">Duração</span>
-        <div class="sp-dur-pills">
-          <div class="sp-dp active" data-min="60" onclick="setDur(this)">60'</div>
-          <div class="sp-dp" data-min="80" onclick="setDur(this)">80'</div>
-          <div class="sp-dp" data-min="90" onclick="setDur(this)">90'</div>
-          <div class="sp-dp" data-min="110" onclick="setDur(this)">110'</div>
-        </div>
-      </div>
-      <div class="sp-row">
-        <span class="sp-lbl">Início</span>
-        <input class="sp-time" id="sp-start" type="time" oninput="updateSpPreview()"/>
-        <div class="sp-end" id="sp-end">término —</div>
-      </div>
-      <div class="sp-demand-info" id="sp-demand-info"></div>
       <div class="sp-code-preview" id="sp-code-preview"></div>
-      <div class="sp-btns">
-        <button class="sp-btn sp-btn-list" onclick="wzGoStep(3)">← Alunos</button>
-        <button class="sp-btn sp-btn-confirm" onclick="confirmFromPanel()">✓ Criar turma</button>
+    </div>
+    <div class="sp-row">
+      <span class="sp-lbl">Prof.</span>
+      <select class="sp-select" id="sp-teacher" onchange="updateSpPreview()">
+        <option value="">— opcional —</option>
+      </select>
+    </div>
+    <div class="sp-row">
+      <div class="sp-dur-pills">
+        <div class="sp-dp active" data-min="60" onclick="setDur(this)">60'</div>
+        <div class="sp-dp" data-min="80" onclick="setDur(this)">80'</div>
+        <div class="sp-dp" data-min="90" onclick="setDur(this)">90'</div>
+        <div class="sp-dp" data-min="110" onclick="setDur(this)">110'</div>
       </div>
+      <input class="sp-time" id="sp-start" type="time" oninput="updateSpPreview()"/>
+      <div class="sp-end" id="sp-end"></div>
+    </div>
+    <!-- Discord-style actions + confirm -->
+    <div class="sp-dc-row">
+      <button class="sp-dc-act" onclick="spDcAct('enrol')" title="Ver matrícula">📋</button>
+      <button class="sp-dc-act" onclick="spDcAct('msg')"   title="Enviar mensagem">✉</button>
+      <button class="sp-dc-act" onclick="spDcAct('flag')"  title="Sinalizar">⚑</button>
+      <button class="sp-dc-confirm" onclick="confirmFromPanel()">✓ Criar turma</button>
     </div>
   </div>
+
 </div>
+
 
 <!-- BOOKED CONTEXT MENU -->
 <div class="ctx" id="ctx">
@@ -1172,33 +1159,36 @@ function openSlotPanel(e,day,h){
   });
   document.getElementById('sp-teacher').innerHTML=tHtml;
 
-  wzGoStep(3);
+  updateSpPreview();
+  // Init mode
+  WZ_MODE='auto'; WZ_TARGET=17; SP_SELECTED=new Set();
+  document.getElementById('sp-target').value=17;
+  wzSetMode('auto');
   panel.classList.add('open');
 }
 
 function wzGoStep(n){
-  const s3=document.getElementById('wz-step3');
-  const s4=document.getElementById('wz-step4');
-  const ws3=document.getElementById('wz-s3');
-  const ws4=document.getElementById('wz-s4');
-
-  if(n===3){
-    s3.style.display=''; s4.style.display='none';
-    ws3.classList.add('active'); ws3.classList.remove('done');
-    ws4.classList.remove('active','done');
-    setStage(3);
-    // Reset mode UI
-    WZ_MODE='auto'; WZ_TARGET=17; SP_SELECTED=new Set();
-    document.getElementById('sp-target').value=17;
-    wzSetMode('auto');
-  } else if(n===4){
-    // Validate
+  // Simplified — no longer a two-step wizard, just refresh
+  if(n===3) wzSetMode(WZ_MODE);
+  if(n===4){
     if(WZ_MODE==='manual'&&SP_SELECTED.size===0){showToast('Seleccione pelo menos um aluno','warn');return;}
-    s3.style.display='none'; s4.style.display='';
-    ws3.classList.remove('active'); ws3.classList.add('done');
-    ws4.classList.add('active'); ws4.classList.remove('done');
     setStage(4);
     updateSpPreview();
+  }
+}
+
+function spDcAct(action){
+  // Discord card actions — only meaningful in manual mode with a student selected
+  // For now show a toast; full dossier integration via alm-dossier.js
+  const sel=[...SP_SELECTED];
+  if(WZ_MODE==='manual'&&sel.length===1){
+    if(action==='enrol'&&window.openDossier) openDossier(sel[0],'staff');
+    else if(action==='msg') showToast('Mensagem: função em desenvolvimento','info');
+    else if(action==='flag') showToast('Sinalizado: '+sel[0],'warn');
+  } else {
+    if(action==='enrol') showToast('Seleccione um aluno em Manual para ver matrícula','info');
+    else if(action==='msg') showToast('Mensagem: seleccione um aluno em Manual','info');
+    else if(action==='flag') showToast('Sinalizar: seleccione um aluno em Manual','info');
   }
 }
 
