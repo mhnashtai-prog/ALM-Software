@@ -301,10 +301,8 @@ window.openDossier = async function(ref, role) {
 
 function inferCourseFromEnrol(e) {
   if(!e) return 'adults';
-  const f=(e.family||e.course||e.level_cefr||'').toLowerCase();
-  if(f.includes('kids')||f.includes('juvenil')||f.includes('infantil')) return 'kids';
-  if(f.includes('exam')) return 'exam';
-  return 'adults';
+  const str = [e.family, e.course, e.department, e.level_cefr, e.notes].filter(Boolean).join(' ');
+  return inferCourse(str);
 }
 
 function dsDisplayLevel(cefr, course) {
