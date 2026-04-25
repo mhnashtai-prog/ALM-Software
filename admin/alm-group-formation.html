@@ -1306,7 +1306,7 @@ function buildPivot() {
   DEPT_ORDER.forEach(dept=>{
     if(!deptLevels[dept]) return;
     rows.push({type:'dept',dept});
-    const levels=[...deptLevels[dept]].sort((a,b)=>(ALM[`${dept}|${a}`]?.order||99)-(ALM[`${dept}|${b}`]?.order||99));
+    const course=inferCourse(dept);const levels=[...deptLevels[dept]].sort((a,b)=>(levelOrder(course,a)||99)-(levelOrder(course,b)||99));
     levels.forEach(cefr=>rows.push({type:'level',dept,cefr}));
   });
 
@@ -1330,7 +1330,7 @@ function buildPivot() {
       html+=`<tr class="pt-dept-hdr"><td colspan="${BRANCHES.length+1}" style="color:${dc};border-left:3px solid ${dc}">${DEPT_LABEL[row.dept]?.toUpperCase()||row.dept}</td></tr>`;
       return;
     }
-    const alm=ALM[`${row.dept}|${row.cefr}`];
+    const _course=inferCourse(row.dept);const alm={label:displayLevel(row.cefr,_course),color:levelColor(_course),dept:levelDept(_course),order:levelOrder(_course,row.cefr)};
     html+=`<tr class="dept-${row.dept}">`;
     html+=`<td class="pt-level-hdr"><div class="plh-code">${row.label||row.cefr}</div><div class="plh-sub">${row.cefr}</div></td>`;
 
@@ -1679,7 +1679,7 @@ function toggleBranch(branch) {
 
 function openList(dept,cefr,branch){
   currentList={dept,cefr,branch};currentListTab='enrolled';
-  const alm=ALM[`${dept}|${cefr}`];
+  const _c=inferCourse(dept);const alm={label:displayLevel(cefr,_c),color:levelColor(_c),dept:levelDept(_c),order:levelOrder(_c,cefr)};
   const dc=DEPT_COLOR[dept]||'#888';
   document.getElementById('lp-dept-tag').textContent=DEPT_LABEL[dept]||dept;
   document.getElementById('lp-dept-tag').style.cssText=`background:${dc}22;border-color:${dc}55;color:${dc}`;
@@ -1758,7 +1758,7 @@ function buildWzCoverage(){
   Object.values(cells).forEach(r=>{if(!byLang[r.lang])byLang[r.lang]=[];byLang[r.lang].push(r);});
   let html='',totE=0,totR=0;
   Object.entries(byLang).sort(([a],[b])=>a.localeCompare(b)).forEach(([lang,rows])=>{
-    rows.sort((a,b)=>(ALM[a.almKey]?.order||99)-(ALM[b.almKey]?.order||99));
+    rows.sort((a,b)=>(levelOrder(inferCourse(a.dept||a.course),a.cefr||a.levelCefr)||99)-(levelOrder(inferCourse(b.dept||b.course),b.cefr||b.levelCefr)||99));
     const lE=rows.reduce((a,r)=>a+r.students.length,0);
     const lR=rows.reduce((a,r)=>a+r.students.filter(s=>RMAP[s.ref]).length,0);
     totE+=lE;totR+=lR;
