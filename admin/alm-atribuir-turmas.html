@@ -671,7 +671,14 @@ async function boot(){
   }catch(e){}
   window.GROUPS=GROUPS; window.EMAP=EMAP; window.RMAP=RMAP;
   // Populate branch dropdown from loaded groups
-  const branches=[...new Set(GROUPS.map(g=>g.branch).filter(Boolean))].sort();
+  const rawBranches=[...new Set(GROUPS.map(g=>g.branch).filter(Boolean))];
+  // Normalise: strip "- Sede", deduplicate, capitalise
+  const branchMap={};
+  rawBranches.forEach(b=>{
+    const key=b.replace(/\s*-\s*sede/i,'').trim();
+    if(!branchMap[key]) branchMap[key]=key;
+  });
+  const branches=Object.keys(branchMap).sort();
   const bSel=document.getElementById('branch-select');
   const ordered=['Funchal',...branches.filter(b=>b!=='Funchal')];
   bSel.innerHTML=ordered.map(b=>`<option value="${b}"${b==='Funchal'?' selected':''}>${b}</option>`).join('');
@@ -732,8 +739,12 @@ function selectBranch(b){
   renderAll();
 }
 
+function normBranch(b){return(b||'').replace(/\s*-\s*sede/i,'').trim().toLowerCase();}
+
 function branchGroups(){
-  return GROUPS.filter(g=>!SEL_BRANCH||g.branch===SEL_BRANCH);
+  if(!SEL_BRANCH) return GROUPS;
+  const nb=normBranch(SEL_BRANCH);
+  return GROUPS.filter(g=>normBranch(g.branch)===nb);
 }
 
 function renderAll(){buildTeacherFilter();renderLevelList();renderGrid();renderHourBars();updateStats();}
