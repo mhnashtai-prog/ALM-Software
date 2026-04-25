@@ -336,7 +336,7 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .sp-btn-list:hover{background:var(--g3);color:var(--g2)}
 
 /* ── BOOKED CONTEXT MENU (small) ── */
-.ctx{position:fixed;z-index:600;background:rgba(7,5,15,.98);border:.5px solid var(--b2);border-radius:10px;padding:5px;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.7);display:none}
+.ctx{position:fixed;z-index:600;background:rgba(7,5,15,.98);border:.5px solid var(--b2);border-radius:12px;padding:5px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.8);display:none}
 .ctx.open{display:block;animation:ctxIn .12s ease}
 .ctx-hdr{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);padding:4px 10px 3px}
 .ctx-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--t2);transition:all .1s;white-space:nowrap}
@@ -898,7 +898,8 @@ function saveAll(){saveCells();showToast('Atribuições guardadas ✓','ok');}
    RENDER ALL
 ══════════════════════════════════════ */
 function branchTeachers(){
-  return TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.includes(SEL_BRANCH)||t.branch===SEL_BRANCH);
+  const filtered=TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.some(b=>normBranch(b)===normBranch(SEL_BRANCH))||normBranch(t.branch)===normBranch(SEL_BRANCH));
+  return filtered.length?filtered:TEACHERS;
 }
 
 function selectBranch(b){
@@ -1198,14 +1199,29 @@ function wzSetMode(mode){
   document.getElementById('mode-manual').classList.toggle('active',mode==='manual');
   document.getElementById('wz-auto-summary').style.display=mode==='auto'?'':'none';
   document.getElementById('wz-manual-list').style.display=mode==='manual'?'':'none';
-  if(mode==='auto') wzAutoSummary();
-  else { SP_SELECTED=new Set(); wzRenderStudents(); }
+  if(mode==='auto'){
+    wzAutoSummary();
+  } else {
+    // Pre-select top WZ_TARGET students: available at this slot first, then rest
+    SP_SELECTED=new Set();
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
+    wzRenderStudents();
+  }
 }
 
 function wzOnTargetChange(){
   WZ_TARGET=parseInt(document.getElementById('sp-target').value)||17;
   if(WZ_MODE==='auto') wzAutoSummary();
-  else wzUpdateCount();
+  else {
+    // Re-apply pre-selection to new target
+    SP_SELECTED=new Set();
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
+    wzRenderStudents();
+  }
 }
 
 function wzAutoSummary(){
@@ -1283,8 +1299,8 @@ function wzUpdateCount(){
   const target=WZ_TARGET;
   const el=document.getElementById('sp-stu-count');
   if(el){
-    const col=n>=target?'var(--green)':n>0?'var(--amber)':'var(--t3)';
-    el.innerHTML=`<span style="color:${col};font-weight:700">${n}</span> / ${target} seleccionados`;
+    const col=n===target?'var(--green)':n>target?'var(--amber)':'var(--t3)';
+    el.innerHTML=`<span style="color:${col};font-weight:700">${n}</span><span style="color:var(--t3)"> / ${target}</span>`;
   }
 }
 
@@ -1380,36 +1396,70 @@ function openBookedCtx(e,day,h){
   const key=day+'_'+h;
   const cell=CELL_MAP[key]; if(!cell) return;
   const tchr=TEACHERS.find(t=>t.id===cell.teacherId);
+  const col=levelColor(cell.course||'adults');
   const ctx=document.getElementById('ctx');
   let x=e.clientX+8, y=e.clientY+8;
-  if(x+210>window.innerWidth) x=e.clientX-218;
-  if(y+260>window.innerHeight) y=e.clientY-268;
+  if(x+230>window.innerWidth) x=e.clientX-238;
+  if(y+320>window.innerHeight) y=e.clientY-328;
   ctx.style.left=x+'px'; ctx.style.top=y+'px';
-  document.getElementById('ctx-hdr').textContent=`${cell.turmaCode} · ${DAYS_PT[day]||day} ${h}h`;
+
+  document.getElementById('ctx-hdr').innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <span style="font-weight:700;color:var(--t)">${cell.turmaCode}</span>
+      <span style="color:var(--t3);font-size:6.5px;margin-left:2px">${DAYS_PT[day]||day} · ${h}h</span>
+    </div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--t2);margin-top:4px;padding-left:16px">
+      ${cell.n||'?'} alunos · ${tchr?tchr.name:'<span style="color:var(--amber)">sem professor</span>'}
+    </div>`;
+
   document.getElementById('ctx-body').innerHTML=`
-    <div class="ctx-item" onclick="openStmFromCell('${key}')">
-      <div class="ctx-dot" style="background:rgba(40,200,176,.3)"></div>👥 Ver alunos
+    <!-- THREE BIG TILES -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 8px 4px">
+
+      <div onclick="openStmFromCell('${key}')"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+               padding:14px 4px;border-radius:8px;cursor:pointer;transition:all .15s;
+               background:rgba(46,204,138,.1);border:.5px solid rgba(46,204,138,.3)">
+        <div style="font-size:22px;line-height:1">👥</div>
+        <div style="font-family:var(--mono);font-size:7px;color:rgba(46,204,138,.8);text-align:center;letter-spacing:.06em">ALUNOS</div>
+      </div>
+
+      <div onclick="revealTeacherChange('${key}')" id="ctx-tile-prof"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+               padding:14px 4px;border-radius:8px;cursor:pointer;transition:all .15s;
+               background:rgba(201,168,76,.08);border:.5px solid rgba(201,168,76,.25)">
+        <div style="font-size:22px;line-height:1">👤</div>
+        <div style="font-family:var(--mono);font-size:7px;color:rgba(201,168,76,.8);text-align:center;letter-spacing:.06em">PROFESSOR</div>
+      </div>
+
+      <div onclick="removeCell('${key}')"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+               padding:14px 4px;border-radius:8px;cursor:pointer;transition:all .15s;
+               background:rgba(232,69,90,.08);border:.5px solid rgba(232,69,90,.22)">
+        <div style="font-size:22px;line-height:1">🗑</div>
+        <div style="font-family:var(--mono);font-size:7px;color:rgba(232,69,90,.7);text-align:center;letter-spacing:.06em">APAGAR</div>
+      </div>
     </div>
-    <div class="ctx-item" onclick="revealTeacherChange('${key}')">
-      <div class="ctx-dot" style="background:rgba(200,164,74,.3)"></div>✎ ${tchr?'Mudar professor':'Atribuir professor'}
-    </div>
-    <div class="ctx-sep"></div>
-    <div id="ctx-tchange" style="display:none;flex-direction:column;gap:4px;padding:0 4px 4px">
+
+    <!-- TEACHER PICKER — hidden until 👤 tapped -->
+    <div id="ctx-tchange" style="display:none;flex-direction:column;gap:5px;padding:4px 8px 8px">
       <select class="ctx-select" id="ctx-t-sel">
         <option value="">— sem professor —</option>
         ${branchTeachers().map(t=>`<option value="${t.id}"${t.id===cell.teacherId?' selected':''}>${t.code} · ${t.name}</option>`).join('')}
       </select>
       <button class="ctx-confirm" onclick="confirmChangeTeacher('${key}')">✓ Confirmar</button>
-    </div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item danger" onclick="removeCell('${key}')">
-      <div class="ctx-dot" style="background:rgba(232,69,90,.3)"></div>✕ Remover
     </div>`;
+
+  ctx.classList.add('open');
   ctx.classList.add('open');
 }
 
 function revealTeacherChange(key){
-  document.getElementById('ctx-tchange').style.cssText='display:flex;flex-direction:column;gap:4px;padding:0 4px 4px';
+  const el=document.getElementById('ctx-tchange');
+  if(el) el.style.cssText='display:flex;flex-direction:column;gap:5px;padding:4px 8px 8px';
+  const tile=document.getElementById('ctx-tile-prof');
+  if(tile) tile.style.background='rgba(201,168,76,.18)';
 }
 
 function openStmFromCell(key){
