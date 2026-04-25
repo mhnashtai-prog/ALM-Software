@@ -903,7 +903,7 @@ async function boot() {
   setStep('groups','run','…'); loPct(20,'A carregar grupos…');
   try {
     const raw = await sbGet('groups','select=group_key,branch,lang,level_cefr,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
-    RAW_GROUPS = raw.map(normGroup).filter(g => g.almKey);
+    RAW_GROUPS = raw.map(normGroup).filter(g => g.cefr && g.lang);
     setStep('groups','done', RAW_GROUPS.length+' grupos'); loPct(40);
   } catch(e) { setStep('groups','err','Erro'); setSb('err','Erro de ligação'); loHide(); return; }
 
@@ -982,6 +982,7 @@ function normGroup(row) {
     studentRefs: Array.isArray(row.student_refs) ? row.student_refs : [],
     studentCount: row.student_count || row.count || 0,
     students: [],
+    almKey: deptRaw && cefr ? `${deptRaw}|${cefr}` : `${course}|${cefr}`,
     approved: false,
     autoSplit: false, splitIndex: 0, splitTotal: 1, split: null,
     recommendedDay: null, recommendedH: null, recommendedPct: 0,
@@ -2003,7 +2004,7 @@ boot();
 ══════════════════════════════════════ */
 
 function updateDirectorToolbar() {
-  const totalEnrol  = ALL_STUDENTS.length || 1300;
+  const totalEnrol  = Object.values(EMAP).length || 1300;
   const totalReq    = Object.keys(RMAP||{}).length;
   const missing     = totalEnrol - totalReq;
   const pct         = Math.round(totalReq / totalEnrol * 100);
@@ -2096,12 +2097,12 @@ function exportBasket() {
 
 function exportStudentsCSV() {
   const rows = ['Ref,Nome,Língua,Nível CEFR,Filial,Estado'];
-  ALL_STUDENTS.forEach(s => rows.push(`${s.ref},"${s.name||''}",${s.lang||''},${s.level_cefr||''},"${(s.branch||'').replace(/_/g,' ')}",${s.status||''}`));
+  Object.values(EMAP).forEach(s => rows.push(`${s.ref},"${s.name||''}",${s.lang||''},${s.level_cefr||''},"${(s.branch||'').replace(/_/g,' ')}",${s.status||''}`));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
   a.download = 'ALM-alunos-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
-  showToast(ALL_STUDENTS.length + ' alunos exportados','ok');
+  showToast(Object.values(EMAP).length + ' alunos exportados','ok');
 }
 
 function exportRequestsCSV() {
