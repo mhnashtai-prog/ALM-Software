@@ -673,8 +673,9 @@ async function boot(){
   // Populate branch dropdown from loaded groups
   const branches=[...new Set(GROUPS.map(g=>g.branch).filter(Boolean))].sort();
   const bSel=document.getElementById('branch-select');
-  bSel.innerHTML=branches.map(b=>`<option value="${b}"${b==='Funchal'?' selected':''}>${b==='Funchal'?'📍 ':b==='S. Cruz'?'📍 ':b==='C. Lobos'?'📍 ':b==='Machico'?'📍 ':b==='Calheta'?'📍 ':''}${b}</option>`).join('');
-  if(!branches.includes(SEL_BRANCH)&&branches.length) SEL_BRANCH=branches[0];
+  const ordered=['Funchal',...branches.filter(b=>b!=='Funchal')];
+  bSel.innerHTML=ordered.map(b=>`<option value="${b}"${b==='Funchal'?' selected':''}>${b}</option>`).join('');
+  SEL_BRANCH='Funchal';
   loPct(100,'Pronto'); renderAll(); setTimeout(loHide,400);
 }
 
@@ -787,9 +788,11 @@ function renderLevelList(){
         <div class="lvl-dot" style="background:${dotCol}"></div>
         <div class="lvl-info">
           <div class="lvl-name" style="color:${col}">${item.label}</div>
-          <div class="lvl-counts">${item.inscr} ins · ${item.subm} sub · ${total}T · ${assigned} atr</div>
+          <div class="lvl-counts">${item.inscr} al · ${total}T · ${item.subm} sub</div>
         </div>
-        <div class="lvl-turmas">${assigned}/${total}</div>
+        <div class="lvl-turmas">
+          <span style="color:${assigned===total&&total>0?'var(--green)':assigned>0?'var(--amber)':'var(--t3)'};font-size:10px;font-weight:700">${assigned}</span><span style="color:var(--t3);font-size:9px">/${total}</span>
+        </div>
       </div>`;
       html+=`<div class="turma-rows">`;
       item.groups.forEach(g=>{
