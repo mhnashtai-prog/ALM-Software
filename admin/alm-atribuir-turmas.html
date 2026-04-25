@@ -295,10 +295,6 @@ body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;o
 .stm-confirm-btn:hover{background:#2ed877}
 
 /* ══ DISCORD CARD PANEL ══ */
-.dc-overlay{position:fixed;inset:0;z-index:1000;background:rgba(4,2,12,0);pointer-events:none;transition:background .2s}
-.dc-overlay.open{pointer-events:all;background:rgba(4,2,12,.6);backdrop-filter:blur(4px)}
-.dc-panel{position:fixed;right:-380px;top:0;bottom:0;width:360px;z-index:1001;background:#0C0A1A;border-left:1px solid var(--dc-c,rgba(200,164,74,.15));display:flex;flex-direction:column;transition:right .22s cubic-bezier(.22,.61,.36,1);box-shadow:-24px 0 80px rgba(0,0,0,.9);--dc-c:#C8A44A}
-.dc-panel.open{right:0}
 .dc-banner{height:90px;flex-shrink:0;position:relative;overflow:hidden}
 .dc-banner-bg{position:absolute;inset:0}
 .dc-banner-stripe{position:absolute;inset:0;opacity:.12;background-image:repeating-linear-gradient(45deg,var(--dc-c) 0,var(--dc-c) 1px,transparent 1px,transparent 9px)}
@@ -700,18 +696,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   </div>
 </div>
 
-<!-- DISCORD CARD PANEL -->
-<div class="dc-overlay" id="dc-overlay" onclick="closeDc()"></div>
-<div class="dc-panel" id="dc-panel">
-  <div class="dc-banner" id="dc-banner">
-    <div class="dc-banner-bg" id="dc-banner-bg"></div>
-    <div class="dc-banner-stripe"></div>
-    <div class="dc-close" onclick="closeDc()">✕</div>
-    <div class="dc-av-wrap"><div class="dc-av" id="dc-av">?</div><div class="dc-status" id="dc-status"></div></div>
-  </div>
-  <div class="dc-body" id="dc-body"></div>
-</div>
-
 <!-- BOTTOM -->
 <div class="bot">
   <span class="bot-code" id="bot-code">Próximo: —</span>
@@ -737,6 +721,40 @@ const sbGet  = (t,q='') => fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>
 const sbPost = (t,b)    => fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 const sbPatch= (t,q,b)  => fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 const sbDel  = (t,q)    => fetch(`${SB}/rest/v1/${t}?${q}`,{method:'DELETE',headers:H}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+
+/* ══ CANONICAL LEVEL SYSTEM — single source of truth ══ */
+const LEVEL_DISPLAY = {
+  kids:   {A1:'PI-a1', A2:'PI-a2', B1:'Pj1',    B2:'Pj2',    C1:'Pj3'},
+  adults: {A1:'1º Ano',A2:'2º Ano',B1:'3º Ano', B2:'4º Ano', C1:'5º Ano', C2:'6º Ano'},
+  exam:   {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano', C2:'8º Ano'}
+};
+const LEVEL_DEPT = {
+  kids:'Juvenil', adults:'Geral', exam:'Exames'
+};
+const LEVEL_COLOR = {
+  kids:'#28C8B0', adults:'#4888E8', exam:'#C8A44A'
+};
+const LEVEL_ORDER = {
+  kids:  {A1:1,A2:2,B1:3,B2:4,C1:5},
+  adults:{A1:6,A2:7,B1:8,B2:9,C1:10,C2:11},
+  exam:  {B1:12,B2:13,C1:14,C2:15}
+};
+
+function displayLevel(cefr, course) {
+  if(!course||!cefr) return cefr||'—';
+  return LEVEL_DISPLAY[course]?.[cefr.toUpperCase()] || cefr;
+}
+
+function inferCourse(str) {
+  const s = (str||'').toLowerCase();
+  if(s.includes('kids')||s.includes('juvenil')||s.includes('infantil')||s.includes('junior')) return 'kids';
+  if(s.includes('exam')||s.includes('fce')||s.includes('cambridge')||s.includes('ielts')) return 'exam';
+  return 'adults';
+}
+
+function levelColor(course)  { return LEVEL_COLOR[course]  || '#C8A44A'; }
+function levelDept(course)   { return LEVEL_DEPT[course]   || course; }
+function levelOrder(course, cefr) { return (LEVEL_ORDER[course]?.[cefr?.toUpperCase()] || 99); }
 
 /* ══════════════════════════════════════
    CONSTANTS
@@ -932,18 +950,19 @@ function normTeacher(row){
 }
 
 function normGroup(row){
-  const key=(row.group_key||'').toLowerCase();
-  const course=key.includes('kids')||key.includes('juvenil')||key.includes('infantil')?'kids':key.includes('exam')?'exam':'adults';
-  const cefr=(row.level_cefr||'A1').toUpperCase();
+  const key = (row.group_key||'').toLowerCase();
+  const courseStr = row.family || row.department || key;
+  const course = inferCourse(courseStr);
+  const cefr   = (row.level_cefr||'A1').toUpperCase();
   return{
-    key:row.group_key,lang:row.lang||'EN',levelCefr:cefr,course,
+    key:row.group_key, lang:row.lang||'EN', levelCefr:cefr, course,
     branch:(row.branch||'Funchal').replace(/\s*-\s*sede/i,'').trim(),
     viability:row.viability||'viable',
     studentRefs:Array.isArray(row.student_refs)?row.student_refs:[],
     studentCount:row.student_count||0,
     students:[],
-    assigned:false,turmaCode:null,teacher:null,day:null,h:null,
-    recommendedDay:null,recommendedH:null,recommendedPct:0
+    assigned:false, turmaCode:null, teacher:null, day:null, h:null,
+    recommendedDay:null, recommendedH:null, recommendedPct:0
   };
 }
 
@@ -1353,10 +1372,7 @@ function buildGrid(){
 }
 
 function timeToMins(t){if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+(m||0);}
-function displayLevel(cefr,course){
-  const map={kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},exam:{B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
-  return map[course]?.[cefr]||cefr;
-}
+
 
 /* ══════════════════════════════════════
    SLOT CLICK — open popover
@@ -1644,7 +1660,7 @@ function closeStmAndConfirm(){closeStm();confirmAssignment();}
 /* ══════════════════════════════════════
    DISCORD CARD — identical DNA to formation
 ══════════════════════════════════════ */
-function openDc(ref, groupKey){
+function openDossier(ref, groupKey){
   const enrol=EMAP[ref], req=RMAP[ref];
   const g=groupKey?GROUPS.find(x=>x.key===groupKey):GROUPS.find(x=>x.students?.some(s=>s.ref===ref)||x.studentRefs?.includes(ref));
   const turmaCode=g?.turmaCode||Object.values(GRIDS).flatMap(gd=>Object.values(gd).flatMap(d=>Object.values(d))).find(s=>s.groupKey===g?.key)?.turmaCode||null;
@@ -1770,28 +1786,6 @@ function buildStudentTimetable(prefs, turmaCode, confDay, confH){
 }
 
 /* Signed request card */
-function buildSignedCard(req, name, ref, almLabel, lang, branch, lc){
-  if(!req) return `<div class="dc-no-req">⚠ Sem pedido submetido.</div>`;
-  let slots=[];
-  try{const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
-  const pills=slots.map((s,i)=>{
-    const day=s.day_name||DAY_NUM[s.day]||`Dia ${s.day}`;
-    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
-    const end=s.session_end||s.end_time||'—';
-    const type=s.type==='availability'?'disponível':i===0?'★ preferência':'↩ alternativa';
-    return`<span class="dc-slot-pill"><span class="sp-day">${day}</span><span class="sp-time">${start}${end!=='—'?'–'+end:''}</span><span class="sp-type">${type}</span></span>`;
-  }).join('');
-
-  return`<div class="dc-req-card">
-    <div class="dc-req-hdr"><span class="dc-req-title">📋 Pedido Submetido</span><span class="dc-req-lock">🔒 Somente leitura</span></div>
-    <div class="dc-req-body">
-      <div class="dc-req-row"><div class="dc-req-k">Slots pedidos</div><div class="dc-req-v">${pills||'—'}</div></div>
-      <div class="dc-req-row"><div class="dc-req-k">Modo</div><div class="dc-req-v hi">${req.mode_used==='avail'?'Disponibilidade':'Preferência'}</div></div>
-      <div class="dc-req-row"><div class="dc-req-k">Sessões/sem</div><div class="dc-req-v hi">${req.sessions_per_week||'—'}</div></div>
-      ${req.notes?`<div class="dc-req-row"><div class="dc-req-k">Nota</div><div class="dc-req-v" style="font-style:italic">${req.notes}</div></div>`:''}
-    </div>
-  </div>`;
-}
 
 /* ══════════════════════════════════════
    MOVE STUDENT BETWEEN TURMAS
