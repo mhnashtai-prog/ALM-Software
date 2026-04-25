@@ -549,6 +549,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .dir-dec-no{background:rgba(240,72,72,.08);border-color:rgba(240,72,72,.22);color:rgba(240,72,72,.7)}
 .dir-dec-no:hover{background:rgba(240,72,72,.18)}
 
+.pt-chip-n{cursor:pointer;padding:0 3px}.pt-chip-n:hover{color:var(--gold2)}.pt-chip-ok{cursor:pointer;padding:0 2px;opacity:.3;font-size:7px}.pt-chip-ok.on{opacity:1;color:var(--green)}
 </style>
 </head>
 <body>
@@ -1361,7 +1362,10 @@ function buildPivot() {
       const chips=groups.map(g=>{
         const n=g.students.length||g.studentCount;
         const ok=approvedKeys.has(g.key);
-        return `<span class="pt-chip${ok?' approved':''}" onclick="event.stopPropagation();toggleApprove('${g.key}')" title="${ok?'Aprovado':'Aprovar turma'}">${ok?'✓ ':''} ${n}al</span>`;
+        return `<span class="pt-chip${ok?' approved':''}" title="${ok?'Aprovado':'Clique para ver alunos'}">
+  <span class="pt-chip-n" onclick="event.stopPropagation();openGroupList('${g.key}')">${n}al</span>
+  <span class="pt-chip-ok${ok?' on':''}" onclick="event.stopPropagation();toggleApprove('${g.key}')" title="${ok?'Aprovado — clique para remover':'Aprovar turma'}">${ok?'✓':'○'}</span>
+</span>`;
       }).join('');
 
       html+=`<td class="pt-cell${isCollapsed?' collapsed-col':''}" onclick="${isCollapsed?`toggleBranch('${branch}')`:`openList('${row.dept}','${row.cefr}','${branch}')`}">
@@ -1687,6 +1691,27 @@ function toggleBranch(branch) {
   buildPivot();
 }
 
+function openGroupList(groupKey){
+  const g = GROUPS.find(x=>x.key===groupKey);
+  if(!g) return;
+  // Load students if needed
+  if(!g.students.length) attachStudents(g);
+  // Build list panel showing only this group's students
+  currentList={dept:g.dept,cefr:g.cefr,branch:g.branch,groupKey};
+  currentListTab='enrolled';
+  const label=displayLevel(g.cefr,g.course);
+  const dc=DEPT_COLOR[g.dept]||'#888';
+  document.getElementById('lp-dept-tag').textContent=g.deptLabel||g.dept;
+  document.getElementById('lp-dept-tag').style.cssText=`background:${dc}22;border-color:${dc}55;color:${dc}`;
+  document.getElementById('lp-title').textContent=`${label} · ${g.branch.replace(/_/g,' ')} · ${g.split||'Turma'}`;
+  document.getElementById('lp-sub').textContent=`${g.cefr} · ${g.students.length||g.studentCount} alunos`;
+  document.querySelectorAll('.lp-tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.lp-tab')[0].classList.add('on');
+  renderListBody();
+  document.getElementById('list-overlay').classList.add('open');
+  document.getElementById('list-panel').classList.add('open');
+}
+
 function openList(dept,cefr,branch){
   currentList={dept,cefr,branch};currentListTab='enrolled';
   const course=inferCourse(dept);
@@ -1713,7 +1738,9 @@ function setListTab(tab,el){
 function renderListBody(){
   if(!currentList) return;
   const {dept,cefr,branch}=currentList;
-  const groups=GROUPS.filter(g=>g.dept===dept&&g.cefr===cefr&&g.branch===branch);
+  const groups=currentList.groupKey
+    ? GROUPS.filter(g=>g.key===currentList.groupKey)
+    : GROUPS.filter(g=>g.dept===dept&&g.cefr===cefr&&g.branch===branch);
   const body=document.getElementById('lp-body');
   if(!groups.length){body.innerHTML=`<div style="padding:24px;text-align:center;font-family:var(--mono);font-size:9px;color:var(--ink3)">Nenhum grupo.</div>`;return;}
 
