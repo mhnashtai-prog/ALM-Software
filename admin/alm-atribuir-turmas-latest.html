@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Atribuição de Turmas</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --g:#C9A84C;--g2:#E8C97A;--g3:rgba(201,168,76,.18);--g4:rgba(201,168,76,.07);
+  --green:#27AE60;--green-d:rgba(39,174,96,.15);--green-b:rgba(39,174,96,.3);
+  --red:#E8455A;--red-d:rgba(232,69,90,.12);--red-b:rgba(232,69,90,.3);
+  --amber:#E8B84B;--amber-d:rgba(232,184,75,.12);--amber-b:rgba(232,184,75,.3);
+  --blue:#4A90D9;--teal:#2ECC8A;--purple:#9B59B6;
+  --bg:#07050F;--bg2:#0F0B1C;--bg3:#161228;
+  --b:rgba(201,168,76,.10);--b2:rgba(201,168,76,.20);--b3:rgba(201,168,76,.32);
+  --t:rgba(240,225,180,.92);--t2:rgba(210,185,140,.55);--t3:rgba(210,185,140,.28);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;
+
+  /* ── DEMAND HEAT COLOURS ── */
+  --heat-blue-bg:rgba(30,80,180,.28);   --heat-blue-b:rgba(60,120,255,.55);   --heat-blue-t:#6ab0ff;
+  --heat-dgrn-bg:rgba(20,120,60,.28);   --heat-dgrn-b:rgba(30,180,90,.55);    --heat-dgrn-t:#4de89a;
+  --heat-lgrn-bg:rgba(60,160,80,.18);   --heat-lgrn-b:rgba(80,200,100,.40);   --heat-lgrn-t:#8fe8a0;
+  --heat-org-bg:rgba(200,120,20,.22);   --heat-org-b:rgba(240,160,40,.50);    --heat-org-t:#f0b840;
+  --heat-red-bg:rgba(180,30,40,.22);    --heat-red-b:rgba(230,60,70,.50);     --heat-red-t:#f07880;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--t);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased;height:100%;overflow:hidden}
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── TOPBAR ── */
+.bar{flex-shrink:0;height:46px;display:flex;align-items:center;background:rgba(7,5,15,.98);border-bottom:.5px solid var(--b);padding:0 16px;gap:0;z-index:200}
+.bar-home{display:flex;align-items:center;border:.5px solid var(--b);border-radius:6px;overflow:hidden;flex-shrink:0}
+.bar-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--t2);text-decoration:none;transition:all .15s;border-right:.5px solid var(--b)}
+.bar-ico:hover{background:var(--g3);color:var(--g2)}
+.bar-ico svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bar-sep{width:.5px;height:16px;background:var(--b);margin:0 12px}
+.bar-brand{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--g2);letter-spacing:4px}
+.bar-page{font-size:10px;font-weight:600;color:var(--t2);margin-left:10px;letter-spacing:.06em}
+.bar-pill{display:flex;align-items:center;gap:5px;padding:3px 10px;border:.5px solid var(--b2);font-family:var(--mono);font-size:9px;color:var(--g);background:var(--g4)}
+.bar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.bar-stat{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.bar-stat span{color:var(--g2);font-weight:600}
+.bar-clock{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.bar-btn{display:flex;align-items:center;gap:4px;padding:4px 11px;font-size:9px;font-weight:600;cursor:pointer;border:.5px solid;font-family:var(--mono);transition:all .12s}
+.bb-green{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.bb-green:hover{background:rgba(39,174,96,.22)}
+
+/* ── LAYOUT ── */
+.canvas{flex:1;display:flex;overflow:hidden}
+
+/* ── LEFT PANEL ── */
+.left{flex-shrink:0;width:272px;background:var(--bg2);border-right:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden}
+.left-hdr{flex-shrink:0;padding:10px 12px;border-bottom:.5px solid var(--b);display:flex;align-items:center;gap:8px}
+.lh-title{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--g);flex:1}
+.lh-count{font-family:var(--mono);font-size:7px;color:var(--t3)}
+.branch-sel{flex-shrink:0;padding:8px 12px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.branch-select{width:100%;padding:5px 8px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:9px;color:var(--g2);outline:none;cursor:pointer;letter-spacing:.04em}
+.branch-select:focus{border-color:var(--g)}
+.branch-select option{background:var(--bg2)}
+.t-filter{flex-shrink:0;padding:6px 10px;border-bottom:.5px solid var(--b);display:flex;flex-wrap:wrap;gap:4px}
+.tf-pill{padding:2px 8px;border:.5px solid var(--b);font-family:var(--mono);font-size:7.5px;cursor:pointer;color:var(--t3);transition:all .12s;white-space:nowrap}
+.tf-pill:hover{border-color:var(--b2);color:var(--t2)}
+.tf-pill.active{background:var(--g3);border-color:var(--b3);color:var(--g2);font-weight:600}
+.level-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.level-list::-webkit-scrollbar{width:3px}.level-list::-webkit-scrollbar-thumb{background:var(--b2)}
+.dept-hdr{font-family:var(--mono);font-size:6.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;padding:8px 12px 4px;display:flex;align-items:center;gap:6px;color:var(--t3)}
+.dept-hdr::after{content:'';flex:1;height:.5px;background:var(--b)}
+.dept-hdr.kids{color:#28C8B0}.dept-hdr.adults{color:#4888E8}.dept-hdr.exam{color:#C8A44A}
+.lvl-row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:.5px solid rgba(201,168,76,.03);cursor:pointer;transition:all .12s;border-left:2px solid transparent}
+.lvl-row:hover{background:var(--g4);border-left-color:rgba(201,168,76,.2)}
+.lvl-row.active{background:var(--g3);border-left-color:var(--g)}
+.lvl-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.lvl-info{flex:1;min-width:0}
+.lvl-name{font-family:var(--mono);font-size:10px;font-weight:700;line-height:1}
+.lvl-counts{font-family:var(--mono);font-size:7px;color:var(--t3);margin-top:2px}
+.lvl-turmas{font-family:var(--mono);font-size:8px;font-weight:600;color:var(--t2)}
+.turma-rows{display:none;background:rgba(0,0,0,.15);border-bottom:.5px solid var(--b)}
+.lvl-row.active + .turma-rows{display:block}
+.turma-row{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 22px;border-bottom:.5px solid rgba(201,168,76,.03)}
+.turma-row:last-child{border-bottom:none}
+.tr-code{font-family:var(--mono);font-size:8px;font-weight:700;color:var(--g2);width:72px;flex-shrink:0}
+.tr-info{flex:1;min-width:0}
+.tr-slot{font-family:var(--mono);font-size:7.5px;color:var(--t2)}
+.tr-n{font-family:var(--mono);font-size:8px;font-weight:600;flex-shrink:0}
+.tr-teacher{font-family:var(--mono);font-size:7px;padding:1px 6px;border:.5px solid;flex-shrink:0;cursor:pointer;transition:all .12s}
+.tr-teacher.assigned{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.tr-teacher.unassigned{background:var(--g4);border-color:var(--b);color:var(--t3)}
+.tr-teacher:hover{filter:brightness(1.2)}
+.hour-bars{flex-shrink:0;border-top:.5px solid var(--b);padding:8px 10px;max-height:160px;overflow-y:auto}
+.hb-title{font-family:var(--mono);font-size:6.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.hb-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.hb-code{font-family:var(--mono);font-size:7.5px;color:var(--t2);width:24px;flex-shrink:0}
+.hb-track{flex:1;height:5px;background:rgba(255,255,255,.05);overflow:hidden}
+.hb-fill{height:100%;transition:width .3s ease}
+.hb-val{font-family:var(--mono);font-size:7.5px;width:32px;text-align:right;flex-shrink:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.level-strip{flex-shrink:0;display:none;align-items:center;gap:0;padding:12px 20px;background:rgba(0,0,0,.25);border-bottom:.5px solid var(--b)}
+.level-strip.show{display:flex}
+.ls-name{font-family:var(--mono);font-size:14px;font-weight:700}
+.ls-meta{font-family:var(--mono);font-size:8px;color:var(--t2)}
+
+/* ── STAGE BAROMETER ── */
+.stages{display:flex;align-items:center;gap:0;flex:1;max-width:540px}
+.stage{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:default;transition:all .25s;flex-shrink:0}
+.stage.done{cursor:pointer}
+.stage.done:hover .st-circle{transform:scale(1.1);box-shadow:0 0 18px rgba(201,168,76,.5)}
+.st-circle{
+  width:36px;height:36px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.04);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .3s ease;flex-shrink:0;
+}
+.stage.active .st-circle{
+  border-color:var(--g2);
+  background:rgba(201,168,76,.1);
+  box-shadow:0 0 0 4px rgba(201,168,76,.12),0 0 20px rgba(201,168,76,.18);
+}
+.stage.done .st-circle{
+  border-color:transparent;
+  background:linear-gradient(135deg,#2ecc71,#1a9e50);
+  box-shadow:0 3px 12px rgba(39,174,96,.45);
+}
+.st-tick{font-size:16px;font-weight:900;color:#ffffff;display:none;line-height:1}
+.st-num{font-family:var(--mono);font-size:11px;font-weight:700;color:rgba(255,255,255,.2)}
+.stage.active .st-num{color:var(--g2)}
+.stage.done .st-tick{display:block}
+.stage.done .st-num{display:none}
+.stage.active .st-tick{display:none}
+.st-label{font-family:var(--mono);font-size:7px;color:rgba(255,255,255,.18);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;transition:color .25s}
+.stage.active .st-label{color:var(--g2)}
+.stage.done .st-label{color:var(--g);font-weight:600}
+.st-line{flex:1;height:2px;background:rgba(255,255,255,.07);margin:0 5px;margin-bottom:16px;border-radius:1px;transition:background .4s;min-width:24px}
+.st-line.done{background:linear-gradient(90deg,#c89830,#f0d060)}
+
+/* ── SLOT PANEL ── */
+.spanel{position:fixed;z-index:600;background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;width:290px;box-shadow:0 12px 40px rgba(0,0,0,.8);display:none;flex-direction:column;overflow:hidden;max-height:92vh}
+.spanel.open{display:flex;animation:ctxIn .13s ease}
+.sp-hdr{padding:10px 12px 8px;background:rgba(0,0,0,.25);border-bottom:.5px solid var(--b);display:flex;align-items:flex-start;gap:8px;flex-shrink:0}
+.sp-day{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--g2);flex:1}
+.sp-hdr-sub{font-family:var(--mono);font-size:7.5px;color:var(--t3);margin-top:2px}
+.sp-close{width:20px;height:20px;background:rgba(0,0,0,.4);border:.5px solid var(--b);color:var(--t3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sp-close:hover{background:var(--red-d);color:var(--red)}
+/* Config row */
+.sp-cfg-row{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:.5px solid var(--b);flex-shrink:0}
+/* Footer */
+.sp-footer{flex-shrink:0;padding:8px 10px;border-top:.5px solid var(--b);background:rgba(0,0,0,.15);display:flex;flex-direction:column;gap:5px}
+.sp-footer-meta{display:flex;align-items:center;justify-content:space-between;min-height:14px}
+/* Discord action row */
+.sp-dc-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.sp-dc-act{width:28px;height:28px;background:rgba(255,255,255,.03);border:.5px solid var(--b);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.sp-dc-act:hover{background:var(--g3);border-color:var(--b2)}
+.sp-dc-confirm{flex:1;padding:7px;background:var(--green-d);border:.5px solid var(--green-b);font-family:var(--mono);font-size:8.5px;font-weight:700;color:var(--green);cursor:pointer;transition:all .12s;letter-spacing:.04em;text-align:center}
+.sp-dc-confirm:hover{background:rgba(39,174,96,.25)}
+
+/* ── MODE TOGGLE ── */
+.sp-mode-bar{display:flex;align-items:center;padding:8px 10px;border-bottom:.5px solid var(--b);gap:8px;flex-shrink:0}
+.sp-mode-info{font-family:var(--mono);font-size:8px;color:var(--t3);flex:1}
+.sp-mode-pills{display:flex;gap:3px;flex-shrink:0}
+.sp-mode-pill{padding:3px 10px;border:.5px solid var(--b);font-family:var(--mono);font-size:7.5px;cursor:pointer;color:var(--t3);transition:all .12s}
+.sp-mode-pill:hover{border-color:var(--b2);color:var(--t2)}
+.sp-mode-pill.active{background:var(--g3);border-color:var(--b3);color:var(--g2);font-weight:700}
+/* Target size row */
+.sp-target-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:.5px solid var(--b);flex-shrink:0}
+.sp-target-input{width:48px;padding:3px 6px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:11px;font-weight:700;color:var(--g2);outline:none;text-align:center}
+.sp-target-input:focus{border-color:var(--g)}
+.sp-target-hint{font-family:var(--mono);font-size:7px;color:var(--t3);flex:1}
+/* Auto summary */
+.sp-auto-summary{padding:14px 12px;display:flex;flex-direction:column;gap:8px}
+.sp-auto-row{display:flex;align-items:center;gap:10px}
+.sp-auto-stat{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--g2);width:36px;text-align:right;flex-shrink:0;line-height:1}
+.sp-auto-lbl{font-family:var(--mono);font-size:8px;color:var(--t3)}
+.sp-auto-total{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--green);padding:6px 10px;background:var(--green-d);border:.5px solid var(--green-b);text-align:center;margin-top:4px}
+/* foot row */
+.sp-stu-foot{flex-shrink:0;padding:7px 10px;border-top:.5px solid var(--b);background:rgba(0,0,0,.1);display:flex;align-items:center;gap:8px}
+.sp-stu-toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:.5px solid var(--b);flex-shrink:0}
+.sp-stu-count{font-family:var(--mono);font-size:8px;color:var(--g2);font-weight:700;flex:1}
+.sp-stu-auto{padding:3px 8px;background:var(--g4);border:.5px solid var(--b2);font-family:var(--mono);font-size:7.5px;color:var(--g2);cursor:pointer;white-space:nowrap;transition:all .12s}
+.sp-stu-auto:hover{background:var(--g3);border-color:var(--b3)}
+.sp-stu-search{padding:5px 10px;border-bottom:.5px solid var(--b);flex-shrink:0}
+.sp-stu-srch{width:100%;padding:3px 7px;background:rgba(255,255,255,.03);border:.5px solid var(--b);font-family:var(--mono);font-size:8px;color:var(--t);outline:none}
+.sp-stu-srch:focus{border-color:var(--g)}
+.sp-stu-list{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent;max-height:260px}
+.sp-stu-list::-webkit-scrollbar{width:3px}.sp-stu-list::-webkit-scrollbar-thumb{background:var(--b2)}
+.sp-stu-row{display:flex;align-items:center;gap:7px;padding:5px 10px;border-bottom:.5px solid rgba(201,168,76,.03);cursor:pointer;transition:background .1s}
+.sp-stu-row:hover:not(.placed){background:rgba(255,255,255,.03)}
+.sp-stu-row.placed{opacity:.28;cursor:not-allowed}
+.sp-stu-chk{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--b2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
+.sp-stu-row.sel .sp-stu-chk{background:var(--green);border-color:var(--green)}
+.sp-stu-row.avail:not(.sel) .sp-stu-chk{border-color:rgba(39,174,96,.5)}
+.sp-stu-chk-tick{font-size:8px;color:#051208;display:none}
+.sp-stu-row.sel .sp-stu-chk-tick{display:block}
+.sp-stu-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:6.5px;font-weight:700;border:1px solid;flex-shrink:0}
+.sp-stu-name{font-family:var(--mono);font-size:8.5px;color:var(--t);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-stu-badge{font-family:var(--mono);font-size:6.5px;padding:1px 4px;border:.5px solid;flex-shrink:0}
+.sp-stu-badge.yes{background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.3);color:var(--green)}
+.sp-stu-badge.no{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.06);color:var(--t3)}
+.sp-stu-badge.placed{background:rgba(74,144,217,.1);border-color:rgba(74,144,217,.3);color:var(--blue)}
+.sp-stu-foot{flex-shrink:0;padding:7px 10px;border-top:.5px solid var(--b);background:rgba(0,0,0,.1)}
+.ls-stats{display:flex;gap:16px;margin-left:auto;align-items:center}
+.ls-triple{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.ls-triple-nums{display:flex;align-items:baseline;gap:3px}
+.ls-n{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1;color:var(--t)}
+.ls-n-atr{color:var(--t3)}
+.ls-div{font-family:var(--mono);font-size:14px;color:var(--t3);font-weight:300}
+.ls-triple-labels{display:flex;gap:0;font-family:var(--mono);font-size:6px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.ls-triple-labels span{flex:1;text-align:center}
+.ls-sub-stat{display:flex;flex-direction:column;align-items:center;border-left:.5px solid var(--b);padding-left:16px}
+.ls-sv2{font-family:var(--mono);font-size:13px;font-weight:700;line-height:1;color:var(--t2)}
+
+/* ── GRID ── */
+.grid-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.grid-hdr{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.gh-title{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--g)}
+.gh-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gl-item{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7px;color:var(--t3)}
+.gl-sw{width:9px;height:9px;border-radius:2px;flex-shrink:0;border:.5px solid}
+.grid-scroll{flex:1;overflow:auto;padding:0 14px 10px}
+.grid-scroll::-webkit-scrollbar{width:3px;height:3px}.grid-scroll::-webkit-scrollbar-thumb{background:var(--b2)}
+.grid-table{width:100%;border-collapse:collapse;min-width:700px}
+.grid-table th{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:6px 3px;text-align:center;border-bottom:.5px solid var(--b);white-space:nowrap}
+.grid-table th.day-th{text-align:left;padding-left:10px;width:44px}
+.grid-table th.brk-th{width:16px;background:rgba(0,0,0,.2)}
+.grid-table th.tot-th{width:48px;text-align:center;border-left:.5px solid var(--b)}
+.grid-table tr.day-row{border-bottom:.5px solid rgba(201,168,76,.04)}
+.grid-table tr.day-row.today .dl-name{color:var(--g2)}
+.day-lbl{padding:0 6px 0 10px;vertical-align:middle;white-space:nowrap}
+.dl-name{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--t2)}
+
+/* Slot cells */
+.slot-cell{padding:3px 2px;vertical-align:middle;text-align:center;cursor:pointer;position:relative}
+.slot-inner{width:100%;height:46px;border-radius:4px;border:.5px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .14s;position:relative;overflow:hidden;font-family:var(--mono)}
+
+/* ── DEMAND HEAT STATES ── */
+.slot-inner.empty{background:rgba(255,255,255,.015);border-color:rgba(201,168,76,.04)}
+.slot-inner.empty:hover{background:rgba(201,168,76,.06);border-color:var(--b)}
+/* >17 dark blue */
+.slot-inner.h-blue{background:var(--heat-blue-bg);border-color:var(--heat-blue-b)}
+.slot-inner.h-blue:hover{filter:brightness(1.25)}
+/* ≤17 dark green */
+.slot-inner.h-dgrn{background:var(--heat-dgrn-bg);border-color:var(--heat-dgrn-b)}
+.slot-inner.h-dgrn:hover{filter:brightness(1.25)}
+/* ≤12 light green */
+.slot-inner.h-lgrn{background:var(--heat-lgrn-bg);border-color:var(--heat-lgrn-b)}
+.slot-inner.h-lgrn:hover{filter:brightness(1.25)}
+/* ≤8 orange */
+.slot-inner.h-org{background:var(--heat-org-bg);border-color:var(--heat-org-b)}
+.slot-inner.h-org:hover{filter:brightness(1.25)}
+/* <5 red */
+.slot-inner.h-red{background:var(--heat-red-bg);border-color:var(--heat-red-b)}
+.slot-inner.h-red:hover{filter:brightness(1.25)}
+/* Recommended — pulsing gold outline */
+.slot-inner.rec{animation:recPulse 2s ease-in-out infinite}
+@keyframes recPulse{0%,100%{background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4)}50%{background:rgba(201,168,76,.22);border-color:rgba(201,168,76,.7)}}
+/* Booked */
+.slot-inner.booked{background:rgba(39,174,96,.14);border-color:rgba(39,174,96,.35)}
+.slot-inner.booked:hover{background:rgba(39,174,96,.22)}
+.slot-inner.booked-np{background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.35)}
+.slot-inner.booked-np:hover{background:rgba(201,168,76,.2)}
+
+.slot-code{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.04em;line-height:1}
+.slot-teacher{font-family:var(--mono);font-size:7px;opacity:.7;margin-top:1px;white-space:nowrap;overflow:hidden;max-width:42px;text-overflow:ellipsis}
+.slot-n{font-family:var(--mono);font-size:6.5px;opacity:.55;margin-top:1px}
+.slot-rec-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--g2);opacity:.8}
+.slot-heat-n{position:absolute;bottom:2px;right:3px;font-family:var(--mono);font-size:6px;font-weight:700}
+.h-blue .slot-heat-n{color:var(--heat-blue-t)}
+.h-dgrn .slot-heat-n{color:var(--heat-dgrn-t)}
+.h-lgrn .slot-heat-n{color:var(--heat-lgrn-t)}
+.h-org  .slot-heat-n{color:var(--heat-org-t)}
+.h-red  .slot-heat-n{color:var(--heat-red-t)}
+.booked .slot-code{color:rgba(100,220,160,.9)}
+.booked .slot-teacher{color:rgba(100,220,160,.7)}
+.booked .slot-n{color:rgba(100,220,160,.5)}
+.booked-np .slot-code{color:rgba(230,200,100,.9)}
+.booked-np .slot-teacher{color:rgba(230,200,100,.55)}
+.booked-np .slot-n{color:rgba(230,200,100,.45)}
+.brk-cell{background:rgba(0,0,0,.2);vertical-align:middle;text-align:center;padding:0}
+.brk-line{width:1px;height:30px;background:var(--b);margin:0 auto}
+.tot-cell{border-left:.5px solid var(--b);text-align:center;vertical-align:middle;padding:0 3px}
+.tot-val{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--t2)}
+.tot-bars{display:flex;gap:1px;margin-top:2px;justify-content:center}
+.tot-bar{width:4px;height:4px;border-radius:1px;background:var(--b);transition:background .2s}
+.tot-bar.on{background:var(--blue)}
+
+/* ── SLOT PANEL (replaces small ctx for empty cells) ── */
+.spanel{position:fixed;z-index:600;background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;padding:0;width:280px;box-shadow:0 12px 40px rgba(0,0,0,.8);display:none;flex-direction:column;overflow:hidden;max-height:90vh}
+.spanel.open{display:flex;animation:ctxIn .13s ease}
+@keyframes ctxIn{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.sp-hdr{padding:8px 12px 6px;background:rgba(0,0,0,.2);border-bottom:.5px solid var(--b);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.sp-day{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--g2);flex:1}
+.sp-close{width:20px;height:20px;background:rgba(0,0,0,.4);border:.5px solid var(--b);color:var(--t3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-close:hover{background:var(--red-d);color:var(--red)}
+
+/* Group list in panel */
+.sp-groups{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent;min-height:0}
+.sp-groups::-webkit-scrollbar{width:3px}.sp-groups::-webkit-scrollbar-thumb{background:var(--b2)}
+.sp-group{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:.5px solid rgba(201,168,76,.04);cursor:pointer;transition:all .1s}
+.sp-group:hover{background:var(--g4)}
+.sp-group.selected{background:var(--g3);border-left:2px solid var(--g)}
+.sp-group:not(.selected){border-left:2px solid transparent}
+.sp-ginfo{flex:1;min-width:0}
+.sp-gname{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t)}
+.sp-gmeta{font-family:var(--mono);font-size:7px;color:var(--t3);margin-top:1px}
+.sp-gbar{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.sp-gpct{font-family:var(--mono);font-size:8px;font-weight:700}
+.sp-gbadge{font-family:var(--mono);font-size:6.5px;padding:1px 4px;border:.5px solid;border-radius:2px}
+.sp-gbadge.rec{background:rgba(201,168,76,.15);border-color:rgba(201,168,76,.4);color:var(--g2)}
+
+/* Demand bar inside group row */
+.sp-dembar{height:3px;margin-top:3px;border-radius:1px;transition:width .2s}
+
+/* Panel bottom — config + confirm */
+.sp-cfg{flex-shrink:0;padding:8px 12px;border-top:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.sp-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.sp-lbl{font-family:var(--mono);font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;width:54px;flex-shrink:0}
+.sp-select{flex:1;padding:4px 7px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:8.5px;color:var(--g2);outline:none;cursor:pointer}
+.sp-select option{background:var(--bg2)}
+.sp-dur-pills{display:flex;gap:3px;flex:1}
+.sp-dp{padding:3px 8px;border:.5px solid var(--b);font-family:var(--mono);font-size:8px;cursor:pointer;color:var(--t3);transition:all .1s;flex:1;text-align:center}
+.sp-dp:hover{border-color:var(--b2);color:var(--t2)}
+.sp-dp.active{background:var(--g3);border-color:var(--b3);color:var(--g2);font-weight:700}
+.sp-time{width:70px;padding:4px 7px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:8.5px;color:var(--g2);outline:none;text-align:center}
+.sp-time:focus{border-color:var(--g)}
+.sp-end{font-family:var(--mono);font-size:8px;color:var(--t3);flex:1}
+.sp-demand-info{font-family:var(--mono);font-size:7.5px;color:var(--t3);margin-bottom:6px;min-height:14px}
+.sp-code-preview{font-family:var(--mono);font-size:8px;color:var(--g2);margin-bottom:6px}
+.sp-code-preview span{color:var(--g);font-weight:700}
+.sp-btns{display:flex;gap:6px}
+.sp-btn{flex:1;padding:7px;font-family:var(--mono);font-size:8.5px;font-weight:700;cursor:pointer;border:.5px solid;transition:all .12s;letter-spacing:.04em;text-align:center}
+.sp-btn-confirm{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.sp-btn-confirm:hover{background:rgba(39,174,96,.25)}
+.sp-btn-list{background:var(--g4);border-color:var(--b2);color:var(--t2)}
+.sp-btn-list:hover{background:var(--g3);color:var(--g2)}
+
+/* ── BOOKED CONTEXT MENU (small) ── */
+.ctx{position:fixed;z-index:600;background:rgba(7,5,15,.98);border:.5px solid var(--b2);border-radius:10px;padding:5px;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.7);display:none}
+.ctx.open{display:block;animation:ctxIn .12s ease}
+.ctx-hdr{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);padding:4px 10px 3px}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--t2);transition:all .1s;white-space:nowrap}
+.ctx-item:hover{background:var(--g4);color:var(--t)}
+.ctx-item.danger:hover{background:var(--red-d);color:var(--red)}
+.ctx-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.ctx-sep{height:.5px;background:var(--b);margin:3px 0}
+.ctx-select{width:100%;padding:5px 8px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:9px;color:var(--g2);outline:none;margin-bottom:4px;cursor:pointer}
+.ctx-select option{background:var(--bg2)}
+.ctx-confirm{width:100%;padding:6px;background:var(--green-d);border:.5px solid var(--green-b);font-family:var(--mono);font-size:9px;font-weight:700;color:var(--green);cursor:pointer;transition:all .12s;letter-spacing:.04em;margin-top:2px}
+.ctx-confirm:hover{background:rgba(39,174,96,.25)}
+
+/* ── STUDENT MODAL ── */
+.stm-overlay{display:none;position:fixed;inset:0;z-index:800;background:rgba(4,2,12,.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px}
+.stm-overlay.open{display:flex}
+.stm-modal{background:var(--bg2);border:.5px solid var(--b2);width:min(520px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.95);overflow:hidden}
+.stm-banner{height:60px;position:relative;display:flex;align-items:flex-end;padding:0 14px 8px;flex-shrink:0}
+.stm-bg{position:absolute;inset:0}
+.stm-stripe{position:absolute;inset:0;opacity:.1;background-image:repeating-linear-gradient(45deg,var(--stm-c,var(--g)) 0,var(--stm-c,var(--g)) 1px,transparent 1px,transparent 9px)}
+.stm-level{position:relative;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--stm-c,var(--g2));flex:1}
+.stm-close{position:relative;width:24px;height:24px;background:rgba(0,0,0,.5);border:.5px solid rgba(255,255,255,.15);color:rgba(238,218,168,.6);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.stm-close:hover{background:var(--red-d);color:var(--red)}
+.stm-meta{display:flex;border-bottom:.5px solid var(--b);flex-shrink:0}
+.stm-mp{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px 14px;border-right:.5px solid var(--b)}
+.stm-mv{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--stm-c,var(--g2));line-height:1}
+.stm-ml{font-family:var(--mono);font-size:6.5px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.stm-si{flex:1;padding:7px 12px;font-family:var(--mono);font-size:8px;color:var(--t2);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.stm-legend{padding:4px 12px;border-bottom:.5px solid var(--b);display:flex;gap:12px;flex-shrink:0}
+.stm-leg{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:7px;color:var(--t3)}
+.stm-leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.stm-search{padding:6px 12px;border-bottom:.5px solid var(--b);flex-shrink:0}
+.stm-srch{width:100%;padding:4px 8px;background:rgba(255,255,255,.03);border:.5px solid var(--b);font-family:var(--mono);font-size:8.5px;color:var(--t);outline:none}
+.stm-srch:focus{border-color:var(--stm-c,var(--g))}
+.stm-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.stm-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:.5px solid rgba(255,255,255,.03);cursor:pointer;transition:background .1s}
+.stm-row:hover{background:rgba(255,255,255,.03)}
+.stm-row.avail{background:color-mix(in srgb,var(--stm-c,var(--green)) 7%,transparent)}
+.stm-num{font-family:var(--mono);font-size:7.5px;color:var(--t3);width:20px;text-align:right;flex-shrink:0}
+.stm-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:700;border:1.5px solid;flex-shrink:0}
+.stm-info{flex:1;min-width:0}
+.stm-name{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--t)}
+.stm-ref{font-family:var(--mono);font-size:6.5px;color:var(--t3);margin-top:1px}
+/* Day availability dots */
+.stm-days{display:flex;gap:2px;flex-shrink:0}
+.stm-dd{width:14px;height:14px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:6px;font-weight:700;border:.5px solid}
+.stm-dd.yes{background:color-mix(in srgb,var(--stm-c,var(--green)) 20%,transparent);border-color:color-mix(in srgb,var(--stm-c,var(--green)) 50%,transparent);color:var(--stm-c,var(--green))}
+.stm-dd.no{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.06);color:var(--t3)}
+.stm-badge{font-family:var(--mono);font-size:7px;font-weight:700;padding:1px 5px;border:.5px solid;flex-shrink:0}
+.stm-badge.yes{background:color-mix(in srgb,var(--stm-c,var(--green)) 15%,transparent);border-color:color-mix(in srgb,var(--stm-c,var(--green)) 40%,transparent);color:var(--stm-c,var(--green))}
+.stm-badge.no{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.07);color:var(--t3)}
+.stm-footer{flex-shrink:0;padding:8px 12px;border-top:.5px solid var(--b);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.15)}
+.stm-fi{font-family:var(--mono);font-size:7.5px;color:var(--t3);flex:1}
+.stm-btn{padding:6px 16px;background:var(--green);border:none;font-family:var(--mono);font-size:8.5px;font-weight:700;color:#051208;cursor:pointer}
+.stm-btn:hover{background:#2ed877}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;font-family:var(--mono);font-size:10px;font-weight:500;opacity:0;transition:all .2s;z-index:9990;white-space:nowrap;border:.5px solid;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.toast.info{background:var(--g4);border-color:var(--b2);color:var(--g2)}
+.toast.warn{background:var(--amber-d);border-color:var(--amber-b);color:var(--amber)}
+.toast.err{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
+
+/* ── BOTTOM BAR ── */
+.bot{flex-shrink:0;height:26px;display:flex;align-items:center;gap:10px;padding:0 12px;background:rgba(7,5,15,.98);border-top:.5px solid var(--b);font-family:var(--mono);font-size:7.5px;color:var(--t3)}
+.bot-next{color:var(--g2);font-weight:600}
+.bot-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.bot-stat span{color:var(--g2)}
+
+/* ── LOADING ── */
+.lo{position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .4s}
+.lo.done{opacity:0;pointer-events:none}
+.lo-logo{font-family:var(--mono);font-size:42px;font-weight:300;color:var(--g2);letter-spacing:12px;opacity:.3}
+.lo-bar{width:160px;height:2px;background:rgba(255,255,255,.05)}
+.lo-fill{height:100%;background:var(--g);width:0%;transition:width .3s ease}
+.lo-txt{font-family:var(--mono);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--t3)}
+</style>
+</head>
+<body>
+
+<div class="lo" id="lo">
+  <div class="lo-logo">ALM</div>
+  <div class="lo-bar"><div class="lo-fill" id="lo-fill"></div></div>
+  <div class="lo-txt" id="lo-txt">A inicializar…</div>
+</div>
+
+<!-- TOPBAR -->
+<div class="bar">
+  <div class="bar-home">
+    <a class='bar-ico' href='/admin/dashboard'>
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+  </div>
+  <div class="bar-sep"></div>
+  <span class="bar-brand">ALM</span>
+  <span class="bar-page">Atribuição de Turmas · 2026/2027</span>
+  <div class="bar-right">
+    <div class="bar-pill" id="bar-pill">— grupos · — alunos</div>
+    <div class="bar-stat">Atribuídos: <span id="stat-a">0</span></div>
+    <div class="bar-stat">Pendentes: <span id="stat-p">0</span></div>
+    <button class="bar-btn bb-green" onclick="saveAll()">✓ Gravar</button>
+    <span class="bar-clock" id="clk">--:--:--</span>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div class="canvas">
+  <!-- LEFT: POR NÍVEL -->
+  <div class="left">
+    <div class="left-hdr">
+      <span class="lh-title">Por Nível</span>
+      <span class="lh-count" id="lh-count">—</span>
+    </div>
+    <div class="branch-sel">
+      <select class="branch-select" id="branch-select" onchange="selectBranch(this.value)">
+        <option value="Funchal">📍 Funchal</option>
+      </select>
+    </div>
+    <div class="t-filter" id="t-filter">
+      <div class="tf-pill active" onclick="filterTeacher(null,this)">Todos</div>
+    </div>
+    <div class="level-list" id="level-list"></div>
+    <div class="hour-bars">
+      <div class="hb-title">Horas por Professor</div>
+      <div id="hour-bars"></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="level-strip" id="level-strip">
+      <!-- STAGE BAROMETER -->
+      <div class="stages" id="stages">
+        <div class="stage done" id="st1" onclick="stageClick(1)">
+          <div class="st-circle"><div class="st-tick">✓</div><div class="st-num">1</div></div>
+          <div class="st-label" id="st1-label">Sede</div>
+        </div>
+        <div class="st-line" id="stl1"></div>
+        <div class="stage done" id="st2" onclick="stageClick(2)">
+          <div class="st-circle"><div class="st-tick">✓</div><div class="st-num">2</div></div>
+          <div class="st-label" id="st2-label">Nível</div>
+        </div>
+        <div class="st-line" id="stl2"></div>
+        <div class="stage" id="st3">
+          <div class="st-circle"><div class="st-tick">✓</div><div class="st-num">3</div></div>
+          <div class="st-label">Alunos</div>
+        </div>
+        <div class="st-line" id="stl3"></div>
+        <div class="stage" id="st4">
+          <div class="st-circle"><div class="st-tick">✓</div><div class="st-num">4</div></div>
+          <div class="st-label">Professor</div>
+        </div>
+      </div>
+      <!-- STATS -->
+      <div class="ls-stats">
+        <div class="ls-triple">
+          <div class="ls-triple-nums">
+            <span class="ls-n" id="ls-ins" title="Alunos inscritos">—</span>
+            <span class="ls-div">/</span>
+            <span class="ls-n" id="ls-tur" title="Grupos formados">—</span>
+            <span class="ls-div">/</span>
+            <span class="ls-n ls-n-atr" id="ls-atr" title="Turmas atribuídas">—</span>
+          </div>
+          <div class="ls-triple-labels">
+            <span>alunos</span>
+            <span>grupos</span>
+            <span>atribuídas</span>
+          </div>
+        </div>
+        <div class="ls-stat ls-sub-stat"><div class="ls-sv2" id="ls-sub">—</div><div class="ls-sl">submetidos</div></div>
+      </div>
+    </div>
+    <div class="grid-wrap">
+      <div class="grid-hdr">
+        <span class="gh-title">Grelha Semanal · Ano Lectivo 2026/2027</span>
+        <div class="gh-legend">
+          <div class="gl-item"><div class="gl-sw" style="background:var(--heat-blue-bg);border-color:var(--heat-blue-b)"></div>>17</div>
+          <div class="gl-item"><div class="gl-sw" style="background:var(--heat-dgrn-bg);border-color:var(--heat-dgrn-b)"></div>≤17</div>
+          <div class="gl-item"><div class="gl-sw" style="background:var(--heat-lgrn-bg);border-color:var(--heat-lgrn-b)"></div>≤12</div>
+          <div class="gl-item"><div class="gl-sw" style="background:var(--heat-org-bg);border-color:var(--heat-org-b)"></div>≤8</div>
+          <div class="gl-item"><div class="gl-sw" style="background:var(--heat-red-bg);border-color:var(--heat-red-b)"></div>&lt;5</div>
+          <div class="gl-item"><div class="gl-sw" style="background:rgba(39,174,96,.2);border-color:rgba(39,174,96,.4)"></div>Atribuída</div>
+          <div class="gl-item"><div class="gl-sw" style="background:rgba(201,168,76,.15);border-color:rgba(201,168,76,.5)"></div>💡 Rec.</div>
+        </div>
+      </div>
+      <div class="grid-scroll">
+        <table class="grid-table" id="grid-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLOT PANEL — unified -->
+<div class="spanel" id="spanel">
+
+  <!-- HEADER -->
+  <div class="sp-hdr">
+    <div>
+      <div class="sp-day" id="sp-day">—</div>
+      <div class="sp-hdr-sub" id="sp-mode-info">— alunos no pool</div>
+    </div>
+    <button class="sp-close" onclick="closeSpanel()">✕</button>
+  </div>
+
+  <!-- CONFIG ROW -->
+  <div class="sp-cfg-row">
+    <span class="sp-lbl">Tamanho</span>
+    <input class="sp-target-input" id="sp-target" type="number" min="1" max="99" value="17" oninput="wzOnTargetChange()"/>
+    <div class="sp-mode-pills">
+      <div class="sp-mode-pill active" id="mode-auto" onclick="wzSetMode('auto')">⚡ Auto</div>
+      <div class="sp-mode-pill" id="mode-manual" onclick="wzSetMode('manual')">● Manual</div>
+    </div>
+  </div>
+
+  <!-- AUTO SUMMARY -->
+  <div id="wz-auto-summary" class="sp-auto-summary">
+    <div class="sp-auto-row">
+      <div class="sp-auto-stat" id="sp-auto-avail">—</div>
+      <div class="sp-auto-lbl">disponíveis neste slot</div>
+    </div>
+    <div class="sp-auto-row" id="sp-auto-fill-row">
+      <div class="sp-auto-stat" id="sp-auto-fill" style="color:var(--amber)">—</div>
+      <div class="sp-auto-lbl">completam do pool restante</div>
+    </div>
+    <div class="sp-auto-total" id="sp-auto-total">— alunos serão atribuídos</div>
+  </div>
+
+  <!-- MANUAL LIST -->
+  <div id="wz-manual-list" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden">
+    <div class="sp-stu-search">
+      <input class="sp-stu-srch" id="sp-stu-srch" placeholder="Filtrar alunos…" oninput="wzRenderStudents()"/>
+    </div>
+    <div class="sp-stu-list" id="sp-stu-list"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="sp-footer">
+    <div class="sp-footer-meta">
+      <div class="sp-stu-count" id="sp-stu-count"></div>
+      <div class="sp-code-preview" id="sp-code-preview"></div>
+    </div>
+    <div class="sp-row">
+      <span class="sp-lbl">Prof.</span>
+      <select class="sp-select" id="sp-teacher" onchange="updateSpPreview()">
+        <option value="">— opcional —</option>
+      </select>
+    </div>
+    <div class="sp-row">
+      <div class="sp-dur-pills">
+        <div class="sp-dp active" data-min="60" onclick="setDur(this)">60'</div>
+        <div class="sp-dp" data-min="80" onclick="setDur(this)">80'</div>
+        <div class="sp-dp" data-min="90" onclick="setDur(this)">90'</div>
+        <div class="sp-dp" data-min="110" onclick="setDur(this)">110'</div>
+      </div>
+      <input class="sp-time" id="sp-start" type="time" oninput="updateSpPreview()"/>
+      <div class="sp-end" id="sp-end"></div>
+    </div>
+    <!-- Discord-style actions + confirm -->
+    <div class="sp-dc-row">
+      <button class="sp-dc-act" onclick="spDcAct('enrol')" title="Ver matrícula">📋</button>
+      <button class="sp-dc-act" onclick="spDcAct('msg')"   title="Enviar mensagem">✉</button>
+      <button class="sp-dc-act" onclick="spDcAct('flag')"  title="Sinalizar">⚑</button>
+      <button class="sp-dc-confirm" onclick="confirmFromPanel()">✓ Criar turma</button>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- BOOKED CONTEXT MENU -->
+<div class="ctx" id="ctx">
+  <div class="ctx-hdr" id="ctx-hdr">—</div>
+  <div id="ctx-body"></div>
+</div>
+
+<!-- STUDENT MODAL -->
+<div class="stm-overlay" id="stm-overlay" onclick="if(event.target===this)closeStm()">
+  <div class="stm-modal" id="stm-modal" style="--stm-c:#C9A84C">
+    <div class="stm-banner">
+      <div class="stm-bg" id="stm-bg"></div>
+      <div class="stm-stripe"></div>
+      <div class="stm-level" id="stm-level">—</div>
+      <button class="stm-close" onclick="closeStm()">✕</button>
+    </div>
+    <div class="stm-meta">
+      <div class="stm-mp"><div class="stm-mv" id="stm-total">0</div><div class="stm-ml">Inscritos</div></div>
+      <div class="stm-mp"><div class="stm-mv" id="stm-avail" style="color:var(--green)">0</div><div class="stm-ml">Disponíveis</div></div>
+      <div class="stm-si" id="stm-si">—</div>
+    </div>
+    <div class="stm-legend">
+      <div class="stm-leg"><div class="stm-leg-dot" style="background:var(--green)"></div>Disponível neste slot</div>
+      <div class="stm-leg"><div class="stm-leg-dot" style="background:rgba(255,255,255,.15)"></div>Sem disponibilidade</div>
+    </div>
+    <div class="stm-search"><input class="stm-srch" id="stm-srch" placeholder="Filtrar alunos…" oninput="renderStmList()"/></div>
+    <div class="stm-list" id="stm-list"></div>
+    <div class="stm-footer">
+      <div class="stm-fi" id="stm-fi">—</div>
+      <button class="stm-btn" onclick="closeStm()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bot">
+  <span>Próximo: <span class="bot-next" id="bot-next">—</span></span>
+  <div class="bot-right">
+    <span class="bot-stat">Atribuídos: <span id="bot-a">0</span></span>
+    <span class="bot-stat">Pendentes: <span id="bot-p">0</span></span>
+    <span style="color:var(--t3)" id="bot-src">⬆ Supabase ao vivo</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/admin/alm-dossier.js"></script>
+<script>
+/* ══════════════════════════════════════
+   SUPABASE
+══════════════════════════════════════ */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+window.SB=SB; window.KEY=KEY;
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const sbGet=(t,q)=>fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbPost=(t,b)=>fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbDel=(t,q)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'DELETE',headers:H}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+
+/* ══════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════ */
+const AY='2627';
+const CK='alm-c-'+AY;
+const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
+const DAYS_PT={SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta',SÁB:'Sábado'};
+const DAYS_SHORT=['S','T','Q','Q','S','S'];
+const MORNING=[8,9,10,11];
+const AFTERNOON=[14,15,16,17,18,19,20];
+const ALL_HRS=[...MORNING,...AFTERNOON];
+const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const LCOL={EN:'#4888E8',PT:'#C8A44A',FR:'#9060D8',ES:'#F09830',DE:'#28C8B0'};
+const DAY_NUM={1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+
+/* ══════════════════════════════════════
+   LEVEL SYSTEM
+══════════════════════════════════════ */
+const LEVEL_DISPLAY={
+  kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
+  adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
+  exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}
+};
+const LEVEL_COLOR={kids:'#28C8B0',adults:'#4888E8',exam:'#C8A44A'};
+const LEVEL_DEPT={kids:'Juvenil',adults:'Geral',exam:'Exames'};
+const LEVEL_ORDER={kids:{A1:1,A2:2,B1:3,B2:4,C1:5},adults:{A1:6,A2:7,B1:8,B2:9,C1:10,C2:11},exam:{B1:12,B2:13,C1:14,C2:15}};
+function displayLevel(cefr,course){return LEVEL_DISPLAY[course]?.[cefr?.toUpperCase()]||cefr||'—';}
+function levelColor(course){return LEVEL_COLOR[course]||'#C8A44A';}
+function levelOrder(course,cefr){return LEVEL_ORDER[course]?.[cefr?.toUpperCase()]||99;}
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let GROUPS=[], TEACHERS=[], EMAP={}, RMAP={};
+window.GROUPS=GROUPS; window.EMAP=EMAP; window.RMAP=RMAP;
+let CELL_MAP={};
+let FILTER_TEACHER=null;
+let SEL_LEVEL=null;
+let SEL_BRANCH='Funchal';
+
+// Slot panel state
+let SP_DAY=null, SP_H=null, SP_GROUP=null, SP_DUR=60;
+let SP_SELECTED=new Set(); // refs of selected students
+let WZ_POOL=[]; // all eligible students for current level/branch
+let WZ_MODE='auto'; // 'auto' | 'manual'
+let WZ_TARGET=17;
+
+// Student modal state
+let STM_STUDENTS=[], STM_DAY=null, STM_H=null, STM_COLOR='#C8A44A', STM_GKEY=null;
+
+/* ══════════════════════════════════════
+   CODE COUNTER
+══════════════════════════════════════ */
+const getC=()=>parseInt(localStorage.getItem(CK)||'0');
+const nxtCode=()=>AY+'-'+String(getC()+1).padStart(4,'0');
+function useCode(){const n=getC()+1;localStorage.setItem(CK,n);return AY+'-'+String(n).padStart(4,'0');}
+
+/* ══════════════════════════════════════
+   SLOT PREFS
+══════════════════════════════════════ */
+function getSlotPrefs(ref){
+  const r=RMAP[ref]; if(!r) return [];
+  if(r.mode_used==='avail'&&r.availability){
+    try{
+      const av=typeof r.availability==='string'?JSON.parse(r.availability):r.availability;
+      if(av) return Object.keys(av).filter(k=>av[k]).map(k=>{
+        const[di,h]=k.split('_').map(Number);
+        return{day:DAY_NUM[di+1]||null,h};
+      }).filter(p=>p.day);
+    }catch(e){}
+  }
+  if(r.day_preferences){
+    try{
+      const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
+      if(Array.isArray(dp)) return dp.map(p=>{
+        const day=DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null);
+        return{day,h:parseInt(p.session_start||p.hour||9)};
+      }).filter(p=>p.day);
+    }catch(e){}
+  }
+  return [];
+}
+
+function gAvailCount(gKey,day,h){
+  const g=GROUPS.find(x=>x.key===gKey); if(!g) return 0;
+  const refs=g.studentRefs?.length?g.studentRefs:(g.students||[]).map(s=>s.ref);
+  return refs.filter(ref=>getSlotPrefs(ref).some(p=>p.day===day&&p.h===h)).length;
+}
+
+function slotAvailForLevel(dept,cefr,day,h){
+  // Returns raw count of students available at this slot for unassigned groups of level
+  const gs=branchGroups().filter(g=>g.dept===dept&&g.cefr===cefr&&!isAssigned(g.key));
+  let count=0;
+  gs.forEach(g=>{
+    const refs=g.studentRefs?.length?g.studentRefs:(g.students||[]).map(s=>s.ref);
+    count+=refs.filter(ref=>getSlotPrefs(ref).some(p=>p.day===day&&p.h===h)).length;
+  });
+  return count;
+}
+
+function isAssigned(gKey){return Object.values(CELL_MAP).some(c=>c.groupKey===gKey);}
+
+/* ── Heat class from raw count ── */
+function heatClass(n){
+  if(!n||n===0) return 'empty';
+  if(n<5)  return 'h-red';
+  if(n<=8) return 'h-org';
+  if(n<=12) return 'h-lgrn';
+  if(n<=17) return 'h-dgrn';
+  return 'h-blue';
+}
+
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+function avColor(name){
+  let h=0;for(let i=0;i<(name||'?').length;i++)h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
+  const hues=[200,215,160,270,8,340,22,285],hue=hues[Math.abs(h)%hues.length];
+  const sat=55+(Math.abs(h>>4)%25),lit=58+(Math.abs(h>>8)%14);
+  return{bg:`hsl(${hue},${sat}%,18%)`,border:`hsl(${hue},${sat}%,35%)`,text:`hsl(${hue},${sat+10}%,${lit}%)`};
+}
+function calcEnd(start,dMin){
+  if(!start)return'—';
+  const[hh,mm]=start.split(':').map(Number),tot=hh*60+mm+dMin;
+  return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
+}
+function tHours(tid){
+  let m=0;Object.values(CELL_MAP).forEach(c=>{if(c.teacherId===tid)m+=c.durationMin||60;});
+  return +(m/60).toFixed(1);
+}
+function attachStudents(g){
+  if(g.students?.length) return;
+  g.students=g.studentRefs?.map(ref=>EMAP[ref]).filter(Boolean)||[];
+  if(!g.students.length&&g.studentCount>0){
+    const cefr=g.cefr,lang=g.lang,branch=(g.branch||'').replace(/_/g,' ');
+    g.students=Object.values(EMAP).filter(e=>
+      e.level_cefr===cefr&&e.lang===lang&&
+      (e.branch||'').replace(/\s*-\s*sede/i,'').trim()===branch
+    );
+  }
+  g.studentRefs=g.students.map(s=>s.ref);
+}
+
+/* ══════════════════════════════════════
+   BOOT
+══════════════════════════════════════ */
+async function boot(){
+  loPct(5,'A ligar…'); loadSaved();
+  try{
+    loPct(20,'A carregar professores…');
+    const raw=await sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=100');
+    if(raw?.length){TEACHERS=raw.map(r=>({id:r.id,code:r.code,name:r.name,lang:r.lang||'EN',native:r.native||false,contractH:r.contract_hours_week||22,branch:r.branch_primary||'Funchal',branches:r.branches||(r.branch_primary?[r.branch_primary]:['Funchal'])}));}
+    else throw new Error('empty');
+  }catch(e){TEACHERS=FALLBACK_TEACHERS;}
+  try{
+    loPct(40,'A carregar matrículas…');
+    const raw=await sbGet('enrolments','select=ref,name,lang,level_cefr,branch,phone,email,status&academic_year=eq.2026%2F2027&status=neq.archived&limit=2000');
+    if(raw?.length) raw.forEach(s=>{EMAP[s.ref]=s;});
+  }catch(e){}
+  try{
+    loPct(60,'A carregar grupos…');
+    const raw=await sbGet('groups','select=group_key,branch,lang,level_cefr,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
+    if(raw?.length){GROUPS=raw.map(normGroup);}else throw new Error('empty');
+  }catch(e){if(Object.keys(EMAP).length) buildGroupsFromEnrolments();}
+  try{
+    loPct(80,'A carregar pedidos…');
+    const raw=await sbGet('student_requests','select=ref,lang,level_cefr,day_preferences,availability,mode_used&academic_year=eq.2026%2F2027&limit=2000');
+    if(raw?.length) raw.forEach(r=>{RMAP[r.ref]=r;});
+  }catch(e){}
+  window.GROUPS=GROUPS; window.EMAP=EMAP; window.RMAP=RMAP;
+  // Populate branch dropdown from loaded groups
+  const rawBranches=[...new Set(GROUPS.map(g=>g.branch).filter(Boolean))];
+  // Normalise: strip "- Sede", deduplicate, capitalise
+  const branchMap={};
+  rawBranches.forEach(b=>{
+    const key=b.replace(/\s*-\s*sede/i,'').trim();
+    if(!branchMap[key]) branchMap[key]=key;
+  });
+  const branches=Object.keys(branchMap).sort();
+  const bSel=document.getElementById('branch-select');
+  const ordered=['Funchal',...branches.filter(b=>b!=='Funchal')];
+  bSel.innerHTML=ordered.map(b=>`<option value="${b}"${b==='Funchal'?' selected':''}>${b}</option>`).join('');
+  SEL_BRANCH='Funchal';
+  // Show barometer immediately — stage 1 always done (Funchal pre-selected)
+  document.getElementById('level-strip').classList.add('show');
+  document.getElementById('st1-label').textContent='Funchal';
+  setStage(2); // 1=done, 2=active (waiting for level)
+  loPct(100,'Pronto'); renderAll(); setTimeout(loHide,400);
+}
+
+function normGroup(row){
+  const parts=(row.group_key||'').split('|');
+  const branch=(parts[0]||row.branch||'?').replace(/_/g,' ');
+  const lang=parts[1]||row.lang||'EN';
+  const deptRaw=(parts[2]||'').toLowerCase();
+  const cefr=((parts[3]||row.level_cefr||'')).toUpperCase();
+  const course=deptRaw==='exam'?'exam':deptRaw==='juvenil'?'kids':'adults';
+  const dept=course==='kids'?'juvenil':course==='exam'?'exam':'geral';
+  return{
+    key:row.group_key,branch,lang,dept,cefr,course,
+    label:displayLevel(cefr,course),
+    viability:row.viability||'viable',
+    studentRefs:Array.isArray(row.student_refs)?row.student_refs:[],
+    studentCount:row.student_count||0,students:[],
+    turmaCode:null,teacherId:null,
+    recommendedDay:null,recommendedH:null
+  };
+}
+function buildGroupsFromEnrolments(){
+  const map={};
+  Object.values(EMAP).forEach(s=>{
+    const lang=s.lang||'EN',cefr=(s.level_cefr||'A1').toUpperCase();
+    const branch=(s.branch||'Funchal').replace(/\s*-\s*sede/i,'').trim();
+    const k=`${branch.toUpperCase()}|${lang}|geral|${cefr}`;
+    if(!map[k]) map[k]={group_key:k,branch,lang,level_cefr:cefr,student_count:0,viability:'viable',student_refs:[]};
+    map[k].student_refs.push(s.ref); map[k].student_count++;
+  });
+  GROUPS=Object.values(map).map(normGroup);
+}
+
+/* ══════════════════════════════════════
+   SAVE / RESTORE
+══════════════════════════════════════ */
+function loadSaved(){
+  const saved=localStorage.getItem('alm-cells-'+AY);
+  if(saved){try{CELL_MAP=JSON.parse(saved);}catch(e){}}
+}
+function saveCells(){localStorage.setItem('alm-cells-'+AY,JSON.stringify(CELL_MAP));}
+function saveAll(){saveCells();showToast('Atribuições guardadas ✓','ok');}
+
+/* ══════════════════════════════════════
+   RENDER ALL
+══════════════════════════════════════ */
+function branchTeachers(){
+  const filtered=TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.some(b=>normBranch(b)===normBranch(SEL_BRANCH))||normBranch(t.branch)===normBranch(SEL_BRANCH));
+  return filtered.length?filtered:TEACHERS;
+}
+
+function selectBranch(b){
+  SEL_BRANCH=b; SEL_LEVEL=null;
+  document.getElementById('st1-label').textContent=b;
+  setStage(2);
+  renderAll();
+}
+
+function normBranch(b){return(b||'').replace(/\s*-\s*sede/i,'').trim().toLowerCase();}
+
+function branchGroups(){
+  if(!SEL_BRANCH) return GROUPS;
+  const nb=normBranch(SEL_BRANCH);
+  return GROUPS.filter(g=>normBranch(g.branch)===nb);
+}
+
+function renderAll(){buildTeacherFilter();renderLevelList();renderGrid();renderHourBars();updateStats();}
+
+/* ══════════════════════════════════════
+   TEACHER FILTER
+══════════════════════════════════════ */
+function buildTeacherFilter(){
+  const langs=[...new Set(branchTeachers().map(t=>t.lang))].sort();
+  let html=`<div class="tf-pill active" onclick="filterTeacher(null,this)">Todos</div>`;
+  langs.forEach(lang=>{html+=`<div class="tf-pill" onclick="filterTeacher('${lang}',this)">${FLAGS[lang]||''} ${lang}</div>`;});
+  branchTeachers().filter(t=>tHours(t.id)>0).forEach(t=>{
+    const lc=LCOL[t.lang]||'#C8A44A';
+    html+=`<div class="tf-pill" style="border-color:${lc}44;color:${lc}" onclick="filterTeacher('${t.id}',this)">${t.code}</div>`;
+  });
+  document.getElementById('t-filter').innerHTML=html;
+}
+function filterTeacher(val,el){
+  FILTER_TEACHER=val;
+  document.querySelectorAll('.tf-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+/* ══════════════════════════════════════
+   LEVEL LIST
+══════════════════════════════════════ */
+function renderLevelList(){
+  const levelMap={};
+  branchGroups().forEach(g=>{
+    const k=g.dept+'|'+g.cefr;
+    if(!levelMap[k]) levelMap[k]={dept:g.dept,cefr:g.cefr,course:g.course,label:g.label,groups:[],inscr:0,subm:0};
+    levelMap[k].groups.push(g);
+    levelMap[k].inscr+=g.studentCount||0;
+    levelMap[k].subm+=g.studentRefs?.filter(r=>RMAP[r]).length||0;
+  });
+  const sorted=Object.values(levelMap).sort((a,b)=>levelOrder(a.course,a.cefr)-levelOrder(b.course,b.cefr));
+  const depts=['juvenil','geral','exam'];
+  const deptLabel={juvenil:'🧒 Juvenil',geral:'📘 Geral',exam:'🎓 Exames'};
+  let html='';
+  depts.forEach(dept=>{
+    const items=sorted.filter(x=>x.dept===dept);
+    if(!items.length) return;
+    html+=`<div class="dept-hdr ${dept==='juvenil'?'kids':dept==='exam'?'exam':'adults'}">${deptLabel[dept]}</div>`;
+    items.forEach(item=>{
+      const total=item.groups.length;
+      const assigned=item.groups.filter(g=>isAssigned(g.key)).length;
+      const col=levelColor(item.course);
+      const isActive=SEL_LEVEL?.dept===dept&&SEL_LEVEL?.cefr===item.cefr;
+      const dotCol=assigned===total&&total>0?'var(--green)':assigned>0?'var(--amber)':'var(--b2)';
+      html+=`<div class="lvl-row${isActive?' active':''}" onclick="selectLevel('${dept}','${item.cefr}','${item.course}')">
+        <div class="lvl-dot" style="background:${dotCol}"></div>
+        <div class="lvl-info">
+          <div class="lvl-name" style="color:${col}">${item.label}</div>
+          <div class="lvl-counts">${item.inscr} al · ${total}T · ${item.subm} sub</div>
+        </div>
+        <div class="lvl-turmas">
+          <span style="color:${assigned===total&&total>0?'var(--green)':assigned>0?'var(--amber)':'var(--t3)'};font-size:10px;font-weight:700">${assigned}</span><span style="color:var(--t3);font-size:9px">/${total}</span>
+        </div>
+      </div>`;
+      html+=`<div class="turma-rows">`;
+      item.groups.forEach(g=>{
+        const cell=Object.values(CELL_MAP).find(c=>c.groupKey===g.key);
+        const n=g.studentCount||g.studentRefs?.length||0;
+        const slotStr=cell?`${cell.day} ${cell.h}h`:'—';
+        const tchr=cell?TEACHERS.find(t=>t.id===cell.teacherId):null;
+        const split=g.key.split('|')[4]||'';
+        html+=`<div class="turma-row">
+          <div class="tr-code">${cell?.turmaCode||'—'}</div>
+          <div class="tr-info"><div class="tr-slot">${slotStr}${split?' · '+split:''}</div></div>
+          <div class="tr-n" style="color:${n<5?'var(--red)':n<8?'var(--amber)':'var(--green)'}">${n}</div>
+          <div class="tr-teacher ${cell?'assigned':'unassigned'}" onclick="event.stopPropagation();jumpToCell('${g.key}')">${tchr?tchr.code:'+atrib'}</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    });
+  });
+  document.getElementById('level-list').innerHTML=html;
+  document.getElementById('lh-count').textContent=sorted.length+' níveis';
+}
+
+function selectLevel(dept,cefr,course){
+  SEL_LEVEL={dept,cefr,course};
+  const col=levelColor(course);
+  const lvl=displayLevel(cefr,course);
+  const strip=document.getElementById('level-strip');
+  strip.classList.add('show');
+
+  // Stage barometer: 1=done(sede), 2=done(nível), 3=active, 4=pending
+  setStage(3);
+  document.getElementById('st1-label').textContent=SEL_BRANCH||'Sede';
+  document.getElementById('st2-label').textContent=lvl;
+
+  const gs=branchGroups().filter(g=>g.dept===dept&&g.cefr===cefr);
+  const inscr=gs.reduce((a,g)=>a+(g.studentCount||0),0);
+  const subm=gs.reduce((a,g)=>a+(g.studentRefs?.filter(r=>RMAP[r]).length||0),0);
+  const atr=gs.filter(g=>isAssigned(g.key)).length;
+  document.getElementById('ls-ins').textContent=inscr;
+  document.getElementById('ls-sub').textContent=subm;
+  document.getElementById('ls-tur').textContent=gs.length;
+  const atrEl=document.getElementById('ls-atr');
+  atrEl.textContent=atr;
+  atrEl.style.color=atr===gs.length&&gs.length>0?'var(--green)':atr>0?'var(--amber)':'var(--t3)';
+
+  // Build WZ_POOL: all students in this level/branch not yet placed
+  buildWzPool();
+  renderLevelList(); renderGrid();
+}
+
+function buildWzPool(){
+  if(!SEL_LEVEL){WZ_POOL=[];return;}
+  const gs=branchGroups().filter(g=>g.dept===SEL_LEVEL.dept&&g.cefr===SEL_LEVEL.cefr);
+  const placedRefs=new Set();
+  Object.values(CELL_MAP).forEach(cell=>{
+    const g=GROUPS.find(x=>x.key===cell.groupKey);
+    if(g) (cell.studentRefs||[]).forEach(r=>placedRefs.add(r));
+  });
+  gs.forEach(g=>attachStudents(g));
+  const allStudents=gs.flatMap(g=>g.students||[]);
+  // Deduplicate by ref
+  const seen=new Set();
+  WZ_POOL=allStudents.filter(s=>{
+    if(!s?.ref||seen.has(s.ref)||placedRefs.has(s.ref)) return false;
+    seen.add(s.ref); return true;
+  });
+}
+
+function jumpToCell(groupKey){
+  const cell=Object.values(CELL_MAP).find(c=>c.groupKey===groupKey);
+  if(!cell) return;
+  const el=document.querySelector(`[data-slot="${cell.day}_${cell.h}"]`);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid var(--g)';setTimeout(()=>el.style.outline='',1200);}
+}
+
+/* ══════════════════════════════════════
+   GRID
+══════════════════════════════════════ */
+function renderGrid(){
+  const todayKey=['SÁB','SEG','TER','QUA','QUI','SEX','SÁB'][new Date().getDay()];
+  let html='<thead><tr><th class="day-th">Dia</th>';
+  MORNING.forEach(h=>{html+=`<th>${h}h</th>`;});
+  html+='<th class="brk-th">—</th>';
+  AFTERNOON.forEach(h=>{html+=`<th>${h}h</th>`;});
+  html+='<th class="tot-th">Total</th></tr></thead><tbody>';
+  DAYS.forEach(day=>{
+    const isToday=day===todayKey;
+    html+=`<tr class="day-row${isToday?' today':''}"><td class="day-lbl"><div class="dl-name">${day}</div></td>`;
+    MORNING.forEach(h=>{html+=renderCell(day,h);});
+    html+='<td class="brk-cell"><div class="brk-line"></div></td>';
+    AFTERNOON.forEach(h=>{html+=renderCell(day,h);});
+    const dayTotal=ALL_HRS.filter(h=>CELL_MAP[day+'_'+h]).length;
+    const bars=Array.from({length:6},(_,i)=>`<div class="tot-bar${i<dayTotal?' on':''}"></div>`).join('');
+    html+=`<td class="tot-cell"><div class="tot-val">${dayTotal}</div><div class="tot-bars">${bars}</div></td></tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('grid-table').innerHTML=html;
+}
+
+function renderCell(day,h){
+  const key=day+'_'+h;
+  const cell=CELL_MAP[key];
+  if(cell){
+    const tchr=TEACHERS.find(t=>t.id===cell.teacherId);
+    const hasTeacher=!!tchr;
+    const cls=hasTeacher?'booked':'booked-np';
+    return`<td class="slot-cell" data-slot="${key}" onclick="openBookedCtx(event,'${day}',${h})">
+      <div class="slot-inner ${cls}">
+        <div class="slot-code">${cell.turmaCode||'?'}</div>
+        <div class="slot-teacher">${tchr?tchr.code:'sem prof'}</div>
+        <div class="slot-n">${cell.n||''} al</div>
+      </div>
+    </td>`;
+  }
+  // EMPTY — demand heat
+  let state='empty', avail=0, recDot='';
+  if(SEL_LEVEL){
+    avail=slotAvailForLevel(SEL_LEVEL.dept,SEL_LEVEL.cefr,day,h);
+    state=heatClass(avail);
+    const isRec=GROUPS.some(g=>
+      g.dept===SEL_LEVEL.dept&&g.cefr===SEL_LEVEL.cefr&&
+      !isAssigned(g.key)&&g.recommendedDay===day&&g.recommendedH===h);
+    if(isRec){state='rec';recDot='<div class="slot-rec-dot"></div>';}
+  }
+  const heatLabel=(state!=='empty'&&state!=='rec')
+    ?`<div class="slot-heat-n">${avail}</div>`:'';
+  return`<td class="slot-cell" data-slot="${key}" onclick="openSlotPanel(event,'${day}',${h})">
+    <div class="slot-inner ${state}">
+      ${recDot}
+      <div style="font-size:14px;color:rgba(201,168,76,.08)">+</div>
+      ${heatLabel}
+    </div>
+  </td>`;
+}
+
+/* ══════════════════════════════════════
+   STAGE BAROMETER
+══════════════════════════════════════ */
+function setStage(active){
+  // active = 1,2,3,4
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('st'+i);
+    if(!el) return;
+    el.classList.remove('done','active');
+    if(i<active) el.classList.add('done');
+    else if(i===active) el.classList.add('active');
+    const line=document.getElementById('stl'+i);
+    if(line) line.classList.toggle('done',i<active);
+  });
+}
+
+function stageClick(n){
+  if(n===1){selectBranch(SEL_BRANCH);}
+  if(n===2&&SEL_LEVEL){selectLevel(SEL_LEVEL.dept,SEL_LEVEL.cefr,SEL_LEVEL.course);}
+}
+
+/* ══════════════════════════════════════
+   SLOT PANEL — WIZARD
+══════════════════════════════════════ */
+function openSlotPanel(e,day,h){
+  e.stopPropagation();
+  closeCtx();
+  if(!SEL_LEVEL){showToast('Seleccione um nível primeiro','warn');return;}
+  SP_DAY=day; SP_H=h; SP_DUR=60; SP_SELECTED=new Set();
+
+  // Position panel
+  const panel=document.getElementById('spanel');
+  let x=e.clientX+10, y=e.clientY-20;
+  if(x+290>window.innerWidth) x=e.clientX-300;
+  if(y+560>window.innerHeight) y=window.innerHeight-570;
+  if(y<10) y=10;
+  panel.style.left=x+'px'; panel.style.top=y+'px';
+
+  document.getElementById('sp-day').textContent=`${DAYS_PT[day]||day} · ${h}h`;
+  document.getElementById('sp-start').value=String(h).padStart(2,'0')+':00';
+  document.querySelectorAll('.sp-dp').forEach(p=>p.classList.toggle('active',p.dataset.min==='60'));
+
+  // Populate teacher select
+  let tHtml=`<option value="">— opcional —</option>`;
+  branchTeachers().forEach(t=>{
+    const hl=tHours(t.id);
+    const over=hl>=t.contractH;
+    tHtml+=`<option value="${t.id}"${over?' style="color:#f07880"':''}>${t.code} · ${t.name} · ${hl}/${t.contractH}h</option>`;
+  });
+  document.getElementById('sp-teacher').innerHTML=tHtml;
+
+  updateSpPreview();
+  // Init mode
+  WZ_MODE='auto'; WZ_TARGET=17; SP_SELECTED=new Set();
+  document.getElementById('sp-target').value=17;
+  wzSetMode('auto');
+  panel.classList.add('open');
+}
+
+function wzGoStep(n){
+  // Simplified — no longer a two-step wizard, just refresh
+  if(n===3) wzSetMode(WZ_MODE);
+  if(n===4){
+    if(WZ_MODE==='manual'&&SP_SELECTED.size===0){showToast('Seleccione pelo menos um aluno','warn');return;}
+    setStage(4);
+    updateSpPreview();
+  }
+}
+
+function spDcAct(action){
+  // Discord card actions — only meaningful in manual mode with a student selected
+  // For now show a toast; full dossier integration via alm-dossier.js
+  const sel=[...SP_SELECTED];
+  if(WZ_MODE==='manual'&&sel.length===1){
+    if(action==='enrol'&&window.openDossier) openDossier(sel[0],'staff');
+    else if(action==='msg') showToast('Mensagem: função em desenvolvimento','info');
+    else if(action==='flag') showToast('Sinalizado: '+sel[0],'warn');
+  } else {
+    if(action==='enrol') showToast('Seleccione um aluno em Manual para ver matrícula','info');
+    else if(action==='msg') showToast('Mensagem: seleccione um aluno em Manual','info');
+    else if(action==='flag') showToast('Sinalizar: seleccione um aluno em Manual','info');
+  }
+}
+
+function wzSetMode(mode){
+  WZ_MODE=mode;
+  document.getElementById('mode-auto').classList.toggle('active',mode==='auto');
+  document.getElementById('mode-manual').classList.toggle('active',mode==='manual');
+  document.getElementById('wz-auto-summary').style.display=mode==='auto'?'':'none';
+  document.getElementById('wz-manual-list').style.display=mode==='manual'?'':'none';
+  if(mode==='auto'){
+    wzAutoSummary();
+  } else {
+    // Pre-select top WZ_TARGET students: available at this slot first, then rest
+    SP_SELECTED=new Set();
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
+    wzRenderStudents();
+  }
+}
+
+function wzOnTargetChange(){
+  WZ_TARGET=parseInt(document.getElementById('sp-target').value)||17;
+  if(WZ_MODE==='auto') wzAutoSummary();
+  else {
+    // Re-apply pre-selection to new target
+    SP_SELECTED=new Set();
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    [...avail,...rest].slice(0,WZ_TARGET).forEach(s=>SP_SELECTED.add(s.ref));
+    wzRenderStudents();
+  }
+}
+
+function wzAutoSummary(){
+  const target=WZ_TARGET;
+  const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+  const fromAvail=Math.min(avail.length,target);
+  const needed=Math.max(0,target-fromAvail);
+  const fromPool=Math.min(needed,WZ_POOL.length-fromAvail);
+  const total=fromAvail+fromPool;
+
+  const availEl=document.getElementById('sp-auto-avail');
+  const fillEl=document.getElementById('sp-auto-fill');
+  const totalEl=document.getElementById('sp-auto-total');
+  if(availEl) availEl.textContent=fromAvail;
+  if(fillEl){
+    fillEl.textContent=fromPool;
+    fillEl.style.color=fromPool>0?'var(--amber)':'var(--t3)';
+    fillEl.parentElement.style.opacity=fromPool>0?'1':'0.35';
+  }
+  if(totalEl){
+    totalEl.textContent=`${total} aluno${total!==1?'s':''} serão atribuídos`;
+    totalEl.style.background=total>=target?'var(--green-d)':'var(--amber-d)';
+    totalEl.style.borderColor=total>=target?'var(--green-b)':'var(--amber-b)';
+    totalEl.style.color=total>=target?'var(--green)':'var(--amber)';
+  }
+
+  const infoEl=document.getElementById('sp-mode-info');
+  if(infoEl) infoEl.textContent=`${WZ_POOL.length} no pool · ${avail.length} disponíveis`;
+
+  const countEl=document.getElementById('sp-stu-count');
+  if(countEl) countEl.textContent=`${total} seleccionados (auto)`;
+}
+
+function wzRenderStudents(){
+  const infoEl=document.getElementById('sp-mode-info');
+  if(infoEl){
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H)).length;
+    infoEl.textContent=`${WZ_POOL.length} no pool · ${avail} disponíveis`;
+  }
+  const q=(document.getElementById('sp-stu-srch')?.value||'').toLowerCase();
+  const pool=[...WZ_POOL].sort((a,b)=>{
+    const aA=getSlotPrefs(a.ref).some(p=>p.day===SP_DAY&&p.h===SP_H);
+    const bA=getSlotPrefs(b.ref).some(p=>p.day===SP_DAY&&p.h===SP_H);
+    if(aA!==bA) return aA?-1:1;
+    return(a.name||'').localeCompare(b.name||'');
+  });
+  const filtered=pool.filter(s=>!q||(s.name||s.ref||'').toLowerCase().includes(q));
+  let html='';
+  filtered.forEach(s=>{
+    const avail=getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H);
+    const sel=SP_SELECTED.has(s.ref);
+    const av=avColor(s.name||s.ref||'?');
+    const ini=(s.name||s.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    html+=`<div class="sp-stu-row${sel?' sel':''}${avail?' avail':''}" onclick="wzToggle('${s.ref}')">
+      <div class="sp-stu-chk"><span class="sp-stu-chk-tick">✓</span></div>
+      <div class="sp-stu-av" style="background:${av.bg};border-color:${avail?'rgba(39,174,96,.5)':av.border};color:${av.text}">${ini}</div>
+      <div class="sp-stu-name">${s.name||s.ref||'—'}</div>
+      <div class="sp-stu-badge ${avail?'yes':'no'}">${avail?'✓':'·'}</div>
+    </div>`;
+  });
+  if(!html) html=`<div style="padding:14px;text-align:center;font-family:var(--mono);font-size:8px;color:var(--t3)">Sem alunos no pool</div>`;
+  document.getElementById('sp-stu-list').innerHTML=html;
+  wzUpdateCount();
+}
+
+function wzToggle(ref){
+  if(SP_SELECTED.has(ref)) SP_SELECTED.delete(ref);
+  else SP_SELECTED.add(ref);
+  wzRenderStudents();
+}
+
+function wzUpdateCount(){
+  if(WZ_MODE==='auto'){wzAutoSummary();return;}
+  const n=SP_SELECTED.size;
+  const target=WZ_TARGET;
+  const el=document.getElementById('sp-stu-count');
+  if(el){
+    const col=n===target?'var(--green)':n>target?'var(--amber)':'var(--t3)';
+    el.innerHTML=`<span style="color:${col};font-weight:700">${n}</span><span style="color:var(--t3)"> / ${target}</span>`;
+  }
+}
+
+function setDur(el){
+  SP_DUR=parseInt(el.dataset.min);
+  document.querySelectorAll('.sp-dp').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  updateSpPreview();
+}
+
+function updateSpPreview(){
+  const start=document.getElementById('sp-start')?.value||'';
+  const end=calcEnd(start,SP_DUR);
+  const endEl=document.getElementById('sp-end');
+  if(endEl) endEl.textContent=end!=='—'?`→ ${end}`:'';
+  const n=WZ_MODE==='auto'?WZ_TARGET:SP_SELECTED.size;
+  const col=n>0?'var(--green)':'var(--t3)';
+  const demEl=document.getElementById('sp-demand-info');
+  if(demEl) demEl.innerHTML='';
+  const preEl=document.getElementById('sp-code-preview');
+  if(preEl) preEl.innerHTML=start?`<span style="color:var(--g);font-weight:700">${nxtCode()}</span> · ${start}–${end}`:'';
+}
+
+function closeSpanel(){document.getElementById('spanel').classList.remove('open');}
+
+async function confirmFromPanel(){
+  // Resolve selected refs based on mode
+  let selectedRefs=[];
+  if(WZ_MODE==='auto'){
+    const target=WZ_TARGET;
+    const avail=WZ_POOL.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const rest=WZ_POOL.filter(s=>!getSlotPrefs(s.ref).some(p=>p.day===SP_DAY&&p.h===SP_H));
+    const picked=[...avail.slice(0,target),...rest.slice(0,Math.max(0,target-avail.length))];
+    selectedRefs=picked.map(s=>s.ref);
+  } else {
+    selectedRefs=[...SP_SELECTED];
+  }
+  if(selectedRefs.length===0){showToast('Nenhum aluno para atribuir','warn');return;}
+  if(!SEL_LEVEL) return;
+
+  const tId=document.getElementById('sp-teacher').value||null;
+  const teacher=tId?TEACHERS.find(t=>t.id===tId):null;
+  const start=document.getElementById('sp-start').value||String(SP_H).padStart(2,'0')+':00';
+  const code=useCode();
+  const key=SP_DAY+'_'+SP_H;
+  const n=selectedRefs.length;
+
+  const gs=branchGroups().filter(g=>g.dept===SEL_LEVEL.dept&&g.cefr===SEL_LEVEL.cefr&&!isAssigned(g.key));
+  const g=gs[0];
+  const gKey=g?.key||`${SEL_BRANCH}|EN|${SEL_LEVEL.dept}|${SEL_LEVEL.cefr}`;
+
+  CELL_MAP[key]={
+    turmaCode:code,groupKey:gKey,
+    teacherId:tId||null,teacherCode:teacher?.code||null,
+    level:displayLevel(SEL_LEVEL.cefr,SEL_LEVEL.course),
+    cefr:SEL_LEVEL.cefr,course:SEL_LEVEL.course,dept:SEL_LEVEL.dept,
+    branch:SEL_BRANCH,lang:g?.lang||'EN',
+    day:SP_DAY,h:SP_H,n,
+    startTime:start,endTime:calcEnd(start,SP_DUR),durationMin:SP_DUR,
+    studentRefs:selectedRefs
+  };
+
+  // Remove placed students from pool
+  WZ_POOL=WZ_POOL.filter(s=>!selectedRefs.includes(s.ref));
+
+  try{
+    await sbPost('classes',{
+      turma_code:code,
+      teacher_id:tId||null,teacher_name:teacher?.name||null,teacher_code:teacher?.code||null,
+      lang:g?.lang||'EN',level_code:SEL_LEVEL.cefr,
+      level_display:displayLevel(SEL_LEVEL.cefr,SEL_LEVEL.course),
+      department:SEL_LEVEL.course,branch:SEL_BRANCH,
+      day_of_week:SP_DAY,hour:SP_H,
+      start_time:start,end_time:calcEnd(start,SP_DUR),duration_min:SP_DUR,
+      group_key:gKey,student_refs:selectedRefs,
+      academic_year:'2026/2027',status:'active'
+    });
+  }catch(e){showToast('Guardado localmente','warn');}
+
+  saveCells(); closeSpanel(); renderAll();
+  SP_SELECTED=new Set();
+  setStage(3);
+  const teacherStr=teacher?` · ${teacher.code}`:'';
+  showToast(`${code}${teacherStr} · ${n} alunos · ${DAYS_PT[SP_DAY]||SP_DAY} ${start}–${calcEnd(start,SP_DUR)}`,'ok');
+}
+
+/* ══════════════════════════════════════
+   BOOKED CONTEXT MENU
+══════════════════════════════════════ */
+function openBookedCtx(e,day,h){
+  e.preventDefault(); e.stopPropagation();
+  closeSpanel();
+  const key=day+'_'+h;
+  const cell=CELL_MAP[key]; if(!cell) return;
+  const tchr=TEACHERS.find(t=>t.id===cell.teacherId);
+  const ctx=document.getElementById('ctx');
+  let x=e.clientX+8, y=e.clientY+8;
+  if(x+210>window.innerWidth) x=e.clientX-218;
+  if(y+260>window.innerHeight) y=e.clientY-268;
+  ctx.style.left=x+'px'; ctx.style.top=y+'px';
+  document.getElementById('ctx-hdr').textContent=`${cell.turmaCode} · ${DAYS_PT[day]||day} ${h}h`;
+  document.getElementById('ctx-body').innerHTML=`
+    <div class="ctx-item" onclick="openStmFromCell('${key}')">
+      <div class="ctx-dot" style="background:rgba(40,200,176,.3)"></div>👥 Ver alunos
+    </div>
+    <div class="ctx-item" onclick="revealTeacherChange('${key}')">
+      <div class="ctx-dot" style="background:rgba(200,164,74,.3)"></div>✎ ${tchr?'Mudar professor':'Atribuir professor'}
+    </div>
+    <div class="ctx-sep"></div>
+    <div id="ctx-tchange" style="display:none;flex-direction:column;gap:4px;padding:0 4px 4px">
+      <select class="ctx-select" id="ctx-t-sel">
+        <option value="">— sem professor —</option>
+        ${branchTeachers().map(t=>`<option value="${t.id}"${t.id===cell.teacherId?' selected':''}>${t.code} · ${t.name}</option>`).join('')}
+      </select>
+      <button class="ctx-confirm" onclick="confirmChangeTeacher('${key}')">✓ Confirmar</button>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" onclick="removeCell('${key}')">
+      <div class="ctx-dot" style="background:rgba(232,69,90,.3)"></div>✕ Remover
+    </div>`;
+  ctx.classList.add('open');
+}
+
+function revealTeacherChange(key){
+  document.getElementById('ctx-tchange').style.cssText='display:flex;flex-direction:column;gap:4px;padding:0 4px 4px';
+}
+
+function openStmFromCell(key){
+  closeCtx();
+  const cell=CELL_MAP[key]; if(!cell) return;
+  openStmForGroup(cell.groupKey,cell.day,cell.h);
+}
+
+async function confirmChangeTeacher(key){
+  const tId=document.getElementById('ctx-t-sel')?.value||null;
+  const teacher=tId?TEACHERS.find(t=>t.id===tId):null;
+  CELL_MAP[key].teacherId=tId||null;
+  CELL_MAP[key].teacherCode=teacher?.code||null;
+  try{await sbPatch('classes',`turma_code=eq.${CELL_MAP[key].turmaCode}`,{teacher_id:tId||null,teacher_name:teacher?.name||null,teacher_code:teacher?.code||null});}
+  catch(e){}
+  saveCells(); closeCtx(); renderAll();
+  showToast(teacher?`Professor: ${teacher.code}`:'Professor removido','ok');
+}
+
+async function removeCell(key){
+  if(!confirm('Remover esta atribuição?')) return;
+  const cell=CELL_MAP[key]; if(!cell) return;
+  try{await sbDel('classes',`turma_code=eq.${cell.turmaCode}`);}catch(e){}
+  delete CELL_MAP[key];
+  saveCells(); closeCtx(); renderAll();
+  showToast('Atribuição removida','info');
+}
+
+function closeCtx(){document.getElementById('ctx').classList.remove('open');}
+document.addEventListener('mousedown',e=>{
+  if(!e.target.closest('#ctx')&&!e.target.closest('#spanel')) closeCtx();
+  if(!e.target.closest('#spanel')&&!e.target.closest('.slot-cell')&&!e.target.closest('.slot-inner')) closeSpanel();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeCtx();closeSpanel();closeStm();if(window.closeDossier)closeDossier();}
+});
+
+/* ══════════════════════════════════════
+   STUDENT MODAL
+══════════════════════════════════════ */
+function openStmForGroup(gKey,day,h){
+  const g=GROUPS.find(x=>x.key===gKey); if(!g) return;
+  attachStudents(g);
+  STM_STUDENTS=[...g.students||[]].sort((a,b)=>{
+    // Available first
+    const aA=getSlotPrefs(a.ref).some(p=>p.day===day&&p.h===h);
+    const bA=getSlotPrefs(b.ref).some(p=>p.day===day&&p.h===h);
+    if(aA!==bA) return aA?-1:1;
+    return(a.name||'').localeCompare(b.name||'');
+  });
+  STM_DAY=day; STM_H=h; STM_GKEY=gKey;
+  STM_COLOR=levelColor(g.course);
+  const n=g.studentCount||STM_STUDENTS.length;
+  const avail=STM_STUDENTS.filter(s=>getSlotPrefs(s.ref).some(p=>p.day===day&&p.h===h)).length;
+  const cell=Object.values(CELL_MAP).find(c=>c.groupKey===gKey);
+  document.getElementById('stm-modal').style.setProperty('--stm-c',STM_COLOR);
+  document.getElementById('stm-bg').style.background=`linear-gradient(135deg,${STM_COLOR}44,${STM_COLOR}18,rgba(0,0,0,.8))`;
+  document.getElementById('stm-level').textContent=cell?`${cell.turmaCode} · ${g.label}`:g.label;
+  document.getElementById('stm-total').textContent=n;
+  document.getElementById('stm-avail').textContent=avail;
+  const tchr=cell?TEACHERS.find(t=>t.id===cell.teacherId):null;
+  document.getElementById('stm-si').innerHTML=
+    `<span>${DAYS_PT[day]||day} · ${h}h</span><span style="color:var(--t3)">${tchr?tchr.code+' · ':''}${g.branch}</span>`;
+  document.getElementById('stm-fi').textContent=`${avail}/${n} disponíveis neste slot`;
+  document.getElementById('stm-srch').value='';
+  renderStmList();
+  document.getElementById('stm-overlay').classList.add('open');
+}
+
+function renderStmList(){
+  const q=(document.getElementById('stm-srch')?.value||'').toLowerCase();
+  const list=STM_STUDENTS.filter(s=>!q||(s.name||s.ref||'').toLowerCase().includes(q));
+  let html='';
+  list.forEach((s,i)=>{
+    const prefs=getSlotPrefs(s.ref);
+    const thisSlot=prefs.some(p=>p.day===STM_DAY&&p.h===STM_H);
+    const av=avColor(s.name||s.ref||'?');
+    const ini=(s.name||s.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    // Day dots
+    const dayDots=DAYS.map((d,di)=>{
+      const ok=prefs.some(p=>p.day===d);
+      return`<div class="stm-dd${ok?' yes':' no'}" title="${d}">${DAYS_SHORT[di]}</div>`;
+    }).join('');
+    html+=`<div class="stm-row${thisSlot?' avail':''}" onclick="if(window.openDossier)openDossier('${s.ref}','staff')">
+      <div class="stm-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="stm-av" style="background:${av.bg};border-color:${thisSlot?STM_COLOR:av.border};color:${av.text}">${ini}</div>
+      <div class="stm-info">
+        <div class="stm-name">${s.name||s.ref||'—'}</div>
+        <div class="stm-ref">${s.ref||'—'}</div>
+      </div>
+      <div class="stm-days">${dayDots}</div>
+      <div class="stm-badge ${thisSlot?'yes':'no'}">${thisSlot?'✓':'·'}</div>
+    </div>`;
+  });
+  if(!html) html=`<div style="padding:18px;text-align:center;font-family:var(--mono);font-size:8px;color:var(--t3)">Nenhum aluno</div>`;
+  document.getElementById('stm-list').innerHTML=html;
+}
+function closeStm(){document.getElementById('stm-overlay').classList.remove('open');}
+
+/* ══════════════════════════════════════
+   HOUR BARS
+══════════════════════════════════════ */
+function renderHourBars(){
+  const active=branchTeachers().filter(t=>tHours(t.id)>0).sort((a,b)=>tHours(b.id)-tHours(a.id));
+  if(!active.length){document.getElementById('hour-bars').innerHTML='<div style="font-family:var(--mono);font-size:7.5px;color:var(--t3)">Sem horas atribuídas</div>';return;}
+  document.getElementById('hour-bars').innerHTML=active.map(t=>{
+    const h=tHours(t.id),max=t.contractH||22;
+    const pct=Math.min(100,h/max*100);
+    const col=h>=max?'var(--red)':h>=max*.8?'var(--amber)':'var(--green)';
+    return`<div class="hb-row">
+      <span class="hb-code">${t.code}</span>
+      <div class="hb-track"><div class="hb-fill" style="width:${pct}%;background:${col}"></div></div>
+      <span class="hb-val" style="color:${col}">${h}h</span>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   STATS
+══════════════════════════════════════ */
+function updateStats(){
+  const assigned=Object.keys(CELL_MAP).length;
+  const pending=branchGroups().filter(g=>!isAssigned(g.key)).length;
+  document.getElementById('stat-a').textContent=assigned;
+  document.getElementById('stat-p').textContent=pending;
+  document.getElementById('bot-a').textContent=assigned;
+  document.getElementById('bot-p').textContent=pending;
+  document.getElementById('bot-next').textContent=nxtCode();
+  document.getElementById('bar-pill').textContent=`${GROUPS.length} grupos · ${Object.keys(EMAP).length||'—'} alunos`;
+}
+
+/* ══════════════════════════════════════
+   FALLBACK TEACHERS
+══════════════════════════════════════ */
+const FALLBACK_TEACHERS=[
+  {id:'P-01',code:'NB',name:'Nélia Baptista',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-02',code:'SM',name:'Sally Macedo',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-03',code:'TK',name:'Tony Kennedy',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:true},
+  {id:'P-04',code:'CF',name:'Cristina Ferreira',lang:'EN',contractH:22,branch:'C. Lobos',branches:['C. Lobos'],native:false},
+  {id:'P-05',code:'SP',name:'Salomé Portugal',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-06',code:'AG',name:'Águeda Correia',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-07',code:'DS',name:'Dina Silva',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-08',code:'MJ',name:'Majid Jafari',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:true},
+  {id:'P-09',code:'CM',name:'Catherine Moreau',lang:'FR',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
+  {id:'P-10',code:'TP',name:'Teresa Pontes',lang:'EN',contractH:22,branch:'S. Cruz',branches:['S. Cruz'],native:false},
+  {id:'P-11',code:'ZL',name:'Zélia',lang:'EN',contractH:22,branch:'Machico',branches:['Machico'],native:false},
+];
+
+/* ══════════════════════════════════════
+   UTILS
+══════════════════════════════════════ */
+function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+tick(); setInterval(tick,1000);
+function loPct(p,t){const f=document.getElementById('lo-fill');if(f)f.style.width=p+'%';const el=document.getElementById('lo-txt');if(el&&t)el.textContent=t;}
+function loHide(){const el=document.getElementById('lo');if(el){el.classList.add('done');setTimeout(()=>el.remove(),500);}}
+let toastT=null;
+function showToast(msg,type='info'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2700);}
+
+boot();
+</script>
+</body>
+</html>
