@@ -2,791 +2,780 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>ALM · Atribuição de Turmas</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 :root{
-  --g:#C9A84C;--g2:#E8C97A;--g3:rgba(201,168,76,0.18);--g4:rgba(201,168,76,0.07);
-  --green:#27AE60;--green-d:rgba(39,174,96,0.15);--green-b:rgba(39,174,96,0.3);
-  --red:#E8455A;--red-d:rgba(232,69,90,0.12);--red-b:rgba(232,69,90,0.3);
-  --amber:#E8B84B;--amber-d:rgba(232,184,75,0.12);--amber-b:rgba(232,184,75,0.3);
-  --blue:#4A90D9;--blue-d:rgba(74,144,217,0.15);--blue-b:rgba(74,144,217,0.3);
-  --purple:#9B5ECA;--teal:#2ECC8A;
-  --bg:#07050F;--bg2:#0F0B1C;--bg3:#161228;
-  --b:rgba(201,168,76,0.1);--b2:rgba(201,168,76,0.2);
-  --t:rgba(240,225,180,0.92);--t2:rgba(210,185,140,0.55);--t3:rgba(210,185,140,0.3);
-  --mono:'IBM Plex Mono',monospace;
-  --cond:'IBM Plex Sans Condensed',sans-serif;
-  --body:'IBM Plex Sans',system-ui,sans-serif;
-  --r:10px; --dc-w:310px;
+  --bg:#08070F;--bg2:#0E0C1A;--bg3:#141220;
+  --gold:#C8A44A;--gold2:#E8C870;
+  --gold-a:rgba(200,164,74,.13);--gold-b:rgba(200,164,74,.06);
+  --green:#28C870;--green-a:rgba(40,200,112,.14);--green-b:rgba(40,200,112,.06);
+  --red:#F04848;--red-a:rgba(240,72,72,.13);
+  --amber:#F09830;--amber-a:rgba(240,152,48,.13);
+  --blue:#4888E8;--teal:#28C8B0;--purple:#9B5ECA;
+  --seam:rgba(200,164,74,.10);--seam2:rgba(200,164,74,.20);--seam3:rgba(200,164,74,.35);
+  --ink:rgba(238,218,168,.90);--ink2:rgba(218,192,138,.52);
+  --ink3:rgba(208,182,128,.28);--ink4:rgba(200,172,118,.12);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{background:var(--bg);color:var(--t);font-family:var(--body);font-size:13px;-webkit-font-smoothing:antialiased}
-body{min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 70% 50% at 20% 8%,rgba(42,20,64,0.65) 0%,transparent 60%),
-             radial-gradient(ellipse 50% 40% at 85% 80%,rgba(20,40,30,0.5) 0%,transparent 50%)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;height:100%;overflow:hidden}
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body::after{content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.018;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)'/%3E%3C/svg%3E");background-size:160px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes bookIn{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes modalIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
 
-/* ══ TOP BAR ══ */
-.bar{position:sticky;top:0;z-index:200;height:46px;display:flex;align-items:center;gap:10px;
-  background:rgba(7,5,15,0.97);border-bottom:0.5px solid var(--b);padding:0 16px;backdrop-filter:blur(12px)}
-.bar-home{display:flex;align-items:center;border:0.5px solid var(--b);border-radius:6px;overflow:hidden;flex-shrink:0}
-.bar-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--t2);
-  text-decoration:none;transition:all .15s;border-right:0.5px solid var(--b)}
-.bar-ico:hover{background:var(--g3);color:var(--g2)}
-.bar-ico svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.bar-back{display:flex;align-items:center;padding:0 10px;height:30px;background:transparent;border:none;
-  cursor:pointer;font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--t2);font-family:var(--body);transition:all .15s}
-.bar-back:hover{background:var(--g3);color:var(--g2)}
-.bar-sep{width:0.5px;height:16px;background:var(--b);margin:0 4px}
-.bar-title{font-family:var(--cond);font-size:13px;font-weight:700;color:var(--g2);letter-spacing:2px}
-.bar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.bar-year{padding:3px 10px;border:0.5px solid var(--b2);border-radius:999px;
-  font-family:var(--mono);font-size:9px;color:var(--g2);letter-spacing:0.08em}
-.bar-clock{font-family:var(--mono);font-size:10px;color:var(--t3)}
+/* ══ TOPBAR ══ */
+.top{flex-shrink:0;height:46px;display:flex;align-items:center;background:rgba(8,7,15,.98);border-bottom:1px solid var(--seam2);position:relative;z-index:600}
+.top-mark{display:flex;align-items:baseline;gap:10px;padding:0 14px 0 16px;border-right:1px solid var(--seam);height:100%;flex-shrink:0}
+.mark-alm{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--gold2);letter-spacing:7px}
+.mark-year{font-family:var(--mono);font-size:7.5px;color:var(--ink3);letter-spacing:.10em}
+.top-pipe{display:flex;align-items:center;height:100%;flex-shrink:0;border-right:1px solid var(--seam)}
+.ps{display:flex;align-items:center;height:100%;padding:0 12px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;border-right:1px solid var(--seam);color:var(--ink3);cursor:pointer;gap:7px;white-space:nowrap}
+.ps.done{color:var(--green)}.ps.active{color:var(--gold2);background:var(--gold-b);border-bottom:2px solid var(--gold)}.ps.wait{color:var(--ink4);cursor:default}
+.ps-n{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;border:1px solid currentColor;flex-shrink:0}
+.ps.done .ps-n{background:var(--green);color:#000;border-color:var(--green)}.ps.active .ps-n{background:var(--gold);color:#000;border-color:var(--gold)}
+.top-right{display:flex;align-items:center;gap:10px;margin-left:auto;padding:0 12px;border-left:1px solid var(--seam);height:100%;flex-shrink:0}
+.sb{display:flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid;font-family:var(--mono);font-size:8px}
+.sb.ok{background:var(--green-b);border-color:rgba(40,200,112,.25);color:var(--green)}
+.sb.load{background:var(--amber-a);border-color:rgba(240,152,48,.25);color:var(--amber)}
+.sb-dot{width:5px;height:5px;flex-shrink:0}
+.sb.ok .sb-dot{background:var(--green);animation:blink 2s infinite}
+.sb.load .sb-dot{background:var(--amber);animation:blink .8s infinite}
+.clk{font-family:var(--mono);font-size:11px;color:var(--ink3)}
 
-/* ══ STATUS ══ */
-.sb-bar{display:flex;align-items:center;gap:8px;padding:7px 14px;
-  background:var(--bg2);border:0.5px solid var(--b);border-radius:8px;margin-bottom:12px}
-.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.sb-dot.ok{background:var(--green);box-shadow:0 0 6px rgba(39,174,96,0.5)}
-.sb-dot.loading{background:var(--amber);animation:pulse 1s infinite}
-.sb-dot.err{background:var(--red)}
-.sb-dot.warn{background:var(--amber)}
-.sb-msg{font-size:10px;font-family:var(--mono);color:var(--t3)}
-.sb-msg.ok{color:var(--green)}.sb-msg.err{color:var(--red)}.sb-msg.warn{color:var(--amber)}
-.sb-reload{margin-left:auto;padding:3px 10px;border-radius:5px;font-size:9px;font-weight:600;
-  cursor:pointer;border:0.5px solid var(--b);background:transparent;color:var(--t2);
-  font-family:var(--body);transition:all .12s}
-.sb-reload:hover{border-color:var(--b2);color:var(--t)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* ══ CANVAS ══ */
+.canvas{flex:1;display:flex;overflow:hidden}
 
-/* ══ SHELL ══ */
-.shell{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:16px 16px 80px}
+/* ══ LEFT NAV (teacher list) ══ */
+.left-nav{flex-shrink:0;width:220px;background:var(--bg2);border-right:1px solid var(--seam2);display:flex;flex-direction:column;overflow:hidden}
+.ln-hdr{padding:10px 12px;border-bottom:1px solid var(--seam);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ln-title{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);flex:1}
+.ln-count{font-family:var(--mono);font-size:7px;color:var(--ink3)}
+.ln-srch{padding:6px 10px;border-bottom:1px solid var(--seam);flex-shrink:0}
+.ln-srch-i{width:100%;padding:4px 8px;background:rgba(255,255,255,.03);border:1px solid var(--seam);font-family:var(--mono);font-size:8px;color:var(--ink);outline:none}
+.ln-srch-i:focus{border-color:var(--gold)}
+.ln-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--seam) transparent}
+.t-row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(200,164,74,.04);cursor:pointer;transition:all .10s;border-left:2px solid transparent}
+.t-row:hover{background:var(--gold-b);border-left-color:rgba(200,164,74,.2)}
+.t-row.sel{background:var(--gold-a);border-left-color:var(--gold)}
+.t-badge{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:700;border:1px solid;flex-shrink:0}
+.t-info{flex:1;min-width:0}
+.t-name{font-family:var(--mono);font-size:8.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-meta{font-family:var(--mono);font-size:6.5px;color:var(--ink3);margin-top:1px}
+.t-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.ln-sep{height:1px;background:var(--seam);margin:4px 10px}
 
-/* ══ TEACHER SELECTOR ROW ══ */
-.ts-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-.ts-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;
-  color:var(--t3);flex-shrink:0;white-space:nowrap}
-.teacher-sel{flex:1;max-width:360px;padding:9px 34px 9px 12px;
-  background:var(--bg2);border:0.5px solid var(--b2);border-radius:8px;
-  font-size:13px;font-family:var(--body);font-weight:500;color:var(--t);
-  outline:none;cursor:pointer;transition:border-color .15s;-webkit-appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 5 5-5' stroke='%23C9A84C' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center}
-.teacher-sel:focus{border-color:var(--g)}
-.teacher-sel option{background:var(--bg2);color:var(--t)}
-.ts-chips{display:flex;gap:6px;flex-wrap:wrap}
-.ts-chip{display:flex;align-items:center;gap:5px;padding:5px 10px;
-  background:var(--bg2);border:0.5px solid var(--b);border-radius:6px}
-.tsc-v{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--g2);line-height:1}
-.tsc-v.g{color:var(--green)}.tsc-v.a{color:var(--amber)}.tsc-v.r{color:var(--red)}
-.tsc-l{font-size:7.5px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap}
+/* ══ MAIN ══ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
-/* ══ TEACHER HERO ══ */
-.hero{display:none;align-items:center;gap:14px;padding:12px 16px;
-  background:var(--bg2);border:0.5px solid var(--b2);border-radius:var(--r);margin-bottom:12px;
-  background-image:linear-gradient(135deg,rgba(201,168,76,0.04) 0%,transparent 60%)}
-.hero.show{display:flex}
-.h-av{width:44px;height:44px;border-radius:50%;background:var(--g3);border:1px solid var(--b2);
-  display:flex;align-items:center;justify-content:center;font-family:var(--mono);
-  font-size:11px;font-weight:700;color:var(--g2);flex-shrink:0}
-.h-info{flex:1;min-width:0}
-.h-name{font-size:17px;font-weight:600;color:var(--g2);line-height:1.2}
-.h-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
-.hb{padding:2px 7px;border-radius:4px;font-size:8.5px;font-weight:700;
-  font-family:var(--mono);letter-spacing:0.05em;border:0.5px solid}
-.hb-en{background:rgba(74,144,217,0.15);border-color:rgba(74,144,217,0.35);color:rgba(140,196,255,0.95)}
-.hb-fr{background:rgba(155,89,182,0.15);border-color:rgba(155,89,182,0.35);color:rgba(200,160,245,0.95)}
-.hb-pt{background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.35);color:var(--g2)}
-.hb-de{background:rgba(46,204,138,0.15);border-color:rgba(46,204,138,0.35);color:#7ee8b8}
-.hb-es{background:rgba(232,184,75,0.15);border-color:rgba(232,184,75,0.35);color:var(--amber)}
-.hb-gold{background:var(--g4);border-color:var(--b2);color:var(--g2)}
-.h-gauge{display:flex;flex-direction:column;gap:5px;min-width:130px;flex-shrink:0}
-.hg-bar{height:4px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden}
-.hg-fill{height:100%;border-radius:999px;transition:width .45s ease}
-.hg-lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:7.5px;color:var(--t3)}
-.h-stats{display:flex;gap:14px;flex-shrink:0}
-.hs{text-align:center}
-.hs-v{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--g2);line-height:1}
-.hs-v.g{color:var(--green)}.hs-v.a{color:var(--amber)}.hs-v.r{color:var(--red)}
-.hs-l{font-size:7.5px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px}
-.h-sep{width:0.5px;background:var(--b);align-self:stretch}
+/* ══ TEACHER HEADER ══ */
+.t-header{flex-shrink:0;display:none;align-items:stretch;background:rgba(10,9,20,.97);border-bottom:1px solid var(--seam2)}
+.t-header.show{display:flex}
+.th-badge{display:flex;align-items:center;gap:10px;padding:0 14px;border-right:1px solid var(--seam2);flex-shrink:0;min-height:48px}
+.th-code{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;border:1px solid;flex-shrink:0}
+.th-info{display:flex;flex-direction:column;gap:2px}
+.th-name{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--gold2)}
+.th-meta{font-family:var(--mono);font-size:7.5px;color:var(--ink3)}
+.th-stats{display:flex;align-items:stretch;margin-left:auto;flex-shrink:0}
+.th-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;border-left:1px solid var(--seam)}
+.th-sv{font-family:var(--mono);font-size:13px;font-weight:600;line-height:1}
+.th-sl{font-family:var(--mono);font-size:6px;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.th-next{font-family:var(--mono);font-size:8px;color:var(--ink3);padding:0 14px;border-left:1px solid var(--seam);display:flex;align-items:center}
+.th-next span{color:var(--green);font-weight:600;margin-left:6px}
 
-/* ══ WARN BANNER ══ */
-.warn-banner{display:none;align-items:center;gap:10px;padding:10px 14px;
-  background:var(--amber-d);border:0.5px solid var(--amber-b);border-radius:var(--r);margin-bottom:12px;font-size:10px;color:var(--amber)}
-.warn-banner.show{display:flex}
-.warn-banner a{color:var(--g2)}
+/* ══ GRID AREA ══ */
+.grid-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.grid-scroll{flex:1;overflow:auto;padding:10px 14px}
+.grid-scroll::-webkit-scrollbar{width:3px;height:3px}.grid-scroll::-webkit-scrollbar-thumb{background:var(--seam2)}
 
-/* ══ GRID ══ */
-.grid-wrap{background:var(--bg2);border:0.5px solid var(--b);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
-.grid-hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;
-  border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.15)}
-.gh-title{font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--g)}
-.gh-hint{font-size:8.5px;color:var(--t3);font-style:italic}
-.grid-scroll{overflow-x:auto}
-.grid-tbl{width:100%;border-collapse:collapse;min-width:660px}
-.grid-tbl th{font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
-  color:var(--t3);padding:6px 3px;text-align:center;border-bottom:0.5px solid var(--b);
-  white-space:nowrap;background:var(--bg2)}
-.grid-tbl th.th-day{text-align:left;padding-left:12px;width:48px}
-.grid-tbl th.th-brk{width:14px;background:rgba(0,0,0,0.3)}
-.day-row{border-bottom:0.5px solid rgba(201,168,76,0.04)}
-.day-row:last-child{border-bottom:none}
-.day-lbl{padding:0 4px 0 12px;vertical-align:middle}
-.dl-name{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--g2)}
-.dl-today{font-size:7px;color:var(--green);font-weight:700;letter-spacing:0.06em;margin-top:1px}
-.sc{padding:2px;vertical-align:middle;text-align:center}
-.sc.brk{background:rgba(0,0,0,0.2);width:14px;padding:0}
-.si{width:100%;height:58px;border-radius:5px;border:0.5px solid rgba(201,168,76,0.05);
-  background:rgba(255,255,255,0.02);display:flex;flex-direction:column;align-items:center;
-  justify-content:center;transition:all .15s;position:relative;overflow:hidden}
-.si.free{cursor:pointer}
-.si.free:hover{border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.06)}
-.si.free:hover .si-plus{color:rgba(201,168,76,0.55)}
-.si.booked{background:rgba(39,174,96,0.1);border-color:rgba(39,174,96,0.28);cursor:pointer}
-.si.brk-inner{background:rgba(0,0,0,0.2);cursor:default;border-color:transparent}
-.si.brk-inner:hover{background:rgba(0,0,0,0.2);border-color:transparent}
-.si.no-t{cursor:default}
-.si-plus{font-size:18px;color:rgba(201,168,76,0.1);transition:color .15s}
-.si-code{font-family:var(--mono);font-size:6.5px;font-weight:700;color:rgba(140,230,180,0.45);line-height:1;margin-bottom:1px}
-.si-time{font-family:var(--mono);font-size:9px;font-weight:700;color:rgba(140,230,180,0.9);line-height:1}
-.si-dur{font-size:7px;color:rgba(100,200,150,0.65);margin-top:1px}
-.si-n{font-family:var(--mono);font-size:7px;color:rgba(201,168,76,0.5);margin-top:1px}
-/* hover overlay — 3 action buttons */
-.si-hover{display:none;position:absolute;inset:0;background:rgba(8,5,20,0.88);
-  border-radius:5px;align-items:center;justify-content:center;gap:10px}
-.si.booked:hover .si-hover{display:flex}
-.si.booked:hover .si-code,.si.booked:hover .si-time,.si.booked:hover .si-dur,.si.booked:hover .si-n{opacity:0}
-.shb{width:32px;height:32px;border-radius:50%;border:0.5px solid;display:flex;align-items:center;
-  justify-content:center;font-size:14px;cursor:pointer;transition:transform .12s,background .12s}
-.shb:hover{transform:scale(1.18)}
-.shb-edit{background:rgba(201,168,76,0.12);border-color:rgba(201,168,76,0.4)}
-.shb-stu{background:rgba(39,174,96,0.12);border-color:rgba(39,174,96,0.4)}
-.shb-rm{background:rgba(232,69,90,0.12);border-color:rgba(232,69,90,0.4)}
-.shb-tip{position:absolute;bottom:calc(100% + 46px);left:50%;transform:translateX(-50%);
-  background:rgba(8,5,18,0.97);border:0.5px solid var(--b2);border-radius:5px;padding:3px 8px;
-  white-space:nowrap;font-size:8px;color:var(--g2);pointer-events:none;opacity:0;
-  transition:opacity .1s;z-index:5}
-.shb:hover .shb-tip{opacity:1}
+/* The grid: days vertical, hours horizontal — matching teacher portal */
+.week-grid{display:grid;border:1px solid var(--seam3);min-width:700px}
+.wg-corner{background:rgba(0,0,0,.3);border-right:1px solid var(--seam3);border-bottom:1px solid var(--seam3)}
+.wg-h{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:7px;color:var(--ink3);height:22px;background:rgba(0,0,0,.2);border-right:1px solid var(--seam3);border-bottom:1px solid var(--seam3)}
+.wg-h.brk{border-left:2px solid rgba(200,164,74,.3)}
+.wg-h:last-child{border-right:none}
+.wg-day{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:600;color:var(--ink3);background:rgba(0,0,0,.2);border-right:1px solid var(--seam3);border-bottom:1px solid var(--seam3);letter-spacing:.06em;writing-mode:horizontal-tb;padding:0 8px}
+.wg-day.today{color:var(--gold2);background:rgba(200,164,74,.06)}
 
-/* ══ ASSIGNMENT MODAL ══ */
-.mo{display:none;position:fixed;inset:0;background:rgba(4,2,12,0.82);z-index:400;
-  align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:16px}
-.mo.open{display:flex}
-.amod{background:var(--bg2);border:0.5px solid var(--b2);border-radius:14px;
-  width:min(500px,96vw);max-height:88vh;display:flex;flex-direction:column;
-  box-shadow:0 24px 64px rgba(0,0,0,0.9);animation:mod-in .2s ease;overflow:hidden}
-@keyframes mod-in{from{opacity:0;transform:scale(0.94) translateY(10px)}to{opacity:1;transform:none}}
-.am-hdr{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:0.5px solid var(--b);flex-shrink:0}
-.am-badge{display:flex;flex-direction:column;padding:6px 12px;
-  background:rgba(201,168,76,0.08);border:0.5px solid var(--b2);border-radius:7px;flex-shrink:0}
-.am-day{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:0.1em;text-transform:uppercase}
-.am-time{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--g2);line-height:1;margin-top:2px}
-.am-teacher{flex:1;min-width:0}
-.am-tname{font-size:13px;font-weight:600;color:var(--t)}
-.am-tcode{font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-top:2px}
-.am-x{width:28px;height:28px;border-radius:50%;border:0.5px solid var(--b);background:transparent;
-  color:var(--t2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .12s;flex-shrink:0}
-.am-x:hover{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-/* group list */
-.am-groups{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:7px;min-height:0}
-.am-srch{width:100%;padding:8px 10px;background:rgba(255,255,255,0.03);
-  border:0.5px solid var(--b2);border-radius:6px;font-size:11px;font-family:var(--mono);
-  color:var(--t);outline:none;transition:border-color .12s}
-.am-srch::placeholder{color:var(--t3)}
-.am-srch:focus{border-color:var(--g)}
-.am-gc{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:0.08em}
-.gpl{display:flex;flex-direction:column;gap:2px}
-.gpl-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;
-  border:0.5px solid transparent;cursor:pointer;transition:all .12s}
-.gpl-row:hover{background:rgba(255,255,255,0.03);border-color:var(--b)}
-.gpl-row.sel{background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.3)}
-.gpl-row.dim{opacity:0.28;pointer-events:none}
-.gpl-flag{font-size:14px;flex-shrink:0;width:20px;text-align:center}
-.gpl-info{flex:1;min-width:0}
-.gpl-title{font-size:11px;font-weight:500;color:var(--t2)}
-.gpl-row.sel .gpl-title{color:var(--g2)}
-.gpl-sub{font-size:8px;color:var(--t3);margin-top:1px}
-.gpl-n{font-family:var(--mono);font-size:10px;color:var(--t3);flex-shrink:0}
-.gpl-tick{color:var(--green);font-size:9px;flex-shrink:0;font-family:var(--mono)}
-.gpl-empty{padding:14px;text-align:center;font-size:10px;color:var(--t3);font-style:italic}
-/* student avatar preview */
-.am-prev{display:flex;flex-wrap:wrap;gap:3px;padding:7px 14px;
-  border-top:0.5px solid var(--b);flex-shrink:0;background:rgba(0,0,0,0.12)}
-.pav{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:7.5px;font-weight:700;border:0.5px solid;cursor:default}
-.pav-more{font-size:9px;color:var(--t3);align-self:center;font-family:var(--mono);margin-left:3px}
-/* opts */
-.am-opts{display:flex;gap:10px;padding:9px 14px;border-top:0.5px solid var(--b);flex-shrink:0;flex-wrap:wrap}
-.og{display:flex;flex-direction:column;gap:4px}
-.ol{font-size:7.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3)}
-.dur-row{display:flex;gap:4px}
-.dc{padding:4px 9px;border-radius:5px;font-size:10px;font-family:var(--mono);cursor:pointer;
-  border:0.5px solid var(--b);color:var(--t3);transition:all .12s;user-select:none}
-.dc:hover{border-color:var(--b2);color:var(--t2)}
-.dc.on{border-color:var(--b2);background:var(--g4);color:var(--g2)}
-.fi{width:100%;padding:6px 8px;background:rgba(255,255,255,0.03);
-  border:0.5px solid var(--b2);border-radius:5px;font-size:11px;font-family:var(--mono);
-  color:var(--t);outline:none;transition:border-color .12s;-webkit-appearance:none}
-.fi:focus{border-color:var(--g)}
-.fi::placeholder{color:var(--t3)}
-.am-code{display:flex;align-items:center;justify-content:space-between;
-  padding:7px 14px;border-top:0.5px solid var(--b);flex-shrink:0;background:rgba(39,174,96,0.04)}
-.ac-code{font-family:var(--mono);font-size:12px;font-weight:600;color:rgba(140,220,160,0.85);letter-spacing:0.08em}
-.ac-end{font-family:var(--mono);font-size:9.5px;color:var(--t3)}
-.conflict{display:none;align-items:center;gap:7px;padding:6px 14px;
-  font-size:10px;color:var(--red);background:rgba(232,69,90,0.05);
-  border-top:0.5px solid rgba(232,69,90,0.14);flex-shrink:0}
-.conflict.show{display:flex}
-.am-foot{padding:10px 14px;border-top:0.5px solid var(--b);display:flex;gap:8px;flex-shrink:0}
-.btn-ok{flex:1;padding:9px;background:var(--green);border:none;border-radius:7px;
-  font-size:12px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--body);transition:background .15s}
-.btn-ok:hover{background:#23a057}
-.btn-ok:disabled{opacity:0.38;cursor:not-allowed}
-.btn-no{padding:9px 14px;background:transparent;border:0.5px solid var(--b);border-radius:7px;
-  font-size:12px;color:var(--t2);cursor:pointer;font-family:var(--body);transition:all .12s}
-.btn-no:hover{border-color:var(--b2);color:var(--t)}
+/* Slot cell — the sleeping volcano */
+.slot{border-right:1px solid var(--seam3);border-bottom:1px solid var(--seam3);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;min-height:58px;transition:background .10s,border-color .10s;background:rgba(255,255,255,.014)}
+.slot:last-child{border-right:none}
 
-/* ══ STUDENT DRAWER ══ */
-.sd-ov{display:none;position:fixed;inset:0;z-index:350;background:rgba(4,2,12,0.55);backdrop-filter:blur(3px)}
-.sd-ov.open{display:block}
-.sd{position:fixed;top:0;right:0;bottom:0;width:min(430px,96vw);
-  background:var(--bg2);border-left:0.5px solid var(--b2);z-index:351;
-  display:flex;flex-direction:column;
-  transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);
-  box-shadow:-28px 0 72px rgba(0,0,0,0.65)}
-.sd.open{transform:translateX(0)}
-.sd-hdr{display:flex;align-items:center;gap:10px;padding:14px 14px;border-bottom:0.5px solid var(--b);flex-shrink:0}
-.sd-badge{padding:6px 12px;background:rgba(39,174,96,0.1);border:0.5px solid rgba(39,174,96,0.3);
-  border-radius:7px;flex-shrink:0}
-.sd-code{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--teal);line-height:1}
-.sd-slot{font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px}
-.sd-info{flex:1;min-width:0}
-.sd-title{font-size:13px;font-weight:600;color:var(--g2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sd-sub{font-size:9px;color:var(--t3);margin-top:2px}
-.sd-x{width:28px;height:28px;border-radius:50%;border:0.5px solid var(--b);background:transparent;
-  color:var(--t2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .12s;flex-shrink:0}
-.sd-x:hover{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-/* stats strip */
-.sd-sts{display:flex;border-bottom:0.5px solid var(--b);flex-shrink:0}
-.sdst{flex:1;padding:7px 8px;text-align:center;border-right:0.5px solid var(--b)}
-.sdst:last-child{border-right:none}
-.sdst-v{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--g2);line-height:1}
-.sdst-v.g{color:var(--green)}.sdst-v.a{color:var(--amber)}.sdst-v.r{color:var(--red)}
-.sdst-l{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px}
-/* search */
-.sd-srch{padding:8px 10px;border-bottom:0.5px solid var(--b);flex-shrink:0}
-.sd-srch-inp{width:100%;padding:7px 10px;background:rgba(255,255,255,0.03);
-  border:0.5px solid var(--b);border-radius:6px;font-size:11px;font-family:var(--mono);
-  color:var(--t);outline:none;transition:border-color .12s}
-.sd-srch-inp::placeholder{color:var(--t3)}
-.sd-srch-inp:focus{border-color:var(--g)}
-/* student list */
-.sd-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;
-  scrollbar-width:thin;scrollbar-color:var(--b) transparent}
-/* student card */
-.stuc{background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.05);
-  border-radius:8px;padding:10px 12px;transition:all .12s}
-.stuc:hover{background:rgba(201,168,76,0.04);border-color:var(--b)}
-.stuc-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.stuc-av{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
-  justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;
-  border:1.5px solid;transition:transform .15s}
-.stuc:hover .stuc-av{transform:scale(1.06)}
-.stuc-main{flex:1;min-width:0}
-.stuc-name{font-size:12.5px;font-weight:600;color:var(--t);line-height:1.2}
-.stuc-ref{font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:1px}
-.stuc-bgs{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
-.stuc-bg{padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:7.5px;
-  font-weight:600;letter-spacing:0.04em;border:0.5px solid}
-.stuc-flag{font-size:12px;flex-shrink:0;cursor:default;opacity:0.9}
-/* contact row */
-.stuc-ct{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:7px}
-.ct-link{display:flex;align-items:center;gap:5px;padding:5px 7px;
-  background:rgba(255,255,255,0.02);border:0.5px solid rgba(255,255,255,0.04);
-  border-radius:5px;text-decoration:none;transition:all .12s;min-width:0}
-.ct-link:hover{background:rgba(74,144,217,0.1);border-color:rgba(74,144,217,0.3)}
-.ct-ic{font-size:11px;flex-shrink:0}
-.ct-val{font-size:9px;font-family:var(--mono);color:var(--t2);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
-/* bottom row */
-.stuc-bot{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-.stuc-stat{display:flex;align-items:center;gap:4px;padding:3px 7px;border-radius:4px;font-size:8.5px;font-family:var(--mono)}
-.sst-abs-ok{background:rgba(39,174,96,0.1);color:var(--green)}
-.sst-abs-warn{background:rgba(232,184,75,0.1);color:var(--amber)}
-.sst-abs-bad{background:rgba(232,69,90,0.1);color:var(--red)}
-.sst-grade{background:var(--g4);color:var(--g2)}
-.sst-new{background:rgba(74,144,217,0.1);color:var(--blue)}
-.stuc-enr{font-size:8px;color:var(--t3);margin-left:auto;font-family:var(--mono)}
-/* drawer footer */
-.sd-foot{padding:10px 12px;border-top:0.5px solid var(--b);flex-shrink:0;display:flex;gap:7px}
-.sdf-btn{flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;
-  border:0.5px solid;font-family:var(--body);transition:all .12s;text-align:center}
-.sdf-edit{background:var(--g4);border-color:var(--b2);color:var(--g2)}
-.sdf-edit:hover{background:var(--g3)}
-.sdf-remove{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-.sdf-remove:hover{background:rgba(232,69,90,0.22)}
+/* Demand heat — from real RMAP data */
+.slot.d1{background:rgba(200,164,74,.05);border-color:rgba(200,164,74,.22)}
+.slot.d2{background:rgba(200,164,74,.10);border-color:rgba(200,164,74,.34)}
+.slot.d3{background:rgba(200,164,74,.18);border-color:rgba(200,164,74,.50)}
+.slot.brk{border-left:2px solid rgba(200,164,74,.3);background:rgba(0,0,0,.15);cursor:default}
+.slot.brk:hover{background:rgba(0,0,0,.15)}
 
-/* ══ DATA CENTRE STRIP ══ */
-.dc-strip{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:260;
-  display:flex;flex-direction:column;gap:2px;
-  background:rgba(15,11,28,0.97);border:0.5px solid var(--b2);border-right:none;
-  border-radius:8px 0 0 8px;padding:7px 5px;backdrop-filter:blur(8px)}
-.dci{width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;
-  font-size:15px;cursor:pointer;transition:all .15s;border:0.5px solid transparent;position:relative}
-.dci:hover{background:var(--g4);border-color:var(--b)}
-.dci.active{background:var(--g3);border-color:var(--b2)}
-.dci-badge{position:absolute;top:-3px;right:-2px;min-width:13px;height:13px;border-radius:999px;
-  background:var(--red);color:#fff;font-family:var(--mono);font-size:7px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;padding:0 2px;pointer-events:none}
-.dci-badge.hide{display:none}
-.dc-sep{height:0.5px;background:var(--b);margin:2px 2px}
+/* Empty slot hover */
+.slot:not(.booked):not(.brk):hover{background:rgba(200,164,74,.10);border-color:rgba(200,164,74,.38)}
+.slot-plus{font-size:16px;color:rgba(200,164,74,.12);transition:color .12s;user-select:none}
+.slot:not(.booked):not(.brk):hover .slot-plus{color:rgba(200,164,74,.55)}
+.slot-dem{position:absolute;bottom:2px;right:3px;font-family:var(--mono);font-size:5.5px;font-weight:700;color:rgba(200,164,74,.75)}
 
-/* ══ DATA CENTRE PANEL ══ */
-.dc-panel{position:fixed;right:44px;top:0;bottom:0;width:var(--dc-w);z-index:259;
-  background:var(--bg2);border-left:0.5px solid var(--b2);border-right:0.5px solid var(--b);
-  display:flex;flex-direction:column;
-  transform:translateX(calc(100% + 44px));transition:transform .26s cubic-bezier(.4,0,.2,1);
-  box-shadow:-20px 0 60px rgba(0,0,0,0.6)}
-.dc-panel.open{transform:translateX(0)}
-.dc-hdr{display:flex;align-items:center;gap:8px;padding:11px 14px;
-  border-bottom:0.5px solid var(--b);flex-shrink:0;background:rgba(0,0,0,0.15)}
-.dc-title{font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--g);flex:1}
-.dc-sub{font-size:8px;color:var(--t3);font-family:var(--mono)}
-.dc-xbtn{width:24px;height:24px;border-radius:50%;border:0.5px solid var(--b);background:transparent;
-  color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
-.dc-xbtn:hover{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-.dc-body{flex:1;overflow-y:auto;padding:10px 12px;
-  scrollbar-width:thin;scrollbar-color:var(--b) transparent}
-.dc-pane{display:none}
-.dc-pane.active{display:block}
+/* Recommendation flash — best slot for selected group */
+.slot.rec{animation:recPulse 2s ease-in-out infinite}
+@keyframes recPulse{0%,100%{background:rgba(40,200,112,.08);border-color:rgba(40,200,112,.3)}50%{background:rgba(40,200,112,.18);border-color:rgba(40,200,112,.6)}}
+.slot.rec .slot-plus{color:rgba(40,200,176,.5)}
+.slot-rec-badge{position:absolute;top:3px;left:3px;font-family:var(--mono);font-size:5px;font-weight:700;color:var(--teal);letter-spacing:.04em}
 
-/* data centre kpi grid */
-.dc-kgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
-.dc-kpi{padding:9px 10px;background:rgba(255,255,255,0.02);border:0.5px solid var(--b);border-radius:6px}
-.dc-kv{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1}
-.dc-kl{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px}
-.dc-kpi.g .dc-kv{color:var(--green)}.dc-kpi.a .dc-kv{color:var(--amber)}
-.dc-kpi.r .dc-kv{color:var(--red)}.dc-kpi.gold .dc-kv{color:var(--g2)}
-/* section titles */
-.dc-st{font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
-  color:var(--t3);margin:10px 0 5px;padding-bottom:4px;border-bottom:0.5px solid var(--b)}
-/* teacher hour rows */
-.dc-trow{display:flex;align-items:center;gap:6px;padding:4px 0;
-  border-bottom:0.5px solid rgba(201,168,76,0.03)}
-.dc-trow:last-child{border-bottom:none}
-.dc-tc{font-family:var(--mono);font-size:8px;color:var(--t3);width:30px;flex-shrink:0}
-.dc-tn{font-size:9px;color:var(--t2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-.dc-tn:hover{color:var(--g2)}
-.dc-tb{flex:1;height:3px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden;max-width:70px}
-.dc-tf{height:100%;border-radius:999px;transition:width .4s}
-.dc-th{font-family:var(--mono);font-size:7.5px;color:var(--t3);width:32px;text-align:right;flex-shrink:0}
-/* group rows in data centre */
-.dc-grow{display:flex;align-items:center;gap:5px;padding:4px 0;
-  border-bottom:0.5px solid rgba(201,168,76,0.03);cursor:pointer}
-.dc-grow:last-child{border-bottom:none}
-.dc-grow:hover .dc-gn{color:var(--g2)}
-.dc-gfl{font-size:11px;width:18px;text-align:center;flex-shrink:0}
-.dc-gn{font-family:var(--mono);font-size:8.5px;color:var(--t2);flex:1;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dc-gst{font-family:var(--mono);font-size:7.5px;padding:1px 5px;border-radius:3px;flex-shrink:0}
-.dc-gst.ok{background:var(--green-d);color:var(--green)}
-.dc-gst.pend{background:var(--amber-d);color:var(--amber)}
-.dc-gcount{font-family:var(--mono);font-size:8.5px;color:var(--t3);flex-shrink:0;width:18px;text-align:right}
-/* alerts */
-.al-item{display:flex;align-items:flex-start;gap:7px;padding:6px 8px;border-radius:5px;
-  margin-bottom:4px;font-size:9.5px;line-height:1.4}
-.al-item.err{background:var(--red-d);border:0.5px solid var(--red-b);color:var(--red)}
-.al-item.warn{background:var(--amber-d);border:0.5px solid var(--amber-b);color:var(--amber)}
-.al-item.ok{background:var(--green-d);border:0.5px solid var(--green-b);color:var(--green)}
-.al-icon{font-size:12px;flex-shrink:0;margin-top:1px}
-/* log */
-.log-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;
-  border-bottom:0.5px solid rgba(201,168,76,0.04)}
-.log-item:last-child{border-bottom:none}
-.log-code{font-family:var(--mono);font-size:9px;color:var(--teal);flex-shrink:0;width:80px}
-.log-desc{flex:1;font-size:9px;color:var(--t2);line-height:1.4}
-.log-time{font-family:var(--mono);font-size:7.5px;color:var(--t3);flex-shrink:0}
-.log-empty{font-size:10px;color:var(--t3);font-style:italic;padding:10px 0;text-align:center}
+/* BOOKED — the sleeping volcano face */
+.slot.booked{background:rgba(40,200,112,.08);border-color:rgba(40,200,112,.28);cursor:pointer}
+.slot.booked:hover{background:rgba(40,200,112,.14)}
+.sl-code{font-family:var(--mono);font-size:6px;font-weight:700;color:rgba(40,200,112,.45);line-height:1;margin-bottom:1px}
+.sl-time{font-family:var(--mono);font-size:9px;font-weight:600;color:rgba(40,200,112,.9);line-height:1}
+.sl-lvl{font-family:var(--mono);font-size:6px;color:rgba(40,200,112,.5);margin-top:1px}
+.sl-count{font-family:var(--mono);font-size:6px;color:rgba(200,164,74,.5);margin-top:1px}
+/* Hover overlay — eruption */
+.sl-ov{display:none;position:absolute;inset:0;background:rgba(0,0,0,.82);align-items:center;justify-content:center;gap:8px}
+.slot.booked:hover .sl-ov{display:flex}
+.slot.booked:hover .sl-code,.slot.booked:hover .sl-time,.slot.booked:hover .sl-lvl,.slot.booked:hover .sl-count{opacity:0}
+.shb{width:26px;height:26px;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;transition:transform .1s}
+.shb:hover{transform:scale(1.15)}
+.shb-list{background:var(--gold-a);border-color:rgba(200,164,74,.4)}
+.shb-del{background:var(--red-a);border-color:rgba(240,72,72,.4)}
 
-/* ══ SAVE BAR ══ */
-.save-bar{position:fixed;bottom:0;left:0;right:0;z-index:150;background:rgba(7,5,15,0.98);
-  border-top:0.5px solid var(--b);padding:8px 18px;display:flex;align-items:center;gap:10px;
-  backdrop-filter:blur(12px)}
-.svdot{width:5px;height:5px;border-radius:50%;background:var(--amber);animation:pulse 1.4s infinite}
-.svdot.saved{background:var(--green);animation:none}
-.sv-txt{font-size:10px;font-family:var(--mono);color:var(--t3)}
-.sv-code{font-family:var(--mono);font-size:9px;color:var(--t3)}
-.sv-right{margin-left:auto;display:flex;gap:6px}
-.sv-btn{padding:5px 12px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;
-  border:0.5px solid;font-family:var(--body);transition:all .12s}
-.sv-ghost{background:transparent;border-color:var(--b);color:var(--t2)}
-.sv-ghost:hover{border-color:var(--b2);color:var(--t)}
-.sv-green{background:var(--green);border-color:transparent;color:#fff}
-.sv-green:hover{background:#23a057}
+/* ══ LEGEND ══ */
+.grid-legend{flex-shrink:0;display:flex;align-items:center;gap:14px;padding:5px 14px;border-top:1px solid var(--seam);background:rgba(0,0,0,.12)}
+.gl-item{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:7px;color:var(--ink3)}
+.gl-sw{width:10px;height:10px;border:1px solid}
+
+/* ══ BOOKING POPOVER ══ */
+.popover{position:fixed;z-index:800;width:320px;background:var(--bg2);border:1px solid var(--seam3);box-shadow:0 12px 48px rgba(0,0,0,.8);display:none;flex-direction:column;overflow:hidden}
+.popover.show{display:flex;animation:modalIn .18s cubic-bezier(.34,1.4,.64,1) both}
+.pop-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--seam);background:rgba(0,0,0,.2)}
+.pop-day{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--gold2)}
+.pop-hr{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--gold)}
+.pop-tch{flex:1;text-align:right;font-family:var(--mono);font-size:7.5px;color:var(--ink3)}
+.pop-x{width:20px;height:20px;border:1px solid var(--seam);background:transparent;color:var(--ink3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.pop-x:hover{background:var(--red-a);border-color:rgba(240,72,72,.3);color:var(--red)}
+
+/* Group selector inside popover */
+.pop-groups{padding:8px 12px;border-bottom:1px solid var(--seam);max-height:200px;overflow-y:auto}
+.pop-groups-lbl{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.pop-group-row{display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;border:1px solid var(--seam);margin-bottom:3px;transition:all .12s}
+.pop-group-row:hover{background:var(--gold-b);border-color:var(--seam2)}
+.pop-group-row.sel{background:var(--gold-a);border-color:var(--gold)}
+.pgr-level{font-family:var(--mono);font-size:9px;font-weight:700;flex-shrink:0}
+.pgr-info{flex:1;min-width:0}
+.pgr-name{font-family:var(--mono);font-size:8px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pgr-rec{font-family:var(--mono);font-size:7px;color:var(--teal);margin-top:1px}
+.pgr-count{font-family:var(--mono);font-size:8px;color:var(--ink3);flex-shrink:0}
+
+/* Demand in popover */
+.pop-dem{display:flex;align-items:center;gap:7px;padding:6px 12px;border-bottom:1px solid var(--seam)}
+.pop-dem-bar{flex:1;height:3px;background:rgba(255,255,255,.05)}
+.pop-dem-fill{height:100%;transition:width .4s ease}
+.pop-dem-pct{font-family:var(--mono);font-size:12px;font-weight:600;width:36px;text-align:right}
+.pop-dem-lbl{font-family:var(--mono);font-size:7px;color:var(--ink3);white-space:nowrap}
+.pop-sug{display:none;align-items:center;gap:5px;margin:5px 10px;padding:4px 8px;background:rgba(40,200,176,.06);border:1px solid rgba(40,200,176,.22);cursor:pointer}
+.pop-sug.show{display:flex}
+.pop-sug-t{font-family:var(--mono);font-size:8px;color:var(--teal);flex:1}
+
+/* Duration + time + sala */
+.pop-opts{display:flex;gap:8px;padding:7px 12px;border-bottom:1px solid var(--seam);flex-wrap:wrap}
+.pop-opt{display:flex;flex-direction:column;gap:3px}
+.pop-ol{font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.dur-row{display:flex;gap:2px}
+.dur-c{padding:4px 7px;font-family:var(--mono);font-size:9px;cursor:pointer;border:1px solid var(--seam);color:var(--ink3);transition:all .1s;background:transparent}
+.dur-c.on{border-color:rgba(200,164,74,.36);background:var(--gold-a);color:var(--gold2)}
+.pop-fi{padding:5px 7px;background:rgba(255,255,255,.03);border:1px solid var(--seam2);font-family:var(--mono);font-size:10px;color:var(--ink);outline:none;width:80px}
+.pop-fi:focus{border-color:var(--gold)}
+
+/* Code line */
+.pop-codeline{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-bottom:1px solid var(--seam);background:rgba(40,200,112,.04)}
+.pop-code-v{font-family:var(--mono);font-size:11px;font-weight:600;color:rgba(40,200,112,.82);letter-spacing:.06em}
+.pop-code-e{font-family:var(--mono);font-size:8px;color:var(--ink3)}
+
+/* Confirm button */
+.pop-conf{padding:8px 10px}
+.pop-conf-btn{width:100%;padding:9px;background:var(--green);border:none;font-family:var(--mono);font-size:10px;font-weight:700;color:#051208;cursor:pointer;letter-spacing:.05em;transition:all .14s;display:flex;align-items:center;justify-content:center;gap:6px}
+.pop-conf-btn:hover{background:#2ed877}
+.pop-conf-btn:disabled{opacity:.3;cursor:not-allowed}
+.pop-view-btn{width:100%;padding:7px;background:transparent;border:1px solid rgba(200,164,74,.25);font-family:var(--mono);font-size:9px;color:var(--gold2);cursor:pointer;letter-spacing:.04em;transition:all .14s;margin-top:5px}
+.pop-view-btn:hover{background:var(--gold-a)}
+
+/* ══ STUDENT LIST MODAL ══ */
+.stm-overlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(4,2,12,.88);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px}
+.stm-overlay.open{display:flex}
+.stm-modal{background:var(--bg2);border:1px solid var(--seam2);width:min(560px,96vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.95);animation:modalIn .2s ease;overflow:hidden;--stm-c:#C8A44A}
+.stm-banner{height:72px;position:relative;display:flex;align-items:flex-end;padding:0 16px 10px;flex-shrink:0}
+.stm-banner-bg{position:absolute;inset:0;background:linear-gradient(135deg,var(--stm-c)44,var(--stm-c)18,rgba(0,0,0,.7))}
+.stm-banner-stripe{position:absolute;inset:0;opacity:.12;background-image:repeating-linear-gradient(45deg,var(--stm-c) 0,var(--stm-c) 1px,transparent 1px,transparent 9px)}
+.stm-title-wrap{position:relative;z-index:1;flex:1}
+.stm-level{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--stm-c);line-height:1}
+.stm-sub{font-family:var(--mono);font-size:9px;color:rgba(238,218,168,.6);margin-top:3px}
+.stm-close{position:relative;z-index:1;width:28px;height:28px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.5);color:rgba(238,218,168,.6);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.stm-close:hover{background:var(--red-a);color:var(--red)}
+.stm-meta{display:flex;border-bottom:1px solid var(--seam2);flex-shrink:0;background:rgba(0,0,0,.2)}
+.stm-meta-pill{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 16px;border-right:1px solid var(--seam);flex-shrink:0}
+.stm-mv{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--stm-c);line-height:1}
+.stm-ml{font-family:var(--mono);font-size:6.5px;color:var(--ink3);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+.stm-slot-info{flex:1;padding:8px 14px;font-family:var(--mono);font-size:8.5px;color:var(--ink2);display:flex;flex-direction:column;justify-content:center;gap:3px}
+.stm-dem-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-left:1px solid var(--seam);min-width:110px}
+.stm-dem-fill-wrap{flex:1;height:3px;background:rgba(255,255,255,.05)}
+.stm-dem-fill{height:100%;transition:width .4s}
+.stm-dem-pct{font-family:var(--mono);font-size:11px;font-weight:700;width:34px;text-align:right}
+.stm-search{padding:7px 12px;border-bottom:1px solid var(--seam);flex-shrink:0}
+.stm-srch-i{width:100%;padding:4px 9px;background:rgba(255,255,255,.03);border:1px solid var(--seam);font-family:var(--mono);font-size:9px;color:var(--ink);outline:none}
+.stm-srch-i:focus{border-color:var(--stm-c)}
+.stm-legend{display:flex;gap:14px;padding:5px 14px;background:rgba(0,0,0,.12);border-bottom:1px solid var(--seam);flex-shrink:0}
+.stm-leg{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:7px;color:var(--ink3)}
+.stm-leg-dot{width:7px;height:7px;border-radius:50%}
+.stm-list{flex:1;overflow-y:auto}
+.stm-list::-webkit-scrollbar{width:3px}.stm-list::-webkit-scrollbar-thumb{background:var(--seam2)}
+.stm-row{display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.03);transition:background .1s}
+.stm-row:hover{background:rgba(255,255,255,.03);cursor:pointer}
+.stm-row.avail{background:color-mix(in srgb,var(--stm-c) 7%,transparent)}
+.stm-row.avail:hover{background:color-mix(in srgb,var(--stm-c) 12%,transparent)}
+.stm-num{font-family:var(--mono);font-size:8px;color:var(--ink3);width:22px;text-align:right;flex-shrink:0}
+.stm-av{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;border:1.5px solid;flex-shrink:0;border-radius:50%}
+.stm-info{flex:1;min-width:0}
+.stm-name{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink)}
+.stm-ref{font-family:var(--mono);font-size:7px;color:var(--ink3);margin-top:1px}
+/* Action icons */
+.stm-actions{display:flex;gap:3px;flex-shrink:0}
+.stm-ico{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;border:1px solid transparent;transition:all .12s;color:rgba(200,175,130,.25)}
+.stm-ico:hover{color:rgba(200,175,130,.9);border-color:var(--seam2);background:rgba(255,255,255,.04)}
+.stm-avail-badge{font-family:var(--mono);font-size:7px;font-weight:700;padding:1px 6px;flex-shrink:0;border:1px solid}
+.stm-avail-badge.yes{background:color-mix(in srgb,var(--stm-c) 15%,transparent);border-color:color-mix(in srgb,var(--stm-c) 40%,transparent);color:var(--stm-c)}
+.stm-avail-badge.no{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.07);color:var(--ink3)}
+.stm-footer{flex-shrink:0;padding:10px 14px;border-top:1px solid var(--seam);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.15)}
+.stm-footer-info{font-family:var(--mono);font-size:8px;color:var(--ink3);flex:1}
+.stm-confirm-btn{padding:8px 20px;background:var(--green);border:none;font-family:var(--mono);font-size:9px;font-weight:700;color:#051208;cursor:pointer;letter-spacing:.04em}
+.stm-confirm-btn:hover{background:#2ed877}
+
+/* ══ DISCORD CARD PANEL ══ */
+.dc-overlay{position:fixed;inset:0;z-index:1000;background:rgba(4,2,12,0);pointer-events:none;transition:background .2s}
+.dc-overlay.open{pointer-events:all;background:rgba(4,2,12,.6);backdrop-filter:blur(4px)}
+.dc-panel{position:fixed;right:-380px;top:0;bottom:0;width:360px;z-index:1001;background:#0C0A1A;border-left:1px solid var(--dc-c,rgba(200,164,74,.15));display:flex;flex-direction:column;transition:right .22s cubic-bezier(.22,.61,.36,1);box-shadow:-24px 0 80px rgba(0,0,0,.9);--dc-c:#C8A44A}
+.dc-panel.open{right:0}
+.dc-banner{height:90px;flex-shrink:0;position:relative;overflow:hidden}
+.dc-banner-bg{position:absolute;inset:0}
+.dc-banner-stripe{position:absolute;inset:0;opacity:.12;background-image:repeating-linear-gradient(45deg,var(--dc-c) 0,var(--dc-c) 1px,transparent 1px,transparent 9px)}
+.dc-close{position:absolute;top:10px;right:10px;width:26px;height:26px;background:rgba(0,0,0,.5);border:1px solid var(--seam);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--ink3);cursor:pointer;transition:all .12s;z-index:2}
+.dc-close:hover{background:var(--red-a);border-color:rgba(240,72,72,.4);color:var(--red)}
+.dc-av-wrap{position:absolute;bottom:-26px;left:16px;z-index:2}
+.dc-av{width:62px;height:62px;border-radius:50%;border:4px solid #0C0A1A;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:18px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.7);overflow:hidden}
+.dc-av img{width:100%;height:100%;object-fit:cover}
+.dc-status{position:absolute;bottom:2px;right:2px;width:16px;height:16px;border-radius:50%;border:3px solid #0C0A1A}
+.dc-status.has{background:var(--green)}.dc-status.no{background:var(--amber)}
+.dc-body{flex:1;overflow-y:auto;padding:36px 16px 16px;scrollbar-width:thin;scrollbar-color:var(--seam) transparent}
+.dc-name{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.dc-name .lvl-acc{font-size:13px;opacity:.8;margin-left:8px}
+.dc-handle{font-family:var(--mono);font-size:8.5px;color:var(--ink3);margin-bottom:12px}
+.dc-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+.dc-badge{font-family:var(--mono);font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid}
+.dc-badge-lvl{font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 10px;border:1.5px solid var(--dc-c);color:var(--dc-c);background:color-mix(in srgb,var(--dc-c) 12%,transparent)}
+.dc-divider{height:1px;background:var(--dc-c,rgba(200,164,74,.1));margin:12px 0;opacity:.2}
+.dc-lbl{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.dc-lbl::after{content:'';flex:1;height:1px;background:var(--dc-c,rgba(200,164,74,.1));opacity:.3}
+.dc-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(200,164,74,.04)}
+.dc-row:last-child{border-bottom:none}
+.dc-row-k{font-family:var(--mono);font-size:8px;color:var(--ink3);width:100px;flex-shrink:0}
+.dc-row-v{font-family:var(--mono);font-size:9px;color:var(--ink2)}
+.dc-row-v.hi{color:var(--gold2);font-weight:600}.dc-row-v.ok{color:var(--green)}.dc-row-v.warn{color:var(--amber)}
+.dc-enrol{background:rgba(255,255,255,.02);border:1px solid var(--seam);padding:10px 12px}
+
+/* Student timetable grid inside Discord card */
+.dc-timetable{margin-top:8px;overflow-x:auto}
+.dc-tt-grid{display:grid;border:1px solid rgba(200,164,74,.15);min-width:280px;font-family:var(--mono)}
+.dc-tt-corner{background:rgba(0,0,0,.3);border-right:1px solid rgba(200,164,74,.12);border-bottom:1px solid rgba(200,164,74,.12)}
+.dc-tt-h{display:flex;align-items:center;justify-content:center;font-size:6px;color:var(--ink3);height:16px;background:rgba(0,0,0,.2);border-right:1px solid rgba(200,164,74,.1);border-bottom:1px solid rgba(200,164,74,.1)}
+.dc-tt-h.brk{border-left:1.5px solid rgba(200,164,74,.25)}
+.dc-tt-day{display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:600;color:var(--ink3);background:rgba(0,0,0,.2);border-right:1px solid rgba(200,164,74,.1);border-bottom:1px solid rgba(200,164,74,.1);padding:0 5px}
+.dc-tt-cell{height:16px;border-right:1px solid rgba(200,164,74,.06);border-bottom:1px solid rgba(200,164,74,.06);background:rgba(255,255,255,.01)}
+.dc-tt-cell.req{background:color-mix(in srgb,var(--dc-c) 28%,transparent);border-color:color-mix(in srgb,var(--dc-c) 45%,transparent)}
+.dc-tt-cell.conf{background:rgba(40,200,112,.25);border-color:rgba(40,200,112,.45)}
+
+/* Turma assignment block */
+.dc-turma-block{padding:9px 12px;background:color-mix(in srgb,var(--dc-c) 8%,transparent);border:1px solid color-mix(in srgb,var(--dc-c) 22%,transparent);margin-top:4px}
+.dc-turma-code{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--dc-c)}
+.dc-turma-sub{font-family:var(--mono);font-size:8px;color:var(--ink3);margin-top:2px}
+
+/* Move student controls */
+.dc-move{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.dc-move-lbl{font-family:var(--mono);font-size:7.5px;color:var(--ink3);flex-shrink:0}
+.dc-move-sel{padding:4px 8px;background:rgba(255,255,255,.04);border:1px solid var(--seam2);font-family:var(--mono);font-size:8px;color:var(--ink);outline:none;flex:1;min-width:100px}
+.dc-move-sel:focus{border-color:var(--gold)}
+.dc-move-btn{padding:4px 12px;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;border:1px solid;transition:all .12s}
+.dc-move-btn.remove{background:var(--red-a);border-color:rgba(240,72,72,.3);color:var(--red)}
+.dc-move-btn.move{background:var(--gold-a);border-color:rgba(200,164,74,.3);color:var(--gold2)}
+.dc-move-btn:hover{filter:brightness(1.2)}
+
+/* Signed request card */
+.dc-req-card{background:rgba(0,0,0,.25);border:1px solid var(--seam2);overflow:hidden;margin-top:6px}
+.dc-req-hdr{display:flex;align-items:center;gap:8px;padding:7px 12px;background:color-mix(in srgb,var(--dc-c) 10%,transparent);border-bottom:1px solid color-mix(in srgb,var(--dc-c) 28%,transparent)}
+.dc-req-title{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dc-c)}
+.dc-req-lock{font-family:var(--mono);font-size:8px;color:var(--ink3);margin-left:auto}
+.dc-req-body{padding:9px 12px}
+.dc-req-row{display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-bottom:1px solid rgba(200,164,74,.04)}
+.dc-req-row:last-child{border-bottom:none}
+.dc-req-k{font-family:var(--mono);font-size:7.5px;color:var(--ink3);width:96px;flex-shrink:0}
+.dc-req-v{font-family:var(--mono);font-size:8.5px;color:var(--ink2);flex:1}
+.dc-req-v.hi{color:var(--gold2);font-weight:600}
+.dc-slot-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;margin:2px 2px 0 0;border:1px solid color-mix(in srgb,var(--dc-c) 38%,transparent);background:color-mix(in srgb,var(--dc-c) 12%,transparent);font-family:var(--mono);font-size:7.5px;font-weight:700}
+.dc-slot-pill .sp-day{color:var(--dc-c);font-weight:800}
+.dc-slot-pill .sp-time{color:rgba(238,218,168,.7)}
+.dc-slot-pill .sp-type{color:var(--dc-c);opacity:.6;font-size:6.5px}
+.dc-no-req{padding:10px 12px;background:var(--amber-a);border:1px solid rgba(240,152,48,.2);font-family:var(--mono);font-size:9px;color:var(--amber);text-align:center}
 
 /* ══ TOAST ══ */
-.toast{position:fixed;bottom:56px;left:50%;transform:translateX(-50%) translateY(8px);
-  padding:7px 18px;border-radius:999px;font-size:11px;font-weight:500;opacity:0;
-  transition:all .22s;z-index:9999;pointer-events:none;white-space:nowrap;border:0.5px solid}
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;font-family:var(--mono);font-size:10px;font-weight:500;opacity:0;transition:all .2s;z-index:9990;white-space:nowrap;border:1px solid;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
-.toast.info{background:var(--g4);border-color:var(--b2);color:var(--g2)}
-.toast.err{background:var(--red-d);border-color:var(--red-b);color:var(--red)}
-.toast.warn{background:var(--amber-d);border-color:var(--amber-b);color:var(--amber)}
+.toast.ok{background:var(--green-b);border-color:rgba(40,200,112,.36);color:var(--green)}
+.toast.info{background:var(--gold-a);border-color:rgba(200,164,74,.36);color:var(--gold2)}
+.toast.warn{background:var(--amber-a);border-color:rgba(240,152,48,.36);color:var(--amber)}
+.toast.err{background:var(--red-a);border-color:rgba(240,72,72,.36);color:var(--red)}
 
-@media(max-width:700px){
-  .h-stats{display:none}.h-gauge{display:none}.h-sep{display:none}
-  .dc-strip{display:none}
-}
+/* ══ BOTTOM BAR ══ */
+.bot{flex-shrink:0;height:26px;display:flex;align-items:center;gap:8px;padding:0 10px;background:rgba(8,7,15,.98);border-top:1px solid var(--seam)}
+.bot-code{font-family:var(--mono);font-size:8px;color:var(--ink3)}
+.bot-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.bot-stat{font-family:var(--mono);font-size:7.5px;color:var(--ink3)}
+.bot-stat span{color:var(--gold2)}
+
+/* ══ LOADING ══ */
+.lo{position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+.lo.done{opacity:0;pointer-events:none}
+.lo-logo{font-family:var(--mono);font-size:48px;font-weight:300;color:var(--gold2);letter-spacing:14px;opacity:.3}
+.lo-bar{width:180px;height:2px;background:rgba(255,255,255,.06)}
+.lo-fill{height:100%;background:var(--gold);width:0%;transition:width .3s ease}
+.lo-txt{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
 </style>
 </head>
 <body>
 
-<!-- ═══ TOP BAR ═══ -->
-<div class="bar">
-  <div class="bar-home">
-    <a class="bar-ico" href="dashboard.html" title="Painel">
-      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M9 21V12h6v9"/></svg>
-    </a>
-    <button class="bar-back" onclick="history.back()">← Painel</button>
+<!-- LOADING -->
+<div class="lo" id="lo">
+  <div class="lo-logo">ALM</div>
+  <div class="lo-bar"><div class="lo-fill" id="lo-fill"></div></div>
+  <div class="lo-txt" id="lo-txt">A inicializar…</div>
+</div>
+
+<!-- TOPBAR -->
+<div class="top">
+  <div class="top-mark"><span class="mark-alm">ALM</span><span class="mark-year">2026 / 2027</span></div>
+  <div class="top-pipe">
+    <div class="ps done"><div class="ps-n">✓</div><span>Matrículas</span></div>
+    <div class="ps done"><div class="ps-n">✓</div><span>Horários</span></div>
+    <div class="ps done"><div class="ps-n">✓</div><span>Formação de Turmas</span></div>
+    <div class="ps active"><div class="ps-n">▶</div><span>Atribuição de Professores</span></div>
+    <div class="ps wait"><div class="ps-n">5</div><span>Portal do Professor</span></div>
   </div>
-  <div class="bar-sep"></div>
-  <span class="bar-title">ALM · Atribuição de Turmas</span>
-  <div class="bar-right">
-    <span class="bar-year">Ano Lectivo 2026 / 2027</span>
-    <span class="bar-clock" id="clock">--:--</span>
+  <div class="top-right">
+    <div class="sb load" id="sb"><div class="sb-dot"></div><span id="sb-txt">A ligar…</span></div>
+    <div class="clk" id="clk">--:--</div>
   </div>
 </div>
 
-<!-- ═══ SHELL ═══ -->
-<div class="shell">
+<!-- CANVAS -->
+<div class="canvas">
 
-  <!-- SUPABASE STATUS -->
-  <div class="sb-bar">
-    <div class="sb-dot loading" id="sb-dot"></div>
-    <span class="sb-msg" id="sb-msg">A verificar grupos aprovados…</span>
-    <button class="sb-reload" onclick="boot()">↻ Recarregar</button>
-  </div>
-
-  <!-- NO-FORMATION WARNING -->
-  <div id="no-formation-warn" class="warn-banner">
-    <span>⚠️</span>
-    <span>Grupos não pré-formados —
-      <a href="alm-group-formation.html">executar formação de turmas primeiro</a>
-      para resultados mais precisos.
-    </span>
-    <button onclick="this.parentElement.classList.remove('show')"
-      style="margin-left:auto;background:none;border:none;color:var(--amber);cursor:pointer;font-size:14px">✕</button>
+  <!-- LEFT: Teacher list -->
+  <div class="left-nav">
+    <div class="ln-hdr">
+      <span class="ln-title">Professores</span>
+      <span class="ln-count" id="t-count">—</span>
+    </div>
+    <div class="ln-srch"><input class="ln-srch-i" id="t-srch" placeholder="Filtrar…" oninput="renderTeachers()"/></div>
+    <div class="ln-list" id="t-list"></div>
   </div>
 
-  <!-- ① TEACHER SELECTOR -->
-  <div class="ts-row">
-    <span class="ts-label">Professor</span>
-    <select class="teacher-sel" id="teacher-sel" onchange="selectTeacher(this.value)">
-      <option value="">— Seleccionar professor —</option>
-    </select>
-    <div class="ts-chips" id="ts-chips">
-      <div class="ts-chip"><span class="tsc-v gold" id="tc-sessions">—</span><span class="tsc-l">Sessões</span></div>
-      <div class="ts-chip"><span class="tsc-v g" id="tc-students">—</span><span class="tsc-l">Alunos</span></div>
-      <div class="ts-chip"><span class="tsc-v" id="tc-hours">—</span><span class="tsc-l">Horas usadas</span></div>
-      <div class="ts-chip"><span class="tsc-v a" id="tc-free">—</span><span class="tsc-l">Horas livres</span></div>
-    </div>
-  </div>
+  <!-- MAIN -->
+  <div class="main">
 
-  <!-- ② TEACHER HERO -->
-  <div class="hero" id="hero">
-    <div class="h-av" id="h-av">—</div>
-    <div class="h-info">
-      <div class="h-name" id="h-name">—</div>
-      <div class="h-badges" id="h-badges"></div>
-    </div>
-    <div class="h-gauge" id="h-gauge">
-      <div class="hg-bar"><div class="hg-fill" id="hg-fill" style="width:0%"></div></div>
-      <div class="hg-lbl"><span id="hg-left">0h usadas</span><span id="hg-right">0h contrato</span></div>
-    </div>
-    <div class="h-sep"></div>
-    <div class="h-stats">
-      <div class="hs"><div class="hs-v" id="hs-s">0</div><div class="hs-l">Sessões</div></div>
-      <div class="hs"><div class="hs-v g" id="hs-a">0</div><div class="hs-l">Alunos</div></div>
-      <div class="hs"><div class="hs-v" id="hs-h">0h</div><div class="hs-l">Horas</div></div>
-    </div>
-  </div>
-
-  <!-- ③ GRID -->
-  <div class="grid-wrap">
-    <div class="grid-hdr">
-      <span class="gh-title" id="grid-title">Seleccionar professor para activar a grelha</span>
-      <span class="gh-hint" id="grid-hint">Hover: ✏️ editar · 👥 alunos · ✕ remover</span>
-    </div>
-    <div class="grid-scroll">
-      <table class="grid-tbl" id="grid-tbl"></table>
-    </div>
-  </div>
-
-</div><!-- /shell -->
-
-<!-- ═══ DATA CENTRE STRIP ═══ -->
-<div class="dc-strip" id="dc-strip">
-  <div class="dci" id="dci-0" onclick="toggleDC(0)" title="Visão geral">
-    📊<div class="dci-badge hide" id="dcb-0"></div>
-  </div>
-  <div class="dci" id="dci-1" onclick="toggleDC(1)" title="Grupos">
-    👥<div class="dci-badge hide" id="dcb-1"></div>
-  </div>
-  <div class="dci" id="dci-2" onclick="toggleDC(2)" title="Professores">
-    ⏱<div class="dci-badge hide" id="dcb-2"></div>
-  </div>
-  <div class="dc-sep"></div>
-  <div class="dci" id="dci-3" onclick="toggleDC(3)" title="Alertas">
-    ⚠️<div class="dci-badge hide" id="dcb-3"></div>
-  </div>
-  <div class="dci" id="dci-4" onclick="toggleDC(4)" title="Registo">
-    📋<div class="dci-badge hide" id="dcb-4"></div>
-  </div>
-</div>
-
-<!-- ═══ DATA CENTRE PANEL ═══ -->
-<div class="dc-panel" id="dc-panel">
-  <div class="dc-hdr">
-    <span class="dc-title" id="dc-title">Centro de Dados</span>
-    <span class="dc-sub" id="dc-sub"></span>
-    <button class="dc-xbtn" onclick="closeDC()">✕</button>
-  </div>
-  <div class="dc-body" id="dc-body">
-    <!-- rendered by JS per tab -->
-  </div>
-</div>
-
-<!-- ═══ STUDENT DRAWER ═══ -->
-<div class="sd-ov" id="sd-ov" onclick="closeSD()"></div>
-<div class="sd" id="sd">
-  <div class="sd-hdr">
-    <div class="sd-badge">
-      <div class="sd-code" id="sd-code">—</div>
-      <div class="sd-slot" id="sd-slot">—</div>
-    </div>
-    <div class="sd-info">
-      <div class="sd-title" id="sd-title">—</div>
-      <div class="sd-sub" id="sd-sub">—</div>
-    </div>
-    <button class="sd-x" onclick="closeSD()">✕</button>
-  </div>
-  <div class="sd-sts">
-    <div class="sdst"><div class="sdst-v" id="sds-total">—</div><div class="sdst-l">Alunos</div></div>
-    <div class="sdst"><div class="sdst-v a" id="sds-abs">—</div><div class="sdst-l">Faltas</div></div>
-    <div class="sdst"><div class="sdst-v r" id="sds-flag">—</div><div class="sdst-l">Alertas</div></div>
-    <div class="sdst"><div class="sdst-v g" id="sds-grade">—</div><div class="sdst-l">Nota média</div></div>
-  </div>
-  <div class="sd-srch">
-    <input class="sd-srch-inp" id="sd-srch" type="text" placeholder="Filtrar por nome, ref, email…" oninput="filterSD()"/>
-  </div>
-  <div class="sd-list" id="sd-list"><!-- JS --></div>
-  <div class="sd-foot">
-    <button class="sdf-btn sdf-edit" id="sd-edit-btn" onclick="openEditFromDrawer()">✏️ Editar atribuição</button>
-    <button class="sdf-btn sdf-remove" id="sd-rm-btn" onclick="removeFromDrawer()">✕ Remover turma</button>
-  </div>
-</div>
-
-<!-- ═══ ASSIGNMENT MODAL ═══ -->
-<div class="mo" id="mo" onclick="closeModal()">
-  <div class="amod" onclick="event.stopPropagation()">
-    <div class="am-hdr">
-      <div class="am-badge">
-        <div class="am-day" id="am-day">—</div>
-        <div class="am-time" id="am-time">—</div>
-      </div>
-      <div class="am-teacher">
-        <div class="am-tname" id="am-tname">—</div>
-        <div class="am-tcode" id="am-tcode">—</div>
-      </div>
-      <button class="am-x" onclick="closeModal()">✕</button>
-    </div>
-    <!-- searchable group list -->
-    <div class="am-groups">
-      <input class="am-srch" id="am-srch" type="text"
-        placeholder="Filtrar por nível, filial, língua…"
-        oninput="renderGroupList()"/>
-      <div class="am-gc" id="am-gc">— grupos —</div>
-      <div class="gpl" id="gpl"></div>
-    </div>
-    <!-- student avatar preview -->
-    <div class="am-prev" id="am-prev"></div>
-    <!-- options -->
-    <div class="am-opts">
-      <div class="og">
-        <div class="ol">Duração</div>
-        <div class="dur-row">
-          <div class="dc" onclick="pickDur(60,this)">60 min</div>
-          <div class="dc on" onclick="pickDur(80,this)">80 min</div>
-          <div class="dc" onclick="pickDur(90,this)">90 min</div>
-          <div class="dc" onclick="pickDur(120,this)">120 min</div>
+    <!-- Teacher header bar -->
+    <div class="t-header" id="t-header">
+      <div class="th-badge">
+        <div class="th-code" id="th-code"></div>
+        <div class="th-info">
+          <div class="th-name" id="th-name"></div>
+          <div class="th-meta" id="th-meta"></div>
         </div>
       </div>
-      <div class="og" style="width:88px">
-        <div class="ol">Início</div>
-        <input class="fi" type="time" id="am-start" value="08:00" oninput="updateEnd();checkConflict()"/>
+      <div class="th-stats">
+        <div class="th-stat"><div class="th-sv" id="th-hours" style="color:var(--green)">0hl</div><div class="th-sl">horas</div></div>
+        <div class="th-stat"><div class="th-sv" id="th-turmas" style="color:var(--teal)">0</div><div class="th-sl">turmas</div></div>
+        <div class="th-stat"><div class="th-sv" id="th-alunos" style="color:var(--gold2)">0</div><div class="th-sl">alunos</div></div>
       </div>
-      <div class="og" style="width:100px">
-        <div class="ol">Sala</div>
-        <input class="fi" type="text" id="am-sala" placeholder="Sala 3"/>
+      <div class="th-next">Próximo: <span id="th-next-code">—</span></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid-area">
+      <div class="grid-scroll" id="grid-scroll">
+        <div class="week-grid" id="week-grid"></div>
       </div>
-    </div>
-    <!-- code + end time -->
-    <div class="am-code">
-      <span class="ac-code" id="ac-code">—</span>
-      <span class="ac-end" id="ac-end">término —</span>
-    </div>
-    <div class="conflict" id="conflict">⚠️ <span id="conflict-msg"></span></div>
-    <div class="am-foot">
-      <button class="btn-ok" id="btn-ok" onclick="confirmAssignment()" disabled>✓ Confirmar atribuição</button>
-      <button class="btn-no" onclick="closeModal()">Cancelar</button>
+      <div class="grid-legend">
+        <div class="gl-item"><div class="gl-sw" style="background:rgba(40,200,112,.08);border-color:rgba(40,200,112,.28)"></div>Turma atribuída</div>
+        <div class="gl-item"><div class="gl-sw" style="background:rgba(200,164,74,.18);border-color:rgba(200,164,74,.50)"></div>Alta disponibilidade</div>
+        <div class="gl-item"><div class="gl-sw" style="background:rgba(200,164,74,.05);border-color:rgba(200,164,74,.22)"></div>Baixa disponibilidade</div>
+        <div class="gl-item"><div class="gl-sw" style="background:rgba(40,200,176,.06);border-color:rgba(40,200,176,.3)"></div>💡 Slot recomendado</div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ═══ SAVE BAR ═══ -->
-<div class="save-bar">
-  <div class="svdot" id="svdot"></div>
-  <span class="sv-txt" id="sv-txt">Pronto</span>
-  <span class="sv-code" id="sv-code"></span>
-  <div class="sv-right">
-    <button class="sv-btn sv-ghost" onclick="exportCSV()">↓ CSV</button>
-    <button class="sv-btn sv-green" onclick="saveAll()">✓ Guardar</button>
+<!-- BOOKING POPOVER -->
+<div class="popover" id="popover">
+  <div class="pop-hdr">
+    <div><div class="pop-day" id="pop-day">—</div></div>
+    <div class="pop-hr" id="pop-hr">—</div>
+    <div class="pop-tch" id="pop-tch"></div>
+    <button class="pop-x" onclick="closePop()">✕</button>
+  </div>
+  <!-- Group selector -->
+  <div class="pop-groups">
+    <div class="pop-groups-lbl">Seleccionar grupo</div>
+    <div id="pop-group-list"></div>
+  </div>
+  <!-- Demand -->
+  <div class="pop-dem">
+    <div class="pop-dem-bar"><div class="pop-dem-fill" id="pop-dem-fill"></div></div>
+    <div class="pop-dem-pct" id="pop-dem-pct">—</div>
+    <div class="pop-dem-lbl" id="pop-dem-lbl">disponíveis</div>
+  </div>
+  <div class="pop-sug" id="pop-sug">
+    <span>💡</span><div class="pop-sug-t" id="pop-sug-t"></div>
+  </div>
+  <!-- Options -->
+  <div class="pop-opts">
+    <div class="pop-opt">
+      <div class="pop-ol">Duração</div>
+      <div class="dur-row">
+        <div class="dur-c" onclick="pickDur(60,this)">60'</div>
+        <div class="dur-c on" onclick="pickDur(80,this)">80'</div>
+        <div class="dur-c" onclick="pickDur(90,this)">90'</div>
+        <div class="dur-c" onclick="pickDur(110,this)">110'</div>
+      </div>
+    </div>
+    <div class="pop-opt">
+      <div class="pop-ol">Início</div>
+      <input class="pop-fi" type="time" id="pop-start" value="09:00" oninput="updCode()"/>
+    </div>
+    <div class="pop-opt">
+      <div class="pop-ol">Sala</div>
+      <input class="pop-fi" type="text" id="pop-sala" placeholder="Sala 3"/>
+    </div>
+  </div>
+  <div class="pop-codeline">
+    <span class="pop-code-v" id="pop-code-v">—</span>
+    <span class="pop-code-e" id="pop-code-e">términus —</span>
+  </div>
+  <div class="pop-conf">
+    <button class="pop-conf-btn" id="pop-conf-btn" onclick="confirmAssignment()" disabled>✓ &nbsp;Confirmar atribuição</button>
+    <button class="pop-view-btn" onclick="openStudentModal()">👥 Ver lista de alunos</button>
   </div>
 </div>
 
+<!-- STUDENT LIST MODAL -->
+<div class="stm-overlay" id="stm-overlay" onclick="if(event.target===this)closeStm()">
+  <div class="stm-modal" id="stm-modal">
+    <div class="stm-banner">
+      <div class="stm-banner-bg" id="stm-banner-bg"></div>
+      <div class="stm-banner-stripe"></div>
+      <div class="stm-title-wrap">
+        <div class="stm-level" id="stm-level">—</div>
+        <div class="stm-sub" id="stm-sub">—</div>
+      </div>
+      <button class="stm-close" onclick="closeStm()">✕</button>
+    </div>
+    <div class="stm-meta">
+      <div class="stm-meta-pill"><div class="stm-mv" id="stm-total">0</div><div class="stm-ml">Inscritos</div></div>
+      <div class="stm-meta-pill"><div class="stm-mv" id="stm-avail-n" style="color:var(--green)">0</div><div class="stm-ml">Disponíveis</div></div>
+      <div class="stm-slot-info" id="stm-slot-info">—</div>
+      <div class="stm-dem-bar">
+        <div class="stm-dem-fill-wrap"><div class="stm-dem-fill" id="stm-dem-fill"></div></div>
+        <div class="stm-dem-pct" id="stm-dem-pct">—</div>
+      </div>
+    </div>
+    <div class="stm-search"><input class="stm-srch-i" id="stm-srch" placeholder="Filtrar alunos…" oninput="renderStmList()"/></div>
+    <div class="stm-legend">
+      <div class="stm-leg"><div class="stm-leg-dot" id="stm-leg-dot" style="background:var(--green)"></div>Disponível neste slot</div>
+      <div class="stm-leg"><div class="stm-leg-dot" style="background:rgba(255,255,255,.1)"></div>Sem disponibilidade</div>
+    </div>
+    <div class="stm-list" id="stm-list"></div>
+    <div class="stm-footer">
+      <div class="stm-footer-info" id="stm-footer-info">—</div>
+      <button class="stm-confirm-btn" onclick="closeStmAndConfirm()">✓ Confirmar atribuição</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISCORD CARD PANEL -->
+<div class="dc-overlay" id="dc-overlay" onclick="closeDc()"></div>
+<div class="dc-panel" id="dc-panel">
+  <div class="dc-banner" id="dc-banner">
+    <div class="dc-banner-bg" id="dc-banner-bg"></div>
+    <div class="dc-banner-stripe"></div>
+    <div class="dc-close" onclick="closeDc()">✕</div>
+    <div class="dc-av-wrap"><div class="dc-av" id="dc-av">?</div><div class="dc-status" id="dc-status"></div></div>
+  </div>
+  <div class="dc-body" id="dc-body"></div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bot">
+  <span class="bot-code" id="bot-code">Próximo: —</span>
+  <div class="bot-right">
+    <span class="bot-stat">Atribuídos: <span id="bot-atrib">0</span></span>
+    <span class="bot-stat">Pendentes: <span id="bot-pend">0</span></span>
+    <span class="bot-stat" id="bot-src" style="color:var(--ink3)"></span>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
-<!-- ═══════════════════════════════════════════════════════
-     JAVASCRIPT
-═══════════════════════════════════════════════════════ -->
 <script>
-/* ── SUPABASE ── */
+/* ══════════════════════════════════════
+   SUPABASE
+══════════════════════════════════════ */
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
-const sbGet=(t,q='')=>fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.ok)throw new Error();return r.json();});
-const sbPost=(t,b)=>fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error();return r.json();});
-const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error();return r.json();});
-const sbDel=(t,q)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'DELETE',headers:H}).then(r=>{if(!r.ok)throw new Error();return r.json();});
+const H   = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const sbGet  = (t,q='') => fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbPost = (t,b)    => fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbPatch= (t,q,b)  => fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const sbDel  = (t,q)    => fetch(`${SB}/rest/v1/${t}?${q}`,{method:'DELETE',headers:H}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
-/* ── CONFIG ── */
-const AY='2627', CK='alm-class-counter-'+AY;
-const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
-const MORNING=[8,9,10,11], AFT=[14,15,16,17,18,19,20];
-const ALL_H=[...MORNING,...AFT];
-const DAY_JS=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];
-const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
-const LCOL={EN:'#4A90D9',PT:'#C9A84C',FR:'#9B5ECA',ES:'#E8B84B',DE:'#2ECC8A'};
-const LBADGE={EN:'hb-en',FR:'hb-fr',PT:'hb-pt',DE:'hb-de',ES:'hb-es'};
-const LLABEL={EN:'English',FR:'Français',PT:'Português',DE:'Deutsch',ES:'Español'};
+/* ══════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════ */
+const AY   = '2627';
+const CK   = 'alm-c-' + AY;
+const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const DAYS_PT = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta',SÁB:'Sábado'};
+const HRS  = [8,9,10,11,null,14,15,16,17,18,19,20];
+const DAY_JS = [null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+const FLAGS = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const LCOL  = {EN:'#4888E8',PT:'#C8A44A',FR:'#9060D8',ES:'#F09830',DE:'#28C8B0'};
+const COURSE_COL = {kids:'#28C8B0',adults:'#4888E8',exam:'#C8A44A'};
 
-const TEACHERS=[
-  {num:'P-01',code:'NB',name:'Nélia Baptista',    lang:'EN',contractH:22},
-  {num:'P-02',code:'SM',name:'Sally Macedo',      lang:'EN',contractH:22},
-  {num:'P-03',code:'TK',name:'Tony Kennedy',      lang:'EN',contractH:22,native:true},
-  {num:'P-04',code:'CF',name:'Cristina Ferreira', lang:'EN',contractH:22},
-  {num:'P-05',code:'SP',name:'Salomé Portugal',   lang:'EN',contractH:22},
-  {num:'P-06',code:'AG',name:'Águeda Correia',    lang:'EN',contractH:22},
-  {num:'P-07',code:'DS',name:'Dina Silva',        lang:'EN',contractH:22},
-  {num:'P-08',code:'MJ',name:'Majid Jafari',      lang:'EN',contractH:22,native:true},
-  {num:'P-09',code:'CM',name:'Catherine Moreau',  lang:'FR',contractH:22},
-  {num:'P-10',code:'IB',name:'Isabel Barbier',    lang:'FR',contractH:14},
-  {num:'P-11',code:'JG',name:'Jackie Gonçalves',  lang:'EN',contractH:22},
-  {num:'P-12',code:'AP',name:'Ana Paula',         lang:'EN',contractH:22},
-  {num:'P-13',code:'PN',name:'Paula Noia',        lang:'EN',contractH:22},
-  {num:'P-14',code:'SI',name:'Simone',            lang:'PT',contractH:14},
-  {num:'P-15',code:'ED',name:'Edite',             lang:'EN',contractH:14},
-  {num:'P-16',code:'TP',name:'Teresa Pontes',     lang:'EN',contractH:22},
-];
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let TEACHERS = [], GROUPS = [], ALL_STUDENTS = [];
+let EMAP = {}, RMAP = {}, DMAP = {};
+let GRIDS = {};   // teacher_id → {SEG:{8:{...},...},...}
+let T = null;     // selected teacher
+let SEL = null;   // selected group (in popover)
+let SLOT = {day:null,h:null};
+let DUR = 80;
+const groupSlotCount = {};
+const SUB_LETTERS = ['A','B','C','D','E','F'];
 
-/* ── STATE ── */
-let GROUPS=[], T=null, GRIDS={}, selGroup=null, slot={day:null,h:null};
-let dur=80, dirty=false, dcTab=-1, sdSlot=null;
-const ACTION_LOG=[];
+/* ══════════════════════════════════════
+   DAY / SLOT RESOLVERS
+══════════════════════════════════════ */
+const DAY_NUM = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+const DAY_NAME_PT = {
+  'segunda':'SEG','terça':'TER','quarta':'QUA','quinta':'QUI','sexta':'SEX','sábado':'SÁB',
+  'monday':'SEG','tuesday':'TER','wednesday':'QUA','thursday':'QUI','friday':'SEX','saturday':'SÁB'
+};
+function resolveDay(p){
+  if(typeof p.day==='number') return DAY_NUM[p.day]||null;
+  const k=String(p.day||p.day_name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  return DAY_NUM[parseInt(k)]||DAY_NAME_PT[k.normalize('NFC')]||null;
+}
+function resolveHour(p){return parseInt(p.session_start||p.start_time||p.hour||p.h||9)}
 
-/* ── COUNTER ── */
-const getC=()=>parseInt(localStorage.getItem(CK)||'0');
-const nxtCode=()=>AY+'-'+String(getC()+1).padStart(4,'0');
+function getSlotPrefs(ref){
+  const r=RMAP[ref]; if(!r) return [];
+  if(r.mode_used==='avail'&&r.availability){
+    try{
+      const av=typeof r.availability==='string'?JSON.parse(r.availability):r.availability;
+      if(av&&typeof av==='object')
+        return Object.keys(av).filter(k=>av[k]).map(k=>{const[di,h]=k.split('_').map(Number);return{day:DAY_NUM[di+1]||null,h};}).filter(p=>p.day);
+    }catch(e){}
+  }
+  if(r.day_preferences){
+    try{
+      const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
+      if(Array.isArray(dp)) return dp.map(p=>({day:resolveDay(p),h:resolveHour(p)})).filter(p=>p.day);
+    }catch(e){}
+  }
+  return [];
+}
+
+/* ══════════════════════════════════════
+   DEMAND
+══════════════════════════════════════ */
+function gDemand(groupKey, day, h){
+  const g = GROUPS.find(x=>x.key===groupKey); if(!g) return 0;
+  const refs = g.studentRefs?.length ? g.studentRefs : (g.students||[]).map(s=>s.ref);
+  if(!refs.length) return 0;
+  const c = refs.filter(ref=>getSlotPrefs(ref).some(p=>p.day===day&&p.h===h)).length;
+  return Math.round(c/refs.length*100);
+}
+
+// Demand across ALL unassigned groups a teacher can take at this slot
+function slotDemandAll(day, h){
+  if(!T) return 0;
+  const myGroups = GROUPS.filter(g=>!g.assigned && g.lang===T.lang);
+  if(!myGroups.length) return 0;
+  let total=0, avail=0;
+  myGroups.forEach(g=>{
+    const refs = g.studentRefs?.length ? g.studentRefs : (g.students||[]).map(s=>s.ref);
+    total += refs.length;
+    avail += refs.filter(ref=>getSlotPrefs(ref).some(p=>p.day===day&&p.h===h)).length;
+  });
+  return total>0 ? Math.round(avail/total*100) : 0;
+}
+
+/* ══════════════════════════════════════
+   CODE COUNTER
+══════════════════════════════════════ */
+const getC    = () => parseInt(localStorage.getItem(CK)||'0');
+const nxtCode = () => AY+'-'+String(getC()+1).padStart(4,'0');
 function useCode(){const n=getC()+1;localStorage.setItem(CK,n);return AY+'-'+String(n).padStart(4,'0');}
-function updCounter(){document.getElementById('sv-code').textContent='· Próximo: '+nxtCode();}
+function getSubCodePreview(gKey){
+  const base=nxtCode(), c=groupSlotCount[gKey]||0;
+  return c===0?base:base+'-'+(SUB_LETTERS[c]||String(c+1));
+}
+
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+function avColor(name){
+  let h=0;for(let i=0;i<(name||'?').length;i++)h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
+  const hues=[200,215,160,270,8,340,22,285],hue=hues[Math.abs(h)%hues.length];
+  const sat=55+(Math.abs(h>>4)%25),lit=58+(Math.abs(h>>8)%14);
+  return{bg:`hsl(${hue},${sat}%,18%)`,border:`hsl(${hue},${sat}%,35%)`,text:`hsl(${hue},${sat+10}%,${lit}%)`};
+}
+function calcEnd(start,dMin){
+  if(!start) return '—';
+  const[hh,mm]=start.split(':').map(Number),tot=hh*60+mm+dMin;
+  return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
+}
+function tHours(tid){
+  const g=GRIDS[tid]||{};let m=0;
+  DAYS.forEach(d=>HRS.forEach(h=>{if(h&&g[d]?.[h])m+=g[d][h].durationMin||0;}));
+  return +(m/55).toFixed(1);
+}
+function tTurmas(tid){const g=GRIDS[tid]||{};let c=0;DAYS.forEach(d=>HRS.forEach(h=>{if(h&&g[d]?.[h])c++;}));return c;}
+function tAlunos(tid){return GROUPS.filter(g=>g.teacher===tid).reduce((a,g)=>a+(g.studentCount||g.students?.length||0),0);}
 
 /* ══════════════════════════════════════
    BOOT
 ══════════════════════════════════════ */
 async function boot(){
-  setSb('loading','A verificar grupos aprovados…');
+  setSb('load','A sincronizar…');
+  loPct(5,'A ligar ao Supabase…');
   loadGrids();
-  buildTeacherDropdown();
 
-  const formed=localStorage.getItem('alm-groups-full-2627');
-  if(formed){
-    try{
-      const p=JSON.parse(formed);
-      if(p&&p.length){ fromFormation(p); finish('ok'); return; }
-    }catch(e){}
-  }
-  let students=[];
+  // Teachers
   try{
-    try{ students=await sbGet('enrolments','select=name,lang,level,branch,ref,phone,email,status&academic_year=eq.2026%2F2027&status=neq.archived&limit=2000'); }
-    catch(e){ students=await sbGet('students','select=name,lang,level,branch,ref,phone,email&limit=2000'); }
-    setSb('ok',`${students.length} alunos do Supabase`);
+    loPct(15,'A carregar professores…');
+    const raw=await sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week,spec&limit=100');
+    if(raw?.length){
+      TEACHERS=raw.map(normTeacher);
+      setSb('ok',TEACHERS.length+' professores');
+    } else throw new Error('empty');
   }catch(e){
-    setSb('warn','Supabase offline — dados demo');
-    students=demoStudents();
+    TEACHERS=FALLBACK_TEACHERS;
+    showToast('A usar professores de demonstração','warn');
   }
-  autoGroup(students);
-  document.getElementById('no-formation-warn').classList.add('show');
-  finish('warn');
-}
 
-function finish(sbType){
-  updCounter();
-  updateAlertBadge();
-  if(T) renderHero();
-  buildGrid();
-  setSb(sbType, sbType==='ok'
-    ? `${GROUPS.length} grupos · ${GROUPS.reduce((a,g)=>a+g.students.length,0)} alunos · Supabase ✓`
-    : `${GROUPS.length} grupos carregados`);
-}
+  // Enrolments
+  try{
+    loPct(35,'A carregar matrículas…');
+    const raw=await sbGet('enrolments','select=ref,name,lang,level_cefr,branch,phone,email,status&academic_year=eq.2026%2F2027&status=neq.archived&limit=2000');
+    if(raw?.length){
+      ALL_STUDENTS=raw;
+      raw.forEach(s=>{EMAP[s.ref]=s;});
+    }
+  }catch(e){console.warn('Enrolments failed',e);}
 
-/* ── FROM FORMATION ── */
-function fromFormation(formed){
-  GROUPS=formed.map(g=>({
-    key:g.key,lang:g.lang,level:g.level,branch:g.branch,course:g.course||'adults',
-    students:(g.students||[]).map(s=>({
-      ref:s.ref||'—',name:s.name||'—',lang:s.lang||g.lang,level:s.level||g.level,
-      phone:s.phone||genPhone(s.name),email:s.email||genEmail(s.name),
-      absences:s.absences||0,grade:s.grade||null,flagged:s.flagged||false,
-      note:s.note||'',enrolled_date:s.enrolled_date||rndDate()
-    })),
-    assigned:false,turmaCode:null,teacher:null,day:null,h:null
-  }));
+  // Groups
+  try{
+    loPct(55,'A carregar grupos…');
+    const raw=await sbGet('groups','select=group_key,branch,lang,level_cefr,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
+    if(raw?.length){
+      GROUPS=raw.map(normGroup);
+    } else throw new Error('empty');
+  }catch(e){
+    // Build from enrolments
+    if(ALL_STUDENTS.length) buildGroupsFromEnrolments();
+  }
+
+  // RMAP — student requests
+  try{
+    loPct(75,'A carregar pedidos…');
+    const raw=await sbGet('student_requests',
+      'select=ref,lang,family,level_cefr,day_preferences,availability,mode_used&academic_year=eq.2026%2F2027&limit=2000');
+    if(raw?.length) raw.forEach(r=>{RMAP[r.ref]=r;});
+    setSb('ok',`${GROUPS.length} grupos · ${Object.keys(RMAP).length} pedidos`);
+  }catch(e){console.warn('RMAP failed',e);}
+
+  // Restore assignments
+  loPct(90,'A restaurar atribuições…');
   restoreAssignments();
+
+  loPct(100,'Pronto');
+  updateBotStats();
+  renderTeachers();
+  document.getElementById('t-count').textContent=TEACHERS.length+' prof.';
+  document.getElementById('bot-src').textContent='⬆ Supabase ao vivo';
+  setTimeout(loHide,400);
 }
 
-function autoGroup(students){
+function normTeacher(row){
+  let spec=row.spec||{};
+  if(!spec.primary&&spec.primary_levels) spec={primary:spec.primary_levels,capable:spec.capable_levels||[],occasional:spec.occasional_levels||[]};
+  if(!spec.primary) spec={primary:['adults'],capable:[],occasional:[]};
+  return{
+    id:row.id,code:row.code,name:row.name,lang:row.lang||'EN',
+    native:row.native||false,contractH:row.contract_hours_week||22,
+    branch:row.branch_primary||'Funchal',
+    branches:row.branches||(row.branch_primary?[row.branch_primary]:['Funchal']),
+    spec
+  };
+}
+
+function normGroup(row){
+  const key=(row.group_key||'').toLowerCase();
+  const course=key.includes('kids')||key.includes('juvenil')||key.includes('infantil')?'kids':key.includes('exam')?'exam':'adults';
+  const cefr=(row.level_cefr||'A1').toUpperCase();
+  return{
+    key:row.group_key,lang:row.lang||'EN',levelCefr:cefr,course,
+    branch:(row.branch||'Funchal').replace(/\s*-\s*sede/i,'').trim(),
+    viability:row.viability||'viable',
+    studentRefs:Array.isArray(row.student_refs)?row.student_refs:[],
+    studentCount:row.student_count||0,
+    students:[],
+    assigned:false,turmaCode:null,teacher:null,day:null,h:null,
+    recommendedDay:null,recommendedH:null,recommendedPct:0
+  };
+}
+
+function buildGroupsFromEnrolments(){
   const map={};
-  students.forEach(s=>{
-    const lang=s.lang||'EN',level=s.level||'A1';
-    const branch=(s.branch||'Funchal').split('·')[0].trim().split(' ')[0];
-    const key=`${lang}|${level}|${branch}`;
-    if(!map[key])map[key]={key,lang,level,branch,students:[],assigned:false,turmaCode:null,teacher:null,day:null,h:null,course:'adults'};
-    map[key].students.push({
-      ref:s.ref||'—',name:s.name||'—',lang,level,branch,
-      phone:s.phone||genPhone(s.name),email:s.email||genEmail(s.name),
-      absences:s.absences||0,grade:s.grade||null,flagged:s.flagged||false,
-      note:s.note||'',enrolled_date:s.enrolled_date||rndDate()
-    });
+  ALL_STUDENTS.forEach(s=>{
+    const lang=s.lang||'EN',cefr=(s.level_cefr||'A1').toUpperCase();
+    const branch=(s.branch||'Funchal').replace(/\s*-\s*sede/i,'').trim();
+    const k=`${lang}|${cefr}|${branch}`;
+    if(!map[k]) map[k]={group_key:k,lang,level_cefr:cefr,branch,student_count:0,viability:'viable',student_refs:[]};
+    map[k].student_refs.push(s.ref); map[k].student_count++;
   });
-  GROUPS=Object.values(map).sort((a,b)=>b.students.length-a.students.length);
-  restoreAssignments();
+  GROUPS=Object.values(map).map(normGroup);
+}
+
+function attachStudents(g){
+  if(g.students.length) return;
+  g.students=g.studentRefs.map(ref=>EMAP[ref]).filter(Boolean).map(s=>({
+    ref:s.ref,name:s.name||'—',lang:s.lang||g.lang,
+    levelCefr:s.level_cefr||g.levelCefr,course:g.course,branch:g.branch,
+    phone:s.phone||'',email:s.email||''
+  }));
+  if(!g.students.length&&g.studentCount>0){
+    g.students=g.studentRefs.map((ref,i)=>({ref,name:ref,lang:g.lang,levelCefr:g.levelCefr,course:g.course,branch:g.branch}));
+  }
 }
 
 function restoreAssignments(){
@@ -794,704 +783,691 @@ function restoreAssignments(){
     const d=localStorage.getItem('alm-group-'+g.key);
     if(d){const x=JSON.parse(d);g.assigned=true;g.turmaCode=x.turmaCode;g.teacher=x.teacher;g.day=x.day;g.h=x.h;}
   });
-  GROUPS.sort((a,b)=>a.assigned===b.assigned?b.students.length-a.students.length:a.assigned?1:-1);
-}
-
-function loadGrids(){
-  GRIDS={};
-  TEACHERS.forEach(t=>{const s=localStorage.getItem('alm-teacher-timetable-'+t.num);GRIDS[t.num]=s?JSON.parse(s):{};});
-}
-
-/* ══════════════════════════════════════
-   TEACHER DROPDOWN
-══════════════════════════════════════ */
-function buildTeacherDropdown(){
-  const sel=document.getElementById('teacher-sel');
-  const grouped={EN:[],FR:[],PT:[],DE:[],ES:[]};
-  TEACHERS.forEach(t=>{(grouped[t.lang]||[]).push(t);});
-  let html='<option value="">— Seleccionar professor —</option>';
-  Object.entries(grouped).forEach(([lang,ts])=>{
-    if(!ts.length)return;
-    html+=`<optgroup label="${FLAGS[lang]||''} ${LLABEL[lang]||lang}">`;
-    ts.forEach(t=>{
-      const h=tHours(t.num), pct=Math.round(h/t.contractH*100);
-      html+=`<option value="${t.num}">${t.num} · ${t.name}${t.native?' ★':''} · ${h}/${t.contractH}h (${pct}%)</option>`;
-    });
-    html+='</optgroup>';
+  const keys=Object.keys(localStorage).filter(k=>k.startsWith('alm-tbl-'));
+  keys.forEach(k=>{
+    const tid=k.replace('alm-tbl-','');
+    try{GRIDS[tid]=JSON.parse(localStorage.getItem(k));}catch(e){}
   });
-  sel.innerHTML=html;
 }
-
-function selectTeacher(num){
-  T=TEACHERS.find(t=>t.num===num)||null;
-  renderHero();
-  buildGrid();
-  updateChips();
-  if(T){
-    document.getElementById('grid-title').textContent=`${T.name} · ${T.num} — clique num slot livre para atribuir`;
-  } else {
-    document.getElementById('grid-title').textContent='Seleccionar professor para activar a grelha';
-  }
-}
-
-/* ── TEACHER STATS ── */
-function tHours(num){const g=GRIDS[num]||{};let m=0;DAYS.forEach(d=>ALL_H.forEach(h=>{if(g[d]?.[h])m+=g[d][h].durationMin||0;}));return+(m/60).toFixed(1);}
-function tSessions(num){const g=GRIDS[num]||{};let n=0;DAYS.forEach(d=>ALL_H.forEach(h=>{if(g[d]?.[h])n++;}));return n;}
-function tStudents(num){const g=GRIDS[num]||{};let n=0;DAYS.forEach(d=>ALL_H.forEach(h=>{const s=g[d]?.[h];if(s?.groupKey){const grp=GROUPS.find(x=>x.key===s.groupKey);if(grp)n+=grp.students.length;}}));return n;}
-
-function updateChips(){
-  if(!T){['tc-sessions','tc-students','tc-hours','tc-free'].forEach(id=>document.getElementById(id).textContent='—');return;}
-  const h=tHours(T.num), free=+(T.contractH-h).toFixed(1);
-  document.getElementById('tc-sessions').textContent=tSessions(T.num);
-  document.getElementById('tc-students').textContent=tStudents(T.num);
-  document.getElementById('tc-hours').textContent=h+'h';
-  document.getElementById('tc-free').textContent=free>=0?free+'h':'0h';
-  const hEl=document.getElementById('tc-hours');
-  hEl.className='tsc-v'+(h>=T.contractH?' r':h>T.contractH*0.75?' a':'');
-}
-
-/* ── HERO ── */
-function renderHero(){
-  const hero=document.getElementById('hero');
-  if(!T){hero.classList.remove('show');return;}
-  hero.classList.add('show');
-  document.getElementById('h-av').textContent=T.code;
-  document.getElementById('h-name').textContent=T.name+(T.native?' · native':'');
-  document.getElementById('h-badges').innerHTML=
-    `<span class="hb ${LBADGE[T.lang]||'hb-en'}">${LLABEL[T.lang]||T.lang}</span>`+
-    `<span class="hb hb-gold">${T.contractH}h contrato</span>`;
-  const h=tHours(T.num), pct=Math.min(100,h/T.contractH*100);
-  const col=h>=T.contractH?'var(--red)':h>T.contractH*0.75?'var(--amber)':'var(--green)';
-  document.getElementById('hg-fill').style.width=pct+'%';
-  document.getElementById('hg-fill').style.background=col;
-  document.getElementById('hg-left').textContent=h+'h usadas';
-  document.getElementById('hg-right').textContent=T.contractH+'h contrato';
-  const hs=document.getElementById('hs-h');
-  hs.textContent=h+'h';
-  hs.className='hs-v'+(h>=T.contractH?' r':h>T.contractH*0.75?' a':'');
-  document.getElementById('hs-s').textContent=tSessions(T.num);
-  document.getElementById('hs-a').textContent=tStudents(T.num);
+function loadGrids(){
+  Object.keys(localStorage).filter(k=>k.startsWith('alm-tbl-')).forEach(k=>{
+    const tid=k.replace('alm-tbl-','');
+    try{GRIDS[tid]=JSON.parse(localStorage.getItem(k));}catch(e){}
+  });
 }
 
 /* ══════════════════════════════════════
-   GRID
+   TEACHER LIST
+══════════════════════════════════════ */
+function renderTeachers(){
+  const q=(document.getElementById('t-srch')?.value||'').toLowerCase();
+  const byLang={};
+  TEACHERS.filter(t=>!q||(t.name||'').toLowerCase().includes(q)||(t.code||'').toLowerCase().includes(q))
+    .forEach(t=>{(byLang[t.lang]=byLang[t.lang]||[]).push(t);});
+  let html='';
+  Object.entries(byLang).forEach(([lang,ts])=>{
+    if(Object.keys(byLang).length>1)
+      html+=`<div style="font-family:var(--mono);font-size:6.5px;font-weight:700;letter-spacing:.16em;color:var(--ink3);padding:6px 12px 3px;display:flex;align-items:center;gap:6px">${FLAGS[lang]||''} ${lang}<span style="flex:1;height:1px;background:var(--seam);margin-left:6px"></span></div>`;
+    ts.forEach(t=>{
+      const lc=LCOL[t.lang]||'#C8A44A';
+      const h=tHours(t.id),dotCol=h>=t.contractH?'var(--red)':h>t.contractH*.75?'var(--amber)':'var(--green)';
+      html+=`<div class="t-row${T?.id===t.id?' sel':''}" onclick="pickTeacher('${t.id}')">
+        <div class="t-badge" style="background:${lc}18;border-color:${lc}44;color:${lc}">${t.code}</div>
+        <div class="t-info"><div class="t-name">${t.name}${t.native?' ★':''}</div><div class="t-meta">${t.branch} · ${h}/${t.contractH}hl</div></div>
+        <div class="t-dot" style="background:${dotCol}"></div>
+      </div>`;
+    });
+  });
+  document.getElementById('t-list').innerHTML=html||'<div style="padding:14px;font-family:var(--mono);font-size:8px;color:var(--ink3)">Sem professores</div>';
+}
+
+/* ══════════════════════════════════════
+   TEACHER SELECTION
+══════════════════════════════════════ */
+function pickTeacher(tid){
+  T=TEACHERS.find(t=>t.id===tid)||null;
+  renderTeachers();
+  if(!T) return;
+  const lc=LCOL[T.lang]||'#C8A44A';
+  const h=tHours(T.id), col=h>=T.contractH?'var(--red)':h>T.contractH*.75?'var(--amber)':'var(--green)';
+  document.getElementById('t-header').classList.add('show');
+  document.getElementById('th-code').style.cssText=`background:${lc}18;border-color:${lc}55;color:${lc}`;
+  document.getElementById('th-code').textContent=T.code;
+  document.getElementById('th-name').textContent=T.name+(T.native?' ★':'');
+  document.getElementById('th-meta').textContent=`${FLAGS[T.lang]||''} ${T.lang} · ${T.branches?.join(' · ')||T.branch}`;
+  document.getElementById('th-hours').textContent=h+'hl'; document.getElementById('th-hours').style.color=col;
+  document.getElementById('th-turmas').textContent=tTurmas(T.id);
+  document.getElementById('th-alunos').textContent=tAlunos(T.id);
+  document.getElementById('th-next-code').textContent=nxtCode();
+  buildGrid();
+}
+
+/* ══════════════════════════════════════
+   GRID BUILD — days vertical, hours horizontal
 ══════════════════════════════════════ */
 function buildGrid(){
-  const g=T?GRIDS[T.num]||{}:{};
+  if(!T) return;
+  const g=GRIDS[T.id]||{};
   const todayKey=DAY_JS[new Date().getDay()];
   const nowMin=new Date().getHours()*60+new Date().getMinutes();
-  let html='<thead><tr><th class="th-day"></th>';
-  MORNING.forEach(h=>{html+=`<th style="min-width:56px">${h}h</th>`;});
-  html+='<th class="th-brk">·</th>';
-  AFT.forEach(h=>{html+=`<th style="min-width:56px">${h}h</th>`;});
-  html+='</tr></thead><tbody>';
+  const scroll=document.getElementById('grid-scroll');
+  const rowH=Math.max(56,Math.floor((scroll.clientHeight-22)/6));
+
+  // Grid layout: 1 col for day labels + 1 col per hour (12 including null)
+  const hrCols=HRS.length;
+  document.getElementById('week-grid').style.cssText=`
+    grid-template-columns:40px repeat(${hrCols},1fr);
+    grid-template-rows:22px repeat(6,${rowH}px)`;
+
+  let html='<div class="wg-corner"></div>';
+  // Hour headers
+  HRS.forEach(h=>{
+    if(h===null) html+=`<div class="wg-h brk">·</div>`;
+    else html+=`<div class="wg-h">${h}h</div>`;
+  });
+
+  // Days + slots
   DAYS.forEach(day=>{
     const isToday=day===todayKey;
-    html+=`<tr class="day-row"><td class="day-lbl">
-      <div class="dl-name">${day}</div>
-      ${isToday?'<div class="dl-today">HOJE</div>':''}
-    </td>`;
-    MORNING.forEach(h=>{html+=cell(day,h,g,isToday,nowMin);});
-    html+='<td class="sc brk"><div class="si brk-inner"></div></td>';
-    AFT.forEach(h=>{html+=cell(day,h,g,isToday,nowMin);});
-    html+='</tr>';
+    html+=`<div class="wg-day${isToday?' today':''}">${day}</div>`;
+    HRS.forEach(h=>{
+      if(h===null){html+=`<div class="slot brk"></div>`;return;}
+      const s=g[day]?.[h];
+      if(s?.start){
+        // BOOKED — sleeping volcano
+        const grp=s.groupKey?GROUPS.find(x=>x.key===s.groupKey):null;
+        const lvlD=grp?displayLevel(grp.levelCefr,grp.course):s.level||'';
+        const stuCount=grp?(grp.studentCount||grp.students?.length||0):0;
+        const isNow=isToday&&nowMin>=timeToMins(s.start)&&nowMin<timeToMins(s.start)+(s.durationMin||0);
+        html+=`<div class="slot booked${isNow?' is-now':''}"
+          style="${isNow?'box-shadow:inset 0 0 0 1px rgba(40,200,112,.6)':''}"
+          onclick="handleSlotClick('${day}',${h},event)">
+          <div class="sl-code">${s.turmaCode||''}</div>
+          <div class="sl-time">${s.start}–${s.end}</div>
+          <div class="sl-lvl">${lvlD}</div>
+          <div class="sl-count">👥 ${stuCount}</div>
+          <div class="sl-ov">
+            <div class="shb shb-list" onclick="event.stopPropagation();openStudentModalForSlot('${day}',${h})" title="Ver alunos">👥</div>
+            <div class="shb shb-del" onclick="event.stopPropagation();removeSlot('${day}',${h})" title="Remover">✕</div>
+          </div>
+        </div>`;
+      } else {
+        // Empty — show demand heat
+        const pct=slotDemandAll(day,h);
+        const demCls=pct>=65?' d3':pct>=35?' d2':pct>0?' d1':'';
+        const demBadge=pct>=25?`<span class="slot-dem">${pct}%</span>`:'';
+        // Check if this is recommended slot for any pending group
+        const isRec=GROUPS.some(gg=>!gg.assigned&&gg.recommendedDay===day&&gg.recommendedH===h&&gg.lang===T?.lang);
+        const recBadge=isRec?`<span class="slot-rec-badge">💡</span>`:'';
+        html+=`<div class="slot${demCls}${isRec?' rec':''}"
+          onclick="openPop('${day}',${h},event)">
+          <span class="slot-plus">+</span>
+          ${demBadge}${recBadge}
+        </div>`;
+      }
+    });
   });
-  document.getElementById('grid-tbl').innerHTML=html+'</tbody>';
+  document.getElementById('week-grid').innerHTML=html;
 }
 
-function cell(day,h,g,isToday,nowMin){
-  const s=g[day]?.[h];
-  if(s&&s.start){
-    const grp=s.groupKey?GROUPS.find(x=>x.key===s.groupKey):null;
-    const[sh,sm]=s.start.split(':').map(Number),[eh,em]=s.end.split(':').map(Number);
-    const isNow=isToday&&nowMin>=sh*60+sm&&nowMin<eh*60+em;
-    const n=grp?grp.students.length:0;
-    return`<td class="sc"><div class="si booked${isNow?' is-now':''}" style="${isNow?'box-shadow:0 0 0 2px rgba(39,174,96,0.4)':''}">
-      <div class="si-code">${s.turmaCode||''}</div>
-      <div class="si-time">${s.start}–${s.end}</div>
-      <div class="si-dur">${s.durationMin}min${s.level?' · '+s.level:''}</div>
-      ${n?`<div class="si-n">👥 ${n}</div>`:''}
-      <div class="si-hover">
-        <div class="shb shb-edit" onclick="event.stopPropagation();openModal('${day}',${h})" title="Editar">✏️<span class="shb-tip">Editar</span></div>
-        <div class="shb shb-stu"  onclick="event.stopPropagation();openSD('${day}',${h})" title="Ver alunos">👥<span class="shb-tip">Alunos</span></div>
-        <div class="shb shb-rm"   onclick="event.stopPropagation();removeSlot('${day}',${h})" title="Remover">✕<span class="shb-tip">Remover</span></div>
-      </div>
-    </div></td>`;
-  }
-  if(!T) return`<td class="sc"><div class="si no-t"></div></td>`;
-  return`<td class="sc"><div class="si free" onclick="openModal('${day}',${h})"><span class="si-plus">+</span></div></td>`;
+function timeToMins(t){if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+(m||0);}
+function displayLevel(cefr,course){
+  const map={kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},exam:{B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
+  return map[course]?.[cefr]||cefr;
 }
 
 /* ══════════════════════════════════════
-   ASSIGNMENT MODAL
+   SLOT CLICK — open popover
 ══════════════════════════════════════ */
-function openModal(day,h){
-  if(!T){showToast('Seleccione um professor primeiro','warn');return;}
-  slot={day,h}; selGroup=null; dur=80;
-  document.getElementById('am-day').textContent=day;
-  document.getElementById('am-time').textContent=`${String(h).padStart(2,'0')}h00`;
-  document.getElementById('am-tname').textContent=T.name;
-  document.getElementById('am-tcode').textContent=`${T.num} · ${T.contractH}h contrato`;
-  document.getElementById('am-start').value=String(h).padStart(2,'0')+':00';
-  document.querySelectorAll('.dc').forEach((c,i)=>c.classList.toggle('on',i===1)); dur=80;
-  // pre-select existing group if slot booked
-  const ex=GRIDS[T.num]?.[day]?.[h];
-  if(ex?.groupKey) selGroup=GROUPS.find(g=>g.key===ex.groupKey)||null;
-  document.getElementById('am-srch').value='';
-  renderGroupList();
-  updateEnd(); checkConflict();
-  document.getElementById('btn-ok').disabled=!selGroup;
-  document.getElementById('mo').classList.add('open');
-  setTimeout(()=>document.getElementById('am-srch').focus(),80);
+function handleSlotClick(day, h, event){
+  const s=GRIDS[T?.id]?.[day]?.[h];
+  if(s?.start) openStudentModalForSlot(day,h);
+  else openPop(day,h,event);
 }
 
-function renderGroupList(){
-  const q=document.getElementById('am-srch').value.toLowerCase();
-  const compat=GROUPS.filter(g=>!T||g.lang===T.lang);
-  const filtered=compat.filter(g=>!q||`${g.lang} ${g.level} ${g.branch} ${g.students.slice(0,3).map(s=>s.name).join(' ')}`.toLowerCase().includes(q));
-  document.getElementById('am-gc').textContent=`${filtered.length} grupo${filtered.length!==1?'s':''} compatíveis`;
-  if(!filtered.length){document.getElementById('gpl').innerHTML='<div class="gpl-empty">Nenhum grupo para esta língua.</div>';return;}
-  document.getElementById('gpl').innerHTML=filtered.map(g=>{
-    const isSel=selGroup?.key===g.key;
-    const elseAssigned=g.assigned&&g.teacher&&g.teacher!==T?.num;
-    return`<div class="gpl-row${isSel?' sel':''}${elseAssigned?' dim':''}" onclick="pickGroup('${g.key}')">
-      <span class="gpl-flag">${FLAGS[g.lang]||'🌐'}</span>
-      <div class="gpl-info">
-        <div class="gpl-title">${g.lang} · ${g.level} · ${g.branch}</div>
-        <div class="gpl-sub">${g.students.slice(0,2).map(s=>s.name.split(' ')[0]).join(', ')}${g.students.length>2?` +${g.students.length-2} mais`:''}${elseAssigned?' · ⚠ já atribuído':''}</div>
+function openPop(day, h, event){
+  if(!T){showToast('Seleccione um professor','warn');return;}
+  SLOT={day,h}; DUR=80;
+  positionPop(event);
+  document.getElementById('pop-day').textContent=DAYS_PT[day]||day;
+  document.getElementById('pop-hr').textContent=String(h).padStart(2,'0')+'h';
+  document.getElementById('pop-tch').textContent=T.code+' · '+T.name.split(' ')[0];
+  document.getElementById('pop-start').value=String(h).padStart(2,'0')+':00';
+  buildPopGroupList(day,h);
+  updCode();
+  document.getElementById('popover').classList.add('show');
+}
+
+function positionPop(event){
+  const pop=document.getElementById('popover'),vw=window.innerWidth,vh=window.innerHeight,pw=320;
+  let x=(event?.clientX||vw/2)+12,y=(event?.clientY||vh/2)-20;
+  if(x+pw>vw-10) x=(event?.clientX||vw/2)-pw-12;
+  if(y+520>vh) y=Math.max(50,vh-530);
+  pop.style.left=x+'px'; pop.style.top=y+'px';
+}
+function closePop(){document.getElementById('popover').classList.remove('show'); SEL=null;}
+
+/* Build group list inside popover for this slot */
+function buildPopGroupList(day,h){
+  const candidates=GROUPS.filter(g=>!g.assigned&&g.lang===T.lang)
+    .map(g=>{
+      const pct=gDemand(g.key,day,h);
+      const isRec=g.recommendedDay===day&&g.recommendedH===h;
+      return{...g,pct,isRec};
+    })
+    .sort((a,b)=>(b.isRec-a.isRec)||(b.pct-a.pct));
+
+  if(!candidates.length){
+    document.getElementById('pop-group-list').innerHTML=`<div style="font-family:var(--mono);font-size:8px;color:var(--ink3);padding:6px 0">Nenhum grupo pendente para esta língua.</div>`;
+    document.getElementById('pop-conf-btn').disabled=true;
+    return;
+  }
+
+  const lc=COURSE_COL;
+  let html=candidates.slice(0,8).map(g=>{
+    const lvl=displayLevel(g.levelCefr,g.course);
+    const col=lc[g.course]||'#C8A44A';
+    const isSel=SEL?.key===g.key;
+    return`<div class="pop-group-row${isSel?' sel':''}" onclick="selectGroup('${g.key}','${day}',${h})">
+      <div class="pgr-level" style="color:${col}">${lvl}</div>
+      <div class="pgr-info">
+        <div class="pgr-name">${g.branch} · ${g.studentCount||g.students?.length||0} alunos</div>
+        ${g.isRec?`<div class="pgr-rec">💡 slot recomendado</div>`:g.pct>0?`<div class="pgr-rec" style="color:var(--ink3)">${g.pct}% disponíveis</div>`:''}
       </div>
-      <span class="gpl-n">${g.students.length}</span>
-      ${g.assigned&&g.teacher===T?.num?'<span class="gpl-tick">✓</span>':''}
+      <div class="pgr-count">${g.pct}%</div>
     </div>`;
   }).join('');
-  if(selGroup) renderPreview(selGroup);
+
+  document.getElementById('pop-group-list').innerHTML=html;
+  // Auto-select top recommended or first
+  const topRec=candidates.find(g=>g.isRec)||candidates[0];
+  if(topRec) selectGroup(topRec.key, day, h);
 }
 
-function pickGroup(key){
-  selGroup=GROUPS.find(g=>g.key===key)||null;
-  renderGroupList();
-  renderPreview(selGroup);
-  document.getElementById('btn-ok').disabled=!selGroup;
-  updateEnd(); checkConflict();
+function selectGroup(gKey, day, h){
+  SEL=GROUPS.find(g=>g.key===gKey)||null;
+  if(!SEL) return;
+  if(!SEL.students.length) attachStudents(SEL);
+
+  // Update selected state in list
+  document.querySelectorAll('.pop-group-row').forEach(r=>r.classList.remove('sel'));
+  const rows=document.querySelectorAll('.pop-group-row');
+  rows.forEach(r=>{if(r.querySelector('.pgr-level')?.style.color===COURSE_COL[SEL.course]||(r.textContent.includes(SEL.branch)))r.classList.toggle('sel',r.onclick?.toString().includes(gKey));});
+
+  // Update demand
+  const pct=gDemand(SEL.key,SLOT.day,SLOT.h);
+  const col=pct>=65?'var(--green)':pct>=35?'var(--amber)':'var(--red)';
+  document.getElementById('pop-dem-fill').style.cssText=`width:${pct}%;background:${col}`;
+  document.getElementById('pop-dem-pct').style.color=col;
+  document.getElementById('pop-dem-pct').textContent=pct+'%';
+  const total=SEL.studentCount||SEL.students?.length||0;
+  document.getElementById('pop-dem-lbl').textContent=`${Math.round(total*pct/100)}/${total} disponíveis`;
+
+  // Recommendation hint
+  const sug=document.getElementById('pop-sug');
+  if(SEL.recommendedDay&&(SEL.recommendedDay!==SLOT.day||SEL.recommendedH!==SLOT.h)){
+    document.getElementById('pop-sug-t').textContent=`💡 Slot recomendado: ${DAYS_PT[SEL.recommendedDay]} ${SEL.recommendedH}h (${SEL.recommendedPct}%)`;
+    sug.classList.add('show');
+  } else sug.classList.remove('show');
+
+  updCode();
+  document.getElementById('pop-conf-btn').disabled=false;
 }
 
-function renderPreview(g){
-  if(!g||!g.students.length){document.getElementById('am-prev').innerHTML='';return;}
-  const avs=g.students.slice(0,16).map(s=>{
-    const ini=(s.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('');
-    const col=LCOL[g.lang]||'#C9A84C';
-    return`<div class="pav" style="background:${col}20;border-color:${col}50;color:${col}" title="${s.name}">${ini}</div>`;
-  }).join('');
-  const more=g.students.length>16?`<span class="pav-more">+${g.students.length-16}</span>`:'';
-  document.getElementById('am-prev').innerHTML=avs+more;
+function updCode(){
+  const v=document.getElementById('pop-start').value; if(!v) return;
+  document.getElementById('pop-code-e').textContent='términus '+calcEnd(v,DUR);
+  const ex=GRIDS[T?.id]?.[SLOT.day]?.[SLOT.h];
+  document.getElementById('pop-code-v').textContent=ex?.turmaCode||(getSubCodePreview(SEL?.key||'')+' (novo)');
 }
-
-function closeModal(){document.getElementById('mo').classList.remove('open');selGroup=null;}
-function pickDur(min,el){dur=min;document.querySelectorAll('.dc').forEach(c=>c.classList.remove('on'));el.classList.add('on');updateEnd();}
-function calcEnd(start,d){const[hh,mm]=start.split(':').map(Number),em=hh*60+mm+d;return String(Math.floor(em/60)%24).padStart(2,'0')+':'+String(em%60).padStart(2,'0');}
-function updateEnd(){
-  const v=document.getElementById('am-start').value;if(!v)return;
-  document.getElementById('ac-end').textContent='término '+calcEnd(v,dur);
-  const ex=GRIDS[T?.num]?.[slot.day]?.[slot.h];
-  document.getElementById('ac-code').textContent=ex?.turmaCode||nxtCode()+' (novo)';
-}
-function checkConflict(){
-  const ex=GRIDS[T?.num]?.[slot.day]?.[slot.h];
-  const w=document.getElementById('conflict');
-  if(ex&&ex.turmaCode&&ex.groupKey!==selGroup?.key){
-    document.getElementById('conflict-msg').textContent=`Slot ocupado por ${ex.turmaCode} — será substituído.`;
-    w.classList.add('show');
-  }else w.classList.remove('show');
-}
+function pickDur(min,el){DUR=min;document.querySelectorAll('.dur-c').forEach(c=>c.classList.remove('on'));el.classList.add('on');updCode();}
 
 /* ══════════════════════════════════════
-   CONFIRM ASSIGNMENT (writes to Supabase + localStorage)
+   CONFIRM ASSIGNMENT
 ══════════════════════════════════════ */
 async function confirmAssignment(){
-  const t=T, g=selGroup; const{day,h}=slot; if(!t||!g)return;
-  const btn=document.getElementById('btn-ok');
+  const t=T, g=SEL, {day,h}=SLOT;
+  if(!t||!g) return;
+  if(!g.students.length) attachStudents(g);
+
+  const btn=document.getElementById('pop-conf-btn');
   btn.disabled=true; btn.textContent='A guardar…';
-  const start=document.getElementById('am-start').value||String(h).padStart(2,'0')+':00';
-  const end=calcEnd(start,dur);
-  const sala=document.getElementById('am-sala').value.trim();
-  const ex=GRIDS[t.num]?.[day]?.[h];
-  const code=(ex?.turmaCode&&g.turmaCode===ex.turmaCode)?ex.turmaCode:useCode();
-  updCounter();
 
-  const cr={turma_code:code,teacher_num:t.num,teacher_name:t.name,teacher_code:t.code,
-    lang:g.lang,level:g.level,branch:g.branch,course:g.course||'adults',
-    day_of_week:day,hour:h,start_time:start,end_time:end,duration_min:dur,
-    sala:sala||null,group_key:g.key,academic_year:'2026/2027',
-    created_at:new Date().toISOString(),status:'active'};
+  const start=document.getElementById('pop-start').value||String(h).padStart(2,'0')+':00';
+  const end=calcEnd(start,DUR);
+  const sala=document.getElementById('pop-sala').value.trim();
+  const ex=GRIDS[t.id]?.[day]?.[h];
 
-  const sr=g.students.map((s,i)=>({turma_code:code,
-    student_ref:s.ref||`STU-${String(i+1).padStart(3,'0')}`,student_name:s.name||'—',
-    lang:s.lang||g.lang,level:s.level||g.level,branch:g.branch,
-    phone:s.phone||'',email:s.email||'',
-    academic_year:'2026/2027',absences:s.absences||0,grade:s.grade||null,
-    flagged:s.flagged||false,note:s.note||'',
-    enrolled_date:s.enrolled_date||''}));
+  // Generate code with sub-letter
+  const baseCode=(ex?.turmaCode&&g.turmaCode===ex.turmaCode)?ex.turmaCode:useCode();
+  const slotCount=groupSlotCount[g.key]||0;
+  const code=slotCount===0?baseCode:baseCode+'-'+(SUB_LETTERS[slotCount]||String(slotCount+1));
+  if(!ex?.turmaCode) groupSlotCount[g.key]=(groupSlotCount[g.key]||0)+1;
+
+  const lvlDisplay=displayLevel(g.levelCefr,g.course);
+  const classRecord={
+    turma_code:code, teacher_id:t.id, teacher_name:t.name, teacher_code:t.code,
+    lang:g.lang, level_code:g.levelCefr, level_display:lvlDisplay,
+    department:g.course, branch:g.branch, day_of_week:day, hour:h,
+    start_time:start, end_time:end, duration_min:DUR, sala:sala||null,
+    group_key:g.key, academic_year:'2026/2027', status:'active'
+  };
 
   try{
-    if(g.turmaCode&&g.turmaCode!==code){
-      try{await sbDel('classes',`turma_code=eq.${g.turmaCode}`);await sbDel('class_students',`turma_code=eq.${g.turmaCode}`);}catch(e){}
-    }
-    try{
-      const ec=await sbGet('classes',`turma_code=eq.${code}`);
-      if(ec.length)await sbPatch('classes',`turma_code=eq.${code}`,cr);
-      else await sbPost('classes',cr);
-    }catch(e){}
-    try{await sbDel('class_students',`turma_code=eq.${code}`);await sbPost('class_students',sr);}catch(e){}
-    showToast(`${code} guardado no Supabase ✓`,'ok');
-  }catch(e){showToast('Guardado localmente','warn');}
+    const ec=await sbGet('classes',`turma_code=eq.${code}`);
+    if(ec.length) await sbPatch('classes',`turma_code=eq.${code}`,classRecord);
+    else await sbPost('classes',classRecord);
+    const stuRecs=g.students.map(s=>({turma_code:code,student_ref:s.ref,student_name:s.name,absences:0,grade:null,flagged:false,note:''}));
+    try{await sbPost('class_students',stuRecs);}catch(e){}
+  }catch(e){
+    console.warn('Supabase write failed, using localStorage',e);
+    showToast('Guardado localmente (sem ligação)','warn');
+  }
 
-  if(!GRIDS[t.num])GRIDS[t.num]={};
-  if(!GRIDS[t.num][day])GRIDS[t.num][day]={};
-  GRIDS[t.num][day][h]={start,end,durationMin:dur,sala,level:g.level,turmaCode:code,groupKey:g.key};
-  localStorage.setItem('alm-teacher-timetable-'+t.num,JSON.stringify(GRIDS[t.num]));
+  // Local state
+  if(!GRIDS[t.id]) GRIDS[t.id]={};
+  if(!GRIDS[t.id][day]) GRIDS[t.id][day]={};
+  GRIDS[t.id][day][h]={
+    start,end,durationMin:DUR,sala,lang:g.lang,
+    level:g.levelCefr,levelDisplay:lvlDisplay,
+    turmaCode:code,groupKey:g.key
+  };
+  localStorage.setItem('alm-tbl-'+t.id,JSON.stringify(GRIDS[t.id]));
 
-  g.assigned=true;g.turmaCode=code;g.teacher=t.num;g.day=day;g.h=h;
-  localStorage.setItem('alm-group-'+g.key,JSON.stringify({turmaCode:code,teacher:t.num,day,h,start,end}));
-  // full turma registry (teacher portal reads this)
+  g.assigned=true; g.turmaCode=code; g.teacher=t.id; g.day=day; g.h=h;
+  localStorage.setItem('alm-group-'+g.key,JSON.stringify({turmaCode:code,teacher:t.id,day,h,start,end}));
+
+  // Full turma cache for portal
   localStorage.setItem('alm-turma-'+code,JSON.stringify({
-    turmaCode:code,teacher:t.num,teacherName:t.name,teacherCode:t.code,
-    lang:g.lang,level:g.level,branch:g.branch,course:g.course||'adults',
-    day,h,start,end,durationMin:dur,sala,groupKey:g.key,
+    turmaCode:code,teacher:t.id,teacherName:t.name,teacherCode:t.code,
+    lang:g.lang,levelCefr:g.levelCefr,levelDisplay:lvlDisplay,
+    course:g.course,branch:g.branch,day,h,start,end,durationMin:DUR,sala,groupKey:g.key,
     createdAt:new Date().toISOString(),
-    students:g.students.map((s,i)=>({
-      id:s.ref||`STU-${i+1}`,name:s.name||'—',
-      initials:(s.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(),
-      ref:s.ref||'—',phone:s.phone||'',email:s.email||'',
-      present:null,absences:s.absences||0,grade:s.grade||0,
-      flagged:s.flagged||false,note:s.note||'',history:[]
+    students:g.students.map(s=>({
+      id:s.ref,name:s.name,initials:(s.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(),
+      ref:s.ref,phone:s.phone||'',email:s.email||'',
+      present:null,absences:0,grade:0,flagged:false,note:'',history:[]
     }))
   }));
 
-  logAction(code,`${t.code} · ${g.lang} ${g.level} ${g.branch} · ${day} ${start}–${end} · ${g.students.length} alunos`);
-  btn.disabled=false; btn.textContent='✓ Confirmar atribuição';
-  closeModal(); markDirty(); buildGrid(); renderHero(); updateChips();
-  buildTeacherDropdown();
-  document.getElementById('teacher-sel').value=t.num;
-  updateAlertBadge();
+  btn.disabled=false; btn.textContent='✓  Confirmar atribuição';
+  closePop(); buildGrid();
+  document.getElementById('th-hours').textContent=tHours(t.id)+'hl';
+  document.getElementById('th-turmas').textContent=tTurmas(t.id);
+  document.getElementById('th-alunos').textContent=tAlunos(t.id);
+  document.getElementById('th-next-code').textContent=nxtCode();
+  updateBotStats();
   showToast(`${code} · ${t.code} · ${day} ${start}–${end}`,'ok');
 }
 
 async function removeSlot(day,h){
-  if(!T)return;
-  const s=GRIDS[T.num]?.[day]?.[h];
-  if(!s||!confirm(`Remover ${s.turmaCode||'slot'}?`))return;
-  if(s.turmaCode){
-    try{await sbDel('classes',`turma_code=eq.${s.turmaCode}`);await sbDel('class_students',`turma_code=eq.${s.turmaCode}`);}catch(e){}
+  if(!T) return;
+  const s=GRIDS[T.id]?.[day]?.[h]; if(!s) return;
+  if(!confirm(`Remover ${s.turmaCode||'este slot'}?`)) return;
+  try{await sbDel('classes',`turma_code=eq.${s.turmaCode}`);}catch(e){}
+  if(s.groupKey){
+    const gr=GROUPS.find(x=>x.key===s.groupKey);
+    if(gr){gr.assigned=false;gr.turmaCode=null;gr.teacher=null;gr.day=null;gr.h=null;}
+    localStorage.removeItem('alm-group-'+s.groupKey);
   }
-  if(s.groupKey){const g=GROUPS.find(x=>x.key===s.groupKey);if(g){g.assigned=false;g.turmaCode=null;g.teacher=null;g.day=null;g.h=null;}localStorage.removeItem('alm-group-'+s.groupKey);}
-  if(s.turmaCode)localStorage.removeItem('alm-turma-'+s.turmaCode);
-  delete GRIDS[T.num][day][h];
-  localStorage.setItem('alm-teacher-timetable-'+T.num,JSON.stringify(GRIDS[T.num]));
-  buildGrid();renderHero();updateChips();buildTeacherDropdown();
-  document.getElementById('teacher-sel').value=T.num;
-  markDirty();updateAlertBadge();showToast('Slot removido','info');
+  if(s.turmaCode) localStorage.removeItem('alm-turma-'+s.turmaCode);
+  delete GRIDS[T.id][day][h];
+  localStorage.setItem('alm-tbl-'+T.id,JSON.stringify(GRIDS[T.id]));
+  buildGrid(); updateBotStats();
+  showToast('Slot removido','info');
 }
 
 /* ══════════════════════════════════════
-   STUDENT DRAWER
+   STUDENT LIST MODAL
 ══════════════════════════════════════ */
-let sdCurrentSlot=null;
+let STM_STUDENTS=[], STM_DAY=null, STM_H=null, STM_LC='#C8A44A';
 
-function openSD(day,h){
-  if(!T)return;
-  const s=GRIDS[T.num]?.[day]?.[h];
-  if(!s)return;
-  sdCurrentSlot={day,h,slot:s};
-  const grp=s.groupKey?GROUPS.find(g=>g.key===s.groupKey):null;
-  document.getElementById('sd-code').textContent=s.turmaCode||'—';
-  document.getElementById('sd-slot').textContent=`${day} · ${s.start}–${s.end} · ${s.durationMin}min`;
-  document.getElementById('sd-title').textContent=grp?`${grp.lang} · ${grp.level} · ${grp.branch}`:s.turmaCode||'—';
-  document.getElementById('sd-sub').textContent=grp?`${T.name} · ${grp.students.length} alunos`:'';
-  document.getElementById('sd-srch').value='';
-  renderSD(grp?grp.students:[]);
-  document.getElementById('sd-ov').classList.add('open');
-  document.getElementById('sd').classList.add('open');
+function openStudentModal(){
+  if(!SEL||!T) return;
+  openStudentModalForGroup(SEL, SLOT.day, SLOT.h);
 }
 
-function renderSD(students){
-  const q=document.getElementById('sd-srch').value.toLowerCase();
-  const filtered=q?students.filter(s=>
-    (s.name||'').toLowerCase().includes(q)||(s.ref||'').toLowerCase().includes(q)||
-    (s.email||'').toLowerCase().includes(q)||(s.phone||'').includes(q)
-  ):students;
-
-  // stats
-  document.getElementById('sds-total').textContent=students.length;
-  const totalAbs=students.reduce((a,s)=>a+(s.absences||0),0);
-  const flagCount=students.filter(s=>s.flagged).length;
-  const graded=students.filter(s=>s.grade>0);
-  const avgGrade=graded.length?Math.round(graded.reduce((a,s)=>a+s.grade,0)/graded.length):0;
-  document.getElementById('sds-abs').textContent=totalAbs;
-  document.getElementById('sds-flag').textContent=flagCount;
-  document.getElementById('sds-grade').textContent=avgGrade||'—';
-
-  if(!filtered.length){
-    document.getElementById('sd-list').innerHTML='<div style="padding:20px;text-align:center;font-size:11px;color:var(--t3)">Nenhum aluno encontrado.</div>';
-    return;
-  }
-
-  document.getElementById('sd-list').innerHTML=filtered.map((s,i)=>{
-    const av=avatarColor(s.name||'?');
-    const ini=(s.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const absCls=s.absences>=5?'sst-abs-bad':s.absences>=3?'sst-abs-warn':'sst-abs-ok';
-    const langCol=LCOL[s.lang]||'#C9A84C';
-    return`<div class="stuc">
-      <div class="stuc-top">
-        <div class="stuc-av" style="background:${av.bg};border-color:${av.border};color:${av.text}">${ini}</div>
-        <div class="stuc-main">
-          <div class="stuc-name">${s.name||'—'}</div>
-          <div class="stuc-ref">${s.ref||'—'}</div>
-          <div class="stuc-bgs">
-            <span class="stuc-bg" style="background:${langCol}18;border-color:${langCol}40;color:${langCol}">${s.lang||'EN'}</span>
-            <span class="stuc-bg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.25);color:var(--g2)">${s.level||'—'}</span>
-            ${s.branch?`<span class="stuc-bg" style="background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);color:var(--t3)">${s.branch}</span>`:''}
-          </div>
-        </div>
-        ${s.flagged?'<div class="stuc-flag" title="Alerta activo">🚩</div>':''}
-      </div>
-      <div class="stuc-ct">
-        <a class="ct-link" href="tel:${(s.phone||'').replace(/\s/g,'')}" ${!s.phone?'style="pointer-events:none;opacity:0.4"':''}>
-          <span class="ct-ic">📞</span>
-          <span class="ct-val">${s.phone||'—'}</span>
-        </a>
-        <a class="ct-link" href="mailto:${s.email||''}" ${!s.email?'style="pointer-events:none;opacity:0.4"':''}>
-          <span class="ct-ic">✉️</span>
-          <span class="ct-val">${s.email||'—'}</span>
-        </a>
-      </div>
-      <div class="stuc-bot">
-        <div class="stuc-stat ${absCls}">📅 ${s.absences||0} falta${s.absences!==1?'s':''}</div>
-        ${s.grade?`<div class="stuc-stat sst-grade">🎓 ${s.grade}</div>`:''}
-        ${!s.grade&&!s.absences?`<div class="stuc-stat sst-new">✨ Novo</div>`:''}
-        <div class="stuc-enr">${s.enrolled_date||''}</div>
-      </div>
-    </div>`;
-  }).join('');
+function openStudentModalForSlot(day,h){
+  const s=GRIDS[T?.id]?.[day]?.[h]; if(!s) return;
+  const g=s.groupKey?GROUPS.find(x=>x.key===s.groupKey):null; if(!g) return;
+  if(!g.students.length) attachStudents(g);
+  openStudentModalForGroup(g, day, h);
 }
 
-function filterSD(){
-  if(!sdCurrentSlot)return;
-  const s=GRIDS[T?.num]?.[sdCurrentSlot.day]?.[sdCurrentSlot.h];
-  const grp=s?.groupKey?GROUPS.find(g=>g.key===s.groupKey):null;
-  if(grp)renderSD(grp.students);
+function openStudentModalForGroup(g, day, h){
+  STM_DAY=day; STM_H=h;
+  STM_LC=COURSE_COL[g.course]||LCOL[g.lang]||'#C8A44A';
+  if(!g.students.length) attachStudents(g);
+  STM_STUDENTS=[...g.students];
+  // Sort: available first, then by name
+  STM_STUDENTS.sort((a,b)=>{
+    const aA=getSlotPrefs(a.ref).some(p=>p.day===day&&p.h===h);
+    const bA=getSlotPrefs(b.ref).some(p=>p.day===day&&p.h===h);
+    if(aA&&!bA) return -1; if(!aA&&bA) return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  const lvl=displayLevel(g.levelCefr,g.course);
+  const total=STM_STUDENTS.length;
+  const pct=gDemand(g.key,day,h);
+  const availN=Math.round(total*pct/100);
+  const col=pct>=65?'var(--green)':pct>=35?'var(--amber)':'var(--red)';
+
+  document.getElementById('stm-modal').style.setProperty('--stm-c',STM_LC);
+  document.getElementById('stm-leg-dot').style.background=STM_LC;
+  document.getElementById('stm-banner-bg').style.background=`linear-gradient(135deg,${STM_LC}44,${STM_LC}18,rgba(0,0,0,.7))`;
+  document.getElementById('stm-level').textContent=lvl;
+  document.getElementById('stm-sub').textContent=`${g.course==='kids'?'Juvenil':g.course==='exam'?'Exames':'Geral'} · ${g.branch} · ${FLAGS[g.lang]||''} ${g.lang}`;
+  document.getElementById('stm-total').textContent=total;
+  document.getElementById('stm-avail-n').textContent=availN;
+  document.getElementById('stm-avail-n').style.color=col;
+  document.getElementById('stm-slot-info').innerHTML=`<span>${DAYS_PT[day]||day} · ${String(h).padStart(2,'0')}h</span><span style="color:var(--ink3)">${T?.code||''} ${T?.name?.split(' ')[0]||''}</span>`;
+  document.getElementById('stm-dem-fill').style.cssText=`width:${pct}%;background:${col}`;
+  document.getElementById('stm-dem-pct').style.color=col;
+  document.getElementById('stm-dem-pct').textContent=pct+'%';
+  document.getElementById('stm-footer-info').textContent=`${availN}/${total} disponíveis neste slot`;
+  document.getElementById('stm-srch').value='';
+  renderStmList();
+  document.getElementById('stm-overlay').classList.add('open');
 }
 
-function closeSD(){
-  document.getElementById('sd-ov').classList.remove('open');
-  document.getElementById('sd').classList.remove('open');
-  sdCurrentSlot=null;
-}
-
-function openEditFromDrawer(){
-  if(!sdCurrentSlot)return;
-  closeSD();
-  setTimeout(()=>openModal(sdCurrentSlot.day,sdCurrentSlot.h),100);
-}
-
-function removeFromDrawer(){
-  if(!sdCurrentSlot)return;
-  const{day,h}=sdCurrentSlot;
-  closeSD();
-  removeSlot(day,h);
-}
-
-/* ══════════════════════════════════════
-   DATA CENTRE
-══════════════════════════════════════ */
-const DC_TABS=['Visão Geral','Grupos','Professores','Alertas','Registo'];
-const DC_ICONS=['📊','👥','⏱','⚠️','📋'];
-
-let dcOpen=false;
-
-function toggleDC(tab){
-  if(dcOpen&&dcTab===tab){closeDC();return;}
-  dcTab=tab; dcOpen=true;
-  document.getElementById('dc-panel').classList.add('open');
-  document.querySelectorAll('.dci').forEach((el,i)=>el.classList.toggle('active',i===tab));
-  document.getElementById('dc-title').textContent=DC_TABS[tab];
-  document.getElementById('dc-sub').textContent=DC_ICONS[tab];
-  renderDC(tab);
-}
-
-function closeDC(){
-  dcOpen=false; dcTab=-1;
-  document.getElementById('dc-panel').classList.remove('open');
-  document.querySelectorAll('.dci').forEach(el=>el.classList.remove('active'));
-}
-
-function renderDC(tab){
-  const body=document.getElementById('dc-body');
-  if(tab===0)body.innerHTML=renderDC_Overview();
-  else if(tab===1)body.innerHTML=renderDC_Groups();
-  else if(tab===2)body.innerHTML=renderDC_Teachers();
-  else if(tab===3)body.innerHTML=renderDC_Alerts();
-  else if(tab===4)body.innerHTML=renderDC_Log();
-}
-
-function renderDC_Overview(){
-  const total=GROUPS.reduce((a,g)=>a+g.students.length,0);
-  const assigned=GROUPS.filter(g=>g.assigned).length;
-  const unassigned=GROUPS.filter(g=>!g.assigned).length;
-  const activeTch=TEACHERS.filter(t=>tHours(t.num)<t.contractH).length;
-  const totalSessions=TEACHERS.reduce((a,t)=>a+tSessions(t.num),0);
-  return`
-  <div class="dc-kgrid">
-    <div class="dc-kpi gold"><div class="dc-kv">${total.toLocaleString('pt-PT')}</div><div class="dc-kl">Alunos matriculados</div></div>
-    <div class="dc-kpi ${unassigned>0?'a':'g'}"><div class="dc-kv">${unassigned}</div><div class="dc-kl">Grupos sem professor</div></div>
-    <div class="dc-kpi g"><div class="dc-kv">${assigned}</div><div class="dc-kl">Turmas atribuídas</div></div>
-    <div class="dc-kpi"><div class="dc-kv" style="color:var(--blue)">${activeTch}</div><div class="dc-kl">Professores activos</div></div>
-    <div class="dc-kpi"><div class="dc-kv" style="color:var(--teal)">${GROUPS.length}</div><div class="dc-kl">Grupos totais</div></div>
-    <div class="dc-kpi"><div class="dc-kv" style="color:var(--purple)">${totalSessions}</div><div class="dc-kl">Sessões semanais</div></div>
-  </div>
-  <div class="dc-st">Distribuição por língua</div>
-  ${['EN','FR','PT','DE','ES'].map(lang=>{
-    const gs=GROUPS.filter(g=>g.lang===lang);
-    if(!gs.length)return'';
-    const n=gs.reduce((a,g)=>a+g.students.length,0);
-    const pct=Math.round(n/total*100);
-    return`<div style="display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:0.5px solid rgba(201,168,76,0.03)">
-      <span style="font-size:12px">${FLAGS[lang]||''}</span>
-      <span style="font-size:9px;color:var(--t2);flex:1">${LLABEL[lang]}</span>
-      <div style="flex:1;height:3px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden;max-width:60px">
-        <div style="height:100%;width:${pct}%;background:${LCOL[lang]||'var(--g)'};border-radius:999px"></div>
-      </div>
-      <span style="font-family:var(--mono);font-size:8px;color:var(--t3);width:50px;text-align:right">${n} alunos</span>
-    </div>`;
-  }).join('')}`;
-}
-
-function renderDC_Groups(){
-  const unassigned=GROUPS.filter(g=>!g.assigned);
-  const assigned=GROUPS.filter(g=>g.assigned);
+function renderStmList(){
+  const q=(document.getElementById('stm-srch')?.value||'').toLowerCase();
+  const list=STM_STUDENTS.filter(s=>!q||(s.name||s.ref||'').toLowerCase().includes(q));
   let html='';
-  if(unassigned.length){
-    html+=`<div class="dc-st">⏳ Por atribuir (${unassigned.length})</div>`;
-    html+=unassigned.map(g=>`
-      <div class="dc-grow" onclick="selectTeacherForGroup('${g.key}')">
-        <span class="dc-gfl">${FLAGS[g.lang]||'🌐'}</span>
-        <span class="dc-gn">${g.lang} ${g.level} · ${g.branch}</span>
-        <span class="dc-gst pend">PENDENTE</span>
-        <span class="dc-gcount">${g.students.length}</span>
-      </div>`).join('');
-  }
-  if(assigned.length){
-    html+=`<div class="dc-st">✓ Atribuídos (${assigned.length})</div>`;
-    html+=assigned.map(g=>`
-      <div class="dc-grow">
-        <span class="dc-gfl">${FLAGS[g.lang]||'🌐'}</span>
-        <span class="dc-gn">${g.lang} ${g.level} · ${g.branch} · ${g.turmaCode||''}</span>
-        <span class="dc-gst ok">✓</span>
-        <span class="dc-gcount">${g.students.length}</span>
-      </div>`).join('');
-  }
-  return html||'<div style="font-size:10px;color:var(--t3);padding:14px;text-align:center">Nenhum grupo carregado.</div>';
-}
-
-function renderDC_Teachers(){
-  return TEACHERS.map(t=>{
-    const h=tHours(t.num), pct=Math.min(100,h/t.contractH*100);
-    const col=h>=t.contractH?'var(--red)':h>t.contractH*0.75?'var(--amber)':'var(--green)';
-    const ses=tSessions(t.num), stu=tStudents(t.num);
-    return`<div class="dc-trow">
-      <span class="dc-tc">${t.num}</span>
-      <span class="dc-tn" onclick="selectTeacher('${t.num}');document.getElementById('teacher-sel').value='${t.num}';" title="Seleccionar">${t.name.split(' ')[0]} ${FLAGS[t.lang]||''}</span>
-      <div class="dc-tb"><div class="dc-tf" style="width:${pct}%;background:${col}"></div></div>
-      <span class="dc-th" style="color:${col}">${h}/${t.contractH}h</span>
-    </div>
-    <div style="display:flex;gap:8px;padding:2px 0 6px 34px;border-bottom:0.5px solid rgba(201,168,76,0.04)">
-      <span style="font-size:8px;color:var(--t3);font-family:var(--mono)">${ses} sessões · ${stu} alunos</span>
+  list.forEach((s,i)=>{
+    const prefs=getSlotPrefs(s.ref);
+    const avail=prefs.some(p=>p.day===STM_DAY&&p.h===STM_H);
+    const av=avColor(s.name||s.ref||'?');
+    const ini=(s.name||s.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    html+=`<div class="stm-row${avail?' avail':''}" onclick="openDc('${s.ref}','')">
+      <div class="stm-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="stm-av" style="background:${av.bg};border-color:${avail?STM_LC:av.border};color:${av.text}">${ini}</div>
+      <div class="stm-info"><div class="stm-name">${s.name||s.ref||'—'}</div><div class="stm-ref">${s.ref||'—'}</div></div>
+      <div class="stm-actions">
+        <div class="stm-ico" title="Horário" onclick="event.stopPropagation();openDc('${s.ref}','')">📅</div>
+        <div class="stm-ico" title="Matrícula" onclick="event.stopPropagation();openDc('${s.ref}','')">📋</div>
+        <div class="stm-ico" title="Email" onclick="event.stopPropagation();window.location.href='mailto:${s.email||''}'">📧</div>
+        <div class="stm-ico" title="Mensagem">✉️</div>
+      </div>
+      <div class="stm-avail-badge ${avail?'yes':'no'}">${avail?'✓':'·'}</div>
     </div>`;
-  }).join('');
-}
-
-function renderDC_Alerts(){
-  const alerts=buildAlerts();
-  if(!alerts.length) return`<div class="al-item ok"><span class="al-icon">✓</span>Sem alertas activos. Sistema equilibrado.</div>`;
-  return alerts.map(a=>`<div class="al-item ${a.type}"><span class="al-icon">${a.icon}</span>${a.msg}</div>`).join('');
-}
-
-function renderDC_Log(){
-  if(!ACTION_LOG.length) return`<div class="log-empty">Nenhuma acção registada nesta sessão.</div>`;
-  return[...ACTION_LOG].reverse().map(l=>`
-    <div class="log-item">
-      <span class="log-code">${l.code}</span>
-      <span class="log-desc">${l.desc}</span>
-      <span class="log-time">${l.time}</span>
-    </div>`).join('');
-}
-
-function buildAlerts(){
-  const alerts=[];
-  TEACHERS.forEach(t=>{
-    const h=tHours(t.num);
-    if(h>t.contractH) alerts.push({type:'err',icon:'🔴',msg:`${t.name}: ${h}h excede contrato (${t.contractH}h)`});
-    else if(h===0&&t.contractH>0) alerts.push({type:'warn',icon:'🟡',msg:`${t.name}: sem aulas atribuídas`});
   });
-  GROUPS.filter(g=>!g.assigned).forEach(g=>{
-    if(g.students.length>=5) alerts.push({type:'warn',icon:'⏳',msg:`${g.lang} ${g.level} ${g.branch}: ${g.students.length} alunos sem professor`});
-  });
-  GROUPS.filter(g=>g.students.length>0&&g.students.length<4).forEach(g=>{
-    alerts.push({type:'warn',icon:'👥',msg:`${g.lang} ${g.level} ${g.branch}: grupo reduzido (${g.students.length} alunos)`});
-  });
-  return alerts;
+  if(!html) html=`<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:8.5px;color:var(--ink3)">Nenhum aluno</div>`;
+  document.getElementById('stm-list').innerHTML=html;
 }
-
-function countAlerts(){return buildAlerts().filter(a=>a.type==='err'||a.type==='warn').length;}
-
-function updateAlertBadge(){
-  const n=countAlerts();
-  const badge=document.getElementById('dcb-3');
-  badge.textContent=n;
-  badge.classList.toggle('hide',n===0);
-  // Log badge
-  const lb=document.getElementById('dcb-4');
-  lb.textContent=ACTION_LOG.length;
-  lb.classList.toggle('hide',ACTION_LOG.length===0);
-}
-
-function logAction(code,desc){
-  ACTION_LOG.push({code,desc,time:new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})});
-  updateAlertBadge();
-  if(dcOpen&&dcTab===4) renderDC(4);
-}
-
-function selectTeacherForGroup(key){
-  // Called from data centre groups tab — find a compatible teacher and switch to them
-  const g=GROUPS.find(x=>x.key===key);
-  if(!g)return;
-  const t=TEACHERS.find(t=>t.lang===g.lang&&tHours(t.num)<t.contractH);
-  if(t){
-    selectTeacher(t.num);
-    document.getElementById('teacher-sel').value=t.num;
-    closeDC();
-    showToast(`${t.name} seleccionado · clique num slot para atribuir`,'info');
-  }
-}
+function closeStm(){document.getElementById('stm-overlay').classList.remove('open');}
+function closeStmAndConfirm(){closeStm();confirmAssignment();}
 
 /* ══════════════════════════════════════
-   SAVE / EXPORT
+   DISCORD CARD — identical DNA to formation
 ══════════════════════════════════════ */
-function saveAll(){
-  const summary={timestamp:new Date().toISOString(),
-    assignments:GROUPS.filter(g=>g.assigned).map(g=>({
-      turmaCode:g.turmaCode,teacher:g.teacher,lang:g.lang,
-      level:g.level,branch:g.branch,day:g.day,h:g.h,studentCount:g.students.length
-    }))};
-  localStorage.setItem('alm-assignments-summary-'+AY,JSON.stringify(summary));
-  dirty=false;
-  document.getElementById('svdot').className='svdot saved';
-  document.getElementById('sv-txt').textContent='Guardado · '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
-  showToast(`${summary.assignments.length} turmas guardadas ✓`,'ok');
+function openDc(ref, groupKey){
+  const enrol=EMAP[ref], req=RMAP[ref];
+  const g=groupKey?GROUPS.find(x=>x.key===groupKey):GROUPS.find(x=>x.students?.some(s=>s.ref===ref)||x.studentRefs?.includes(ref));
+  const turmaCode=g?.turmaCode||Object.values(GRIDS).flatMap(gd=>Object.values(gd).flatMap(d=>Object.values(d))).find(s=>s.groupKey===g?.key)?.turmaCode||null;
+  const name=enrol?.name||ref;
+  const lang=enrol?.lang||g?.lang||'EN';
+  const cefr=(enrol?.level_cefr||g?.levelCefr||'A1').toUpperCase();
+  const course=g?.course||'adults';
+  const branch=enrol?.branch||g?.branch||'—';
+  const lc=COURSE_COL[course]||LCOL[lang]||'#C8A44A';
+  const almLabel=displayLevel(cefr,course);
+  const ini=name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const av=avColor(name);
+
+  document.getElementById('dc-panel').style.setProperty('--dc-c',lc);
+  document.getElementById('dc-panel').style.borderLeftColor=lc+'40';
+  document.getElementById('dc-banner-bg').style.background=`linear-gradient(135deg,${lc}44,${lc}18,rgba(0,0,0,.7))`;
+  document.getElementById('dc-status').className='dc-status '+(req?'has':'no');
+  const dcAv=document.getElementById('dc-av');
+  dcAv.style.cssText=`background:${av.bg};border-color:${av.border};color:${av.text}`;
+  dcAv.textContent=ini;
+
+  // Build all assigned codes for this student (for move dropdown)
+  const allCodes=GROUPS.filter(gg=>gg.turmaCode&&gg.key!==g?.key).map(gg=>gg.turmaCode).filter(Boolean);
+  const moveHtml=`<div class="dc-move">
+    <span class="dc-move-lbl">Mover para:</span>
+    <select class="dc-move-sel" id="dc-move-sel">
+      <option value="">— escolher turma —</option>
+      ${allCodes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+    </select>
+    <button class="dc-move-btn move" onclick="moveStudent('${ref}','${g?.key||''}')">Mover ✓</button>
+    ${turmaCode?`<button class="dc-move-btn remove" onclick="removeFromTurma('${ref}','${turmaCode}')">Remover ✕</button>`:''}
+  </div>`;
+
+  // Student timetable grid — days vertical, hours horizontal (Image 2 format)
+  const prefs=req?getSlotPrefs(ref):[];
+  const timetableHtml=buildStudentTimetable(prefs, turmaCode, g?.day, g?.h);
+
+  // Enrolment data
+  const enrolHtml=enrol?`<div class="dc-enrol">${[
+    ['Ref. ALM',ref,''],['Nível',almLabel,'hi'],['Filial',branch.replace(/_/g,' '),''],
+    ['Língua',`${FLAGS[lang]||''} ${lang}`,''],
+    enrol.phone?['Telefone',enrol.phone,'']:null,
+    enrol.email?['Email',enrol.email,'']:null,
+    ['Estado',enrol.status||'—',enrol.status==='active'?'ok':'warn'],
+  ].filter(Boolean).map(([k,v,c])=>`<div class="dc-row"><div class="dc-row-k">${k}</div><div class="dc-row-v ${c}">${v}</div></div>`).join('')}</div>`
+  :`<div style="font-family:var(--mono);font-size:8.5px;color:var(--ink3)">Dados não disponíveis.</div>`;
+
+  document.getElementById('dc-body').innerHTML=`
+    <div class="dc-name">${name}<span class="lvl-acc" style="color:${lc}">${almLabel}</span></div>
+    <div class="dc-handle">${ref} · ${branch.replace(/_/g,' ')}</div>
+    <div class="dc-badges">
+      <span class="dc-badge-lvl">${almLabel}</span>
+      <span class="dc-badge" style="background:${lc}16;border-color:${lc}45;color:${lc}">${FLAGS[lang]||''} ${lang}</span>
+      <span class="dc-badge" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:var(--ink3)">${course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral'}</span>
+      <span class="dc-badge" style="${req?'background:rgba(40,200,112,.1);border-color:rgba(40,200,112,.3);color:var(--green)':'background:var(--amber-a);border-color:rgba(240,152,48,.3);color:var(--amber)'}">
+        ${req?'✓ Pedido':'⚠ Sem pedido'}
+      </span>
+    </div>
+
+    ${turmaCode?`
+    <div class="dc-divider"></div>
+    <div class="dc-lbl">Turma Atribuída</div>
+    <div class="dc-turma-block">
+      <div class="dc-turma-code">${turmaCode}</div>
+      <div class="dc-turma-sub">${almLabel} · ${branch} · ${DAYS_PT[g?.day]||g?.day||'—'} ${g?.h?g.h+'h':'—'}</div>
+    </div>`:''}
+
+    <div class="dc-divider"></div>
+    <div class="dc-lbl">🗓 Horário Semanal</div>
+    ${timetableHtml}
+
+    <div class="dc-divider"></div>
+    <div class="dc-lbl">📋 Pedido de Horário</div>
+    ${buildSignedCard(req, name, ref, almLabel, lang, branch, lc)}
+
+    <div class="dc-divider"></div>
+    <div class="dc-lbl">📂 Dados de Matrícula</div>
+    ${enrolHtml}
+
+    <div class="dc-divider"></div>
+    <div class="dc-lbl">🔄 Mover Aluno</div>
+    ${moveHtml}
+  `;
+
+  document.getElementById('dc-overlay').classList.add('open');
+  document.getElementById('dc-panel').classList.add('open');
 }
 
-function exportCSV(){
-  const rows=['Turma,Professor,Língua,Nível,Filial,Dia,Hora,Alunos'];
-  GROUPS.filter(g=>g.assigned).forEach(g=>{
-    const t=TEACHERS.find(t=>t.num===g.teacher);
-    rows.push(`${g.turmaCode},"${t?.name||g.teacher}",${g.lang},${g.level},${g.branch},${g.day},${g.h}h,${g.students.length}`);
+function closeDc(){
+  document.getElementById('dc-overlay').classList.remove('open');
+  document.getElementById('dc-panel').classList.remove('open');
+}
+
+/* Student timetable grid — days vertical, hours horizontal */
+function buildStudentTimetable(prefs, turmaCode, confDay, confH){
+  const tHRS=[8,9,10,11,null,14,15,16,17,18,19,20];
+  const hCols=tHRS.length;
+  let html=`<div class="dc-timetable"><div class="dc-tt-grid" style="grid-template-columns:28px repeat(${hCols},1fr);grid-template-rows:16px repeat(6,16px)">`;
+  // Corner
+  html+=`<div class="dc-tt-corner"></div>`;
+  // Hour headers
+  tHRS.forEach(h=>{
+    if(h===null) html+=`<div class="dc-tt-h brk">·</div>`;
+    else html+=`<div class="dc-tt-h">${h}</div>`;
   });
-  const blob=new Blob([rows.join('\n')],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`ALM-turmas-${AY}-${new Date().toISOString().slice(0,10)}.csv`;a.click();
-}
-
-function markDirty(){
-  dirty=true;
-  document.getElementById('svdot').className='svdot';
-  document.getElementById('sv-txt').textContent='Alterações por guardar';
-}
-
-/* ══════════════════════════════════════
-   DEMO DATA (with phone + email)
-══════════════════════════════════════ */
-function demoStudents(){
-  const first=['Maria','João','Ana','Pedro','Sofia','Carlos','Inês','Rui','Clara','Paulo',
-    'Teresa','Miguel','Beatriz','André','Filipa','Diogo','Mariana','Luís','Sara','Tiago',
-    'Catarina','Bruno','Eva','Hugo','Lara','Marco','Nina','Óscar','Paula','Renata'];
-  const last=['Silva','Santos','Ferreira','Costa','Oliveira','Rodrigues','Sousa','Lima','Pereira','Gomes'];
-  const langs=['EN','EN','EN','EN','EN','EN','FR','FR','PT'];
-  const levels=['Ano 1','Ano 2','Ano 3','Ano 4','Ano 5','Ano 6','Ano 7','Ano 8'];
-  const branches=['Funchal','Funchal','Funchal','Machico','S. Cruz','Calheta'];
-  const out=[];
-  for(let i=0;i<300;i++){
-    const fn=first[i%first.length], ln=last[i%last.length];
-    out.push({
-      ref:`ALM-2026-${String(i+1).padStart(4,'0')}`,
-      name:`${fn} ${ln}`,
-      lang:langs[i%langs.length],level:levels[i%levels.length],branch:branches[i%branches.length],
-      phone:genPhone(`${fn}${i}`),email:genEmail(`${fn} ${ln}`,i),
-      absences:Math.floor(Math.random()*4),grade:i%5===0?0:50+Math.floor(Math.random()*45),
-      flagged:i%17===0,enrolled_date:rndDate()
+  // Days + cells
+  DAYS.forEach(day=>{
+    html+=`<div class="dc-tt-day">${day}</div>`;
+    tHRS.forEach(h=>{
+      if(h===null){html+=`<div class="dc-tt-cell" style="border-left:1.5px solid rgba(200,164,74,.2)"></div>`;return;}
+      const isReq=prefs.some(p=>p.day===day&&p.h===h);
+      const isConf=turmaCode&&confDay===day&&confH===h;
+      html+=`<div class="dc-tt-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
+  });
+  html+='</div>';
+  // Legend
+  html+=`<div style="display:flex;gap:10px;margin-top:4px">
+    <div style="display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:6.5px;color:var(--ink3)"><div style="width:8px;height:8px;background:rgba(40,200,112,.25);border:1px solid rgba(40,200,112,.45)"></div>Turma confirmada</div>
+    <div style="display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:6.5px;color:var(--ink3)"><div style="width:8px;height:8px;background:color-mix(in srgb,var(--dc-c) 28%,transparent)"></div>Pedido</div>
+  </div></div>`;
+  return html;
+}
+
+/* Signed request card */
+function buildSignedCard(req, name, ref, almLabel, lang, branch, lc){
+  if(!req) return `<div class="dc-no-req">⚠ Sem pedido submetido.</div>`;
+  let slots=[];
+  try{const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
+  const pills=slots.map((s,i)=>{
+    const day=s.day_name||DAY_NUM[s.day]||`Dia ${s.day}`;
+    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
+    const end=s.session_end||s.end_time||'—';
+    const type=s.type==='availability'?'disponível':i===0?'★ preferência':'↩ alternativa';
+    return`<span class="dc-slot-pill"><span class="sp-day">${day}</span><span class="sp-time">${start}${end!=='—'?'–'+end:''}</span><span class="sp-type">${type}</span></span>`;
+  }).join('');
+
+  return`<div class="dc-req-card">
+    <div class="dc-req-hdr"><span class="dc-req-title">📋 Pedido Submetido</span><span class="dc-req-lock">🔒 Somente leitura</span></div>
+    <div class="dc-req-body">
+      <div class="dc-req-row"><div class="dc-req-k">Slots pedidos</div><div class="dc-req-v">${pills||'—'}</div></div>
+      <div class="dc-req-row"><div class="dc-req-k">Modo</div><div class="dc-req-v hi">${req.mode_used==='avail'?'Disponibilidade':'Preferência'}</div></div>
+      <div class="dc-req-row"><div class="dc-req-k">Sessões/sem</div><div class="dc-req-v hi">${req.sessions_per_week||'—'}</div></div>
+      ${req.notes?`<div class="dc-req-row"><div class="dc-req-k">Nota</div><div class="dc-req-v" style="font-style:italic">${req.notes}</div></div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════
+   MOVE STUDENT BETWEEN TURMAS
+══════════════════════════════════════ */
+async function moveStudent(ref, fromGroupKey){
+  const targetCode=document.getElementById('dc-move-sel')?.value;
+  if(!targetCode){showToast('Escolha uma turma destino','warn');return;}
+
+  try{
+    // Remove from current turma
+    if(fromGroupKey){
+      const fromGroup=GROUPS.find(g=>g.key===fromGroupKey);
+      if(fromGroup){
+        const tc=fromGroup.turmaCode;
+        if(tc){
+          try{await sbDel('class_students',`turma_code=eq.${tc}&student_ref=eq.${ref}`);}catch(e){}
+          const td=localStorage.getItem('alm-turma-'+tc);
+          if(td){
+            const p=JSON.parse(td);
+            p.students=p.students.filter(s=>s.ref!==ref);
+            localStorage.setItem('alm-turma-'+tc,JSON.stringify(p));
+          }
+        }
+        fromGroup.students=fromGroup.students.filter(s=>s.ref!==ref);
+        fromGroup.studentRefs=fromGroup.studentRefs.filter(r=>r!==ref);
+        fromGroup.studentCount=fromGroup.students.length;
+      }
+    }
+
+    // Add to target turma
+    const enrol=EMAP[ref];
+    const stuRecord={turma_code:targetCode,student_ref:ref,student_name:enrol?.name||ref,absences:0,grade:null,flagged:false,note:''};
+    try{await sbPost('class_students',stuRecord);}catch(e){}
+    const td=localStorage.getItem('alm-turma-'+targetCode);
+    if(td){
+      const p=JSON.parse(td);
+      if(!p.students.find(s=>s.ref===ref)){
+        p.students.push({id:ref,name:enrol?.name||ref,initials:(enrol?.name||ref).split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(),ref,phone:enrol?.phone||'',email:enrol?.email||'',present:null,absences:0,grade:0,flagged:false,note:'',history:[]});
+        localStorage.setItem('alm-turma-'+targetCode,JSON.stringify(p));
+      }
+    }
+
+    showToast(`${ref} movido para ${targetCode} ✓`,'ok');
+    closeDc();
+    buildGrid();
+  }catch(e){
+    console.error('Move failed',e);
+    showToast('Erro ao mover aluno','err');
   }
-  return out;
 }
 
-function genPhone(seed){
-  let hash=0;for(let i=0;i<(seed||'x').length;i++)hash=(hash*31+seed.charCodeAt(i))&0xfffffff;
-  const p=['910','911','912','913','914','915','916','917','918','919',
-    '960','961','962','963','964','965','966','967','968','969'];
-  const pref=p[Math.abs(hash)%p.length];
-  const n=Math.abs(hash>>4)%10000000;
-  const ns=String(n).padStart(7,'0');
-  return`+351 ${pref} ${ns.slice(0,3)} ${ns.slice(3)}`;
-}
-
-function genEmail(name,idx){
-  const n=(name||'x').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'.');
-  const domains=['gmail.com','outlook.pt','hotmail.com','sapo.pt','mail.pt'];
-  const d=domains[(idx||0)%domains.length];
-  return`${n}@${d}`;
-}
-
-function rndDate(){
-  const start=new Date('2026-09-01').getTime(), end=new Date('2027-01-20').getTime();
-  return new Date(start+Math.random()*(end-start)).toISOString().slice(0,10);
+async function removeFromTurma(ref, turmaCode){
+  if(!confirm(`Remover ${ref} de ${turmaCode}?`)) return;
+  try{await sbDel('class_students',`turma_code=eq.${turmaCode}&student_ref=eq.${ref}`);}catch(e){}
+  const td=localStorage.getItem('alm-turma-'+turmaCode);
+  if(td){const p=JSON.parse(td);p.students=p.students.filter(s=>s.ref!==ref);localStorage.setItem('alm-turma-'+turmaCode,JSON.stringify(p));}
+  const g=GROUPS.find(x=>x.turmaCode===turmaCode);
+  if(g){g.students=g.students.filter(s=>s.ref!==ref);g.studentRefs=g.studentRefs.filter(r=>r!==ref);}
+  showToast(`${ref} removido de ${turmaCode} ✓`,'ok');
+  closeDc(); buildGrid();
 }
 
 /* ══════════════════════════════════════
-   AVATAR COLOR
+   STATS / BOTTOM
 ══════════════════════════════════════ */
-function avatarColor(name){
-  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))&0xffffffff;
-  const hues=[8,22,195,215,230,255,270,285,300,160,175,340,355];
-  const hue=hues[Math.abs(h)%hues.length];
-  const sat=55+(Math.abs(h>>4)%25),lit=58+(Math.abs(h>>8)%14);
-  return{bg:`hsl(${hue},${sat}%,22%)`,border:`hsl(${hue},${sat}%,38%)`,text:`hsl(${hue},${sat+10}%,${lit}%)`};
+function updateBotStats(){
+  const a=GROUPS.filter(g=>g.assigned).length,p=GROUPS.length-a;
+  document.getElementById('bot-atrib').textContent=a;
+  document.getElementById('bot-pend').textContent=p;
+  document.getElementById('bot-code').textContent='Próximo: '+nxtCode();
 }
 
 /* ══════════════════════════════════════
-   UI HELPERS
+   FALLBACK TEACHERS
 ══════════════════════════════════════ */
-function setSb(type,msg){
-  document.getElementById('sb-dot').className='sb-dot '+type;
-  const el=document.getElementById('sb-msg');
-  el.className='sb-msg '+type; el.textContent=msg;
-}
-function tick(){const e=document.getElementById('clock');if(e)e.textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}
+const FALLBACK_TEACHERS=[
+  {id:'P-01',code:'NB',name:'Nélia Baptista',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['kids'],capable:['adults'],occasional:['exam']}},
+  {id:'P-02',code:'SM',name:'Sally Macedo',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['adults'],capable:['exam'],occasional:['kids']}},
+  {id:'P-03',code:'TK',name:'Tony Kennedy',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:true,spec:{primary:['exam','adults'],capable:[],occasional:['kids']}},
+  {id:'P-04',code:'CF',name:'Cristina Ferreira',lang:'EN',contractH:22,branch:'C. Lobos',branches:['C. Lobos'],native:false,spec:{primary:['adults'],capable:['exam'],occasional:['kids']}},
+  {id:'P-05',code:'SP',name:'Salomé Portugal',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['adults'],capable:['kids'],occasional:['exam']}},
+  {id:'P-06',code:'AG',name:'Águeda Correia',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['kids','adults'],capable:[],occasional:['exam']}},
+  {id:'P-07',code:'DS',name:'Dina Silva',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['adults'],capable:['kids','exam'],occasional:[]}},
+  {id:'P-08',code:'MJ',name:'Majid Jafari',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:true,spec:{primary:['exam'],capable:['adults'],occasional:['kids']}},
+  {id:'P-09',code:'CM',name:'Catherine Moreau',lang:'FR',contractH:22,branch:'Funchal',branches:['Funchal'],native:false,spec:{primary:['adults','exam'],capable:['kids'],occasional:[]}},
+  {id:'P-10',code:'TP',name:'Teresa Pontes',lang:'EN',contractH:22,branch:'S. Cruz',branches:['S. Cruz'],native:false,spec:{primary:['adults'],capable:['exam'],occasional:['kids']}},
+  {id:'P-11',code:'ZL',name:'Zélia',lang:'EN',contractH:22,branch:'Machico',branches:['Machico'],native:false,spec:{primary:['adults','kids'],capable:[],occasional:['exam']}},
+];
+
+/* ══════════════════════════════════════
+   CLOCK + UTILS
+══════════════════════════════════════ */
+function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+tick(); setInterval(tick,1000);
+function loPct(pct,txt){const f=document.getElementById('lo-fill'),t=document.getElementById('lo-txt');if(f)f.style.width=pct+'%';if(t&&txt)t.textContent=txt;}
+function loHide(){const el=document.getElementById('lo');if(el){el.classList.add('done');setTimeout(()=>el.remove(),500);}}
+function setSb(type,txt){const p=document.getElementById('sb');p.className='sb '+type;document.getElementById('sb-txt').textContent=txt;}
 let toastT=null;
-function showToast(msg,type='info'){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast '+type+' show';
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2700);
-}
+function showToast(msg,type='info'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2700);}
+
+/* Keyboard */
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    if(document.getElementById('sd').classList.contains('open'))closeSD();
-    else if(document.getElementById('mo').classList.contains('open'))closeModal();
-    else closeDC();
+    if(document.getElementById('dc-panel').classList.contains('open')){closeDc();return;}
+    if(document.getElementById('stm-overlay').classList.contains('open')){closeStm();return;}
+    closePop();
   }
-  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveAll();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();showToast('Atribuições guardadas ✓','ok');}
 });
-document.getElementById('am-start').addEventListener('input',()=>{updateEnd();checkConflict();});
+document.addEventListener('click',e=>{
+  const pop=document.getElementById('popover');
+  if(pop.classList.contains('show')&&!pop.contains(e.target)&&!e.target.closest('.slot')) closePop();
+});
+window.addEventListener('resize',()=>{if(T) buildGrid();});
 
-tick();
-setInterval(tick,30000);
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
 boot();
 </script>
 </body>
