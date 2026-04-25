@@ -902,7 +902,7 @@ async function boot() {
 
   setStep('groups','run','…'); loPct(20,'A carregar grupos…');
   try {
-    const raw = await sbGet('groups','select=group_key,branch,lang,level_cefr,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
+    const raw = await sbGet('groups','select=group_key,branch,lang,level_cefr,family,department,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
     RAW_GROUPS = raw.map(normGroup).filter(g => g.cefr && g.lang);
     setStep('groups','done', RAW_GROUPS.length+' grupos'); loPct(40);
   } catch(e) { setStep('groups','err','Erro'); setSb('err','Erro de ligação'); loHide(); return; }
@@ -963,17 +963,26 @@ async function boot() {
    NORMALISE GROUP
 ════════════════════════════════════════════════════ */
 function normGroup(row) {
+  // group_key format: "BRANCH|LANG|DEPT|CEFR" (from formation)
+  // or could be raw key — handle both
   const parts  = (row.group_key||'').split('|');
-  const branch = parts[0] || row.branch || '?';
-  const lang   = parts[1] || row.lang   || 'EN';
-  const deptRaw= parts[2] || row.family || row.department || '';
-  const cefr   = (parts[3] || row.level_cefr || '').toUpperCase();
-  // Infer course from dept field OR group_key string
-  const courseStr = deptRaw || row.group_key || '';
+  const hasParts = parts.length >= 4;
+
+  const branch  = hasParts ? parts[0] : (row.branch || '?');
+  const lang    = hasParts ? parts[1] : (row.lang   || 'EN');
+  const deptRaw = hasParts ? parts[2] : (row.family || row.department || row.dept || '');
+  const cefr    = ((hasParts ? parts[3] : '') || row.level_cefr || '').toUpperCase();
+
+  // Infer course — check multiple sources
+  const courseStr = [deptRaw, row.family, row.department, row.group_key].filter(Boolean).join(' ');
   const course = inferCourse(courseStr);
+
+  // dept for pivot grouping — must map to DEPT_ORDER keys: 'juvenil'/'geral'/'exam'
+  const dept = course === 'kids' ? 'juvenil' : course === 'exam' ? 'exam' : 'geral';
+
   return {
     key:      row.group_key,
-    branch, lang, dept: deptRaw, cefr, course,
+    branch, lang, dept, cefr, course,
     label:      displayLevel(cefr, course),
     deptLabel:  levelDept(course),
     color:      levelColor(course),
@@ -982,7 +991,7 @@ function normGroup(row) {
     studentRefs: Array.isArray(row.student_refs) ? row.student_refs : [],
     studentCount: row.student_count || row.count || 0,
     students: [],
-    almKey: deptRaw && cefr ? `${deptRaw}|${cefr}` : `${course}|${cefr}`,
+    almKey: `${dept}|${cefr}`,
     approved: false,
     autoSplit: false, splitIndex: 0, splitTotal: 1, split: null,
     recommendedDay: null, recommendedH: null, recommendedPct: 0,
@@ -1307,7 +1316,7 @@ function buildPivot() {
     if(!deptLevels[dept]) return;
     rows.push({type:'dept',dept});
     const course=inferCourse(dept);const levels=[...deptLevels[dept]].sort((a,b)=>(levelOrder(course,a)||99)-(levelOrder(course,b)||99));
-    levels.forEach(cefr=>rows.push({type:'level',dept,cefr}));
+    levels.forEach(cefr=>rows.push({type:'level',dept,cefr,label:displayLevel(cefr,inferCourse(dept))}));
   });
 
   let html='<thead><tr>';
@@ -1332,7 +1341,7 @@ function buildPivot() {
     }
     const _course=inferCourse(row.dept);const alm={label:displayLevel(row.cefr,_course),color:levelColor(_course),dept:levelDept(_course),order:levelOrder(_course,row.cefr)};
     html+=`<tr class="dept-${row.dept}">`;
-    html+=`<td class="pt-level-hdr"><div class="plh-code">${row.label||row.cefr}</div><div class="plh-sub">${row.cefr}</div></td>`;
+    const firstBranch=BRANCHES[0]||"FUNCHAL";html+=`<td class="pt-level-hdr dept-${row.dept}" onclick="openList('${row.dept}','${row.cefr}','${firstBranch}')" style="cursor:pointer" title="Ver lista"><div class="plh-code">${row.label||row.cefr}</div><div class="plh-sub" style="color:var(--ink3);font-size:6.5px">${row.cefr}</div></td>`;
 
     BRANCHES.forEach(branch=>{
       const groups=GROUPS.filter(g=>g.dept===row.dept&&g.cefr===row.cefr&&g.branch===branch);
