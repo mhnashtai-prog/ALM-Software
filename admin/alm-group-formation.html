@@ -832,19 +832,39 @@ const sbGet = (t,q='') => fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{
 /* ════════════════════════════════════════════════════
    ALM LEVEL SYSTEM
 ════════════════════════════════════════════════════ */
-const ALM = {
-  'juvenil|A1':{ label:'Pj1', dept:'Juvenil', color:'#28C8B0', order:1  },
-  'juvenil|A2':{ label:'Pj2', dept:'Juvenil', color:'#28C8B0', order:2  },
-  'juvenil|B1':{ label:'Pj3', dept:'Juvenil', color:'#28C8B0', order:3  },
-  'geral|A1':  { label:'1st', dept:'Geral',   color:'#C8A44A', order:4  },
-  'geral|A2':  { label:'2nd', dept:'Geral',   color:'#C8A44A', order:5  },
-  'geral|B1':  { label:'3rd', dept:'Geral',   color:'#C8A44A', order:6  },
-  'geral|B2':  { label:'4th', dept:'Geral',   color:'#C8A44A', order:7  },
-  'geral|C1':  { label:'5th', dept:'Geral',   color:'#C8A44A', order:8  },
-  'exam|B2':   { label:'6th', dept:'Exames',  color:'#9B5ECA', order:9  },
-  'exam|C1':   { label:'7th', dept:'Exames',  color:'#9B5ECA', order:10 },
-  'exam|C2':   { label:'8th', dept:'Exames',  color:'#9B5ECA', order:11 },
+/* ══ CANONICAL LEVEL SYSTEM — single source of truth ══ */
+const LEVEL_DISPLAY = {
+  kids:   {A1:'PI-a1', A2:'PI-a2', B1:'Pj1',    B2:'Pj2',    C1:'Pj3'},
+  adults: {A1:'1º Ano',A2:'2º Ano',B1:'3º Ano', B2:'4º Ano', C1:'5º Ano', C2:'6º Ano'},
+  exam:   {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano', C2:'8º Ano'}
 };
+const LEVEL_DEPT = {
+  kids:'Juvenil', adults:'Geral', exam:'Exames'
+};
+const LEVEL_COLOR = {
+  kids:'#28C8B0', adults:'#4888E8', exam:'#C8A44A'
+};
+const LEVEL_ORDER = {
+  kids:  {A1:1,A2:2,B1:3,B2:4,C1:5},
+  adults:{A1:6,A2:7,B1:8,B2:9,C1:10,C2:11},
+  exam:  {B1:12,B2:13,C1:14,C2:15}
+};
+
+function displayLevel(cefr, course) {
+  if(!course||!cefr) return cefr||'—';
+  return LEVEL_DISPLAY[course]?.[cefr.toUpperCase()] || cefr;
+}
+
+function inferCourse(str) {
+  const s = (str||'').toLowerCase();
+  if(s.includes('kids')||s.includes('juvenil')||s.includes('infantil')||s.includes('junior')) return 'kids';
+  if(s.includes('exam')||s.includes('fce')||s.includes('cambridge')||s.includes('ielts')) return 'exam';
+  return 'adults';
+}
+
+function levelColor(course)  { return LEVEL_COLOR[course]  || '#C8A44A'; }
+function levelDept(course)   { return LEVEL_DEPT[course]   || course; }
+function levelOrder(course, cefr) { return (LEVEL_ORDER[course]?.[cefr?.toUpperCase()] || 99); }
 const DEPT_ORDER = ['juvenil','geral','exam'];
 const DEPT_LABEL = {juvenil:'Juvenil',geral:'Geral',exam:'Exames Cambridge'};
 const DEPT_COLOR = {juvenil:'#28C8B0',geral:'#C8A44A',exam:'#9B5ECA'};
@@ -943,24 +963,29 @@ async function boot() {
    NORMALISE GROUP
 ════════════════════════════════════════════════════ */
 function normGroup(row) {
-  const parts = (row.group_key||'').split('|');
+  const parts  = (row.group_key||'').split('|');
   const branch = parts[0] || row.branch || '?';
   const lang   = parts[1] || row.lang   || 'EN';
-  const dept   = parts[2] || '';
-  const cefr   = parts[3] || row.level_cefr || '';
-  const almKey = dept && cefr ? `${dept}|${cefr}` : null;
-  const alm    = almKey ? ALM[almKey] : null;
+  const deptRaw= parts[2] || row.family || row.department || '';
+  const cefr   = (parts[3] || row.level_cefr || '').toUpperCase();
+  // Infer course from dept field OR group_key string
+  const courseStr = deptRaw || row.group_key || '';
+  const course = inferCourse(courseStr);
   return {
-    key: row.group_key, branch, lang, dept, cefr, almKey,
-    label:     alm?.label    || cefr,
-    deptLabel: alm?.dept     || dept,
-    color:     alm?.color    || '#C8A44A',
-    order:     alm?.order    || 99,
-    viability: row.viability || 'low',
+    key:      row.group_key,
+    branch, lang, dept: deptRaw, cefr, course,
+    label:      displayLevel(cefr, course),
+    deptLabel:  levelDept(course),
+    color:      levelColor(course),
+    order:      levelOrder(course, cefr),
+    viability:  row.viability || 'viable',
     studentRefs: Array.isArray(row.student_refs) ? row.student_refs : [],
-    studentCount: row.student_count||0,
-    students: [], approved: false, split: null,
-    autoSplit: false, splitIndex: null, splitTotal: null, groupCode: null
+    studentCount: row.student_count || row.count || 0,
+    students: [],
+    approved: false,
+    autoSplit: false, splitIndex: 0, splitTotal: 1, split: null,
+    recommendedDay: null, recommendedH: null, recommendedPct: 0,
+    groupCode: null, turmaCode: null, teacher: null, assigned: false
   };
 }
 
@@ -1306,7 +1331,7 @@ function buildPivot() {
     }
     const alm=ALM[`${row.dept}|${row.cefr}`];
     html+=`<tr class="dept-${row.dept}">`;
-    html+=`<td class="pt-level-hdr"><div class="plh-code">${alm?.label||row.cefr}</div><div class="plh-sub">${row.cefr}</div></td>`;
+    html+=`<td class="pt-level-hdr"><div class="plh-code">${row.label||row.cefr}</div><div class="plh-sub">${row.cefr}</div></td>`;
 
     BRANCHES.forEach(branch=>{
       const groups=GROUPS.filter(g=>g.dept===row.dept&&g.cefr===row.cefr&&g.branch===branch);
@@ -1657,7 +1682,7 @@ function openList(dept,cefr,branch){
   const dc=DEPT_COLOR[dept]||'#888';
   document.getElementById('lp-dept-tag').textContent=DEPT_LABEL[dept]||dept;
   document.getElementById('lp-dept-tag').style.cssText=`background:${dc}22;border-color:${dc}55;color:${dc}`;
-  document.getElementById('lp-title').textContent=`${alm?.label||cefr} · ${branch.replace(/_/g,' ')}`;
+  document.getElementById('lp-title').textContent=`${g.label||g.cefr} · ${branch.replace(/_/g,' ')}`;
   document.getElementById('lp-sub').textContent=`${cefr} · ${dept}`;
   document.querySelectorAll('.lp-tab').forEach(t=>t.classList.remove('on'));
   document.querySelectorAll('.lp-tab')[0].classList.add('on');
