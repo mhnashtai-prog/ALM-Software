@@ -54,6 +54,10 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .left-hdr{flex-shrink:0;padding:10px 12px;border-bottom:.5px solid var(--b);display:flex;align-items:center;gap:8px}
 .lh-title{font-family:var(--mono);font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--g);flex:1}
 .lh-count{font-family:var(--mono);font-size:7px;color:var(--t3)}
+.branch-sel{flex-shrink:0;padding:8px 12px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.branch-select{width:100%;padding:5px 8px;background:var(--bg3);border:.5px solid var(--b2);font-family:var(--mono);font-size:9px;color:var(--g2);outline:none;cursor:pointer;letter-spacing:.04em}
+.branch-select:focus{border-color:var(--g)}
+.branch-select option{background:var(--bg2)}
 .t-filter{flex-shrink:0;padding:6px 10px;border-bottom:.5px solid var(--b);display:flex;flex-wrap:wrap;gap:4px}
 .tf-pill{padding:2px 8px;border:.5px solid var(--b);font-family:var(--mono);font-size:7.5px;cursor:pointer;color:var(--t3);transition:all .12s;white-space:nowrap}
 .tf-pill:hover{border-color:var(--b2);color:var(--t2)}
@@ -341,6 +345,11 @@ body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
       <span class="lh-title">Por Nível</span>
       <span class="lh-count" id="lh-count">—</span>
     </div>
+    <div class="branch-sel">
+      <select class="branch-select" id="branch-select" onchange="selectBranch(this.value)">
+        <option value="Funchal">📍 Funchal</option>
+      </select>
+    </div>
     <div class="t-filter" id="t-filter">
       <div class="tf-pill active" onclick="filterTeacher(null,this)">Todos</div>
     </div>
@@ -516,6 +525,7 @@ window.GROUPS=GROUPS; window.EMAP=EMAP; window.RMAP=RMAP;
 let CELL_MAP={};
 let FILTER_TEACHER=null;
 let SEL_LEVEL=null;
+let SEL_BRANCH='Funchal';
 
 // Slot panel state
 let SP_DAY=null, SP_H=null, SP_GROUP=null, SP_DUR=60;
@@ -564,7 +574,7 @@ function gAvailCount(gKey,day,h){
 
 function slotAvailForLevel(dept,cefr,day,h){
   // Returns raw count of students available at this slot for unassigned groups of level
-  const gs=GROUPS.filter(g=>g.dept===dept&&g.cefr===cefr&&!isAssigned(g.key));
+  const gs=branchGroups().filter(g=>g.dept===dept&&g.cefr===cefr&&!isAssigned(g.key));
   let count=0;
   gs.forEach(g=>{
     const refs=g.studentRefs?.length?g.studentRefs:(g.students||[]).map(s=>s.ref);
@@ -643,6 +653,11 @@ async function boot(){
     if(raw?.length) raw.forEach(r=>{RMAP[r.ref]=r;});
   }catch(e){}
   window.GROUPS=GROUPS; window.EMAP=EMAP; window.RMAP=RMAP;
+  // Populate branch dropdown from loaded groups
+  const branches=[...new Set(GROUPS.map(g=>g.branch).filter(Boolean))].sort();
+  const bSel=document.getElementById('branch-select');
+  bSel.innerHTML=branches.map(b=>`<option value="${b}"${b==='Funchal'?' selected':''}>${b==='Funchal'?'📍 ':b==='S. Cruz'?'📍 ':b==='C. Lobos'?'📍 ':b==='Machico'?'📍 ':b==='Calheta'?'📍 ':''}${b}</option>`).join('');
+  if(!branches.includes(SEL_BRANCH)&&branches.length) SEL_BRANCH=branches[0];
   loPct(100,'Pronto'); renderAll(); setTimeout(loHide,400);
 }
 
@@ -689,16 +704,28 @@ function saveAll(){saveCells();showToast('Atribuições guardadas ✓','ok');}
 /* ══════════════════════════════════════
    RENDER ALL
 ══════════════════════════════════════ */
+function branchTeachers(){
+  return TEACHERS.filter(t=>!SEL_BRANCH||!t.branches||t.branches.includes(SEL_BRANCH)||t.branch===SEL_BRANCH);
+}
+  SEL_BRANCH=b; SEL_LEVEL=null;
+  document.getElementById('level-strip').classList.remove('show');
+  renderAll();
+}
+
+function branchGroups(){
+  return GROUPS.filter(g=>!SEL_BRANCH||g.branch===SEL_BRANCH);
+}
+
 function renderAll(){buildTeacherFilter();renderLevelList();renderGrid();renderHourBars();updateStats();}
 
 /* ══════════════════════════════════════
    TEACHER FILTER
 ══════════════════════════════════════ */
 function buildTeacherFilter(){
-  const langs=[...new Set(TEACHERS.map(t=>t.lang))].sort();
+  const langs=[...new Set(branchTeachers().map(t=>t.lang))].sort();
   let html=`<div class="tf-pill active" onclick="filterTeacher(null,this)">Todos</div>`;
   langs.forEach(lang=>{html+=`<div class="tf-pill" onclick="filterTeacher('${lang}',this)">${FLAGS[lang]||''} ${lang}</div>`;});
-  TEACHERS.filter(t=>tHours(t.id)>0).forEach(t=>{
+  branchTeachers().filter(t=>tHours(t.id)>0).forEach(t=>{
     const lc=LCOL[t.lang]||'#C8A44A';
     html+=`<div class="tf-pill" style="border-color:${lc}44;color:${lc}" onclick="filterTeacher('${t.id}',this)">${t.code}</div>`;
   });
@@ -716,7 +743,7 @@ function filterTeacher(val,el){
 ══════════════════════════════════════ */
 function renderLevelList(){
   const levelMap={};
-  GROUPS.forEach(g=>{
+  branchGroups().forEach(g=>{
     const k=g.dept+'|'+g.cefr;
     if(!levelMap[k]) levelMap[k]={dept:g.dept,cefr:g.cefr,course:g.course,label:g.label,groups:[],inscr:0,subm:0};
     levelMap[k].groups.push(g);
@@ -774,7 +801,7 @@ function selectLevel(dept,cefr,course){
   strip.classList.add('show');
   document.getElementById('ls-name').textContent=lvl;
   document.getElementById('ls-name').style.color=col;
-  const gs=GROUPS.filter(g=>g.dept===dept&&g.cefr===cefr);
+  const gs=branchGroups().filter(g=>g.dept===dept&&g.cefr===cefr);
   const inscr=gs.reduce((a,g)=>a+(g.studentCount||0),0);
   const subm=gs.reduce((a,g)=>a+(g.studentRefs?.filter(r=>RMAP[r]).length||0),0);
   const atr=gs.filter(g=>isAssigned(g.key)).length;
@@ -961,8 +988,8 @@ function updateSpPreview(){
 }
 
 function getCandidateGroups(){
-  if(!SEL_LEVEL) return GROUPS.filter(g=>!isAssigned(g.key));
-  return GROUPS.filter(g=>
+  if(!SEL_LEVEL) return branchGroups().filter(g=>!isAssigned(g.key));
+  return branchGroups().filter(g=>
     g.dept===SEL_LEVEL.dept&&g.cefr===SEL_LEVEL.cefr&&!isAssigned(g.key));
 }
 
@@ -1037,7 +1064,7 @@ function openBookedCtx(e,day,h){
     <div id="ctx-tchange" style="display:none;flex-direction:column;gap:4px;padding:0 4px 4px">
       <select class="ctx-select" id="ctx-t-sel">
         <option value="">— sem professor —</option>
-        ${TEACHERS.map(t=>`<option value="${t.id}"${t.id===cell.teacherId?' selected':''}>${t.code} · ${t.name}</option>`).join('')}
+        ${branchTeachers().map(t=>`<option value="${t.id}"${t.id===cell.teacherId?' selected':''}>${t.code} · ${t.name}</option>`).join('')}
       </select>
       <button class="ctx-confirm" onclick="confirmChangeTeacher('${key}')">✓ Confirmar</button>
     </div>
@@ -1153,7 +1180,7 @@ function closeStm(){document.getElementById('stm-overlay').classList.remove('ope
    HOUR BARS
 ══════════════════════════════════════ */
 function renderHourBars(){
-  const active=TEACHERS.filter(t=>tHours(t.id)>0).sort((a,b)=>tHours(b.id)-tHours(a.id));
+  const active=branchTeachers().filter(t=>tHours(t.id)>0).sort((a,b)=>tHours(b.id)-tHours(a.id));
   if(!active.length){document.getElementById('hour-bars').innerHTML='<div style="font-family:var(--mono);font-size:7.5px;color:var(--t3)">Sem horas atribuídas</div>';return;}
   document.getElementById('hour-bars').innerHTML=active.map(t=>{
     const h=tHours(t.id),max=t.contractH||22;
@@ -1172,7 +1199,7 @@ function renderHourBars(){
 ══════════════════════════════════════ */
 function updateStats(){
   const assigned=Object.keys(CELL_MAP).length;
-  const pending=GROUPS.filter(g=>!isAssigned(g.key)).length;
+  const pending=branchGroups().filter(g=>!isAssigned(g.key)).length;
   document.getElementById('stat-a').textContent=assigned;
   document.getElementById('stat-p').textContent=pending;
   document.getElementById('bot-a').textContent=assigned;
