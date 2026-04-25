@@ -902,7 +902,7 @@ async function boot() {
 
   setStep('groups','run','…'); loPct(20,'A carregar grupos…');
   try {
-    const raw = await sbGet('groups','select=group_key,branch,lang,level_cefr,family,department,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
+    const raw = await sbGet('groups','select=group_key,branch,lang,level_cefr,student_count,viability,student_refs,academic_year&academic_year=eq.2026%2F2027&limit=500');
     RAW_GROUPS = raw.map(normGroup).filter(g => g.cefr && g.lang);
     setStep('groups','done', RAW_GROUPS.length+' grupos'); loPct(40);
   } catch(e) { setStep('groups','err','Erro'); setSb('err','Erro de ligação'); loHide(); return; }
@@ -963,21 +963,24 @@ async function boot() {
    NORMALISE GROUP
 ════════════════════════════════════════════════════ */
 function normGroup(row) {
-  // group_key format: "BRANCH|LANG|DEPT|CEFR" (from formation)
-  // or could be raw key — handle both
+  // group_key format: "BRANCH|LANG|DEPT|CEFR" (built by formation)
   const parts  = (row.group_key||'').split('|');
   const hasParts = parts.length >= 4;
 
   const branch  = hasParts ? parts[0] : (row.branch || '?');
   const lang    = hasParts ? parts[1] : (row.lang   || 'EN');
-  const deptRaw = hasParts ? parts[2] : (row.family || row.department || row.dept || '');
+  const deptRaw = hasParts ? parts[2] : '';
   const cefr    = ((hasParts ? parts[3] : '') || row.level_cefr || '').toUpperCase();
 
-  // Infer course — check multiple sources
-  const courseStr = [deptRaw, row.family, row.department, row.group_key].filter(Boolean).join(' ');
-  const course = inferCourse(courseStr);
+  // Infer course from group_key string (most reliable source)
+  const gkLower = (row.group_key||'').toLowerCase();
+  const course =
+    (gkLower.includes('juvenil')||gkLower.includes('kids')||gkLower.includes('infantil')) ? 'kids' :
+    (gkLower.includes('exam')||gkLower.includes('cambridge')||gkLower.includes('fce')||gkLower.includes('ielts')) ? 'exam' :
+    (deptRaw && inferCourse(deptRaw) !== 'adults') ? inferCourse(deptRaw) :
+    'adults';
 
-  // dept for pivot grouping — must map to DEPT_ORDER keys: 'juvenil'/'geral'/'exam'
+  // dept must map to DEPT_ORDER keys: 'juvenil' / 'geral' / 'exam'
   const dept = course === 'kids' ? 'juvenil' : course === 'exam' ? 'exam' : 'geral';
 
   return {
