@@ -963,41 +963,39 @@ async function boot() {
    NORMALISE GROUP
 ════════════════════════════════════════════════════ */
 function normGroup(row) {
-  // group_key format: "BRANCH|LANG|DEPT|CEFR" (built by formation)
+  // group_key format: "BRANCH|LANG|DEPT|CEFR"  e.g. "FUNCHAL|EN|exam|B2"
   const parts  = (row.group_key||'').split('|');
-  const hasParts = parts.length >= 4;
+  const branch = (parts[0] || row.branch || '?').replace(/_/g,' ');
+  const lang   = parts[1] || row.lang   || 'EN';
+  const dept   = (parts[2] || '').toLowerCase();  // 'exam' | 'juvenil' | 'geral'
+  const cefr   = ((parts[3] || row.level_cefr || '')).toUpperCase();
 
-  const branch  = hasParts ? parts[0] : (row.branch || '?');
-  const lang    = hasParts ? parts[1] : (row.lang   || 'EN');
-  const deptRaw = hasParts ? parts[2] : '';
-  const cefr    = ((hasParts ? parts[3] : '') || row.level_cefr || '').toUpperCase();
+  // Course from dept position — direct and reliable
+  const course = dept === 'exam' ? 'exam'
+               : dept === 'juvenil' ? 'kids'
+               : 'adults';
 
-  // Infer course from group_key string (most reliable source)
-  const gkLower = (row.group_key||'').toLowerCase();
-  const course =
-    (gkLower.includes('juvenil')||gkLower.includes('kids')||gkLower.includes('infantil')) ? 'kids' :
-    (gkLower.includes('exam')||gkLower.includes('cambridge')||gkLower.includes('fce')||gkLower.includes('ielts')) ? 'exam' :
-    (deptRaw && inferCourse(deptRaw) !== 'adults') ? inferCourse(deptRaw) :
-    'adults';
-
-  // dept must map to DEPT_ORDER keys: 'juvenil' / 'geral' / 'exam'
-  const dept = course === 'kids' ? 'juvenil' : course === 'exam' ? 'exam' : 'geral';
+  // dept for pivot must match DEPT_ORDER: 'juvenil' | 'geral' | 'exam'
+  const deptKey = course === 'kids' ? 'juvenil'
+                : course === 'exam' ? 'exam'
+                : 'geral';
 
   return {
-    key:      row.group_key,
-    branch, lang, dept, cefr, course,
-    label:      displayLevel(cefr, course),
-    deptLabel:  levelDept(course),
-    color:      levelColor(course),
-    order:      levelOrder(course, cefr),
-    viability:  row.viability || 'viable',
+    key:         row.group_key,
+    branch, lang,
+    dept:        deptKey,
+    cefr,        course,
+    label:       displayLevel(cefr, course),
+    deptLabel:   levelDept(course),
+    color:       levelColor(course),
+    order:       levelOrder(course, cefr),
+    viability:   row.viability || 'viable',
     studentRefs: Array.isArray(row.student_refs) ? row.student_refs : [],
-    studentCount: row.student_count || row.count || 0,
-    students: [],
-    almKey: `${dept}|${cefr}`,
-    approved: false,
-    autoSplit: false, splitIndex: 0, splitTotal: 1, split: null,
-    recommendedDay: null, recommendedH: null, recommendedPct: 0,
+    studentCount:row.student_count || 0,
+    students:    [],
+    almKey:      `${deptKey}|${cefr}`,
+    approved: false, autoSplit: false, splitIndex: 0, splitTotal: 1,
+    split: null, recommendedDay: null, recommendedH: null, recommendedPct: 0,
     groupCode: null, turmaCode: null, teacher: null, assigned: false
   };
 }
