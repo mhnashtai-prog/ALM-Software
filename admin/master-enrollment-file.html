@@ -736,7 +736,20 @@ const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
 const YEAR=2026;
 
-async function sbPost(t,b){const r=await fetch(SB+'/rest/v1/'+t,{method:'POST',headers:H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbPost(t,b){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const r=await fetch(SB+'/rest/v1/'+t,{method:'POST',headers:H,body:JSON.stringify(b),signal:ctrl.signal});
+    clearTimeout(timer);
+    if(!r.ok){const err=await r.text();console.error('SUPABASE INSERT ERROR:',err);throw new Error(err);}
+    return r.json();
+  }catch(e){
+    clearTimeout(timer);
+    console.error('SUPABASE FETCH ERROR:',e.message);
+    throw e;
+  }
+}
 async function sbGet(t,q=''){const r=await fetch(SB+'/rest/v1/'+t+'?'+q,{headers:H});if(!r.ok)throw new Error(await r.text());return r.json();}
 
 async function fetchNextRef(){
