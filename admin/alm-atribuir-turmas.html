@@ -949,16 +949,45 @@ async function boot(){
   document.getElementById('st1-label').textContent='Funchal';
   setStage(2);
   loPct(100,'Pronto'); renderAll(); setTimeout(loHide,400);
+
+  // ── DIAGNOSTIC DUMP (open console to see) ──
+  console.group('ALM Boot Diagnostics');
+  console.log('TEACHERS:', TEACHERS.length);
+  console.log('EMAP (enrolments):', Object.keys(EMAP).length);
+  console.log('GROUPS:', GROUPS.length);
+  console.log('RMAP (requests):', Object.keys(RMAP).length);
+  if(GROUPS.length){
+    const depts=[...new Set(GROUPS.map(g=>g.dept))];
+    console.log('Dept values found:', depts);
+    const courses=[...new Set(GROUPS.map(g=>g.course))];
+    console.log('Course values found:', courses);
+    console.log('Raw group_keys sample:', GROUPS.slice(0,5).map(g=>g.key));
+    const byDept={};
+    GROUPS.forEach(g=>{byDept[g.dept]=(byDept[g.dept]||0)+1;});
+    console.log('Groups by dept:', byDept);
+  }
+  const rmapSample=Object.values(RMAP).slice(0,3);
+  rmapSample.forEach(r=>console.log('RMAP sample:', r.ref, '| mode:', r.mode_used, '| family:', r.family, '| dp:', r.day_preferences, '| avail keys:', r.availability?Object.keys(r.availability).filter(k=>r.availability[k]):null));
+  console.groupEnd();
 }
 
 function normGroup(row){
   const parts=(row.group_key||'').split('|');
   const branch=(parts[0]||row.branch||'?').replace(/_/g,' ');
   const lang=parts[1]||row.lang||'EN';
-  const deptRaw=(parts[2]||'').toLowerCase();
-  const cefr=((parts[3]||row.level_cefr||'')).toUpperCase();
-  const course=deptRaw==='exam'?'exam':deptRaw==='juvenil'?'kids':'adults';
+  const deptRaw=(parts[2]||'').toLowerCase().trim();
+
+  // Handle ALL ALM dept spelling variants from Supabase:
+  // 'exam', 'exames', 'exame' → exam
+  // 'juvenil', 'kids', 'junior', 'criança', 'prep' → kids
+  // everything else → adults
+  let course;
+  if(/^exam/.test(deptRaw)) course='exam';
+  else if(/^juven|^kid|^junior|^crian|^prep/.test(deptRaw)) course='kids';
+  else course='adults';
+
   const dept=course==='kids'?'juvenil':course==='exam'?'exam':'geral';
+  const cefr=((parts[3]||row.level_cefr||'')).toUpperCase();
   return{
     key:row.group_key,branch,lang,dept,cefr,course,
     label:displayLevel(cefr,course),
