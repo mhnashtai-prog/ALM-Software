@@ -742,18 +742,18 @@ async function sbGet(t,q=''){const r=await fetch(SB+'/rest/v1/'+t+'?'+q,{headers
 async function fetchNextRef(){
   const el=document.getElementById('bar-ref');
   try{
-    const rows=await sbGet('enrolments','academic_year=eq.'+YEAR+'/2027&select=ref&order=ref.desc&limit=1');
-    let n=1;if(rows&&rows.length){const m=(rows[0].ref||'').match(/ALM-\d{4}-(\d+)/);if(m)n=parseInt(m[1],10)+1;}
-    const s='ALM-'+YEAR+'-'+String(n).padStart(4,'0');el.textContent=s;el.classList.remove('loading');window._nextRef=s;
-  }catch(e){
-    try{
-      const rows=await sbGet('students','academic_year=eq.'+YEAR+'/2027&select=ref&order=ref.desc&limit=1');
-      let n=1;if(rows&&rows.length){const m=(rows[0].ref||'').match(/ALM-\d{4}-(\d+)/);if(m)n=parseInt(m[1],10)+1;}
-      const s='ALM-'+YEAR+'-'+String(n).padStart(4,'0');el.textContent=s;el.classList.remove('loading');window._nextRef=s;
-    }catch(e2){
-      const stored=parseInt(localStorage.getItem('alm-ref-counter')||'0',10)+1;
-      const s='ALM-'+YEAR+'-'+String(stored).padStart(4,'0');el.textContent=s;el.classList.remove('loading');window._nextRef=s;
+    const rows=await sbGet('enrolments','select=ref&order=ref.desc&limit=1');
+    let n=1;
+    if(rows&&rows.length){
+      const m=(rows[0].ref||'').match(/ALM-(\d+)/);
+      if(m) n=parseInt(m[1],10)+1;
     }
+    const s='ALM-'+String(n).padStart(4,'0');
+    el.textContent=s;el.classList.remove('loading');window._nextRef=s;
+  }catch(e){
+    const stored=parseInt(localStorage.getItem('alm-ref-counter')||'1000',10)+1;
+    const s='ALM-'+String(stored).padStart(4,'0');
+    el.textContent=s;el.classList.remove('loading');window._nextRef=s;
   }
 }
 fetchNextRef();
@@ -993,11 +993,26 @@ async function submitForm(){
   document.getElementById('conf-ref').textContent=ref;document.getElementById('conf-email').textContent=payload.email||'\u2014';
   window.scrollTo({top:0,behavior:'smooth'});
   try{
-    await sbPost('enrolments',payload);document.getElementById('sb-dot').className='sb-dot ok';document.getElementById('sb-txt').textContent='Guardado \u00b7 '+ref;
-    const m=ref.match(/ALM-\d{4}-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);localStorage.removeItem('alm-draft');
+    
+    await sbPost('enrolments',payload);
+    document.getElementById('sb-dot').className='sb-dot ok';
+    document.getElementById('sb-txt').textContent='Guardado · '+ref;
+    const m=ref.match(/ALM-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);
+    localStorage.removeItem('alm-draft');
   }catch(e){
-    try{await sbPost('students',payload);document.getElementById('sb-dot').className='sb-dot ok';document.getElementById('sb-txt').textContent='Guardado (students) \u00b7 '+ref;const m=ref.match(/ALM-\d{4}-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);}
-    catch(e2){document.getElementById('sb-dot').className='sb-dot sb-err';document.getElementById('sb-txt').textContent='Erro Supabase \u2014 guardado localmente';localStorage.setItem('alm-submit-'+ref,JSON.stringify(payload));const m=ref.match(/ALM-\d{4}-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);}
+    try{
+      await sbPost('students',payload);
+      document.getElementById('sb-dot').className='sb-dot ok';
+      document.getElementById('sb-txt').textContent='Guardado (students) · '+ref;
+      const m=ref.match(/ALM-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);
+      localStorage.removeItem('alm-draft');
+    }catch(e2){
+      document.getElementById('sb-dot').className='sb-dot sb-err';
+      document.getElementById('sb-txt').textContent='Erro Supabase — guardado localmente';
+      localStorage.setItem('alm-submit-'+ref,JSON.stringify(payload));
+      const m=ref.match(/ALM-(\d+)/);if(m)localStorage.setItem('alm-ref-counter',m[1]);
+      localStorage.removeItem('alm-draft');
+    }
   }
 }
 
