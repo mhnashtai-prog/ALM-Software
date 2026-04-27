@@ -531,7 +531,7 @@ async function onNameInput(){
   clearTimeout(acTimer);
   acTimer=setTimeout(async()=>{
     try{
-      const rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=ref,name,lang,level_cefr,branch,family,phone,tipo_inscricao&limit=6`);
+      const rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=ref,name,lang,level_cefr,branch,family,phone,enroll_type,enroll_type_label&limit=6`);
       if(!rows.length){drop.classList.remove('open');return;}
       drop.innerHTML=rows.map(s=>{
         const ini=s.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -557,8 +557,8 @@ async function doLookup(){
   btn.textContent='A procurar…';btn.disabled=true;
   try{
     let rows=[];
-    if(num) rows=await sbGet('enrolments',`ref=eq.${encodeURIComponent(num)}&select=ref,name,lang,level_cefr,branch,family,phone,tipo_inscricao&limit=1`);
-    if(!rows.length&&nameQ.length>1) rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(nameQ)}*&select=ref,name,lang,level_cefr,branch,family,phone,tipo_inscricao&limit=1`);
+    if(num) rows=await sbGet('enrolments',`ref=eq.${encodeURIComponent(num)}&select=ref,name,lang,level_cefr,branch,family,phone,enroll_type,enroll_type_label&limit=1`);
+    if(!rows.length&&nameQ.length>1) rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(nameQ)}*&select=ref,name,lang,level_cefr,branch,family,phone,enroll_type,enroll_type_label&limit=1`);
     if(!rows.length){nf.classList.add('show');document.getElementById('profile').classList.remove('show');student=null;updateSubmitState();}
     else{nf.classList.remove('show');loadProfile(rows[0]);}
   }catch(e){document.getElementById('not-found').textContent='Erro de ligação.';nf.classList.add('show');}
@@ -573,8 +573,8 @@ async function loadProfile(s){
   document.getElementById('p-ref').textContent=s.ref||'—';
   const cL={kids:'Kids',adults:'Adultos',exam:'Exame'};
   const course=normCourse(s.family||s.level_cefr||'');
-  const tipoClass=((s.tipo_inscricao||'').toLowerCase().includes('nova'))?'pb-nova':'pb-renov';
-  const tipoLabel=s.tipo_inscricao||'—';
+  const tipoClass=((s.enroll_type||'').toLowerCase().includes('nova'))?'pb-nova':'pb-renov';
+  const tipoLabel=s.enroll_type_label||s.enroll_type||'—';
   document.getElementById('p-badges').innerHTML=`
     <span class="pbadge pb-lang">${s.lang||'EN'}</span>
     <span class="pbadge pb-lvl">${s.level_cefr||'?'}</span>
@@ -771,3 +771,4 @@ document.addEventListener('click',e=>{
 </script>
 </body>
 </html>
+
