@@ -758,7 +758,7 @@ async function onNameInput() {
   clearTimeout(acTimer);
   acTimer = setTimeout(async () => {
     try {
-      const rows = await sbGet('enrolments', `name=ilike.*${encodeURIComponent(q)}*&select=ref,name,lang,level_cefr,branch,family,phone,email&limit=6`);
+      const rows = await sbGet('enrolments', `name=ilike.*${encodeURIComponent(q)}*&select=ref,name,lang,level,branch,course,phone,email&limit=6`);
       if (!rows.length) { drop.classList.remove('open'); return; }
       drop.innerHTML = rows.map(s => {
         const ini = s.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -793,8 +793,8 @@ async function doLookup() {
   btn.textContent = lang==='pt' ? 'A procurar…' : 'Searching…'; btn.disabled = true;
   try {
     let rows = [];
-    if (num)              rows = await sbGet('enrolments', `ref=eq.${encodeURIComponent(num)}&select=ref,name,lang,level_cefr,branch,family,phone,email&limit=1`);
-    if (!rows.length && nameQ.length > 1) rows = await sbGet('enrolments', `name=ilike.*${encodeURIComponent(nameQ)}*&select=ref,name,lang,level_cefr,branch,family,phone,email&limit=1`);
+    if (num)              rows = await sbGet('enrolments', `ref=eq.${encodeURIComponent(num)}&select=ref,name,lang,level,branch,course,phone,email&limit=1`);
+    if (!rows.length && nameQ.length > 1) rows = await sbGet('enrolments', `name=ilike.*${encodeURIComponent(nameQ)}*&select=ref,name,lang,level,branch,course,phone,email&limit=1`);
     if (!rows.length) {
       nf.textContent = lang==='pt' ? 'Registo não encontrado. Verifique o número ou o nome.' : 'Record not found.';
       nf.classList.add('show');
@@ -816,8 +816,8 @@ async function doLookup() {
 
 async function loadProfile(s, checkPrior) {
   currentStudent = s;
-  currentStudent.course = normCourse(s.family || s.level_cefr || '');
-  currentStudent.level  = s.level_cefr || '?';
+currentStudent.course = normCourse(s.course || '');
+currentStudent.level  = s.level || '?';
 
   document.getElementById('inp-num').value  = (s.ref||'').replace('ALM-','');
   document.getElementById('inp-name').value = s.name || '';
@@ -831,7 +831,7 @@ async function loadProfile(s, checkPrior) {
   const cL = {kids:'Kids', adults:pt?'Adultos':'Adults', exam:pt?'Exame':'Exam'};
   document.getElementById('p-badges').innerHTML = `
     <span class="pbadge pb-lang">${s.lang||'EN'}</span>
-    <span class="pbadge pb-lvl">${s.level_cefr||'?'}</span>
+   <span class="pbadge pb-lvl">${s.level||'?'}</span>
     <span class="pbadge pb-course">${cL[currentStudent.course]||'?'}</span>
     <span class="pbadge pb-branch">${(s.branch||'').replace(/_/g,' ')}</span>`;
   document.getElementById('p-meta').innerHTML = `
