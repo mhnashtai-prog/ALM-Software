@@ -765,7 +765,7 @@ async function fetchNextRef(){
   const el=document.getElementById('bar-ref');
   const localMin=parseInt(localStorage.getItem('alm-ref-counter')||'0',10);
   try{
-    const rows=await sbGet('enrolments','select=ref&order=ref.desc&limit=1');
+await sbGet('enrolments','ref=eq.'+encodeURIComponent(numQ)+'&limit=1')
     let dbMax=0;
     if(rows&&rows.length){
       const m=(rows[0].ref||'').match(/ALM-(\d+)/);
@@ -995,7 +995,7 @@ function onNameIn(){
   if(q.length<2){drop.classList.remove('open');return;}
   clearTimeout(acT);acT=setTimeout(async()=>{
     let matches=[];
-    try{const rows=await sbGet('students','name=ilike.*'+encodeURIComponent(q)+'*&select=num,name,lang,level,branch,email,phone,dob&limit=6');matches=rows;}
+    try{const rows=await sbGet('enrolments','name=ilike.*'+encodeURIComponent(q)+'*&select=ref,name,lang,level,branch,email,phone,dob&limit=6');matches=rows;}
     catch(e){matches=MOCK.filter(s=>s.name.toLowerCase().includes(q));}
     if(!matches.length){drop.classList.remove('open');return;}
     drop.innerHTML=matches.map(s=>'<div class="ac-item" onclick=\'selectAc('+JSON.stringify(s)+')\'>'+
@@ -1011,7 +1011,7 @@ async function doLookup(){
   const numQ=rawNum?'ALM-'+rawNum.replace(/\D/g,'').padStart(4,'0'):'';
   const nameQ=document.getElementById('lk-name').value.trim().toLowerCase();
   let found=null;
-  try{if(numQ){const rows=await sbGet('students','num=eq.'+encodeURIComponent(numQ)+'&limit=1');if(rows.length)found=rows[0];}
+  try{if(numQ){const rows=await sbGet('enrolments','name=ilike.*'+encodeURIComponent(nameQ)+'*&limit=1');if(rows.length)found=rows[0];}
     if(!found&&nameQ.length>1){const rows=await sbGet('students','name=ilike.*'+encodeURIComponent(nameQ)+'*&limit=1');if(rows.length)found=rows[0];}}
   catch(e){if(numQ)found=MOCK.find(s=>s.num===numQ)||null;if(!found&&nameQ.length>1)found=MOCK.find(s=>s.name.toLowerCase().includes(nameQ))||null;}
   if(found){existingData=found;showLKResult(found);document.getElementById('lk-nf').classList.add('hidden');}
