@@ -23,7 +23,7 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 .hdr-brand{font-family:'Cinzel',serif;font-size:17px;font-weight:700;color:var(--gold);letter-spacing:2px}
 .hdr-sub{font-size:9px;font-weight:500;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-left:10px}
 .hdr-year{margin-left:auto;padding:3px 12px;border-radius:999px;background:rgba(210,180,100,0.08);border:.5px solid var(--border);font-size:10px;font-weight:600;color:var(--text-dim)}
-.shell{max-width:680px;margin:0 auto;padding:20px 14px 60px;display:flex;flex-direction:column;gap:12px}
+.shell{max-width:1200px;margin:0 auto;padding:20px 14px 60px;display:flex;flex-direction:column;gap:12px}
 .card{background:var(--surface);border:.5px solid var(--border);border-radius:16px;overflow:hidden}
 .card-hdr{padding:14px 18px 12px;border-bottom:.5px solid var(--border-faint);display:flex;align-items:center;gap:10px}
 .card-num{width:22px;height:22px;border-radius:50%;background:rgba(232,201,122,0.15);border:.5px solid rgba(232,201,122,0.35);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--gold);flex-shrink:0;transition:all .2s}
@@ -118,7 +118,8 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 .slot-popup{position:fixed;z-index:600;background:rgba(14,9,26,0.98);border:.5px solid rgba(93,202,165,.4);border-radius:12px;padding:12px 14px;width:230px;box-shadow:0 8px 32px rgba(0,0,0,.7);display:none;animation:popIn .15s ease}
 .slot-popup.open{display:block}
 @keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
-.sp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:grab;user-select:none}
+.sp-head:active{cursor:grabbing}
 .sp-day{font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.04em}
 .sp-close{width:18px;height:18px;border:none;background:rgba(255,255,255,.06);border-radius:50%;color:var(--text-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .12s;font-family:'Outfit',sans-serif}
 .sp-close:hover{background:rgba(232,80,80,.3);color:rgba(232,130,130,.9)}
@@ -385,6 +386,16 @@ function buildGrid(){
     gridRows.appendChild(row);
   });
   redrawBands();
+
+  // Delegated click — attached here so grid-rows is guaranteed to exist
+  gridRows.addEventListener('click',e=>{
+    if(!student) return;
+    if(e.target.closest('.sband')) return;
+    const cell=e.target.closest('.gcell');
+    if(!cell||cell.classList.contains('gap-cell')||cell.classList.contains('locked-cell')) return;
+    e.stopPropagation();
+    openPopup(e, parseInt(cell.dataset.di), parseInt(cell.dataset.h), null);
+  });
 }
 
 function openPopup(ev,di,anchorH,editId){
@@ -450,18 +461,17 @@ function deleteSlot(){
 }
 
 function minsToX(m){
-  // Read actual rendered cell widths from first row
   const firstRow=document.getElementById('row-0');
   if(!firstRow) return 0;
   const cells=Array.from(firstRow.children);
-  let x=0,hrIdx=0;
+  const GAP=3; // matches CSS gap:3px on .grid-row
+  let x=0;
   for(let i=0;i<ALL_HRS.length;i++){
     const h=ALL_HRS[i];
     const cellW=cells[i]?cells[i].offsetWidth:0;
-    if(h===null){x+=cellW;continue;}
+    if(h===null){x+=cellW+GAP;continue;}
     if(Math.floor(m/60)===h) return x+((m%60)/60)*cellW;
-    x+=cellW;
-    hrIdx++;
+    x+=cellW+GAP;
   }
   return x;
 }
@@ -720,15 +730,42 @@ async function submitChangeRequest(){
 
 buildGrid();
 
-// Delegated click handler for grid cells — works even after student loads
-document.getElementById('grid-rows').addEventListener('click',e=>{
-  if(!student) return;
-  if(e.target.closest('.sband')) return;
-  const cell=e.target.closest('.gcell');
-  if(!cell||cell.classList.contains('gap-cell')||cell.classList.contains('locked-cell')) return;
-  e.stopPropagation();
-  openPopup(e, parseInt(cell.dataset.di), parseInt(cell.dataset.h), null);
-});
+/* ── DRAGGABLE POPUP ── */
+(function(){
+  const popup=document.getElementById('slot-popup');
+  const handle=document.getElementById('sp-head');
+  let dragging=false,ox=0,oy=0;
+  handle.addEventListener('mousedown',e=>{
+    dragging=true;
+    ox=e.clientX-popup.getBoundingClientRect().left;
+    oy=e.clientY-popup.getBoundingClientRect().top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    let x=e.clientX-ox, y=e.clientY-oy;
+    x=Math.max(0,Math.min(window.innerWidth-popup.offsetWidth,x));
+    y=Math.max(0,Math.min(window.innerHeight-popup.offsetHeight,y));
+    popup.style.left=x+'px';popup.style.top=y+'px';
+  });
+  document.addEventListener('mouseup',()=>dragging=false);
+  // Touch drag
+  handle.addEventListener('touchstart',e=>{
+    dragging=true;
+    const t=e.touches[0];
+    ox=t.clientX-popup.getBoundingClientRect().left;
+    oy=t.clientY-popup.getBoundingClientRect().top;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!dragging)return;
+    const t=e.touches[0];
+    let x=t.clientX-ox, y=t.clientY-oy;
+    x=Math.max(0,Math.min(window.innerWidth-popup.offsetWidth,x));
+    y=Math.max(0,Math.min(window.innerHeight-popup.offsetHeight,y));
+    popup.style.left=x+'px';popup.style.top=y+'px';
+  },{passive:true});
+  document.addEventListener('touchend',()=>dragging=false);
+})();
 
 document.addEventListener('click',e=>{
   const popup=document.getElementById('slot-popup');
