@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Centro de Comando 2026/2027</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --yellow:#E8B84B;--yellow-dim:rgba(232,184,75,0.18);--yellow-faint:rgba(232,184,75,0.07);
+  --red:#E8455A;--red-dim:rgba(232,69,90,0.2);--red-faint:rgba(232,69,90,0.07);
+  --teal:#3EC9A7;--blue:#4A8FF5;
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.22);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:-20%;left:10%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(201,168,76,0.04) 0%,transparent 65%);pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(12,8,22,0.96);backdrop-filter:blur(16px);border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:0;padding:0 20px;height:48px}
+.tb-home{display:flex;align-items:center;gap:6px;color:var(--text2);font-size:10px;font-weight:600;letter-spacing:0.08em;text-decoration:none;transition:color .15s;flex-shrink:0}
+.tb-home:hover{color:var(--gold-hi)}
+.tb-home svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-divider{width:0.5px;height:20px;background:var(--border);margin:0 14px;flex-shrink:0}
+.tb-brand{font-family:var(--display);font-size:16px;color:var(--gold-hi);letter-spacing:3px;flex-shrink:0}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-nav{display:flex;align-items:center;gap:4px;margin-left:16px}
+.nav-ico{width:32px;height:32px;border-radius:8px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;text-decoration:none}
+.nav-ico:hover{background:rgba(201,168,76,0.14);border-color:var(--border2)}
+.nav-ico.active{background:rgba(201,168,76,0.18);border-color:var(--gold-dim)}
+.nav-ico svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.tb-year{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em}
+.tb-status{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25)}
+.tb-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.tb-status-dot.err{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.tb-status-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.08em}
+.tb-status-lbl.err{color:var(--red)}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:0.08em}
+.tb-refresh{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);background:transparent;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;font-family:var(--sans);transition:all .12s}
+.tb-refresh:hover{border-color:var(--border2);color:var(--gold)}
+.tb-refresh svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-refresh.spinning svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── BRANCH BANNER ── */
+.branch-banner{background:rgba(201,168,76,0.06);border-bottom:0.5px solid var(--gold-dim);padding:6px 20px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--gold);position:relative;z-index:1}
+.branch-banner.hidden{display:none}
+.bb-clear{margin-left:auto;font-size:9px;color:var(--text3);cursor:pointer;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border);transition:all .12s}
+.bb-clear:hover{color:var(--gold);border-color:var(--gold-dim)}
+
+/* ── ERROR BANNER ── */
+.err-banner{background:var(--red-faint);border-bottom:0.5px solid rgba(232,69,90,0.2);padding:8px 20px;font-size:10px;color:rgba(232,150,150,0.9);display:none;position:relative;z-index:1}
+.err-banner.show{display:block}
+
+.shell{padding:14px 20px 40px;display:flex;flex-direction:column;gap:12px;position:relative;z-index:1}
+
+/* ── KPI HEADLINE ── */
+.headline{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;cursor:default;transition:border-color 0.15s;animation:fadeUp 0.4s ease both}
+.hcard:hover{border-color:var(--border2)}
+.hcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.hcard.c-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hcard.c-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.hcard.c-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hcard.c-gold::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hcard.c-teal::after{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hcard.c-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.hcard:nth-child(1){animation-delay:0.04s}.hcard:nth-child(2){animation-delay:0.08s}
+.hcard:nth-child(3){animation-delay:0.12s}.hcard:nth-child(4){animation-delay:0.16s}
+.hcard:nth-child(5){animation-delay:0.20s}.hcard:nth-child(6){animation-delay:0.24s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hcard-lbl{font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+.hcard-val{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--gold-hi);line-height:1}
+.hcard-val.green{color:var(--green)}.hcard-val.red{color:var(--red)}.hcard-val.yellow{color:var(--yellow)}.hcard-val.teal{color:var(--teal)}
+.hcard-sub{font-size:9px;color:var(--text3);margin-top:2px}
+.hcard-delta{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px}
+.delta-up{color:var(--green);background:var(--green-faint)}
+.delta-dn{color:var(--red);background:var(--red-faint)}
+.delta-warn{color:var(--yellow);background:var(--yellow-faint)}
+.hcard-loading .hcard-val{background:rgba(255,255,255,0.05);border-radius:3px;color:transparent;min-width:60px;min-height:26px;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
+
+/* ── SECTION ── */
+.sec-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+.sec-action{font-size:8px;color:var(--text3);cursor:pointer;margin-left:4px;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border);transition:all .12s;background:transparent;font-family:var(--sans)}
+.sec-action:hover{color:var(--gold);border-color:var(--gold-dim)}
+
+/* ── BRANCH STRIP ── */
+.branch-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.bcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.bcard:hover{border-color:var(--border2);background:var(--bg3)}
+.bcard.alert-red{border-color:rgba(232,69,90,0.3)}
+.bcard.alert-yellow{border-color:rgba(232,184,75,0.28)}
+.bcard.highlighted{border-color:var(--gold-dim);background:rgba(201,168,76,0.07);box-shadow:0 0 0 1px var(--gold-dim)}
+.bcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.bcard-name{font-size:10px;font-weight:600;color:var(--gold-hi);letter-spacing:0.03em}
+.bcard-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-g{background:var(--green);box-shadow:0 0 4px var(--green)}
+.dot-y{background:var(--yellow);box-shadow:0 0 4px var(--yellow)}
+.dot-r{background:var(--red);box-shadow:0 0 4px var(--red)}
+.bstat{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.bstat-lbl{font-size:8px;color:var(--text3)}
+.bstat-val{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text)}
+.bstat-val.g{color:var(--green)}.bstat-val.r{color:var(--red)}.bstat-val.y{color:var(--yellow)}
+.bcard-bar{height:2px;background:rgba(201,168,76,0.1);border-radius:999px;margin-top:8px;overflow:hidden}
+.bcard-bar-fill{height:100%;border-radius:999px;transition:width 1s ease}
+.bcard-skel{height:95px;background:rgba(255,255,255,0.03);border-radius:10px;border:0.5px solid var(--border);animation:shimmer 1.5s infinite}
+
+/* ── LEGEND ── */
+.legend{display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--text3)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+
+/* ── MAIN GRID ── */
+.main-grid{display:grid;grid-template-columns:1fr 340px;gap:12px}
+
+/* ── PIPELINE PANEL ── */
+.panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15)}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.panel-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.filter-row{display:flex;gap:4px;padding:9px 14px;border-bottom:0.5px solid var(--border);overflow-x:auto}
+.filter-row::-webkit-scrollbar{display:none}
+.search-wrap{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.1)}
+.search-inp{background:rgba(255,255,255,0.04);border:0.5px solid var(--border);border-radius:6px;padding:4px 9px;font-size:10px;color:var(--text);outline:none;font-family:var(--sans);width:180px;transition:border-color .12s}
+.search-inp::placeholder{color:var(--text3)}
+.search-inp:focus{border-color:var(--border2)}
+.search-count{font-family:var(--mono);font-size:8px;color:var(--text3)}
+.ftab{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);white-space:nowrap;transition:all 0.12s}
+.ftab:hover{border-color:var(--border2);color:var(--text2)}
+.ftab.active{background:rgba(201,168,76,0.15);border-color:var(--gold-dim);color:var(--gold-hi)}
+.map-tbl{width:100%;border-collapse:collapse}
+.map-tbl th{font-size:7.5px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:0.5px solid var(--border);white-space:nowrap;background:rgba(0,0,0,0.1)}
+.map-tbl th:not(:first-child):not(:nth-child(2)){text-align:center}
+.map-tbl td{padding:5px 10px;border-bottom:0.5px solid rgba(201,168,76,0.04);vertical-align:middle}
+.map-tbl tr:last-child td{border-bottom:none}
+.map-tbl tr:hover td{background:rgba(201,168,76,0.025)}
+.lang-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--gold-hi)}
+.lvl-pill{font-family:var(--mono);font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(201,168,76,0.07);color:var(--gold);display:inline-block;border:0.5px solid rgba(201,168,76,0.14)}
+.gpills{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.gpill{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;cursor:pointer;transition:all 0.12s;border:0.5px solid;display:inline-flex;align-items:center;gap:3px}
+.gpill:hover{transform:translateY(-1px);filter:brightness(1.15)}
+.gpill.gn{background:var(--green-faint);border-color:rgba(46,204,138,0.3);color:var(--green)}
+.gpill.gy{background:var(--yellow-faint);border-color:rgba(232,184,75,0.3);color:var(--yellow)}
+.gpill.gr{background:var(--red-faint);border-color:rgba(232,69,90,0.3);color:var(--red)}
+.gpill.gp{background:rgba(201,168,76,0.06);border-color:var(--border);color:var(--text3)}
+.band-tag{font-size:7px;padding:1px 3px;border-radius:2px;background:rgba(0,0,0,0.3);color:inherit;opacity:0.7}
+.reg-bar-wrap{display:flex;align-items:center;gap:5px}
+.reg-bar{flex:1;height:4px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;min-width:40px}
+.reg-bar-fill{height:100%;border-radius:999px}
+.reg-pct{font-family:var(--mono);font-size:9px;color:var(--text3);width:28px;text-align:right}
+.empty-state{padding:32px;text-align:center;color:var(--text3);font-size:11px}
+
+/* ── RIGHT PANEL ── */
+.right-col{display:flex;flex-direction:column;gap:10px}
+
+/* ── ALGO ── */
+.algo-stage{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:0.5px solid var(--border)}
+.algo-stage:last-child{border-bottom:none}
+.stage-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.si-done{background:var(--green-dim);border:0.5px solid rgba(46,204,138,0.35)}
+.si-run{background:var(--yellow-dim);border:0.5px solid rgba(232,184,75,0.35);animation:spinpulse 1.5s infinite}
+.si-wait{background:rgba(201,168,76,0.06);border:0.5px solid var(--border)}
+@keyframes spinpulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0.2)}50%{box-shadow:0 0 0 4px rgba(232,184,75,0)}}
+.stage-icon svg{width:11px;height:11px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.si-done svg{stroke:var(--green)}.si-run svg{stroke:var(--yellow)}.si-wait svg{stroke:var(--text3)}
+.stage-info{flex:1}
+.stage-name{font-size:10px;font-weight:500;color:var(--text)}
+.stage-meta{font-size:8px;color:var(--text3);margin-top:1px}
+.stage-count{font-family:var(--mono);font-size:10px;font-weight:600}
+.sc-done{color:var(--green)}.sc-run{color:var(--yellow)}.sc-wait{color:var(--text3)}
+
+/* ── CASES ── */
+.cases-panel{border-color:rgba(232,69,90,0.25)!important}
+.case-row{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:0.5px solid rgba(232,69,90,0.08);cursor:pointer;transition:background 0.12s;text-decoration:none}
+.case-row:last-child{border-bottom:none}
+.case-row:hover{background:rgba(232,69,90,0.05)}
+.case-av{width:26px;height:26px;border-radius:50%;background:rgba(232,69,90,0.12);border:0.5px solid rgba(232,69,90,0.25);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--red);flex-shrink:0;font-family:var(--mono)}
+.case-info{flex:1;min-width:0}
+.case-name{font-size:10px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.case-reason{font-size:8.5px;color:rgba(232,69,90,0.7);margin-top:1px}
+.case-badge{font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:4px;background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.2);color:var(--red);flex-shrink:0}
+.panel-more{padding:8px 14px;border-top:0.5px solid var(--border);text-align:center}
+.panel-more a{font-size:9px;color:var(--text3);text-decoration:none;transition:color .12s}
+.panel-more a:hover{color:var(--gold)}
+
+/* ── CONFIRMS ── */
+.confirm-row{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background 0.12s}
+.confirm-row:last-child{border-bottom:none}
+.confirm-row:hover{background:var(--gold-faint)}
+.cr-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cr-info{flex:1;min-width:0}
+.cr-name{font-size:10px;font-weight:500;color:var(--text)}
+.cr-sub{font-size:8px;color:var(--text3);margin-top:1px}
+.cr-btn{font-size:8px;font-weight:600;padding:3px 8px;border-radius:5px;background:rgba(201,168,76,0.12);border:0.5px solid var(--gold-dim);color:var(--gold);cursor:pointer;white-space:nowrap;transition:all 0.12s;font-family:var(--sans)}
+.cr-btn:hover{background:rgba(201,168,76,0.22)}
+
+/* ── TOOLTIP ── */
+.tooltip{position:fixed;background:rgba(12,8,22,0.98);border:0.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--text);z-index:999;pointer-events:none;display:none;max-width:220px;font-family:var(--mono)}
+.tooltip.show{display:block}
+
+/* ── LAST UPDATED ── */
+.last-updated{font-family:var(--mono);font-size:8px;color:var(--text3);text-align:right}
+
+@media(max-width:960px){.headline,.branch-strip{grid-template-columns:repeat(3,1fr)}.main-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a class="tb-home" href="dashboard.html">
+    <svg viewBox="0 0 16 16"><path d="M2 6L8 1l6 5v8a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M6 15V9h4v6"/></svg>
+    Início
+  </a>
+  <div class="tb-divider"></div>
+  <span class="tb-brand">ALM</span>
+  <span class="tb-page">Centro de Comando</span>
+  <div class="tb-nav">
+    <a class="nav-ico active" href="command-centre.html" title="Dashboard">
+      <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+    </a>
+    <a class="nav-ico" href="student-timetable-request.html" title="Horários">
+      <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+    </a>
+    <a class="nav-ico" href="matricula.html" title="Matrículas">
+      <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
+    </a>
+    <a class="nav-ico" href="admin-timetable-requests.html" title="Gestão de Horários">
+      <svg viewBox="0 0 16 16"><path d="M3 5h10M3 9h7M3 13h4"/></svg>
+    </a>
+  </div>
+  <div class="tb-right">
+    <span class="tb-year">2026 / 2027</span>
+    <div class="tb-status" id="tb-status">
+      <div class="tb-status-dot" id="tb-dot"></div>
+      <span class="tb-status-lbl" id="tb-status-lbl">A ligar…</span>
+    </div>
+    <button class="tb-refresh" id="refresh-btn" onclick="loadAll()">
+      <svg viewBox="0 0 16 16"><path d="M13 2v4h-4M3 14v-4h4M13 6A6 6 0 013.5 10M3 10a6 6 0 019.5-4"/></svg>
+      ACTUALIZAR
+    </button>
+    <span class="tb-clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<!-- BANNERS -->
+<div class="err-banner" id="err-banner"></div>
+<div class="branch-banner hidden" id="branch-banner">
+  <svg style="width:11px;height:11px;stroke:var(--gold);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 5v2M7 8.5v.5"/></svg>
+  <span style="font-weight:600;letter-spacing:0.06em">FILIAL ·</span>
+  <span id="bb-name" style="color:var(--gold-hi);font-weight:600">—</span>
+  <span class="bb-clear" onclick="clearBranch()">✕ Limpar</span>
+</div>
+
+<div class="shell">
+
+  <!-- KPI HEADLINE -->
+  <div class="headline" id="kpi-grid">
+    <div class="hcard c-gold hcard-loading"><div class="hcard-lbl">Total Alunos</div><div class="hcard-val"> </div></div>
+    <div class="hcard c-green hcard-loading"><div class="hcard-lbl">Pedidos Recebidos</div><div class="hcard-val"> </div></div>
+    <div class="hcard c-yellow hcard-loading"><div class="hcard-lbl">Sem Horário</div><div class="hcard-val"> </div></div>
+    <div class="hcard c-teal hcard-loading"><div class="hcard-lbl">Atribuídos</div><div class="hcard-val"> </div></div>
+    <div class="hcard c-red hcard-loading"><div class="hcard-lbl">Pendentes</div><div class="hcard-val"> </div></div>
+    <div class="hcard c-blue hcard-loading"><div class="hcard-lbl">Alterações</div><div class="hcard-val"> </div></div>
+  </div>
+
+  <!-- BRANCHES -->
+  <div class="sec-label">Filiais
+    <button class="sec-action" onclick="clearBranch()">Mostrar todas</button>
+  </div>
+  <div class="branch-strip" id="branch-strip">
+    <div class="bcard-skel"></div><div class="bcard-skel"></div>
+    <div class="bcard-skel"></div><div class="bcard-skel"></div>
+    <div class="bcard-skel"></div><div class="bcard-skel"></div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span style="font-size:8px;font-weight:600;color:var(--text3);letter-spacing:0.1em;margin-right:4px">TURMAS:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>≥ 8 alunos · viável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>5–7 · sustentável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>&lt; 5 · alerta</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(201,168,76,0.15);border:0.5px solid var(--border2)"></div>pendente</div>
+    <div class="last-updated" id="last-updated" style="margin-left:auto">—</div>
+  </div>
+
+  <!-- SECTION LABEL -->
+  <div class="sec-label">Mapa Operacional · Língua × Nível</div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- MAP TABLE -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Distribuição de Turmas</span>
+        <div class="filter-row" style="padding:0;border:none;margin-left:10px;gap:3px">
+          <div class="ftab active" onclick="setLangFilter('all',this)">Todas</div>
+          <div class="ftab" onclick="setLangFilter('English',this)">🇬🇧 EN</div>
+          <div class="ftab" onclick="setLangFilter('Português',this)">🇵🇹 PT</div>
+          <div class="ftab" onclick="setLangFilter('Español',this)">🇪🇸 ES</div>
+          <div class="ftab" onclick="setLangFilter('Deutsch',this)">🇩🇪 DE</div>
+          <div class="ftab" onclick="setLangFilter('Français',this)">🇫🇷 FR</div>
+        </div>
+        <div class="panel-meta" id="map-meta">a carregar…</div>
+      </div>
+      <div class="search-wrap">
+        <input class="search-inp" id="search-inp" placeholder="Pesquisar nível, filial…" oninput="filterSearch(this.value)"/>
+        <span class="search-count" id="search-count"></span>
+      </div>
+      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+        <table class="map-tbl">
+          <thead><tr>
+            <th>Língua</th><th>Nível</th>
+            <th style="text-align:center">Manhã</th>
+            <th style="text-align:center">Tarde</th>
+            <th style="text-align:center">Noite</th>
+            <th style="text-align:center">Pend.</th>
+            <th>Cobertura</th>
+          </tr></thead>
+          <tbody id="map-body"><tr><td colspan="7" class="empty-state">A carregar dados…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT COL -->
+    <div class="right-col">
+
+      <!-- ALGO ENGINE -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <svg style="width:11px;height:11px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 4v3l2 1.5"/></svg>
+          <span class="panel-title" style="margin-left:4px">Motor de Alocação</span>
+          <span class="panel-meta" id="algo-status">—</span>
+        </div>
+        <div class="algo-stage">
+          <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+          <div class="stage-info"><div class="stage-name">Agrupamento por nível</div><div class="stage-meta">lang + level_cefr clusters</div></div>
+          <div class="stage-count sc-done" id="alg-1">—</div>
+        </div>
+        <div class="algo-stage">
+          <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+          <div class="stage-info"><div class="stage-name">Separação por período</div><div class="stage-meta">manhã / tarde / noite</div></div>
+          <div class="stage-count sc-done" id="alg-2">—</div>
+        </div>
+        <div class="algo-stage">
+          <div class="stage-icon si-run"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4"/><path d="M6 3v3l2 1"/></svg></div>
+          <div class="stage-info"><div class="stage-name">Refinamento de horário</div><div class="stage-meta">sobreposição de slots</div></div>
+          <div class="stage-count sc-run" id="alg-3">—</div>
+        </div>
+        <div class="algo-stage">
+          <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="M5 5h2M5 7h2"/></svg></div>
+          <div class="stage-info"><div class="stage-name">Formação de turmas</div><div class="stage-meta">mín 5 · máx 17 por turma</div></div>
+          <div class="stage-count sc-wait" id="alg-4">—</div>
+        </div>
+        <div class="algo-stage">
+          <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><path d="M6 2v3l2 1M2 10c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5"/></svg></div>
+          <div class="stage-info"><div class="stage-name">Atribuição de turma</div><div class="stage-meta">aguarda aprovação</div></div>
+          <div class="stage-count sc-wait" id="alg-5">—</div>
+        </div>
+      </div>
+
+      <!-- DIFFICULT CASES (pending) -->
+      <div class="panel cases-panel">
+        <div class="panel-hdr" style="border-bottom-color:rgba(232,69,90,0.15)">
+          <svg style="width:11px;height:11px;stroke:var(--red);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>
+          <span class="panel-title" style="margin-left:4px;color:var(--red)">Pedidos Pendentes</span>
+          <span class="panel-meta" id="cases-meta">a carregar…</span>
+        </div>
+        <div id="case-list"><div style="padding:16px;text-align:center;font-size:9px;color:var(--text3)">a carregar…</div></div>
+        <div class="panel-more"><a href="admin-timetable-requests.html">ver todos →</a></div>
+      </div>
+
+      <!-- TO CONFIRM (atribuido) -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <svg style="width:11px;height:11px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><polyline points="2 7 5.5 10.5 12 4"/></svg>
+          <span class="panel-title" style="margin-left:4px">Turmas Atribuídas</span>
+          <span class="panel-meta" id="conf-meta">a carregar…</span>
+        </div>
+        <div id="conf-list"><div style="padding:16px;text-align:center;font-size:9px;color:var(--text3)">a carregar…</div></div>
+        <div class="panel-more"><a href="admin-timetable-requests.html?filter=atribuido">ver todas →</a></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ══ SUPABASE ══ */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+
+async function sbGet(table,query=''){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),9000);
+  try{
+    const r=await fetch(`${SB}/rest/v1/${table}?${query}`,{headers:H,signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok)throw new Error(r.status+' '+r.statusText);
+    return r.json();
+  }catch(e){clearTimeout(t);throw e;}
+}
+
+/* ══ CONSTANTS ══ */
+const BRANCH_DISPLAY={
+  'FUNCHAL':'Funchal','CAMARA_LOBOS':'C. Lobos','SANTA_CRUZ':'S. Cruz',
+  'MACHICO':'Machico','RIBEIRA_BRAVA':'R. Brava','CALHETA':'Calheta'
+};
+const BRANCH_ORDER=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+const LANG_FLAGS={'English':'🇬🇧','Português':'🇵🇹','Español':'🇪🇸','Deutsch':'🇩🇪','Français':'🇫🇷'};
+const LANG_ORDER=['English','Português','Español','Deutsch','Français'];
+
+/* ══ STATE ══ */
+let allEnrolments=[], allRequests=[];
+let activeBranch=null, langFilter='all', searchQ='';
+let mapData=[];
+
+/* ══ CLOCK ══ */
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+tick();setInterval(tick,1000);
+
+/* ══ STATUS ══ */
+function setStatus(state,msg){
+  const dot=document.getElementById('tb-dot');
+  const lbl=document.getElementById('tb-status-lbl');
+  dot.className='tb-status-dot'+(state==='err'?' err':'');
+  lbl.className='tb-status-lbl'+(state==='err'?' err':'');
+  lbl.textContent=msg;
+}
+
+/* ══ PERIOD ══ */
+function getPeriod(timeStr){
+  if(!timeStr)return'noite';
+  const h=parseInt((timeStr+'').split(':')[0]);
+  if(h<13)return'manha';
+  if(h<18)return'tarde';
+  return'noite';
+}
+
+/* ══ LOAD ALL ══ */
+async function loadAll(){
+  const btn=document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  document.getElementById('err-banner').classList.remove('show');
+  setStatus('load','A ligar…');
+
+  try{
+    const [enrolments,requests]=await Promise.all([
+      sbGet('enrolments','select=ref,name,branch,lang,level_cefr,family&limit=2000'),
+      sbGet('timetable_requests',
+        'select=ref,student_name,branch,lang,level_cefr,family,sessions_per_week,day_preferences,status,assigned_turma,notes,updated_at'+
+        '&academic_year=eq.2026%2F2027&limit=2000')
+    ]);
+    allEnrolments=enrolments||[];
+    allRequests=requests||[];
+
+    setStatus('ok','Sistema activo');
+    document.getElementById('last-updated').textContent=
+      'Actualizado '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+
+    renderAll();
+  }catch(e){
+    setStatus('err','Erro de ligação');
+    const b=document.getElementById('err-banner');
+    b.textContent='Erro: '+e.message+' · A tentar novamente em 15s…';
+    b.classList.add('show');
+    setTimeout(loadAll,15000);
+  }finally{
+    btn.classList.remove('spinning');
+  }
+}
+
+function renderAll(){
+  renderKPIs();
+  renderBranches();
+  buildMapData();
+  drawMap();
+  renderCases();
+  renderConfirms();
+  renderAlgo();
+}
+
+/* ══ KPIs ══ */
+function renderKPIs(){
+  const total=allEnrolments.length;
+  const refs=new Set(allRequests.map(r=>r.ref));
+  const withReq=refs.size;
+  const missing=Math.max(0,total-withReq);
+  const pct=total>0?Math.round(withReq/total*100):0;
+  const atribuido=allRequests.filter(r=>(r.status||'').toLowerCase()==='atribuido').length;
+  const pendente=allRequests.filter(r=>(r.status||'').toLowerCase()==='pendente').length;
+  const alteracao=allRequests.filter(r=>(r.status||'').toLowerCase()==='alteracao').length;
+
+  document.getElementById('kpi-grid').innerHTML=`
+    <div class="hcard c-gold" style="animation-delay:0.04s">
+      <div class="hcard-lbl">Total Alunos</div>
+      <div class="hcard-val">${total.toLocaleString('pt')}</div>
+      <div class="hcard-sub">base 2026/2027</div>
+    </div>
+    <div class="hcard c-green" style="animation-delay:0.08s">
+      <div class="hcard-lbl">Pedidos Recebidos</div>
+      <div class="hcard-val green">${withReq.toLocaleString('pt')}</div>
+      <div class="hcard-sub">${pct}% da base</div>
+      <span class="hcard-delta delta-up">↑ ${pct}%</span>
+    </div>
+    <div class="hcard c-yellow" style="animation-delay:0.12s">
+      <div class="hcard-lbl">Sem Horário</div>
+      <div class="hcard-val yellow">${missing.toLocaleString('pt')}</div>
+      <div class="hcard-sub">por submeter</div>
+      ${missing>0?`<span class="hcard-delta delta-warn">${Math.round(missing/Math.max(total,1)*100)}%</span>`:''}
+    </div>
+    <div class="hcard c-teal" style="animation-delay:0.16s">
+      <div class="hcard-lbl">Atribuídos</div>
+      <div class="hcard-val teal">${atribuido.toLocaleString('pt')}</div>
+      <div class="hcard-sub">turma confirmada</div>
+    </div>
+    <div class="hcard c-red" style="animation-delay:0.20s">
+      <div class="hcard-lbl">Pedidos Pendentes</div>
+      <div class="hcard-val red">${pendente.toLocaleString('pt')}</div>
+      <div class="hcard-sub">aguardam atribuição</div>
+      ${pendente>0?`<span class="hcard-delta delta-dn">urgente</span>`:''}
+    </div>
+    <div class="hcard c-blue" style="animation-delay:0.24s">
+      <div class="hcard-lbl">Alterações</div>
+      <div class="hcard-val" style="color:var(--blue)">${alteracao.toLocaleString('pt')}</div>
+      <div class="hcard-sub">pedidos de mudança</div>
+    </div>`;
+}
+
+/* ══ BRANCHES ══ */
+function renderBranches(){
+  // Build stats per branch from both tables
+  const stats={};
+  allEnrolments.forEach(e=>{
+    const b=(e.branch||'').toUpperCase().replace(/ /g,'_');
+    if(!stats[b])stats[b]={total:0,withReq:0,pending:0,atribuido:0,refs:new Set()};
+    stats[b].total++;
+  });
+  allRequests.forEach(r=>{
+    const b=(r.branch||'').toUpperCase().replace(/ /g,'_');
+    if(!stats[b])stats[b]={total:0,withReq:0,pending:0,atribuido:0,refs:new Set()};
+    if(!stats[b].refs.has(r.ref)){stats[b].refs.add(r.ref);stats[b].withReq++;}
+    const s=(r.status||'').toLowerCase();
+    if(s==='pendente')stats[b].pending++;
+    if(s==='atribuido')stats[b].atribuido++;
+  });
+
+  const branches=BRANCH_ORDER.filter(b=>stats[b]&&stats[b].total>0)
+    .concat(Object.keys(stats).filter(b=>!BRANCH_ORDER.includes(b
