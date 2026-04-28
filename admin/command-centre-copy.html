@@ -1,875 +1,604 @@
+
 <!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ALM · Análise de Viabilidade</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<title>ALM · Painel Operacional</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
-  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,0.15);--gold4:rgba(201,168,76,0.06);
-  --green:#1DB87A;--green2:rgba(29,184,122,0.15);--green3:rgba(29,184,122,0.07);
-  --red:#E8455A;--red2:rgba(232,69,90,0.18);--red3:rgba(232,69,90,0.07);
-  --amber:#E8A020;--amber2:rgba(232,160,32,0.18);--amber3:rgba(232,160,32,0.07);
-  --teal:#22C5A0;--teal2:rgba(34,197,160,0.15);
-  --blue:#4A8FF5;--blue2:rgba(74,143,245,0.15);
-  --bg:#070510;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A1530;
-  --b:rgba(255,255,255,0.055);--b2:rgba(201,168,76,0.18);--b3:rgba(201,168,76,0.32);
-  --t:rgba(235,218,175,0.92);--t2:rgba(210,188,140,0.52);--t3:rgba(210,188,140,0.26);--t4:rgba(210,188,140,0.12);
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'IBM Plex Sans',system-ui,sans-serif;
-  --display:'Bebas Neue',sans-serif;
+  --gold:#C9A84C;--gold-hi:#E8C97A;--gold-dim:rgba(201,168,76,0.35);--gold-faint:rgba(201,168,76,0.08);
+  --green:#2ECC8A;--green-dim:rgba(46,204,138,0.18);--green-faint:rgba(46,204,138,0.07);
+  --yellow:#E8B84B;--yellow-dim:rgba(232,184,75,0.18);--yellow-faint:rgba(232,184,75,0.07);
+  --red:#E8455A;--red-dim:rgba(232,69,90,0.2);--red-faint:rgba(232,69,90,0.07);
+  --teal:#3EC9A7;
+  --bg:#0C0816;--bg2:#120E1E;--bg3:#1A1428;
+  --border:rgba(201,168,76,0.12);--border2:rgba(201,168,76,0.2);
+  --text:rgba(235,215,160,0.9);--text2:rgba(210,185,130,0.5);--text3:rgba(210,185,130,0.28);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Outfit',system-ui,sans-serif;
+  --display:'Cinzel',serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--t);overflow-x:hidden;font-size:13px}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:0}
-body::after{content:'';position:fixed;top:-20%;left:10%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(201,168,76,0.04) 0%,transparent 65%);pointer-events:none;z-index:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0}
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(12,8,22,0.95);backdrop-filter:blur(16px);
+  border-bottom:0.5px solid var(--border);
+  display:flex;align-items:center;gap:0;padding:0 20px;height:48px;
+}
+/* ── HOME BUTTON ── */
+.tb-home{display:flex;align-items:center;gap:6px;color:var(--text2);font-size:10px;font-weight:600;letter-spacing:0.08em;text-decoration:none;cursor:pointer;transition:color .15s;flex-shrink:0}
+.tb-home:hover{color:var(--gold-hi)}
+.tb-home svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tb-divider{width:0.5px;height:20px;background:var(--border);margin:0 14px;flex-shrink:0}
+.tb-brand{font-family:var(--display);font-size:16px;color:var(--gold-hi);letter-spacing:3px;flex-shrink:0}
+.tb-page{font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);margin-left:10px}
+.tb-year{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:0.08em;margin-left:16px}
+.tb-status{display:flex;align-items:center;gap:5px;margin-left:16px;padding:3px 10px;border-radius:999px;background:rgba(46,204,138,0.1);border:0.5px solid rgba(46,204,138,0.25)}
+.tb-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.tb-status-lbl{font-size:9px;font-weight:600;color:var(--green);letter-spacing:0.08em}
+.tb-nav{display:flex;align-items:center;gap:4px;margin-left:20px}
+.nav-ico{width:32px;height:32px;border-radius:8px;border:0.5px solid var(--border);background:var(--gold-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;text-decoration:none}
+.nav-ico:hover{background:rgba(201,168,76,0.14);border-color:var(--border2)}
+.nav-ico.active{background:rgba(201,168,76,0.18);border-color:var(--gold-dim)}
+.nav-ico svg{width:14px;height:14px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
-/* ── TOPBAR ── */
-.bar{position:sticky;top:0;z-index:200;height:44px;display:flex;align-items:center;gap:0;padding:0 16px;background:rgba(7,5,16,0.97);border-bottom:0.5px solid var(--b2);backdrop-filter:blur(20px)}
-.bar-brand{font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--gold2);flex-shrink:0;line-height:1}
-.bar-sep{width:0.5px;height:18px;background:var(--b2);margin:0 12px;flex-shrink:0}
-.bar-page{font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--t2);flex-shrink:0}
-.bar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.bar-clock{font-family:var(--display);font-size:20px;color:var(--gold);letter-spacing:3px;line-height:1}
-.bar-live{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:3px;background:var(--green3);border:0.5px solid rgba(29,184,122,0.25)}
-.bar-live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
-.bar-live-lbl{font-family:var(--mono);font-size:8px;font-weight:600;color:var(--green);letter-spacing:0.1em}
-.bar-nav{display:flex;gap:3px}
-.bnav{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:3px;border:0.5px solid var(--b);background:var(--gold4);color:var(--t2);font-size:9px;font-weight:600;letter-spacing:0.08em;text-decoration:none;cursor:pointer;transition:all .12s}
-.bnav:hover,.bnav.act{background:var(--gold3);border-color:var(--b2);color:var(--gold2)}
-.bnav svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.refresh-btn{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:2px;border:0.5px solid var(--b);background:transparent;color:var(--t3);font-size:8px;font-weight:600;letter-spacing:0.06em;cursor:pointer;font-family:var(--sans);transition:all .12s}
-.refresh-btn:hover{border-color:var(--b2);color:var(--gold)}
-.refresh-btn svg{width:10px;height:10px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.refresh-btn.spinning svg{animation:spin 1s linear infinite}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+/* ── BRANCH FILTER BANNER ── (shown when arriving from a branch) */
+.branch-banner{
+  background:rgba(201,168,76,0.06);border-bottom:0.5px solid var(--gold-dim);
+  padding:6px 20px;display:flex;align-items:center;gap:10px;
+  font-size:10px;color:var(--gold);position:relative;z-index:1;
+}
+.branch-banner.hidden{display:none}
+.bb-label{font-weight:600;letter-spacing:0.06em}
+.bb-clear{margin-left:auto;font-size:9px;color:var(--text3);cursor:pointer;padding:2px 8px;border-radius:4px;border:0.5px solid var(--border);transition:all .12s}
+.bb-clear:hover{color:var(--gold);border-color:var(--gold-dim)}
 
-/* ── SHELL ── */
-.shell{position:relative;z-index:1;padding:12px 16px 40px;display:flex;flex-direction:column;gap:10px}
-
-/* ── ERROR ── */
-.err-banner{background:var(--red3);border:0.5px solid rgba(232,69,90,0.2);border-radius:4px;padding:8px 12px;font-size:10px;color:rgba(232,150,150,0.9);display:none}
-.err-banner.show{display:block}
-
-/* ── SECTION ── */
-.sec{font-size:7.5px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:8px}
-.sec::after{content:'';flex:1;height:0.5px;background:var(--b)}
-
-/* ── KPI STRIP ── */
-.kpi-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-.kcard{background:var(--bg2);border:0.5px solid var(--b);border-radius:6px;padding:10px 12px;position:relative;overflow:hidden;cursor:default;transition:border-color .15s;animation:fadeUp 0.35s ease both}
-.kcard:hover{border-color:var(--b2)}
-.kcard::before{content:'';position:absolute;bottom:0;left:0;right:0;height:1.5px}
-.kcard.kg::before{background:linear-gradient(90deg,transparent,var(--green),transparent)}
-.kcard.ka::before{background:linear-gradient(90deg,transparent,var(--amber),transparent)}
-.kcard.kr::before{background:linear-gradient(90deg,transparent,var(--red),transparent)}
-.kcard.kgo::before{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-.kcard.kt::before{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
-.kcard.kb::before{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
-.kcard-lbl{font-size:7px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
-.kcard-val{font-family:var(--display);font-size:26px;letter-spacing:1px;line-height:1;color:var(--gold2)}
-.kcard-val.cg{color:var(--green)}.kcard-val.cr{color:var(--red)}.kcard-val.ca{color:var(--amber)}.kcard-val.ct{color:var(--teal)}.kcard-val.cb{color:var(--blue)}
-.kcard-sub{font-size:7.5px;color:var(--t3);margin-top:3px}
-.kcard-delta{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;font-weight:600;padding:2px 5px;border-radius:2px}
-.dg{color:var(--green);background:var(--green3)}.dr{color:var(--red);background:var(--red3)}.da{color:var(--amber);background:var(--amber3)}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.kcard:nth-child(1){animation-delay:0.04s}.kcard:nth-child(2){animation-delay:0.08s}
-.kcard:nth-child(3){animation-delay:0.12s}.kcard:nth-child(4){animation-delay:0.16s}
-.kcard:nth-child(5){animation-delay:0.20s}.kcard:nth-child(6){animation-delay:0.24s}
-.kcard:nth-child(7){animation-delay:0.28s}
-
-/* ── MAIN GRID ── */
-.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.full-width{grid-column:1/-1}
-
-/* ── PANEL ── */
-.panel{background:var(--bg2);border:0.5px solid var(--b);border-radius:6px;overflow:hidden}
-.panel-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.2)}
-.panel-title{font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold)}
-.panel-meta{font-family:var(--mono);font-size:8.5px;color:var(--t3);margin-left:auto}
-.panel-body{padding:12px 14px}
-
-/* ── VIABILITY TABLE ── */
-.vtbl{width:100%;border-collapse:collapse}
-.vtbl th{font-size:7px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);padding:5px 8px;text-align:left;border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.15);white-space:nowrap}
-.vtbl th:not(:first-child):not(:nth-child(2)){text-align:center}
-.vtbl td{padding:5px 8px;border-bottom:0.5px solid rgba(255,255,255,0.03);vertical-align:middle;font-size:11px}
-.vtbl tr:last-child td{border-bottom:none}
-.vtbl tr:hover td{background:rgba(201,168,76,0.02)}
-.vtbl tr.row-danger td{background:rgba(232,69,90,0.03)}
-.vtbl tr.row-warn td{background:rgba(232,160,32,0.02)}
-
-/* status pills */
-.vpill{font-family:var(--mono);font-size:8px;font-weight:600;padding:2px 6px;border-radius:2px;border:0.5px solid;white-space:nowrap;display:inline-block}
-.v-viable{background:var(--green3);border-color:rgba(29,184,122,0.3);color:var(--green)}
-.v-sustain{background:var(--amber3);border-color:rgba(232,160,32,0.3);color:var(--amber)}
-.v-risk{background:var(--red3);border-color:rgba(232,69,90,0.3);color:var(--red)}
-.v-pending{background:rgba(201,168,76,0.06);border-color:var(--b);color:var(--t3)}
-
-/* bar cells */
-.bar-cell{display:flex;align-items:center;gap:5px}
-.bar-track{flex:1;height:4px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden;min-width:40px}
-.bar-fill{height:100%;border-radius:999px;transition:width 1s ease}
-.bar-num{font-family:var(--mono);font-size:8.5px;color:var(--t3);width:26px;text-align:right;flex-shrink:0}
-
-/* ── BRANCH VIABILITY GRID ── */
-.bv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 14px}
-.bv-card{background:var(--bg3);border:0.5px solid var(--b);border-radius:4px;padding:10px;position:relative;overflow:hidden}
-.bv-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1.5px}
-.bv-card.bv-g::after{background:var(--green)}
-.bv-card.bv-a::after{background:var(--amber)}
-.bv-card.bv-r::after{background:var(--red)}
-.bv-name{font-size:9px;font-weight:600;color:var(--gold2);letter-spacing:0.04em;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
-.bv-score{font-family:var(--display);font-size:22px;line-height:1}
-.bv-score.sg{color:var(--green)}.bv-score.sa{color:var(--amber)}.bv-score.sr{color:var(--red)}
-.bv-rows{display:flex;flex-direction:column;gap:3px;margin-top:6px}
-.bv-row{display:flex;justify-content:space-between;align-items:center}
-.bv-lbl{font-size:7.5px;color:var(--t3)}
-.bv-val{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--t)}
-.bv-val.g{color:var(--green)}.bv-val.r{color:var(--red)}.bv-val.a{color:var(--amber)}
-.bv-bar{height:2px;background:rgba(255,255,255,0.06);border-radius:999px;margin-top:6px;overflow:hidden}
-.bv-bar-fill{height:100%;border-radius:999px;transition:width 1.2s ease}
-
-/* ── DEMAND HEATMAP ── */
-.heatmap-grid{display:grid;gap:3px;padding:12px 14px}
-.hmap-row{display:flex;align-items:center;gap:4px}
-.hmap-lbl{font-size:8px;color:var(--t3);width:70px;flex-shrink:0;font-family:var(--mono)}
-.hmap-cells{display:flex;gap:2px}
-.hmap-cell{width:28px;height:18px;border-radius:2px;border:0.5px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:7px;font-weight:600;cursor:default;transition:filter .1s}
-.hmap-cell:hover{filter:brightness(1.3)}
-.hmap-col-hdr{display:flex;gap:2px;margin-left:74px;margin-bottom:2px;padding:0 14px}
-.hmap-col-lbl{width:28px;text-align:center;font-size:7px;color:var(--t4);letter-spacing:0.04em;flex-shrink:0}
-
-/* ── RISK TABLE ── */
-.risk-row{display:flex;align-items:flex-start;gap:10px;padding:8px 14px;border-bottom:0.5px solid var(--b)}
-.risk-row:last-child{border-bottom:none}
-.risk-ico{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.risk-ico svg{width:10px;height:10px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.ri-r{background:var(--red2);border:0.5px solid rgba(232,69,90,0.3)}.ri-r svg{stroke:var(--red)}
-.ri-a{background:var(--amber2);border:0.5px solid rgba(232,160,32,0.3)}.ri-a svg{stroke:var(--amber)}
-.ri-g{background:var(--green2);border:0.5px solid rgba(29,184,122,0.3)}.ri-g svg{stroke:var(--green)}
-.risk-body{flex:1;min-width:0}
-.risk-title{font-size:10px;font-weight:500;color:var(--t)}
-.risk-desc{font-size:8px;color:var(--t3);margin-top:2px;line-height:1.4}
-.risk-badge{font-family:var(--mono);font-size:7.5px;padding:2px 6px;border-radius:2px;flex-shrink:0;margin-top:2px}
-.rb-r{background:var(--red3);border:0.5px solid rgba(232,69,90,0.2);color:var(--red)}
-.rb-a{background:var(--amber3);border:0.5px solid rgba(232,160,32,0.2);color:var(--amber)}
-.rb-g{background:var(--green3);border:0.5px solid rgba(29,184,122,0.2);color:var(--green)}
-
-/* ── REVENUE PROJECTION ── */
-.rev-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:12px 14px}
-.rev-card{background:var(--bg3);border:0.5px solid var(--b);border-radius:4px;padding:10px;text-align:center}
-.rev-scenario{font-size:7.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px}
-.rev-val{font-family:var(--display);font-size:20px;letter-spacing:1px;line-height:1}
-.rev-sub{font-size:7.5px;color:var(--t3);margin-top:3px}
-.rev-students{font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:5px}
-
-/* ── COVERAGE CHART (pure CSS) ── */
-.cov-list{display:flex;flex-direction:column;gap:5px;padding:12px 14px}
-.cov-row{display:flex;align-items:center;gap:8px}
-.cov-lbl{font-size:8.5px;color:var(--t2);width:100px;flex-shrink:0;display:flex;align-items:center;gap:5px}
-.cov-track{flex:1;height:8px;background:rgba(255,255,255,0.04);border-radius:2px;overflow:hidden;position:relative}
-.cov-fill{height:100%;border-radius:2px;transition:width 1.2s ease;position:relative}
-.cov-fill::after{content:attr(data-pct);position:absolute;right:4px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:7px;font-weight:600;color:rgba(255,255,255,0.7);white-space:nowrap}
-.cov-count{font-family:var(--mono);font-size:8px;color:var(--t3);width:50px;text-align:right;flex-shrink:0}
-
-/* ── LOADING SKELETON ── */
-.skel{background:rgba(255,255,255,0.04);border-radius:3px;animation:shimmer 1.5s infinite}
-@keyframes shimmer{0%,100%{opacity:0.5}50%{opacity:1}}
-
-/* ── FILTER ROW ── */
-.ftabs{display:flex;gap:3px;padding:7px 12px;border-bottom:0.5px solid var(--b);overflow-x:auto}
-.ftabs::-webkit-scrollbar{display:none}
-.ftab{padding:3px 9px;border-radius:2px;font-size:8px;font-weight:600;letter-spacing:0.08em;cursor:pointer;border:0.5px solid var(--b);background:transparent;color:var(--t3);white-space:nowrap;transition:all .1s}
-.ftab:hover{border-color:var(--b2);color:var(--t2)}
-.ftab.act{background:var(--gold3);border-color:var(--b2);color:var(--gold2)}
-
-/* ── TOOLTIP ── */
-.tip{position:fixed;background:rgba(7,5,16,0.98);border:0.5px solid var(--b2);border-radius:4px;padding:6px 10px;font-size:9px;color:var(--t);z-index:999;pointer-events:none;display:none;font-family:var(--mono);line-height:1.5}
-.tip.show{display:block}
-
-/* ── LAST UPDATED ── */
-.last-upd{font-family:var(--mono);font-size:8px;color:var(--t4)}
+.shell{padding:16px 20px 40px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+.headline{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;cursor:default;transition:border-color 0.15s}
+.hcard:hover{border-color:var(--border2)}
+.hcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.hcard.c-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hcard.c-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.hcard.c-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hcard.c-gold::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hcard.c-teal::after{background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hcard-lbl{font-size:8px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)}
+.hcard-val{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--gold-hi);line-height:1;letter-spacing:-0.5px}
+.hcard-val.green{color:var(--green)}
+.hcard-val.red{color:var(--red)}
+.hcard-val.yellow{color:var(--yellow)}
+.hcard-sub{font-size:9px;color:var(--text3);margin-top:2px}
+.hcard-delta{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px}
+.delta-up{color:var(--green);background:var(--green-faint)}
+.delta-dn{color:var(--red);background:var(--red-faint)}
+.sec-label{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+.branch-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.bcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.bcard:hover{border-color:var(--border2);background:var(--bg3)}
+.bcard.alert-red{border-color:rgba(232,69,90,0.35)}
+.bcard.alert-yellow{border-color:rgba(232,184,75,0.3)}
+.bcard.highlighted{border-color:var(--gold-dim);background:rgba(201,168,76,0.06);box-shadow:0 0 0 1px var(--gold-dim)}
+.bcard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.bcard-name{font-size:10px;font-weight:600;color:var(--gold-hi);letter-spacing:0.04em}
+.bcard-alert{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.alert-dot-red{background:var(--red);box-shadow:0 0 5px var(--red)}
+.alert-dot-yellow{background:var(--yellow);box-shadow:0 0 5px var(--yellow)}
+.alert-dot-green{background:var(--green)}
+.bcard-stats{display:flex;flex-direction:column;gap:3px}
+.bstat{display:flex;justify-content:space-between;align-items:center}
+.bstat-lbl{font-size:8px;color:var(--text3);letter-spacing:0.04em}
+.bstat-val{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text)}
+.bstat-val.g{color:var(--green)}.bstat-val.r{color:var(--red)}.bstat-val.y{color:var(--yellow)}
+.bcard-bar{height:2px;background:rgba(201,168,76,0.1);border-radius:999px;margin-top:8px;overflow:hidden}
+.bcard-bar-fill{height:100%;border-radius:999px;transition:width 1s ease}
+.main-grid{display:grid;grid-template-columns:1fr 340px;gap:12px}
+.pipeline{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--border);background:rgba(0,0,0,0.15)}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold)}
+.panel-meta{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.filter-row{display:flex;gap:4px;padding:10px 14px;border-bottom:0.5px solid var(--border);overflow-x:auto}
+.filter-row::-webkit-scrollbar{display:none}
+.ftab{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--border);background:transparent;color:var(--text3);white-space:nowrap;transition:all 0.12s}
+.ftab:hover{border-color:var(--border2);color:var(--text2)}
+.ftab.active{background:rgba(201,168,76,0.15);border-color:var(--gold-dim);color:var(--gold-hi)}
+.level-table{width:100%;border-collapse:collapse}
+.level-table th{font-size:7px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:0.5px solid var(--border);white-space:nowrap}
+.level-table th:not(:first-child){text-align:center}
+.level-table td{padding:5px 10px;border-bottom:0.5px solid rgba(201,168,76,0.04);font-size:11px;vertical-align:middle}
+.level-table tr:last-child td{border-bottom:none}
+.level-table tr:hover td{background:rgba(201,168,76,0.03)}
+.lang-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--gold-hi)}
+.lang-flag{font-size:12px}
+.lvl-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(201,168,76,0.08);color:var(--gold);display:inline-block}
+.group-cluster{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.gpill{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;cursor:pointer;transition:all 0.12s;border:0.5px solid;display:flex;align-items:center;gap:3px}
+.gpill:hover{transform:translateY(-1px);filter:brightness(1.15)}
+.gpill.gn{background:var(--green-faint);border-color:rgba(46,204,138,0.3);color:var(--green)}
+.gpill.gy{background:var(--yellow-faint);border-color:rgba(232,184,75,0.3);color:var(--yellow)}
+.gpill.gr{background:var(--red-faint);border-color:rgba(232,69,90,0.3);color:var(--red)}
+.gpill.gp{background:rgba(201,168,76,0.06);border-color:var(--border);color:var(--text3)}
+.band-tag{font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,0.3);color:inherit;opacity:0.7}
+.reg-bar-wrap{display:flex;align-items:center;gap:5px}
+.reg-bar{flex:1;height:4px;background:rgba(201,168,76,0.08);border-radius:999px;overflow:hidden;min-width:40px}
+.reg-bar-fill{height:100%;border-radius:999px}
+.reg-pct{font-family:var(--mono);font-size:9px;color:var(--text3);width:28px;text-align:right}
+.right-panel{display:flex;flex-direction:column;gap:10px}
+.cases-panel{background:var(--bg2);border:0.5px solid rgba(232,69,90,0.25);border-radius:12px;overflow:hidden;flex-shrink:0}
+.cases-panel .panel-header{border-bottom-color:rgba(232,69,90,0.15)}
+.case-list{display:flex;flex-direction:column;gap:0}
+.case-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:0.5px solid rgba(232,69,90,0.08);cursor:pointer;transition:background 0.12s}
+.case-row:last-child{border-bottom:none}
+.case-row:hover{background:rgba(232,69,90,0.05)}
+.case-avatar{width:26px;height:26px;border-radius:50%;background:rgba(232,69,90,0.12);border:0.5px solid rgba(232,69,90,0.25);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--red);flex-shrink:0;font-family:var(--mono)}
+.case-info{flex:1;min-width:0}
+.case-name{font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.case-reason{font-size:9px;color:rgba(232,69,90,0.7);margin-top:1px}
+.case-badge{font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:4px;background:var(--red-faint);border:0.5px solid rgba(232,69,90,0.2);color:var(--red);flex-shrink:0}
+.algo-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.algo-stages{display:flex;flex-direction:column;gap:0}
+.algo-stage{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:0.5px solid var(--border)}
+.algo-stage:last-child{border-bottom:none}
+.stage-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.si-done{background:var(--green-dim);border:0.5px solid rgba(46,204,138,0.35)}
+.si-run{background:var(--yellow-dim);border:0.5px solid rgba(232,184,75,0.35);animation:spinpulse 1.5s infinite}
+.si-wait{background:rgba(201,168,76,0.06);border:0.5px solid var(--border)}
+@keyframes spinpulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0.2)}50%{box-shadow:0 0 0 4px rgba(232,184,75,0)}}
+.stage-icon svg{width:11px;height:11px;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.si-done svg{stroke:var(--green)}.si-run svg{stroke:var(--yellow)}.si-wait svg{stroke:var(--text3)}
+.stage-info{flex:1}
+.stage-name{font-size:10px;font-weight:500;color:var(--text)}
+.stage-meta{font-size:8px;color:var(--text3);margin-top:1px}
+.stage-count{font-family:var(--mono);font-size:10px;font-weight:600}
+.sc-done{color:var(--green)}.sc-run{color:var(--yellow)}.sc-wait{color:var(--text3)}
+.confirm-panel{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.confirm-list{display:flex;flex-direction:column;gap:0}
+.confirm-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background 0.12s}
+.confirm-row:last-child{border-bottom:none}
+.confirm-row:hover{background:var(--gold-faint)}
+.cr-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.cr-info{flex:1}
+.cr-name{font-size:10px;font-weight:500;color:var(--text)}
+.cr-sub{font-size:8px;color:var(--text3);margin-top:1px}
+.cr-btn{font-size:8px;font-weight:600;padding:3px 8px;border-radius:5px;background:rgba(201,168,76,0.12);border:0.5px solid var(--gold-dim);color:var(--gold);cursor:pointer;white-space:nowrap;transition:all 0.12s}
+.cr-btn:hover{background:rgba(201,168,76,0.22)}
+.legend{display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(--bg2);border:0.5px solid var(--border);border-radius:8px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--text3)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hcard{animation:fadeUp 0.4s ease both}
+.hcard:nth-child(1){animation-delay:0.05s}.hcard:nth-child(2){animation-delay:0.1s}
+.hcard:nth-child(3){animation-delay:0.15s}.hcard:nth-child(4){animation-delay:0.2s}
+.hcard:nth-child(5){animation-delay:0.25s}.hcard:nth-child(6){animation-delay:0.3s}
+.tooltip{position:fixed;background:rgba(12,8,22,0.98);border:0.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:10px;color:var(--text);z-index:999;pointer-events:none;display:none;max-width:200px}
+.tooltip.show{display:block}
 </style>
 </head>
 <body>
 
-<div class="tip" id="tip"></div>
+<div class="tooltip" id="tooltip"></div>
 
 <!-- TOPBAR -->
-<div class="bar">
-  <span class="bar-brand">ALM</span>
-  <div class="bar-sep"></div>
-  <span class="bar-page">Análise de Viabilidade</span>
-  <div class="bar-right">
-    <div class="bar-nav">
-      <a class="bnav" href="command-centre.html">
-        <svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-        PAINEL
-      </a>
-      <a class="bnav" href="student-timetable-request.html">
-        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-        HORÁRIOS
-      </a>
-      <a class="bnav" href="master-enrollment.html">
-        <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
-        INSCRIÇÃO
-      </a>
-      <a class="bnav" href="alm-group-formation.html">
-        <svg viewBox="0 0 16 16"><circle cx="5" cy="6" r="2.5"/><circle cx="11" cy="6" r="2.5"/><path d="M1 14c0-2.2 1.8-4 4-4M15 14c0-2.2-1.8-4-4-4M8 14c0-2.2-1.8-4-4-4s4 1.8 4 4"/></svg>
-        TURMAS
-      </a>
-      <a class="bnav act" href="alm-analytics.html">
-        <svg viewBox="0 0 16 16"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>
-        ANÁLISE
-      </a>
-    </div>
-    <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">
-      <svg viewBox="0 0 16 16"><path d="M13 2v4h-4M3 14v-4h4M13 6A6 6 0 013.5 10M3 10a6 6 0 019.5-4"/></svg>
-      ACTUALIZAR
-    </button>
-    <div class="bar-live"><div class="bar-live-dot"></div><span class="bar-live-lbl">LIVE</span></div>
-    <div class="bar-clock" id="clock">--:--</div>
+<div class="topbar">
+  <!-- Home button -->
+  <a class="tb-home" href="dashboard.html">
+    <svg viewBox="0 0 16 16"><path d="M2 6L8 1l6 5v8a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M6 15V9h4v6"/></svg>
+    Início
+  </a>
+  <div class="tb-divider"></div>
+  <span class="tb-brand">ALM</span>
+  <span class="tb-page">Painel Operacional</span>
+  <div class="tb-nav" style="margin-left:16px">
+    <a class="nav-ico active" href="command-centre.html" title="Dashboard"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg></a>
+    <a class="nav-ico" href="timetable-request.html" title="Horários"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg></a>
+    <a class="nav-ico" href="enrollment.html" title="Nova Inscrição"><svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg></a>
   </div>
+  <span class="tb-year">Ano Lectivo 2026 / 2027</span>
+  <div class="tb-status"><div class="tb-status-dot"></div><span class="tb-status-lbl">SISTEMA ACTIVO</span></div>
+  <span class="tb-clock" id="clock">--:--:--</span>
+</div>
+
+<!-- Branch filter banner — shown when arriving from a specific branch -->
+<div class="branch-banner hidden" id="branch-banner">
+  <svg style="width:12px;height:12px;stroke:var(--gold);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 5v3M7 9.5v.5"/></svg>
+  <span class="bb-label">A filtrar por filial:</span>
+  <span id="bb-branch-name" style="color:var(--gold-hi);font-weight:600;font-size:10px">—</span>
+  <span class="bb-clear" onclick="clearBranchFilter()">✕ Limpar filtro</span>
 </div>
 
 <div class="shell">
 
-  <div class="err-banner" id="err-banner"></div>
-
-  <!-- KPI STRIP -->
-  <div class="kpi-strip" id="kpi-strip">
-    <div class="kcard kgo"><div class="kcard-lbl">Total Alunos</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard kg"><div class="kcard-lbl">Grupos Viáveis</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard ka"><div class="kcard-lbl">Grupos em Risco</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard kr"><div class="kcard-lbl">Grupos Inviáveis</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard kt"><div class="kcard-lbl">Taxa Cobertura</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard kb"><div class="kcard-lbl">Receita Estimada</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
-    <div class="kcard ka"><div class="kcard-lbl">Alunos Sem Turma</div><div class="kcard-val skel" style="width:70px;height:26px"> </div></div>
+  <!-- HEADLINE -->
+  <div class="headline">
+    <div class="hcard c-gold">
+      <div class="hcard-lbl">Total Alunos</div>
+      <div class="hcard-val">1 287</div>
+      <div class="hcard-sub">Meta: 1 300</div>
+      <span class="hcard-delta delta-up">+4.2%</span>
+    </div>
+    <div class="hcard c-green">
+      <div class="hcard-lbl">Inscrições Recebidas</div>
+      <div class="hcard-val green">1 041</div>
+      <div class="hcard-sub">80.9% da base</div>
+      <span class="hcard-delta delta-up">↑ hoje +23</span>
+    </div>
+    <div class="hcard c-yellow">
+      <div class="hcard-lbl">Em Falta</div>
+      <div class="hcard-val yellow">246</div>
+      <div class="hcard-sub">sem horário submetido</div>
+      <span class="hcard-delta delta-dn">−18.9%</span>
+    </div>
+    <div class="hcard c-green">
+      <div class="hcard-lbl">Turmas Formadas</div>
+      <div class="hcard-val green">94</div>
+      <div class="hcard-sub">de ~120 estimadas</div>
+    </div>
+    <div class="hcard c-red">
+      <div class="hcard-lbl">Casos Difíceis</div>
+      <div class="hcard-val red">31</div>
+      <div class="hcard-sub">aguardam intervenção</div>
+      <span class="hcard-delta delta-dn">urgente</span>
+    </div>
+    <div class="hcard c-teal">
+      <div class="hcard-lbl">A Confirmar</div>
+      <div class="hcard-val" style="color:var(--teal)">18</div>
+      <div class="hcard-sub">prof · sala · data</div>
+    </div>
   </div>
 
-  <!-- ROW 1: Viability table + Branch viability -->
-  <div class="main-grid">
-
-    <!-- VIABILITY TABLE -->
-    <div class="panel full-width">
-      <div class="panel-hdr">
-        <svg style="width:10px;height:10px;stroke:var(--gold);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M2 10l3-4 2.5 2 3-5 3.5 3"/></svg>
-        <span class="panel-title" style="margin-left:4px">Viabilidade por Língua · Nível · Período</span>
-        <div class="ftabs" style="padding:0;border:none;margin-left:8px;gap:3px" id="lang-ftabs">
-          <div class="ftab act" onclick="setLang('all',this)">TODAS</div>
-          <div class="ftab" onclick="setLang('English',this)">🇬🇧 EN</div>
-          <div class="ftab" onclick="setLang('Português',this)">🇵🇹 PT</div>
-          <div class="ftab" onclick="setLang('Español',this)">🇪🇸 ES</div>
-          <div class="ftab" onclick="setLang('Deutsch',this)">🇩🇪 DE</div>
-          <div class="ftab" onclick="setLang('Français',this)">🇫🇷 FR</div>
-        </div>
-        <span class="panel-meta" id="vtbl-meta">a carregar…</span>
+  <!-- BRANCH STRIP -->
+  <div class="sec-label">Filiais</div>
+  <div class="branch-strip">
+    <div class="bcard" id="bc-funchal" onclick="filterBranch('Funchal')">
+      <div class="bcard-top"><span class="bcard-name">Funchal · Sede</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">412</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">38</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">89%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">4</span></div>
       </div>
-      <div style="overflow-x:auto;max-height:380px;overflow-y:auto">
-        <table class="vtbl">
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:89%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-yellow" id="bc-machico" onclick="filterBranch('Machico')">
+      <div class="bcard-top"><span class="bcard-name">Machico</span><div class="bcard-alert alert-dot-yellow"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">198</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val y">14</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">74%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val y">8</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:74%;background:var(--yellow)"></div></div>
+    </div>
+    <div class="bcard" id="bc-scruz" onclick="filterBranch('S. Cruz')">
+      <div class="bcard-top"><span class="bcard-name">Santa Cruz</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">221</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">18</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">83%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">5</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:83%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-red" id="bc-rbrava" onclick="filterBranch('R. Brava')">
+      <div class="bcard-top"><span class="bcard-name">Ribeira Brava</span><div class="bcard-alert alert-dot-red"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">156</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val r">9</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">61%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val r">9</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:61%;background:var(--red)"></div></div>
+    </div>
+    <div class="bcard" id="bc-calheta" onclick="filterBranch('Calheta')">
+      <div class="bcard-top"><span class="bcard-name">Calheta</span><div class="bcard-alert alert-dot-green"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">178</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val g">13</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">86%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val">3</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:86%;background:var(--green)"></div></div>
+    </div>
+    <div class="bcard alert-yellow" id="bc-estreito" onclick="filterBranch('Estreito')">
+      <div class="bcard-top"><span class="bcard-name">Estreito</span><div class="bcard-alert alert-dot-yellow"></div></div>
+      <div class="bcard-stats">
+        <div class="bstat"><span class="bstat-lbl">Alunos</span><span class="bstat-val">122</span></div>
+        <div class="bstat"><span class="bstat-lbl">Turmas</span><span class="bstat-val y">7</span></div>
+        <div class="bstat"><span class="bstat-lbl">Inscritos</span><span class="bstat-val">70%</span></div>
+        <div class="bstat"><span class="bstat-lbl">Difíceis</span><span class="bstat-val y">2</span></div>
+      </div>
+      <div class="bcard-bar"><div class="bcard-bar-fill" style="width:70%;background:var(--yellow)"></div></div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span style="font-size:8px;font-weight:600;color:var(--text3);letter-spacing:0.1em;margin-right:4px">TURMAS:</span>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>≥ 8 alunos · viável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>5–7 · sustentável</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>&lt; 5 · alerta financeiro</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(201,168,76,0.2);border:0.5px solid var(--border2)"></div>pendente · sem turma</div>
+    <span style="margin-left:auto;font-size:8px;color:var(--text3)">Clique numa filial para filtrar · Clique novamente para limpar</span>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="sec-label">Mapa de Turmas por Língua e Nível</div>
+  <div class="main-grid">
+    <div class="pipeline">
+      <div class="panel-header">
+        <div class="panel-title">Mapa Operacional</div>
+        <div class="filter-row" style="padding:0;border:none;margin-left:12px">
+          <div class="ftab active" onclick="setFilter('all',this)">Todas</div>
+          <div class="ftab" onclick="setFilter('EN',this)">🇬🇧 English</div>
+          <div class="ftab" onclick="setFilter('PT',this)">🇵🇹 Português</div>
+          <div class="ftab" onclick="setFilter('ES',this)">🇪🇸 Español</div>
+          <div class="ftab" onclick="setFilter('DE',this)">🇩🇪 Deutsch</div>
+          <div class="ftab" onclick="setFilter('FR',this)">🇫🇷 Français</div>
+        </div>
+        <div class="panel-meta" id="map-meta">94 turmas · 1 041 alunos colocados</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="level-table">
           <thead><tr>
-            <th>Língua</th>
-            <th>Nível</th>
-            <th>Período</th>
-            <th style="text-align:center">Alunos</th>
-            <th style="text-align:center">Viabilidade</th>
-            <th>Cobertura</th>
-            <th style="text-align:center">Turmas Proj.</th>
-            <th style="text-align:center">Status</th>
+            <th>Língua</th><th>Nível</th><th>Manhã</th><th>Tarde</th><th>Noite</th><th>Pendentes</th><th>Inscrição</th>
           </tr></thead>
-          <tbody id="vtbl-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3);font-size:11px">A carregar dados…</td></tr></tbody>
+          <tbody id="map-body"></tbody>
         </table>
       </div>
     </div>
 
-  </div>
-
-  <!-- ROW 2: Branch viability + Risk flags -->
-  <div class="main-grid">
-
-    <!-- BRANCH VIABILITY -->
-    <div class="panel">
-      <div class="panel-hdr">
-        <svg style="width:10px;height:10px;stroke:var(--gold);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 7v6h4v-4h4v4h4V7L7 2z"/></svg>
-        <span class="panel-title" style="margin-left:4px">Viabilidade por Filial</span>
-        <span class="panel-meta" id="branch-meta">—</span>
-      </div>
-      <div class="bv-grid" id="branch-grid">
-        <div class="bv-card skel" style="height:110px"></div>
-        <div class="bv-card skel" style="height:110px"></div>
-        <div class="bv-card skel" style="height:110px"></div>
-        <div class="bv-card skel" style="height:110px"></div>
-        <div class="bv-card skel" style="height:110px"></div>
-        <div class="bv-card skel" style="height:110px"></div>
-      </div>
-    </div>
-
-    <!-- RISK FLAGS -->
-    <div class="panel">
-      <div class="panel-hdr">
-        <svg style="width:10px;height:10px;stroke:var(--red);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10v.5"/></svg>
-        <span class="panel-title" style="margin-left:4px;color:var(--red)">Alertas &amp; Riscos</span>
-        <span class="panel-meta" id="risk-meta">—</span>
-      </div>
-      <div id="risk-list"><div style="padding:16px;text-align:center;font-size:9px;color:var(--t3)">a calcular…</div></div>
-    </div>
-
-  </div>
-
-  <!-- ROW 3: Demand heatmap + Revenue + Coverage -->
-  <div class="main-grid">
-
-    <!-- DEMAND HEATMAP by day -->
-    <div class="panel">
-      <div class="panel-hdr">
-        <svg style="width:10px;height:10px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1"/><path d="M5 2v10M9 2v10M2 5h10M2 9h10"/></svg>
-        <span class="panel-title" style="margin-left:4px">Mapa de Procura · Dia × Período</span>
-        <span class="panel-meta">pedidos de horário</span>
-      </div>
-      <div id="heatmap-wrap">
-        <div style="padding:16px;text-align:center;font-size:9px;color:var(--t3)">a calcular…</div>
-      </div>
-    </div>
-
-    <!-- RIGHT: REVENUE + COVERAGE stacked -->
-    <div style="display:flex;flex-direction:column;gap:10px">
-
-      <!-- REVENUE PROJECTION -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <svg style="width:10px;height:10px;stroke:var(--green);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2v10M4 5c0-1.1.9-2 2-2h2a2 2 0 010 4H6a2 2 0 000 4h2a2 2 0 002-2"/></svg>
-          <span class="panel-title" style="margin-left:4px">Projecção de Receita</span>
-          <span class="panel-meta">€120/aluno/mês · 9 meses</span>
+    <div class="right-panel">
+      <div class="algo-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 4v3l2 1.5"/></svg>
+          <div class="panel-title" style="margin-left:4px">Motor de Alocação</div>
+          <div class="panel-meta">a correr</div>
         </div>
-        <div class="rev-grid" id="rev-grid">
-          <div class="rev-card"><div class="rev-scenario" style="color:var(--red)">Pessimista</div><div class="rev-val" style="color:var(--red)">—</div><div class="rev-sub">60% ocupação</div></div>
-          <div class="rev-card"><div class="rev-scenario" style="color:var(--amber)">Base</div><div class="rev-val" style="color:var(--amber)">—</div><div class="rev-sub">80% ocupação</div></div>
-          <div class="rev-card"><div class="rev-scenario" style="color:var(--green)">Optimista</div><div class="rev-val" style="color:var(--green)">—</div><div class="rev-sub">95% ocupação</div></div>
+        <div class="algo-stages">
+          <div class="algo-stage">
+            <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Agrupamento por nível</div><div class="stage-meta">Language + level clusters</div></div>
+            <div class="stage-count sc-done">1 041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-done"><svg viewBox="0 0 12 12" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Separação por período</div><div class="stage-meta">Manhã / Tarde / Noite</div></div>
+            <div class="stage-count sc-done">1 041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-run"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4"/><path d="M6 3v3l2 1"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Refinamento de hora exacta</div><div class="stage-meta">Sobreposição de slots…</div></div>
+            <div class="stage-count sc-run">847 / 1041</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1"/><path d="M5 5h2M5 7h2"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Formação de turmas</div><div class="stage-meta">min 5 · máx 12 por turma</div></div>
+            <div class="stage-count sc-wait">—</div>
+          </div>
+          <div class="algo-stage">
+            <div class="stage-icon si-wait"><svg viewBox="0 0 12 12"><path d="M6 2v3l2 1M2 10c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5"/></svg></div>
+            <div class="stage-info"><div class="stage-name">Atribuição de turma</div><div class="stage-meta">Aguarda etapa anterior</div></div>
+            <div class="stage-count sc-wait">—</div>
+          </div>
         </div>
       </div>
 
-      <!-- COVERAGE BY LANGUAGE -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <svg style="width:10px;height:10px;stroke:var(--blue);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><path d="M7 3c-2 1.5-2 5.5 0 8M7 3c2 1.5 2 5.5 0 8M2 7h10"/></svg>
-          <span class="panel-title" style="margin-left:4px">Cobertura por Língua</span>
-          <span class="panel-meta">inscritos vs. pedidos</span>
+      <div class="cases-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--red);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10.5v.5"/></svg>
+          <div class="panel-title" style="margin-left:4px;color:var(--red)">Casos Difíceis</div>
+          <div class="panel-meta">31 pendentes</div>
         </div>
-        <div class="cov-list" id="cov-list">
-          <div style="padding:8px;text-align:center;font-size:9px;color:var(--t3)">a calcular…</div>
+        <div class="case-list" id="case-list"></div>
+        <div style="padding:8px 14px;border-top:0.5px solid rgba(232,69,90,0.1)">
+          <a href="timetable-request.html?filter=conflict" style="font-size:9px;color:var(--red);cursor:pointer;text-align:center;opacity:0.7;display:block;text-decoration:none">Ver todos os 31 casos →</a>
         </div>
       </div>
 
+      <div class="confirm-panel">
+        <div class="panel-header">
+          <svg style="width:12px;height:12px;stroke:var(--teal);stroke-width:2;fill:none;flex-shrink:0" viewBox="0 0 14 14"><polyline points="2 7 5.5 10.5 12 4"/></svg>
+          <div class="panel-title" style="margin-left:4px">A Confirmar</div>
+          <div class="panel-meta">18 turmas</div>
+        </div>
+        <div class="confirm-list" id="confirm-list"></div>
+        <div style="padding:8px 14px;border-top:0.5px solid var(--border)">
+          <div style="font-size:9px;color:var(--text3);cursor:pointer;text-align:center">Ver todas as 18 turmas →</div>
+        </div>
+      </div>
     </div>
   </div>
-
-  <div class="last-upd" id="last-upd" style="text-align:right">—</div>
 
 </div>
 
 <script>
-/* ── SUPABASE ── */
-const SB='https://oapygbeliocdvitbdjbq.supabase.co';
-const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
-const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+tick();setInterval(tick,1000);
 
-async function sbGet(table,query=''){
-  const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),9000);
-  try{
-    const r=await fetch(`${SB}/rest/v1/${table}?${query}`,{headers:H,signal:ctrl.signal});
-    clearTimeout(t);
-    if(!r.ok)throw new Error(r.status+' '+r.statusText);
-    return r.json();
-  }catch(e){clearTimeout(t);throw e;}
-}
-
-/* ── CONSTANTS ── */
-const BRANCH_KEYS={
-  'FUNCHAL':'Funchal','CAMARA_LOBOS':'C. Lobos','SANTA_CRUZ':'S. Cruz',
-  'MACHICO':'Machico','RIBEIRA_BRAVA':'R. Brava','CALHETA':'Calheta'
+/* ── BRANCH ID → display name mapping ── */
+const BRANCH_MAP={
+  funchal:'Funchal',machico:'Machico',scruz:'S. Cruz',
+  rbrava:'R. Brava',calheta:'Calheta',estreito:'Estreito',psol:'P. do Sol'
 };
-const BRANCH_ORDER=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
-const LANG_FLAGS={'English':'🇬🇧','Português':'🇵🇹','Español':'🇪🇸','Deutsch':'🇩🇪','Français':'🇫🇷'};
-const LANG_ORDER=['English','Português','Español','Deutsch','Français'];
-const DAYS=['Seg','Ter','Qua','Qui','Sex','Sáb'];
-const PERIODS=['Manhã','Tarde','Noite'];
-const PRICE_PER_MONTH=120;
-const MONTHS=9;
-const MIN_VIABLE=8;
-const MIN_SUSTAIN=5;
+const BRANCH_CARD_MAP={
+  'Funchal':'bc-funchal','Machico':'bc-machico','S. Cruz':'bc-scruz',
+  'R. Brava':'bc-rbrava','Calheta':'bc-calheta','Estreito':'bc-estreito'
+};
 
-/* ── STATE ── */
-let allEnrolments=[], allRequests=[], langFilter='all';
+/* ── READ URL PARAMS ON LOAD ── */
+const urlParams=new URLSearchParams(window.location.search);
+const branchParam=urlParams.get('branch');
+let activeBranch=null;
 
-/* ── CLOCK ── */
-function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}
-tick();setInterval(tick,30000);
-
-/* ── TOOLTIP ── */
-const tipEl=document.getElementById('tip');
-document.addEventListener('mousemove',e=>{if(tipEl.classList.contains('show')){tipEl.style.left=(e.clientX+12)+'px';tipEl.style.top=(e.clientY-28)+'px';}});
-function showTip(e,html){tipEl.innerHTML=html;tipEl.classList.add('show');tipEl.style.left=(e.clientX+12)+'px';tipEl.style.top=(e.clientY-28)+'px';}
-function hideTip(){tipEl.classList.remove('show');}
-
-/* ── LOAD ── */
-async function loadAll(){
-  const btn=document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
-  document.getElementById('err-banner').classList.remove('show');
-  try{
-    const [enrolments,requests]=await Promise.all([
-      sbGet('enrolments','select=ref,name,branch,lang,level_cefr,family&limit=2000'),
-      sbGet('timetable_requests',
-        'select=ref,student_name,branch,lang,level_cefr,family,sessions_per_week,day_preferences,status,assigned_turma,notes,updated_at'+
-        '&academic_year=eq.2026%2F2027&limit=2000')
-    ]);
-    allEnrolments=enrolments||[];
-    allRequests=requests||[];
-    document.getElementById('last-upd').textContent=
-      'Actualizado '+new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
-    renderAll();
-  }catch(e){
-    const b=document.getElementById('err-banner');
-    b.textContent='Erro de ligação: '+e.message+'. A tentar novamente em 15s…';
-    b.classList.add('show');
-    setTimeout(loadAll,15000);
-  }finally{btn.classList.remove('spinning');}
+if(branchParam&&BRANCH_MAP[branchParam]){
+  activeBranch=BRANCH_MAP[branchParam];
+  const banner=document.getElementById('branch-banner');
+  banner.classList.remove('hidden');
+  document.getElementById('bb-branch-name').textContent=activeBranch;
+  // Highlight the card
+  const cardId=BRANCH_CARD_MAP[activeBranch];
+  if(cardId)document.getElementById(cardId)?.classList.add('highlighted');
 }
 
-function renderAll(){
-  const groups=buildGroups();
-  renderKPIs(groups);
-  renderViabilityTable(groups);
-  renderBranchViability();
-  renderRisks(groups);
-  renderHeatmap();
-  renderRevenue(groups);
-  renderCoverage();
+function clearBranchFilter(){
+  activeBranch=null;
+  document.getElementById('branch-banner').classList.add('hidden');
+  document.querySelectorAll('.bcard').forEach(c=>c.classList.remove('highlighted'));
+  // Remove param from URL without reloading
+  history.replaceState({},'',window.location.pathname);
+  renderMap();
 }
 
-/* ── GROUP ANALYSIS ── */
-function getPeriod(timeStr){
-  if(!timeStr)return'Noite';
-  const h=parseInt((timeStr+'').split(':')[0]);
-  if(h<13)return'Manhã';
-  if(h<18)return'Tarde';
-  return'Noite';
+/* ── MAP DATA ── */
+const MAP_DATA=[
+  {lang:'EN',level:'Kids',morning:[{n:11,br:'Funchal'},{n:9,br:'S.Cruz'}],afternoon:[{n:10,br:'Funchal'},{n:8,br:'Machico'}],evening:[],pending:4,reg:87},
+  {lang:'EN',level:'A1',morning:[{n:9,br:'Funchal'}],afternoon:[{n:12,br:'Funchal'},{n:7,br:'Machico'}],evening:[{n:8,br:'Funchal'}],pending:6,reg:82},
+  {lang:'EN',level:'A2',morning:[{n:10,br:'Funchal'},{n:6,br:'S.Cruz'}],afternoon:[{n:11,br:'Funchal'},{n:8,br:'Calheta'}],evening:[{n:9,br:'Funchal'},{n:5,br:'R.Brava'}],pending:3,reg:91},
+  {lang:'EN',level:'B1',morning:[{n:9,br:'Funchal'},{n:4,br:'Machico'}],afternoon:[{n:10,br:'Funchal'},{n:7,br:'S.Cruz'}],evening:[{n:8,br:'Funchal'},{n:6,br:'Estreito'}],pending:8,reg:78},
+  {lang:'EN',level:'B2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'},{n:5,br:'Machico'}],evening:[{n:7,br:'Funchal'}],pending:5,reg:85},
+  {lang:'EN',level:'C1',morning:[{n:6,br:'Funchal'}],afternoon:[{n:8,br:'Funchal'}],evening:[{n:3,br:'R.Brava'}],pending:7,reg:70},
+  {lang:'EN',level:'C2',morning:[],afternoon:[{n:5,br:'Funchal'}],evening:[],pending:2,reg:65},
+  {lang:'PT',level:'A1',morning:[{n:10,br:'Funchal'},{n:8,br:'S.Cruz'}],afternoon:[{n:9,br:'Funchal'}],evening:[],pending:3,reg:88},
+  {lang:'PT',level:'A2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'},{n:6,br:'Calheta'}],evening:[{n:4,br:'R.Brava'}],pending:2,reg:84},
+  {lang:'PT',level:'B1',morning:[{n:7,br:'Funchal'}],afternoon:[{n:8,br:'Funchal'}],evening:[],pending:4,reg:79},
+  {lang:'PT',level:'B2',morning:[{n:5,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:1,reg:76},
+  {lang:'ES',level:'A1',morning:[{n:9,br:'Funchal'},{n:7,br:'Machico'}],afternoon:[{n:10,br:'Funchal'}],evening:[{n:6,br:'Funchal'}],pending:4,reg:86},
+  {lang:'ES',level:'A2',morning:[{n:8,br:'Funchal'}],afternoon:[{n:9,br:'Funchal'}],evening:[],pending:3,reg:81},
+  {lang:'ES',level:'B1',morning:[{n:4,br:'Funchal'}],afternoon:[{n:7,br:'Funchal'}],evening:[],pending:5,reg:72},
+  {lang:'DE',level:'A1',morning:[{n:8,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:3,reg:80},
+  {lang:'DE',level:'A2',morning:[{n:3,br:'Funchal'}],afternoon:[{n:5,br:'Funchal'}],evening:[],pending:2,reg:68},
+  {lang:'DE',level:'B1',morning:[],afternoon:[{n:4,br:'Funchal'}],evening:[],pending:6,reg:60},
+  {lang:'FR',level:'A1',morning:[{n:7,br:'Funchal'},{n:5,br:'S.Cruz'}],afternoon:[{n:8,br:'Funchal'}],evening:[],pending:2,reg:83},
+  {lang:'FR',level:'A2',morning:[{n:5,br:'Funchal'}],afternoon:[{n:6,br:'Funchal'}],evening:[],pending:3,reg:75},
+];
+
+const LANGS=[
+  {code:'EN',flag:'🇬🇧',name:'English'},{code:'PT',flag:'🇵🇹',name:'Português'},
+  {code:'ES',flag:'🇪🇸',name:'Español'},{code:'DE',flag:'🇩🇪',name:'Deutsch'},
+  {code:'FR',flag:'🇫🇷',name:'Français'},
+];
+
+const CASES=[
+  {init:'MR',name:'Maria Rodrigues',reason:'Só disponível Sab 09h · EN B2 · R.Brava',br:'R.Brava'},
+  {init:'JF',name:'João Ferreira',reason:'Única aluna C2 Deutsch na filial',br:'Funchal'},
+  {init:'AS',name:'Ana Silva',reason:'Conflito 3 horários sobrepostos · ES B1',br:'Machico'},
+  {init:'PL',name:'Paulo Lima',reason:'Grupo <5 · EN C1 · Estreito',br:'Estreito'},
+  {init:'CM',name:'Clara Melo',reason:'Sem sobreposição · PT B2 · Calheta',br:'Calheta'},
+  {init:'RG',name:'Rui Gouveia',reason:'Exame jun. obrigatório · EN B1 · R.Brava',br:'R.Brava'},
+  {init:'IS',name:'Inês Santos',reason:'Kids · só manhã quarta · Machico',br:'Machico'},
+];
+const CONFIRMS=[
+  {name:'EN · B2 · Tarde 16h',sub:'Funchal · 9 alunos · sala livre'},
+  {name:'ES · A1 · Manhã 09h',sub:'S.Cruz · 10 alunos · sala 3'},
+  {name:'PT · A2 · Noite 19h',sub:'Funchal · 4 alunos · alerta <5'},
+  {name:'FR · A1 · Tarde 15h',sub:'Funchal · 7 alunos'},
+  {name:'DE · B1 · Tarde 17h',sub:'Funchal · 4 alunos · alerta <5'},
+];
+
+function pillClass(n){return n>=8?'gn':n>=5?'gy':'gr'}
+function groupPills(groups,band){
+  if(!groups.length)return'<span style="color:var(--text3);font-size:9px">—</span>';
+  return'<div class="group-cluster">'+groups.map(g=>{
+    const cls=pillClass(g.n);
+    return`<div class="gpill ${cls}" data-tip="${g.br} · ${g.n} alunos · ${band}" onmouseenter="showTip(event,this)" onmouseleave="hideTip()">${g.n}<span class="band-tag">${g.br.slice(0,3)}</span></div>`;
+  }).join('')+'</div>';
+}
+function regBar(pct){
+  const col=pct>=80?'var(--green)':pct>=65?'var(--yellow)':'var(--red)';
+  return`<div class="reg-bar-wrap"><div class="reg-bar"><div class="reg-bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="reg-pct">${pct}%</span></div>`;
 }
 
-function buildGroups(){
-  // Group requests by lang + level + period + branch
-  const map={};
-  allRequests.forEach(r=>{
-    const lang=r.lang||'Unknown';
-    const level=r.level_cefr||'?';
-    const prefs=Array.isArray(r.day_preferences)?r.day_preferences:[];
-    const period=prefs.length?getPeriod(prefs[0]?.session_start):'Pendente';
-    const branch=r.branch||'N/A';
-    const key=`${lang}||${level}||${period}`;
-    if(!map[key])map[key]={lang,level,period,branches:{},total:0,pending:0,atribuido:0};
-    const g=map[key];
-    g.total++;
-    const s=(r.status||'').toLowerCase();
-    if(s==='pendente')g.pending++;
-    if(s==='atribuido')g.atribuido++;
-    g.branches[branch]=(g.branches[branch]||0)+1;
+/* branch short name matching */
+function branchMatches(brShort,activeFull){
+  if(!activeFull)return true;
+  const map={'R.Brava':'R. Brava','S.Cruz':'S. Cruz','Funchal':'Funchal','Machico':'Machico','Calheta':'Calheta','Estreito':'Estreito'};
+  return (map[brShort]||brShort)===activeFull;
+}
+
+let activeFilter='all';
+
+function renderMap(){
+  const tbody=document.getElementById('map-body');
+  const filtered=MAP_DATA.filter(r=>{
+    if(activeFilter!=='all'&&r.lang!==activeFilter)return false;
+    if(activeBranch){
+      const all=[...r.morning,...r.afternoon,...r.evening];
+      if(!all.some(g=>branchMatches(g.br,activeBranch)))return false;
+    }
+    return true;
   });
 
-  return Object.values(map)
-    .sort((a,b)=>{
-      const li=LANG_ORDER.indexOf(a.lang)-LANG_ORDER.indexOf(b.lang);
-      if(li!==0)return li;
-      if(a.level!==b.level)return a.level.localeCompare(b.level);
-      return PERIODS.indexOf(a.period)-PERIODS.indexOf(b.period);
-    });
+  let rows='',lastLang='';
+  filtered.forEach(r=>{
+    const langObj=LANGS.find(l=>l.code===r.lang)||{flag:'',name:r.lang};
+    // For branch filtering, only show groups from that branch
+    const filterGroup=groups=>activeBranch?groups.filter(g=>branchMatches(g.br,activeBranch)):groups;
+    const langCell=r.lang!==lastLang
+      ?`<td rowspan="${filtered.filter(x=>x.lang===r.lang).length}" style="border-right:0.5px solid var(--border);vertical-align:middle"><div class="lang-badge"><span class="lang-flag">${langObj.flag}</span>${langObj.name}</div></td>`:'';
+    if(r.lang!==lastLang)lastLang=r.lang;
+    const pendPill=r.pending>0?`<div class="gpill gp" style="opacity:0.8">${r.pending}</div>`:'<span style="color:var(--text3);font-size:9px">—</span>';
+    rows+=`<tr>${langCell}<td><span class="lvl-badge">${r.level}</span></td><td>${groupPills(filterGroup(r.morning),'Manhã')}</td><td>${groupPills(filterGroup(r.afternoon),'Tarde')}</td><td>${groupPills(filterGroup(r.evening),'Noite')}</td><td style="text-align:center">${pendPill}</td><td style="min-width:80px">${regBar(r.reg)}</td></tr>`;
+  });
+  tbody.innerHTML=rows||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);font-size:11px">Nenhum resultado</td></tr>';
+  const total=filtered.reduce((a,r)=>a+r.morning.length+r.afternoon.length+r.evening.length,0);
+  const students=filtered.reduce((a,r)=>a+[...r.morning,...r.afternoon,...r.evening].reduce((b,g)=>b+g.n,0),0);
+  document.getElementById('map-meta').textContent=`${total} turmas · ${students} alunos colocados`;
 }
 
-function viabilityStatus(n){
-  if(n>=MIN_VIABLE)return{cls:'v-viable',label:'Viável',color:'var(--green)'};
-  if(n>=MIN_SUSTAIN)return{cls:'v-sustain',label:'Sustentável',color:'var(--amber)'};
-  if(n>0)return{cls:'v-risk',label:'Risco',color:'var(--red)'};
-  return{cls:'v-pending',label:'Pendente',color:'var(--t3)'};
+function setFilter(f,el){
+  activeFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderMap();
 }
 
-/* ── KPIs ── */
-function renderKPIs(groups){
-  const total=allEnrolments.length;
-  const viable=groups.filter(g=>g.total>=MIN_VIABLE).length;
-  const sustain=groups.filter(g=>g.total>=MIN_SUSTAIN&&g.total<MIN_VIABLE).length;
-  const risk=groups.filter(g=>g.total>0&&g.total<MIN_SUSTAIN).length;
-  const covered=allRequests.filter(r=>{
-    const s=(r.status||'').toLowerCase();
-    return s==='atribuido';
-  }).length;
-  const covPct=allRequests.length>0?Math.round(covered/allRequests.length*100):0;
-  const noSlot=allRequests.filter(r=>{
-    const s=(r.status||'').toLowerCase();
-    return s==='pendente';
-  }).length;
-  // Revenue base: students in viable/sustain groups × price
-  const studentsInGroups=groups.filter(g=>g.total>=MIN_SUSTAIN).reduce((a,g)=>a+g.total,0);
-  const revBase=studentsInGroups*PRICE_PER_MONTH*MONTHS*0.8;
-
-  document.getElementById('kpi-strip').innerHTML=`
-    <div class="kcard kgo">
-      <div class="kcard-lbl">Total Alunos</div>
-      <div class="kcard-val">${total.toLocaleString('pt')}</div>
-      <div class="kcard-sub">base 2026/2027</div>
-    </div>
-    <div class="kcard kg">
-      <div class="kcard-lbl">Grupos Viáveis</div>
-      <div class="kcard-val cg">${viable}</div>
-      <div class="kcard-sub">≥ ${MIN_VIABLE} alunos</div>
-      <span class="kcard-delta dg">${viable} grupos</span>
-    </div>
-    <div class="kcard ka">
-      <div class="kcard-lbl">Grupos em Risco</div>
-      <div class="kcard-val ca">${sustain}</div>
-      <div class="kcard-sub">${MIN_SUSTAIN}–${MIN_VIABLE-1} alunos</div>
-    </div>
-    <div class="kcard kr">
-      <div class="kcard-lbl">Grupos Inviáveis</div>
-      <div class="kcard-val cr">${risk}</div>
-      <div class="kcard-sub">&lt; ${MIN_SUSTAIN} alunos</div>
-      ${risk>0?`<span class="kcard-delta dr">atenção</span>`:''}
-    </div>
-    <div class="kcard kt">
-      <div class="kcard-lbl">Taxa de Cobertura</div>
-      <div class="kcard-val ct">${covPct}%</div>
-      <div class="kcard-sub">${covered} atribuídos</div>
-    </div>
-    <div class="kcard kg">
-      <div class="kcard-lbl">Receita Est. Base</div>
-      <div class="kcard-val cg">€${Math.round(revBase/1000)}k</div>
-      <div class="kcard-sub">cenário 80% ocup.</div>
-    </div>
-    <div class="kcard ka">
-      <div class="kcard-lbl">Sem Turma</div>
-      <div class="kcard-val ca">${noSlot.toLocaleString('pt')}</div>
-      <div class="kcard-sub">pedidos pendentes</div>
-      ${noSlot>0?`<span class="kcard-delta dr">urgente</span>`:''}
-    </div>`;
-}
-
-/* ── VIABILITY TABLE ── */
-function renderViabilityTable(allGroups){
-  const groups=langFilter==='all'?allGroups:allGroups.filter(g=>g.lang===langFilter);
-  const tbody=document.getElementById('vtbl-body');
-  if(!groups.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3);font-size:11px">Sem resultados</td></tr>';
+function filterBranch(b){
+  if(activeBranch===b){
+    clearBranchFilter();
     return;
   }
-
-  let rows='',lastKey='';
-  groups.forEach(g=>{
-    const langKey=g.lang+g.level;
-    const sameCount=groups.filter(x=>x.lang===g.lang&&x.level===g.level).length;
-    const flag=LANG_FLAGS[g.lang]||'';
-    const vst=viabilityStatus(g.total);
-    const projTurmas=g.total>0?Math.ceil(g.total/12):0;
-    const covPct=g.total>0?Math.round((g.total-g.pending)/g.total*100):0;
-    const barCol=covPct>=80?'var(--green)':covPct>=60?'var(--amber)':'var(--red)';
-    const rowCls=g.total<MIN_SUSTAIN&&g.total>0?'row-danger':g.total<MIN_VIABLE?'row-warn':'';
-
-    const langCell=langKey!==lastKey
-      ?`<td rowspan="${sameCount}" style="border-right:0.5px solid var(--b);vertical-align:middle">
-          <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-weight:600;color:var(--gold2)">
-            <span style="font-size:13px">${flag}</span>${g.lang}
-          </div>
-        </td>`:'';
-    if(langKey!==lastKey)lastKey=langKey;
-
-    rows+=`<tr class="${rowCls}"
-      onmouseenter="showTip(event,'<b>${g.lang} ${g.level} · ${g.period}</b><br>Total: ${g.total} alunos<br>Atribuídos: ${g.atribuido}<br>Pendentes: ${g.pending}<br>Filiais: ${Object.entries(g.branches).map(([b,n])=>(BRANCH_KEYS[b]||b)+': '+n).join(', ')}')"
-      onmouseleave="hideTip()">
-      ${langCell}
-      <td><span style="font-family:var(--mono);font-size:8.5px;font-weight:600;padding:2px 6px;border-radius:2px;background:rgba(201,168,76,0.07);color:var(--gold);border:0.5px solid rgba(201,168,76,0.15)">${g.level}</span></td>
-      <td><span style="font-size:8.5px;color:var(--t2)">${g.period}</span></td>
-      <td style="text-align:center;font-family:var(--mono);font-size:11px;font-weight:600;color:${vst.color}">${g.total}</td>
-      <td style="text-align:center">
-        <div style="display:flex;align-items:center;justify-content:center">
-          <div style="width:60px;height:4px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100,g.total/MIN_VIABLE*100)}%;background:${vst.color};border-radius:999px"></div>
-          </div>
-        </div>
-      </td>
-      <td>
-        <div class="bar-cell">
-          <div class="bar-track"><div class="bar-fill" style="width:${covPct}%;background:${barCol}"></div></div>
-          <span class="bar-num">${covPct}%</span>
-        </div>
-      </td>
-      <td style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--t2)">${projTurmas||'—'}</td>
-      <td style="text-align:center"><span class="vpill ${vst.cls}">${vst.label}</span></td>
-    </tr>`;
-  });
-  tbody.innerHTML=rows;
-
-  const viable=groups.filter(g=>g.total>=MIN_VIABLE).length;
-  const risk=groups.filter(g=>g.total>0&&g.total<MIN_SUSTAIN).length;
-  document.getElementById('vtbl-meta').textContent=`${groups.length} grupos · ${viable} viáveis · ${risk} em risco`;
+  activeBranch=b;
+  document.getElementById('branch-banner').classList.remove('hidden');
+  document.getElementById('bb-branch-name').textContent=b;
+  document.querySelectorAll('.bcard').forEach(c=>c.classList.remove('highlighted'));
+  const cardId=BRANCH_CARD_MAP[b];
+  if(cardId)document.getElementById(cardId)?.classList.add('highlighted');
+  renderMap();
 }
 
-/* ── BRANCH VIABILITY ── */
-function renderBranchViability(){
-  const stats={};
-  allEnrolments.forEach(e=>{
-    const b=(e.branch||'N/A').toUpperCase().replace(/ /g,'_');
-    if(!stats[b])stats[b]={total:0,withReq:0,pending:0,atribuido:0,refs:new Set()};
-    stats[b].total++;
-  });
-  allRequests.forEach(r=>{
-    const b=(r.branch||'N/A').toUpperCase().replace(/ /g,'_');
-    if(!stats[b])stats[b]={total:0,withReq:0,pending:0,atribuido:0,refs:new Set()};
-    if(!stats[b].refs.has(r.ref)){stats[b].refs.add(r.ref);stats[b].withReq++;}
-    const s=(r.status||'').toLowerCase();
-    if(s==='pendente')stats[b].pending++;
-    if(s==='atribuido')stats[b].atribuido++;
-  });
-
-  const branches=BRANCH_ORDER.filter(b=>stats[b]&&stats[b].total>0);
-  const grid=document.getElementById('branch-grid');
-
-  grid.innerHTML=branches.map(bk=>{
-    const s=stats[bk]||{total:0,withReq:0,pending:0,atribuido:0};
-    const pct=s.total>0?Math.round(s.withReq/s.total*100):0;
-    const name=BRANCH_KEYS[bk]||bk;
-    const viabCls=pct>=80?'bv-g':pct>=65?'bv-a':'bv-r';
-    const scoreCls=pct>=80?'sg':pct>=65?'sa':'sr';
-    const barCol=pct>=80?'var(--green)':pct>=65?'var(--amber)':'var(--red)';
-    const revEst=s.atribuido*PRICE_PER_MONTH*MONTHS;
-    return`<div class="bv-card ${viabCls}">
-      <div class="bv-name">
-        <span>${name}</span>
-        <span class="bv-score ${scoreCls}">${pct}%</span>
-      </div>
-      <div class="bv-rows">
-        <div class="bv-row"><span class="bv-lbl">Alunos</span><span class="bv-val">${s.total}</span></div>
-        <div class="bv-row"><span class="bv-lbl">Pedidos</span><span class="bv-val ${pct>=80?'g':pct>=65?'a':'r'}">${s.withReq}</span></div>
-        <div class="bv-row"><span class="bv-lbl">Pendentes</span><span class="bv-val ${s.pending>0?'r':''}">${s.pending}</span></div>
-        <div class="bv-row"><span class="bv-lbl">Receita Est.</span><span class="bv-val">€${Math.round(revEst/1000)}k</span></div>
-      </div>
-      <div class="bv-bar"><div class="bv-bar-fill" style="width:${pct}%;background:${barCol}"></div></div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('branch-meta').textContent=branches.length+' filiais activas';
+function renderCases(){
+  document.getElementById('case-list').innerHTML=CASES.slice(0,6).map(c=>`
+    <div class="case-row" onclick="window.location='timetable-request.html?filter=conflict'">
+      <div class="case-avatar">${c.init}</div>
+      <div class="case-info"><div class="case-name">${c.name}</div><div class="case-reason">${c.reason}</div></div>
+      <div class="case-badge">${c.br}</div>
+    </div>`).join('');
 }
 
-/* ── RISK FLAGS ── */
-function renderRisks(groups){
-  const risks=[];
-
-  // Groups with < MIN_SUSTAIN students
-  const inviable=groups.filter(g=>g.total>0&&g.total<MIN_SUSTAIN);
-  if(inviable.length>0){
-    risks.push({
-      sev:'r',title:`${inviable.length} grupo(s) inviável(is)`,
-      desc:'Grupos com menos de '+MIN_SUSTAIN+' alunos não cobrem custos de sala e professor. Considerar fusão ou cancelamento: '+inviable.map(g=>g.lang+' '+g.level+' '+g.period).join(', ')+'.',
-      badge:'CRÍTICO'
-    });
-  }
-
-  // Branches with < 65% coverage
-  const branchStats={};
-  allEnrolments.forEach(e=>{const b=(e.branch||'N/A').toUpperCase().replace(/ /g,'_');if(!branchStats[b])branchStats[b]={total:0,withReq:0};branchStats[b].total++;});
-  allRequests.forEach(r=>{const b=(r.branch||'N/A').toUpperCase().replace(/ /g,'_');if(!branchStats[b])branchStats[b]={total:0,withReq:0};branchStats[b].withReq++;});
-  const weakBranches=BRANCH_ORDER.filter(b=>branchStats[b]&&branchStats[b].total>0&&branchStats[b].withReq/branchStats[b].total<0.65);
-  if(weakBranches.length>0){
-    risks.push({
-      sev:'r',title:'Baixa adesão em '+weakBranches.map(b=>BRANCH_KEYS[b]||b).join(', '),
-      desc:'Taxa de submissão de horário abaixo de 65%. Recomenda-se contacto directo com alunos e campanha de lembrança.',
-      badge:'URGENTE'
-    });
-  }
-
-  // Pending > 20% of requests
-  const pendPct=allRequests.length>0?allRequests.filter(r=>(r.status||'').toLowerCase()==='pendente').length/allRequests.length:0;
-  if(pendPct>0.2){
-    risks.push({
-      sev:'a',title:Math.round(pendPct*100)+'% de pedidos ainda pendentes',
-      desc:'Uma grande proporção de pedidos não foi ainda atribuída a turma. O motor de alocação pode estar bloqueado em conflitos de horário.',
-      badge:'ATENÇÃO'
-    });
-  }
-
-  // Languages with single digit demand
-  const langTotals={};
-  allRequests.forEach(r=>{const l=r.lang||'?';langTotals[l]=(langTotals[l]||0)+1;});
-  const lowLangs=Object.entries(langTotals).filter(([,n])=>n<10&&n>0).map(([l])=>l);
-  if(lowLangs.length>0){
-    risks.push({
-      sev:'a',title:'Procura baixa: '+lowLangs.join(', '),
-      desc:'Menos de 10 pedidos por língua. Avaliar viabilidade de continuar a oferta ou consolidar com outra filial.',
-      badge:'AVALIAR'
-    });
-  }
-
-  // Good news
-  const viable=groups.filter(g=>g.total>=MIN_VIABLE);
-  if(viable.length>0){
-    risks.push({
-      sev:'g',title:viable.length+' grupos com dimensão viável',
-      desc:'Grupos com '+MIN_VIABLE+' ou mais alunos garantem cobertura de custos e margem positiva.',
-      badge:'OK'
-    });
-  }
-
-  const list=document.getElementById('risk-list');
-  if(!risks.length){
-    list.innerHTML='<div style="padding:16px;text-align:center;font-size:9px;color:var(--t3)">Nenhum risco identificado.</div>';
-    document.getElementById('risk-meta').textContent='0 alertas';
-    return;
-  }
-  document.getElementById('risk-meta').textContent=risks.filter(r=>r.sev!=='g').length+' alertas';
-
-  list.innerHTML=risks.map(r=>{
-    const icoSvg=r.sev==='g'
-      ?'<polyline points="2 6 5 9 10 3"/>'
-      :r.sev==='r'
-      ?'<path d="M7 2L1 12h12L7 2z"/><path d="M7 6v3M7 10v.5"/>'
-      :'<circle cx="7" cy="7" r="5"/><path d="M7 5v3M7 9.5v.5"/>';
-    return`<div class="risk-row">
-      <div class="risk-ico ri-${r.sev}"><svg viewBox="0 0 14 14" style="stroke-linecap:round;stroke-linejoin:round">${icoSvg}</svg></div>
-      <div class="risk-body">
-        <div class="risk-title">${r.title}</div>
-        <div class="risk-desc">${r.desc}</div>
-      </div>
-      <div class="risk-badge rb-${r.sev}">${r.badge}</div>
-    </div>`;
+function renderConfirms(){
+  document.getElementById('confirm-list').innerHTML=CONFIRMS.map(c=>{
+    const isAlert=c.sub.includes('alerta');
+    const dot=isAlert?'var(--red)':c.sub.includes('7')||c.sub.includes('6')?'var(--yellow)':'var(--green)';
+    return`<div class="confirm-row"><div class="cr-dot" style="background:${dot}"></div><div class="cr-info"><div class="cr-name">${c.name}</div><div class="cr-sub">${c.sub}</div></div><div class="cr-btn">Confirmar</div></div>`;
   }).join('');
 }
 
-/* ── HEATMAP ── */
-function renderHeatmap(){
-  // Count requests by day of week preference × period
-  const dayMap={'monday':0,'monday ':0,'segunda':0,'segunda-feira':0,'mon':0,'seg':0,
-                'tuesday':1,'terca':1,'terça':1,'terça-feira':1,'tue':1,'ter':1,
-                'wednesday':2,'quarta':2,'quarta-feira':2,'wed':2,'qua':2,
-                'thursday':3,'quinta':3,'quinta-feira':3,'thu':3,'qui':3,
-                'friday':4,'sexta':4,'sexta-feira':4,'fri':4,'sex':4,
-                'saturday':5,'sabado':5,'sábado':5,'sat':5,'sab':5,'sáb':5};
-  const matrix=Array(3).fill(null).map(()=>Array(6).fill(0));
+const tip=document.getElementById('tooltip');
+function showTip(e,el){tip.textContent=el.dataset.tip;tip.classList.add('show');moveTip(e)}
+function hideTip(){tip.classList.remove('show')}
+document.addEventListener('mousemove',e=>{if(tip.classList.contains('show'))moveTip(e)});
+function moveTip(e){tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-28)+'px'}
 
-  allRequests.forEach(r=>{
-    const prefs=Array.isArray(r.day_preferences)?r.day_preferences:[];
-    prefs.forEach(p=>{
-      const dayRaw=(p.day||p.weekday||'').toLowerCase().trim();
-      const dayIdx=dayMap[dayRaw];
-      if(dayIdx===undefined)return;
-      const period=getPeriod(p.session_start||p.start_time||'');
-      const periodIdx=period==='Manhã'?0:period==='Tarde'?1:2;
-      matrix[periodIdx][dayIdx]++;
-    });
-  });
-
-  const maxVal=Math.max(1,...matrix.flat());
-  function cellColor(n){
-    if(n===0)return'rgba(255,255,255,0.03)';
-    const pct=n/maxVal;
-    if(pct>0.7)return`rgba(29,184,122,${0.25+pct*0.4})`;
-    if(pct>0.35)return`rgba(232,160,32,${0.2+pct*0.35})`;
-    return`rgba(232,69,90,${0.15+pct*0.3})`;
-  }
-  function cellTextColor(n){
-    if(n===0)return'var(--t4)';
-    const pct=n/maxVal;
-    return pct>0.7?'var(--green)':pct>0.35?'var(--amber)':'var(--red)';
-  }
-
-  const wrap=document.getElementById('heatmap-wrap');
-  wrap.innerHTML=`
-    <div class="hmap-col-hdr">${DAYS.map(d=>`<div class="hmap-col-lbl">${d}</div>`).join('')}</div>
-    <div class="heatmap-grid">
-      ${PERIODS.map((period,pi)=>`
-        <div class="hmap-row">
-          <span class="hmap-lbl">${period}</span>
-          <div class="hmap-cells">
-            ${matrix[pi].map((n,di)=>`
-              <div class="hmap-cell"
-                style="background:${cellColor(n)};color:${cellTextColor(n)}"
-                onmouseenter="showTip(event,'${DAYS[di]} · ${period}<br><b>${n} pedidos</b>')"
-                onmouseleave="hideTip()">
-                ${n||''}
-              </div>`).join('')}
-          </div>
-        </div>`).join('')}
-    </div>`;
-}
-
-/* ── REVENUE ── */
-function renderRevenue(groups){
-  const studentsInGroups=groups.filter(g=>g.total>=MIN_SUSTAIN).reduce((a,g)=>a+g.total,0);
-  const total=allEnrolments.length||studentsInGroups;
-  const scenarios=[
-    {label:'Pessimista',pct:0.6,col:'var(--red)'},
-    {label:'Base',pct:0.8,col:'var(--amber)'},
-    {label:'Optimista',pct:0.95,col:'var(--green)'}
-  ];
-  document.getElementById('rev-grid').innerHTML=scenarios.map(sc=>{
-    const students=Math.round(total*sc.pct);
-    const rev=students*PRICE_PER_MONTH*MONTHS;
-    return`<div class="rev-card">
-      <div class="rev-scenario" style="color:${sc.col}">${sc.label}</div>
-      <div class="rev-val" style="color:${sc.col}">€${rev>=1000000?(rev/1000000).toFixed(1)+'M':Math.round(rev/1000)+'k'}</div>
-      <div class="rev-sub">${Math.round(sc.pct*100)}% ocupação</div>
-      <div class="rev-students" style="margin-top:5px;font-size:8px">${students.toLocaleString('pt')} alunos × €${PRICE_PER_MONTH}/mês × ${MONTHS}m</div>
-    </div>`;
-  }).join('');
-}
-
-/* ── COVERAGE BY LANGUAGE ── */
-function renderCoverage(){
-  const langStats={};
-  allEnrolments.forEach(e=>{
-    const l=e.lang||'?';
-    if(!langStats[l])langStats[l]={enrolled:0,requested:0};
-    langStats[l].enrolled++;
-  });
-  allRequests.forEach(r=>{
-    const l=r.lang||'?';
-    if(!langStats[l])langStats[l]={enrolled:0,requested:0};
-    langStats[l].requested++;
-  });
-
-  const langs=LANG_ORDER.filter(l=>langStats[l]&&langStats[l].enrolled>0)
-    .concat(Object.keys(langStats).filter(l=>!LANG_ORDER.includes(l)&&langStats[l].enrolled>0));
-
-  if(!langs.length){
-    document.getElementById('cov-list').innerHTML='<div style="padding:8px;text-align:center;font-size:9px;color:var(--t3)">Sem dados</div>';
-    return;
-  }
-
-  document.getElementById('cov-list').innerHTML=langs.map(l=>{
-    const s=langStats[l];
-    const pct=s.enrolled>0?Math.round(s.requested/s.enrolled*100):0;
-    const col=pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
-    const flag=LANG_FLAGS[l]||'';
-    return`<div class="cov-row">
-      <span class="cov-lbl"><span style="font-size:12px">${flag}</span> ${l}</span>
-      <div class="cov-track">
-        <div class="cov-fill" style="width:${Math.min(100,pct)}%;background:${col}" data-pct="${pct}%"></div>
-      </div>
-      <span class="cov-count" style="color:${col}">${s.requested}/${s.enrolled}</span>
-    </div>`;
-  }).join('');
-}
-
-/* ── LANG FILTER ── */
-function setLang(lang,el){
-  langFilter=lang;
-  document.querySelectorAll('#lang-ftabs .ftab').forEach(t=>t.classList.remove('act'));
-  el.classList.add('act');
-  renderViabilityTable(buildGroups());
-}
-
-/* ── INIT ── */
-loadAll();
-setInterval(loadAll,120000);
+renderMap();
+renderCases();
+renderConfirms();
 </script>
 </body>
 </html>
