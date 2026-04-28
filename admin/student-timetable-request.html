@@ -569,8 +569,6 @@ async function loadProfile(s){
   document.getElementById('num-1').className='card-num done';
   document.querySelectorAll('.gcell:not(.gap-cell)').forEach(c=>{
     c.classList.remove('locked-cell');
-    const nc=c.cloneNode(true);c.parentNode.replaceChild(nc,c);
-    nc.addEventListener('click',ev=>openPopup(ev,parseInt(nc.dataset.di),parseInt(nc.dataset.h),null));
   });
   try{
     const existing=await sbGet('timetable_requests',
@@ -718,6 +716,16 @@ async function submitChangeRequest(){
 }
 
 buildGrid();
+
+// Delegated click handler for grid cells — works even after student loads
+document.getElementById('grid-rows').addEventListener('click',e=>{
+  if(!student) return;
+  const cell=e.target.closest('.gcell');
+  if(!cell||cell.classList.contains('gap-cell')||cell.classList.contains('locked-cell')) return;
+  // Ignore clicks that landed on a sband (handled separately)
+  if(e.target.closest('.sband')) return;
+  openPopup(e, parseInt(cell.dataset.di), parseInt(cell.dataset.h), null);
+});
 
 document.addEventListener('click',e=>{
   const popup=document.getElementById('slot-popup');
