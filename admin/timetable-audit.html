@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Auditoria de Horários</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,0.15);--gold4:rgba(201,168,76,0.06);
+  --green:#1DB87A;--green2:rgba(29,184,122,0.15);--green3:rgba(29,184,122,0.07);
+  --red:#E8455A;--red2:rgba(232,69,90,0.18);--red3:rgba(232,69,90,0.07);
+  --amber:#E8A020;--amber2:rgba(232,160,32,0.18);--amber3:rgba(232,160,32,0.07);
+  --teal:#28C8B0;--purple:#9B5ECA;--blue:#4A8FF5;
+  --bg:#070510;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A1530;
+  --b:rgba(255,255,255,0.055);--b2:rgba(201,168,76,0.18);
+  --t:rgba(235,218,175,0.92);--t2:rgba(210,188,140,0.52);--t3:rgba(210,188,140,0.26);--t4:rgba(210,188,140,0.12);
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --display:'Bebas Neue',sans-serif;
+  --juvenil:#28C8B0;--geral:#C8A44A;--exam:#9B5ECA;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--t);font-size:13px}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:0}
+
+/* ── BAR ── */
+.bar{position:sticky;top:0;z-index:200;height:44px;display:flex;align-items:center;gap:0;padding:0 16px;background:rgba(7,5,16,0.97);border-bottom:0.5px solid var(--b2);backdrop-filter:blur(20px)}
+.bar-brand{font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--gold2);flex-shrink:0}
+.bar-sep{width:0.5px;height:18px;background:var(--b2);margin:0 12px;flex-shrink:0}
+.bar-page{font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--t2)}
+.bar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.bar-count{font-family:var(--mono);font-size:9px;color:var(--t3);padding:3px 8px;border:0.5px solid var(--b);border-radius:2px}
+.bar-count span{color:var(--gold2);font-weight:600}
+.refresh-btn{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:2px;border:0.5px solid var(--b);background:transparent;color:var(--t3);font-size:8px;font-weight:600;letter-spacing:0.06em;cursor:pointer;font-family:var(--sans);transition:all .12s}
+.refresh-btn:hover{border-color:var(--b2);color:var(--gold)}
+.refresh-btn svg{width:10px;height:10px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.refresh-btn.spinning svg{animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── FILTERS ── */
+.filter-bar{position:sticky;top:44px;z-index:100;background:rgba(10,8,20,0.97);border-bottom:0.5px solid var(--b);backdrop-filter:blur(16px);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-group{display:flex;align-items:center;gap:4px}
+.filter-label{font-size:7.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);white-space:nowrap}
+.ftab{padding:3px 9px;border-radius:2px;font-size:8px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--b);background:transparent;color:var(--t3);white-space:nowrap;transition:all .1s;font-family:var(--sans)}
+.ftab:hover{border-color:var(--b2);color:var(--t2)}
+.ftab.act{background:var(--gold3);border-color:var(--b2);color:var(--gold2)}
+.ftab.juve.act{background:rgba(40,200,176,0.12);border-color:rgba(40,200,176,0.3);color:var(--teal)}
+.ftab.geral.act{background:rgba(200,164,74,0.12);border-color:rgba(200,164,74,0.3);color:var(--gold)}
+.ftab.exam.act{background:rgba(155,94,202,0.12);border-color:rgba(155,94,202,0.3);color:var(--purple)}
+.search-wrap{margin-left:auto;position:relative}
+.search-inp{background:var(--bg2);border:0.5px solid var(--b);border-radius:3px;padding:4px 8px 4px 26px;font-size:9px;color:var(--t);font-family:var(--mono);width:200px;outline:none;transition:border-color .15s}
+.search-inp:focus{border-color:var(--b2)}
+.search-ico{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:10px;height:10px;stroke:var(--t3);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+
+/* ── SHELL ── */
+.shell{position:relative;z-index:1;padding:0 16px 40px}
+
+/* ── BRANCH GROUP ── */
+.branch-group{margin-top:16px}
+.branch-hdr{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--b2);margin-bottom:8px;position:sticky;top:88px;z-index:50;background:rgba(7,5,16,0.95);backdrop-filter:blur(10px)}
+.branch-name{font-family:var(--display);font-size:20px;letter-spacing:3px;color:var(--gold2)}
+.branch-pill{font-family:var(--mono);font-size:8px;font-weight:600;padding:2px 7px;border-radius:2px;background:var(--gold3);border:0.5px solid var(--b2);color:var(--gold)}
+.branch-stats{display:flex;gap:8px;margin-left:auto}
+.bstat{font-family:var(--mono);font-size:8px;color:var(--t3)}
+.bstat span{color:var(--t2);font-weight:600}
+
+/* ── LEVEL GROUP ── */
+.level-group{margin-bottom:6px}
+.level-hdr{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg2);border:0.5px solid var(--b);border-radius:4px 4px 0 0;cursor:pointer;user-select:none}
+.level-hdr:hover{background:var(--bg3)}
+.level-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.level-name{font-family:var(--display);font-size:16px;letter-spacing:2px}
+.level-lang{font-size:8px;color:var(--t3);margin-left:2px}
+.level-count{font-family:var(--mono);font-size:8px;color:var(--t3);margin-left:auto}
+.level-toggle{font-family:var(--mono);font-size:9px;color:var(--t4);margin-left:8px;transition:transform .2s}
+.level-toggle.open{transform:rotate(180deg)}
+.level-body{border:0.5px solid var(--b);border-top:none;border-radius:0 0 4px 4px;overflow:hidden;display:none}
+.level-body.open{display:block}
+
+/* ── STUDENT ROW ── */
+.student-row{display:grid;grid-template-columns:200px 110px 1fr;gap:0;border-bottom:0.5px solid rgba(255,255,255,0.03);transition:background .1s}
+.student-row:last-child{border-bottom:none}
+.student-row:hover{background:rgba(201,168,76,0.02)}
+.student-row.no-request{opacity:0.45}
+
+.s-info{padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;border-right:0.5px solid var(--b)}
+.s-name{font-size:10px;font-weight:500;color:var(--t);line-height:1.2}
+.s-ref{font-family:var(--mono);font-size:7.5px;color:var(--t3)}
+.s-status{display:inline-flex;align-items:center;gap:3px;margin-top:3px}
+.s-status-dot{width:4px;height:4px;border-radius:50%}
+.s-status-lbl{font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:0.06em}
+
+.s-slots{padding:8px 10px;display:flex;flex-direction:column;gap:2px;justify-content:center;border-right:0.5px solid var(--b)}
+.slot-tag{font-family:var(--mono);font-size:7.5px;color:var(--t2);line-height:1.5;white-space:nowrap}
+.slot-tag .day{color:var(--gold);font-weight:600;text-transform:uppercase;font-size:7px}
+.no-slots{font-family:var(--mono);font-size:7.5px;color:var(--t4);font-style:italic}
+
+.s-grid{padding:6px 10px;display:flex;align-items:center}
+.mini-grid{display:flex;flex-direction:column;gap:1px}
+.mg-row{display:flex;gap:1px;align-items:center}
+.mg-day{font-family:var(--mono);font-size:6px;color:var(--t4);width:22px;flex-shrink:0;text-align:right;padding-right:3px}
+.mg-cells{display:flex;gap:1px}
+.mg-cell{width:14px;height:10px;border-radius:1px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.04);flex-shrink:0}
+.mg-cell.hit{border-color:rgba(29,184,122,0.4)}
+.mg-time-hdr{display:flex;gap:1px;margin-left:25px;margin-bottom:1px}
+.mg-time-lbl{width:14px;text-align:center;font-family:var(--mono);font-size:5px;color:var(--t4);flex-shrink:0}
+
+/* ── EMPTY / LOADING ── */
+.empty{padding:40px;text-align:center;color:var(--t3);font-size:11px}
+.loading{padding:60px;text-align:center}
+.loading-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);animation:ldot 1.2s ease infinite}
+.loading-dot:nth-child(2){animation-delay:.2s;background:var(--teal)}
+.loading-dot:nth-child(3){animation-delay:.4s;background:var(--purple)}
+@keyframes ldot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
+/* ── SUMMARY BAR ── */
+.summary{display:flex;gap:12px;padding:8px 16px;background:var(--bg2);border-bottom:0.5px solid var(--b);flex-wrap:wrap}
+.sum-item{font-family:var(--mono);font-size:8px;color:var(--t3);display:flex;align-items:center;gap:5px}
+.sum-item span{font-weight:600;color:var(--t2)}
+.sum-dot{width:5px;height:5px;border-radius:50%}
+
+/* print */
+@media print{
+  .bar,.filter-bar,.summary{position:relative!important}
+  .branch-hdr{position:relative!important}
+  .level-body{display:block!important}
+  body{background:#fff;color:#000}
+  .student-row:hover{background:transparent}
+}
+</style>
+</head>
+<body>
+
+<!-- BAR -->
+<div class="bar">
+  <span class="bar-brand">ALM</span>
+  <div class="bar-sep"></div>
+  <span class="bar-page">Auditoria de Horários · Statement View</span>
+  <div class="bar-right">
+    <div class="bar-count">A mostrar <span id="showing-count">—</span> de <span id="total-count">—</span> pedidos</div>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">
+      <svg viewBox="0 0 16 16"><path d="M13 2v4h-4M3 14v-4h4M13 6A6 6 0 013.5 10M3 10a6 6 0 019.5-4"/></svg>
+      ACTUALIZAR
+    </button>
+    <button class="refresh-btn" onclick="window.print()">
+      <svg viewBox="0 0 16 16"><path d="M4 4V2h8v2M4 12H3a1 1 0 01-1-1V7a1 1 0 011-1h10a1 1 0 011 1v4a1 1 0 01-1 1h-1M4 9h8v5H4z"/></svg>
+      IMPRIMIR
+    </button>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <span class="filter-label">Filial</span>
+    <button class="ftab act" onclick="setFilter('branch','all',this)">TODAS</button>
+    <button class="ftab" onclick="setFilter('branch','FUNCHAL',this)">Funchal</button>
+    <button class="ftab" onclick="setFilter('branch','CAMARA_LOBOS',this)">C. Lobos</button>
+    <button class="ftab" onclick="setFilter('branch','SANTA_CRUZ',this)">S. Cruz</button>
+    <button class="ftab" onclick="setFilter('branch','MACHICO',this)">Machico</button>
+    <button class="ftab" onclick="setFilter('branch','RIBEIRA_BRAVA',this)">R. Brava</button>
+    <button class="ftab" onclick="setFilter('branch','CALHETA',this)">Calheta</button>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Dept</span>
+    <button class="ftab juve" onclick="setFilter('dept','all',this)">TODOS</button>
+    <button class="ftab juve" onclick="setFilter('dept','juvenil',this)">● JUVENIL</button>
+    <button class="ftab geral" onclick="setFilter('dept','geral',this)">● GERAL</button>
+    <button class="ftab exam" onclick="setFilter('dept','exam',this)">● EXAMES</button>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Status</span>
+    <button class="ftab act" onclick="setFilter('status','all',this)">TODOS</button>
+    <button class="ftab" onclick="setFilter('status','pendente',this)">Pendente</button>
+    <button class="ftab" onclick="setFilter('status','atribuido',this)">Atribuído</button>
+    <button class="ftab" onclick="setFilter('status','noreq',this)">Sem pedido</button>
+  </div>
+  <div class="search-wrap">
+    <svg class="search-ico" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><path d="M11 11l3 3"/></svg>
+    <input class="search-inp" type="text" placeholder="nome ou ALM-XXXX…" id="search-inp" oninput="applyFilters()"/>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="summary" id="summary-bar">
+  <div class="sum-item"><div class="sum-dot" style="background:var(--gold)"></div>Total: <span id="sum-total">—</span></div>
+  <div class="sum-item"><div class="sum-dot" style="background:var(--green)"></div>Com pedido: <span id="sum-req">—</span></div>
+  <div class="sum-item"><div class="sum-dot" style="background:var(--amber)"></div>Pendentes: <span id="sum-pend">—</span></div>
+  <div class="sum-item"><div class="sum-dot" style="background:var(--teal)"></div>Juvenil: <span id="sum-juve">—</span></div>
+  <div class="sum-item"><div class="sum-dot" style="background:var(--gold)"></div>Geral: <span id="sum-geral">—</span></div>
+  <div class="sum-item"><div class="sum-dot" style="background:var(--purple)"></div>Exames: <span id="sum-exam">—</span></div>
+</div>
+
+<div class="shell" id="shell">
+  <div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>
+</div>
+
+<script>
+/* ══ CONFIG ══ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
+const ACADEMIC_YEAR = '2026/2027';
+
+const BRANCH_ORDER = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+const BRANCH_NAMES = { FUNCHAL:'Funchal', CAMARA_LOBOS:'Câmara de Lobos', SANTA_CRUZ:'Santa Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'Ribeira Brava', CALHETA:'Calheta' };
+const LANG_FLAGS   = { English:'🇬🇧', Português:'🇵🇹', Español:'🇪🇸', Deutsch:'🇩🇪', Français:'🇫🇷' };
+const DAYS_PT      = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const HOURS        = [8,9,10,11,12,13,14,15,16,17,18,19,20];
+
+const DAY_MAP = {
+  monday:0,'monday ':0,segunda:0,'segunda-feira':0,mon:0,seg:0,
+  tuesday:1,terca:1,terça:1,'terça-feira':1,tue:1,ter:1,
+  wednesday:2,quarta:2,'quarta-feira':2,wed:2,qua:2,
+  thursday:3,quinta:3,'quinta-feira':3,thu:3,qui:3,
+  friday:4,sexta:4,'sexta-feira':4,fri:4,sex:4,
+  saturday:5,sabado:5,sábado:5,sat:5,sab:5,'sáb':5
+};
+
+const ALM = {
+  lookup: {
+    'kids|A1':   { dept:'juvenil', label:'Pj1', color:'#28C8B0', order:1 },
+    'kids|A2':   { dept:'juvenil', label:'Pj2', color:'#28C8B0', order:2 },
+    'kids|B1':   { dept:'juvenil', label:'Pj3', color:'#28C8B0', order:3 },
+    'adults|A1': { dept:'geral',   label:'1st', color:'#C8A44A', order:4 },
+    'adults|A2': { dept:'geral',   label:'2nd', color:'#C8A44A', order:5 },
+    'adults|B1': { dept:'geral',   label:'3rd', color:'#C8A44A', order:6 },
+    'adults|B2': { dept:'geral',   label:'4th', color:'#C8A44A', order:7 },
+    'adults|C1': { dept:'geral',   label:'5th', color:'#C8A44A', order:8 },
+    'exam|B2':   { dept:'exam',    label:'6th', color:'#9B5ECA', order:9 },
+    'exam|C1':   { dept:'exam',    label:'7th', color:'#9B5ECA', order:10 },
+    'exam|C2':   { dept:'exam',    label:'8th', color:'#9B5ECA', order:11 },
+  },
+  get(family, cefr) {
+    const key = `${(family||'adults').toLowerCase()}|${(cefr||'').toUpperCase()}`;
+    return this.lookup[key] || { dept:'geral', label: cefr||'?', color:'#C8A44A', order:99 };
+  }
+};
+
+/* ══ STATE ══ */
+let allEnrolments = [], allRequests = [], reqByRef = {};
+let filters = { branch:'all', dept:'all', status:'all' };
+
+/* ══ FETCH ══ */
+async function sbGet(table, q='') {
+  const r = await fetch(`${SB}/rest/v1/${table}?${q}`, { headers: H });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function loadAll() {
+  document.getElementById('refresh-btn').classList.add('spinning');
+  document.getElementById('shell').innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>';
+  try {
+    const [enrol, reqs] = await Promise.all([
+      sbGet('enrolments', 'select=ref,name,branch,lang,level_cefr,family&limit=2000'),
+      sbGet('timetable_requests',
+        'select=ref,student_name,branch,lang,level_cefr,family,day_preferences,status,sessions_per_week' +
+        '&academic_year=eq.' + encodeURIComponent(ACADEMIC_YEAR) + '&limit=2000')
+    ]);
+    allEnrolments = enrol || [];
+    allRequests   = reqs  || [];
+    reqByRef = {};
+    allRequests.forEach(r => { reqByRef[r.ref] = r; });
+    applyFilters();
+  } catch(e) {
+    document.getElementById('shell').innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
+  } finally {
+    document.getElementById('refresh-btn').classList.remove('spinning');
+  }
+}
+
+/* ══ FILTERS ══ */
+function setFilter(type, val, el) {
+  filters[type] = val;
+  el.closest('.filter-group').querySelectorAll('.ftab').forEach(t => t.classList.remove('act'));
+  el.classList.add('act');
+  applyFilters();
+}
+
+function normBranch(b) {
+  return (b||'N/A').toUpperCase().replace(/[\s\-]+/g,'_').trim();
+}
+function normStatus(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function applyFilters() {
+  const q = (document.getElementById('search-inp').value || '').toLowerCase().trim();
+  let students = allEnrolments.filter(e => {
+    const br = normBranch(e.branch);
+    const req = reqByRef[e.ref];
+    const info = ALM.get(e.family, e.level_cefr);
+    const status = req ? normStatus(req.status) : 'noreq';
+    if (filters.branch !== 'all' && br !== filters.branch) return false;
+    if (filters.dept !== 'all' && info.dept !== filters.dept) return false;
+    if (filters.status !== 'all') {
+      if (filters.status === 'noreq' && req) return false;
+      if (filters.status === 'pendente' && (!req || status !== 'pendente')) return false;
+      if (filters.status === 'atribuido' && (!req || status !== 'atribuido')) return false;
+    }
+    if (q) {
+      const name = (e.name||'').toLowerCase();
+      const ref  = (e.ref||'').toLowerCase();
+      if (!name.includes(q) && !ref.includes(q)) return false;
+    }
+    return true;
+  });
+
+  updateSummary(students);
+  render(students);
+}
+
+function updateSummary(students) {
+  const withReq = students.filter(e => reqByRef[e.ref]);
+  const pend    = students.filter(e => { const r = reqByRef[e.ref]; return r && normStatus(r.status) === 'pendente'; });
+  const juve    = students.filter(e => ALM.get(e.family, e.level_cefr).dept === 'juvenil');
+  const geral   = students.filter(e => ALM.get(e.family, e.level_cefr).dept === 'geral');
+  const exam    = students.filter(e => ALM.get(e.family, e.level_cefr).dept === 'exam');
+  document.getElementById('sum-total').textContent  = students.length;
+  document.getElementById('sum-req').textContent    = withReq.length;
+  document.getElementById('sum-pend').textContent   = pend.length;
+  document.getElementById('sum-juve').textContent   = juve.length;
+  document.getElementById('sum-geral').textContent  = geral.length;
+  document.getElementById('sum-exam').textContent   = exam.length;
+  document.getElementById('showing-count').textContent = students.length;
+  document.getElementById('total-count').textContent   = allEnrolments.length;
+}
+
+/* ══ RENDER ══ */
+function parseDayPrefs(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+}
+
+function buildHitMatrix(prefs) {
+  // matrix[day][hourIndex] = true
+  const matrix = Array(6).fill(null).map(() => Array(HOURS.length).fill(false));
+  prefs.forEach(p => {
+    const dayRaw = (p.day || p.weekday || p.dia || '').toLowerCase().trim();
+    const di = DAY_MAP[dayRaw];
+    if (di === undefined) return;
+    const startRaw = p.session_start || p.start_time || p.time || '';
+    const h = parseInt((startRaw + '').split(':')[0], 10);
+    if (isNaN(h)) return;
+    const hi = HOURS.indexOf(h);
+    if (hi >= 0) matrix[di][hi] = true;
+    // also mark h+1 if sessions_per_week implies duration
+    if (hi + 1 < HOURS.length) matrix[di][hi+1] = true;
+  });
+  return matrix;
+}
+
+function renderMiniGrid(prefs, color) {
+  const matrix = buildHitMatrix(prefs);
+  const hasAny = matrix.some(row => row.some(Boolean));
+  const c = color || '#1DB87A';
+  const timeHdr = HOURS.map(h => `<div class="mg-time-lbl">${h}</div>`).join('');
+  const rows = DAYS_PT.map((day, di) => {
+    const cells = HOURS.map((_, hi) => {
+      const hit = matrix[di][hi];
+      return `<div class="mg-cell${hit?' hit':''}" style="${hit?`background:${c}22;border-color:${c}66`:''}" title="${hit?day+' '+HOURS[hi]+'h':''}"></div>`;
+    }).join('');
+    return `<div class="mg-row"><span class="mg-day">${day}</span><div class="mg-cells">${cells}</div></div>`;
+  }).join('');
+  return `<div class="mini-grid">
+    <div class="mg-time-hdr">${timeHdr}</div>
+    ${rows}
+  </div>`;
+}
+
+function renderSlotTags(prefs) {
+  if (!prefs.length) return '<span class="no-slots">sem slots</span>';
+  return prefs.map(p => {
+    const dayRaw = (p.day || '').toLowerCase().trim();
+    const di = DAY_MAP[dayRaw];
+    const dayLabel = di !== undefined ? DAYS_PT[di] : (p.day || '?').toUpperCase().slice(0,3);
+    const time = p.session_start || p.start_time || '?';
+    return `<div class="slot-tag"><span class="day">${dayLabel}</span> ${time}</div>`;
+  }).join('');
+}
+
+function render(students) {
+  if (!students.length) {
+    document.getElementById('shell').innerHTML = '<div class="empty">Nenhum resultado encontrado.</div>';
+    return;
+  }
+
+  // Group: branch → level+lang
+  const byBranch = {};
+  students.forEach(e => {
+    const br   = normBranch(e.branch);
+    const info = ALM.get(e.family, e.level_cefr);
+    const key  = `${info.order}__${info.label}__${e.lang||'?'}`;
+    if (!byBranch[br]) byBranch[br] = {};
+    if (!byBranch[br][key]) byBranch[br][key] = { info, lang: e.lang, students: [] };
+    byBranch[br][key].students.push(e);
+  });
+
+  let html = '';
+  const orderedBranches = BRANCH_ORDER.filter(b => byBranch[b]).concat(
+    Object.keys(byBranch).filter(b => !BRANCH_ORDER.includes(b))
+  );
+
+  orderedBranches.forEach(br => {
+    const groups = byBranch[br];
+    const brStudents = Object.values(groups).flatMap(g => g.students);
+    const brReqs = brStudents.filter(e => reqByRef[e.ref]).length;
+
+    html += `<div class="branch-group">
+      <div class="branch-hdr">
+        <span class="branch-name">${BRANCH_NAMES[br] || br}</span>
+        <span class="branch-pill">${br}</span>
+        <div class="branch-stats">
+          <span class="bstat">Alunos: <span>${brStudents.length}</span></span>
+          <span class="bstat">Com pedido: <span>${brReqs}</span></span>
+          <span class="bstat">Sem pedido: <span>${brStudents.length - brReqs}</span></span>
+        </div>
+      </div>`;
+
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const oa = parseInt(a.split('__')[0]);
+      const ob = parseInt(b.split('__')[0]);
+      return oa - ob;
+    });
+
+    sortedKeys.forEach(key => {
+      const g = groups[key];
+      const { info, lang, students: gs } = g;
+      const flag = LANG_FLAGS[lang] || '';
+      const deptLabel = info.dept === 'juvenil' ? 'JUVENIL' : info.dept === 'geral' ? 'GERAL' : 'EXAMES';
+      const withReq = gs.filter(e => reqByRef[e.ref]).length;
+      const groupId = `grp-${br}-${key}`.replace(/[^a-z0-9\-]/gi,'_');
+
+      html += `<div class="level-group">
+        <div class="level-hdr" onclick="toggleGroup('${groupId}')">
+          <div class="level-dot" style="background:${info.color}"></div>
+          <span class="level-name" style="color:${info.color}">${info.label}</span>
+          <span class="level-lang">${flag} ${lang} · ${deptLabel}</span>
+          <span class="level-count">${withReq}/${gs.length} com pedido</span>
+          <span class="level-toggle open" id="toggle-${groupId}">▼</span>
+        </div>
+        <div class="level-body open" id="${groupId}">`;
+
+      gs.sort((a, b) => (a.name||'').localeCompare(b.name||'')).forEach(e => {
+        const req    = reqByRef[e.ref];
+        const prefs  = req ? parseDayPrefs(req.day_preferences) : [];
+        const status = req ? normStatus(req.status) : 'noreq';
+        const statusColor = status === 'atribuido' ? 'var(--green)' : status === 'pendente' ? 'var(--amber)' : 'var(--t4)';
+        const statusLabel = status === 'atribuido' ? 'ATRIBUÍDO' : status === 'pendente' ? 'PENDENTE' : 'SEM PEDIDO';
+        const noReq = !req;
+
+        html += `<div class="student-row${noReq?' no-request':''}">
+          <div class="s-info">
+            <div class="s-name">${e.name || e.student_name || '—'}</div>
+            <div class="s-ref">${e.ref || '—'}</div>
+            <div class="s-status">
+              <div class="s-status-dot" style="background:${statusColor}"></div>
+              <span class="s-status-lbl" style="color:${statusColor}">${statusLabel}</span>
+            </div>
+          </div>
+          <div class="s-slots">${renderSlotTags(prefs)}</div>
+          <div class="s-grid">${renderMiniGrid(prefs, info.color)}</div>
+        </div>`;
+      });
+
+      html += `</div></div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  document.getElementById('shell').innerHTML = html;
+}
+
+function toggleGroup(id) {
+  const body = document.getElementById(id);
+  const tog  = document.getElementById('toggle-' + id);
+  const open = body.classList.toggle('open');
+  tog.classList.toggle('open', open);
+  tog.textContent = open ? '▼' : '▶';
+}
+
+loadAll();
+</script>
+</body>
+</html>
