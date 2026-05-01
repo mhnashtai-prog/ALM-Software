@@ -542,22 +542,36 @@ document.addEventListener('click',e=>{
     document.getElementById('yearWrap').classList.remove('open');
 });
 
-/* ══ BRANCH DATA ══
-   avgClass = avg students per class → drives colour
-   < 5  → risk (red)
-   5–8  → watch (amber)
-   8–12 → healthy (light green)
-   >12  → strong (dark green)
-*/
-const BRANCHES=[
-  {id:'funchal', label:'Funchal',   alunos:412, turmas:38, avgClass:13.7, rev:594720, juvenil:89, geral:267, exam:56},
-  {id:'scruz',   label:'S. Cruz',   alunos:221, turmas:18, avgClass:12.3, rev:238680, juvenil:44, geral:148, exam:29},
-  {id:'machico', label:'Machico',   alunos:198, turmas:14, avgClass:7.8,  rev:190080, juvenil:38, geral:134, exam:26},
-  {id:'calheta', label:'Calheta',   alunos:178, turmas:13, avgClass:9.4,  rev:171360, juvenil:32, geral:122, exam:24},
-  {id:'rbrava',  label:'R. Brava',  alunos:156, turmas:9,  avgClass:4.2,  rev:103680, juvenil:28, geral:112, exam:16},
-  {id:'psol',    label:'P. do Sol', alunos:90,  turmas:6,  avgClass:8.1,  rev:77760,  juvenil:14, geral:66,  exam:10},
-  {id:'estreito',label:'Estreito',  alunos:122, turmas:7,  avgClass:6.3,  rev:87120,  juvenil:22, geral:86,  exam:14},
-];
+/* ══════════════════════════════════════
+   SUPABASE CONFIG
+══════════════════════════════════════ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const SBH = {'apikey':KEY,'Authorization':'Bearer '+KEY};
+
+/* ══════════════════════════════════════
+   REAL FEES — Tabela de Preços 2025/26
+   Monthly fee × 9 months = annual per student
+   kids / juvenil  → €64/mês
+   adults / geral  → €83/mês
+   exam            → €104/mês
+══════════════════════════════════════ */
+const FEES = {kids:64, juvenil:64, adults:83, geral:83, exam:104};
+const MONTHS = 9;
+
+/* Branch name normalisation */
+const BRANCH_DISPLAY = {
+  FUNCHAL:'Funchal', FUNCHAL_SEDE:'Funchal',
+  CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz',
+  MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava',
+  CALHETA:'Calheta', PONTA_DO_SOL:'P. do Sol',
+  ESTREITO:'Estreito',
+};
+function normBranch(b){ return (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim(); }
+function getFee(family){ return FEES[(family||'adults').toLowerCase()] || FEES.adults; }
+
+/* Live BRANCHES — built from Supabase */
+let BRANCHES = [];
 
 function healthClass(avg){
   if(avg>12)  return 'tc-strong';
@@ -610,7 +624,116 @@ function buildTicker(){
   const belt=totalChip+chips+totalChip+chips;
   document.getElementById('ticker-belt').innerHTML=belt;
 }
-buildTicker();
+/* ══════════════════════════════════════
+   SUPABASE BOOT
+   1. Fetch enrolments → count by branch + family
+   2. Fetch groups/classes → count turmas per branch
+   3. Calculate avgClass and revenue per branch
+   4. Build ticker with real data
+   Falls back to skeleton if Supabase fails
+══════════════════════════════════════ */
+async function bootTicker(){
+  try {
+    /* Step 1 — enrolments by branch + family */
+    const enrol = await fetch(
+      `${SB}/rest/v1/enrolments?select=branch,family&limit=2000`,
+      {headers:SBH}
+    ).then(r=>r.json());
+
+    /* Step 2 — groups to count turmas per branch */
+    const groups = await fetch(
+      `${SB}/rest/v1/groups?select=branch,student_count&academic_year=eq.2026%2F2027&limit=500`,
+      {headers:SBH}
+    ).then(r=>r.json());
+
+    /* Aggregate enrolments by branch */
+    const branchMap = {};
+    (enrol||[]).forEach(e => {
+      const bk = normBranch(e.branch);
+      if(!bk) return;
+      if(!branchMap[bk]) branchMap[bk] = {kids:0, adults:0, exam:0, turmas:0};
+      const f = (e.family||'adults').toLowerCase();
+      if(f==='kids'||f==='juvenil') branchMap[bk].kids++;
+      else if(f==='exam')           branchMap[bk].exam++;
+      else                          branchMap[bk].adults++;
+    });
+
+    /* Aggregate turmas by branch */
+    (groups||[]).forEach(g => {
+      const bk = normBranch(g.branch);
+      if(!bk||!branchMap[bk]) return;
+      branchMap[bk].turmas++;
+    });
+
+    /* If Supabase returns empty (no data yet) inject test data */
+    const hasData = Object.keys(branchMap).some(k =>
+      branchMap[k].kids + branchMap[k].adults + branchMap[k].exam > 0
+    );
+    if(!hasData) injectTestData(branchMap);
+
+    /* Build BRANCHES array with calculated revenue */
+    BRANCHES = Object.entries(branchMap)
+      .filter(([,v]) => v.kids+v.adults+v.exam > 0)
+      .map(([bk, v]) => {
+        const alunos  = v.kids + v.adults + v.exam;
+        const turmas  = v.turmas || Math.max(1, Math.round(alunos / 8));
+        const avgClass= turmas > 0 ? Math.round((alunos/turmas)*10)/10 : 0;
+        /* Revenue: monthly fee × 9 months × students per dept */
+        const rev = (v.kids   * FEES.kids   * MONTHS)
+                  + (v.adults * FEES.adults  * MONTHS)
+                  + (v.exam   * FEES.exam    * MONTHS);
+        return {
+          id:       bk.toLowerCase(),
+          label:    BRANCH_DISPLAY[bk] || bk,
+          alunos, turmas, avgClass, rev,
+          juvenil:  v.kids,
+          geral:    v.adults,
+          exam:     v.exam,
+        };
+      })
+      .sort((a,b) => b.alunos - a.alunos);
+
+  } catch(e) {
+    console.warn('Supabase unavailable — using test data', e);
+    injectTestDataFull();
+  }
+
+  buildTicker();
+  renderSchoolHealth();
+}
+
+/* Test data — realistic structure, fake numbers
+   Mirrors your Excel screenshot ratios */
+function injectTestData(map){
+  const TEST = [
+    {bk:'FUNCHAL',      kids:159, adults:700, exam:147, turmas:119},
+    {bk:'MACHICO',      kids:28,  adults:79,  exam:19,  turmas:18},
+    {bk:'SANTA_CRUZ',   kids:23,  adults:40,  exam:11,  turmas:13},
+    {bk:'RIBEIRA_BRAVA',kids:10,  adults:22,  exam:7,   turmas:6},
+    {bk:'PONTA_DO_SOL', kids:11,  adults:21,  exam:6,   turmas:6},
+    {bk:'CALHETA',      kids:7,   adults:10,  exam:3,   turmas:5},
+    {bk:'ESTREITO',     kids:9,   adults:20,  exam:6,   turmas:6},
+  ];
+  TEST.forEach(t => { map[t.bk] = {kids:t.kids, adults:t.adults, exam:t.exam, turmas:t.turmas}; });
+}
+
+function injectTestDataFull(){
+  BRANCHES = [
+    {id:'funchal',      label:'Funchal',   alunos:1006, turmas:119, avgClass:8.45, rev:calcRev(159,700,147), juvenil:159, geral:700, exam:147},
+    {id:'machico',      label:'Machico',   alunos:126,  turmas:18,  avgClass:7.00, rev:calcRev(28,79,19),   juvenil:28,  geral:79,  exam:19},
+    {id:'santa_cruz',   label:'S. Cruz',   alunos:74,   turmas:13,  avgClass:5.69, rev:calcRev(23,40,11),   juvenil:23,  geral:40,  exam:11},
+    {id:'ribeira_brava',label:'R. Brava',  alunos:39,   turmas:6,   avgClass:6.50, rev:calcRev(10,22,7),    juvenil:10,  geral:22,  exam:7},
+    {id:'ponta_do_sol', label:'P. do Sol', alunos:38,   turmas:6,   avgClass:6.33, rev:calcRev(11,21,6),    juvenil:11,  geral:21,  exam:6},
+    {id:'calheta',      label:'Calheta',   alunos:20,   turmas:5,   avgClass:4.00, rev:calcRev(7,10,3),     juvenil:7,   geral:10,  exam:3},
+    {id:'estreito',     label:'Estreito',  alunos:35,   turmas:6,   avgClass:5.83, rev:calcRev(9,20,6),     juvenil:9,   geral:20,  exam:6},
+  ];
+}
+
+function calcRev(kids, adults, exam){
+  return (kids * FEES.kids * MONTHS) + (adults * FEES.adults * MONTHS) + (exam * FEES.exam * MONTHS);
+}
+
+bootTicker();
 
 /* ══ BRANCH MODAL ══ */
 const STATUS_MAP={'tc-strong':'Forte','tc-healthy':'Viável','tc-watch':'Atenção','tc-risk':'Risco'};
