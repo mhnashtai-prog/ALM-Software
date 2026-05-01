@@ -1,29 +1,11 @@
 (function(){
 
 /* ══════════════════════════════════════════════════════
-   ALM DOSSIER v6  —  real schema edition
-   ──────────────────────────────────────────────────────
-   Real tables used:
-     enrolments          → student identity + contact + level
-     timetable_requests  → day_preferences (string days), family
-     turma_students      → historic class membership
-     lesson_summaries    → attendance / lesson records
-   
-   Tables that don't exist (removed):
-     student_requests    → was wrong name
-     student_documents   → doesn't exist (upload removed for now)
-     student_history     → doesn't exist (built from turma_students)
-
-   day_preferences real shape:
-     [{"day":"wednesday","session_start":"11:00",...}, ...]
-   
-   enrolments real columns used:
-     ref, name, date_of_birth, age, gender, phone, email,
-     branch, lang, family, level_cefr, level_raw,
-     enrolment_date, academic_year, returning_student,
-     payment_method, guardian_name, guardian_phone,
-     notes, school, school_year, occupation,
-     naturalidade, nif, postal_code, locality
+   ALM DOSSIER v9  —  4 changes:
+   1. Removed quick-action links (Matrícula/Pedido/Historial/Mover/Notas) from banner
+   2. Availability grid collapsed by default — shown only inside Horários section
+   3. Removed "Pedido de Horário" section
+   4. Removed "Mover Aluno" section
 ══════════════════════════════════════════════════════ */
 
 const CSS = `
@@ -70,7 +52,7 @@ const CSS = `
   position: relative; flex-shrink: 0;
   padding: 14px 14px 12px;
   display: flex; align-items: flex-start; gap: 12px;
-  min-height: 110px; overflow: hidden;
+  min-height: 90px; overflow: hidden;
 }
 .ds-banner-bg { position: absolute; inset: 0; transition: background .3s; }
 .ds-banner-noise {
@@ -118,16 +100,8 @@ const CSS = `
   text-shadow: 0 1px 6px rgba(0,0,0,.18);
 }
 .ds-ref { font-family: var(--f); font-size: 11px; font-weight: 400; color: rgba(255,255,255,.58); margin-top: 1px; }
-.ds-banner-acts { display: flex; gap: 0; margin-top: 7px; overflow-x: auto; scrollbar-width: none; }
-.ds-banner-acts::-webkit-scrollbar { display: none; }
-.ds-act {
-  font-family: var(--f); font-size: 11px; font-weight: 500;
-  color: rgba(255,255,255,.72); cursor: pointer;
-  padding: 3px 10px 3px 0; white-space: nowrap; flex-shrink: 0;
-  border: none; background: none; transition: color .12s;
-}
-.ds-act:hover { color: #fff; }
-.ds-act + .ds-act { border-left: .5px solid rgba(255,255,255,.25); padding-left: 10px; }
+
+/* CHANGE 1: .ds-banner-acts and .ds-act removed — no quick-action links in banner */
 
 .ds-tags {
   display: flex; align-items: center; gap: 0;
@@ -147,8 +121,8 @@ const CSS = `
   font-size: 10px; color: var(--sep); padding: 0 7px; flex-shrink: 0;
 }
 
-/* Avail mini-grid */
-.ds-avail { padding: 12px 20px; border-bottom: .5px solid var(--sep); flex-shrink: 0; }
+/* Avail mini-grid — now lives inside the Horários section body, not standalone */
+.ds-avail { padding: 0 0 12px; }
 .ds-avail-label {
   font-family: var(--f); font-size: 11px; font-weight: 500;
   color: var(--label); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
@@ -236,14 +210,6 @@ const CSS = `
 .ds-btn.ghost   { background:var(--bg2);color:var(--text); }
 .ds-btn.danger  { background:rgba(255,59,48,.10);color:var(--red); }
 
-/* Move */
-.ds-select {
-  width:100%;padding:10px 12px;border-radius:10px;background:var(--bg2);
-  border:none;font-family:var(--f);font-size:13px;font-weight:500;color:var(--text);
-  outline:none;margin-bottom:10px;cursor:pointer;appearance:none;-webkit-appearance:none;
-}
-.ds-select:focus { background:var(--bg3); }
-
 .ds-empty { padding:16px 0;font-family:var(--f);font-size:13px;color:var(--sub);text-align:center; }
 
 .ds-toast {
@@ -262,6 +228,7 @@ const CSS = `
 .ds-toast.warn { color:#FFD060; }
 `;
 
+// CHANGE 2: Removed ds-avail block from HTML (grid is now inside the section body)
 const HTML = `
 <div class="ds-overlay" id="ds-overlay" onclick="if(event.target===this)closeDossier()">
   <div class="ds-sheet" id="ds-sheet">
@@ -276,18 +243,9 @@ const HTML = `
       <div class="ds-hinfo">
         <div class="ds-name" id="ds-name">—</div>
         <div class="ds-ref"  id="ds-ref">—</div>
-        <div class="ds-banner-acts" id="ds-actions"></div>
       </div>
     </div>
     <div class="ds-tags" id="ds-tags"></div>
-    <div class="ds-avail" id="ds-avail" style="display:none">
-      <div class="ds-avail-label">Disponibilidade · Pedido</div>
-      <div class="ds-avail-grid" id="ds-avail-grid"></div>
-      <div class="ds-avail-leg">
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
-      </div>
-    </div>
     <div class="ds-body" id="ds-body"></div>
   </div>
 </div>
@@ -300,13 +258,10 @@ const DAYS    = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const HRS_MORN= [8,9,10,11];
 const HRS_AFT = [14,15,16,17,18,19,20];
 
-// Real day_preferences uses English day names (lowercase strings)
 const DAY_EN_TO_PT = {
   monday:'SEG', tuesday:'TER', wednesday:'QUA',
   thursday:'QUI', friday:'SEX', saturday:'SÁB',
-  // also handle trimmed variants
   mon:'SEG', tue:'TER', wed:'QUA', thu:'QUI', fri:'SEX', sat:'SÁB',
-  // numeric fallback (legacy)
   1:'SEG', 2:'TER', 3:'QUA', 4:'QUI', 5:'SEX', 6:'SÁB',
 };
 
@@ -360,10 +315,8 @@ window.openDossier = async function(ref, role){
   _ttLoaded=false;
 
   document.getElementById('ds-overlay').classList.add('open');
-  document.getElementById('ds-avail').style.display='none';
   renderSkeleton(ref);
 
-  // ── Fetch from real tables ──
   const [enrols, reqs, hist] = await Promise.all([
     sbGet('enrolments',
       `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_cefr,level_raw,enrolment_date,academic_year,returning_student,payment_method,guardian_name,guardian_phone,notes,school,school_year,occupation,naturalidade,nif,postal_code,locality&limit=1`),
@@ -379,7 +332,6 @@ window.openDossier = async function(ref, role){
   DS_REQ   = reqs?.[0]   || null;
   DS_HIST  = hist || [];
 
-  // ── Resolve turma from CELL_MAP (localStorage) ──
   let turmaCode=null, turmaDay=null, turmaH=null;
   const CM = window.CELL_MAP || {};
   Object.entries(CM).forEach(([key, cell]) => {
@@ -401,7 +353,6 @@ window.openDossier = async function(ref, role){
     turmaCode, turmaDay, turmaH,
   });
 
-  renderAvailGrid(ref, course, turmaDay, turmaH);
   renderBody(turmaCode, turmaDay, turmaH, course);
 };
 
@@ -422,7 +373,6 @@ function renderSkeleton(ref){
   document.getElementById('ds-name').textContent = ref;
   document.getElementById('ds-ref').textContent = '…';
   document.getElementById('ds-tags').innerHTML = '';
-  document.getElementById('ds-actions').innerHTML = '';
   document.getElementById('ds-body').innerHTML = `<div class="ds-empty" style="padding:40px 0">A carregar…</div>`;
   const av = document.getElementById('ds-avatar');
   const col = avCol(ref);
@@ -464,69 +414,25 @@ function renderCover(d){
   document.getElementById('ds-tags').innerHTML = items.join(
     `<span class="ds-ci-sep">·</span>`);
 
-  // ── Quick-action links (non-contact) ──
-  const acts = [
-    {lbl:'Matrícula', fn:`dsScrollTo('ds-s-inscricao')`},
-    {lbl:'Pedido',    fn:`dsScrollTo('ds-s-pedido')`},
-    {lbl:'Historial', fn:`dsScrollTo('ds-s-hist')`},
-    {lbl:'Mover',     fn:`dsScrollTo('ds-s-mover')`},
-    {lbl:'Notas',     fn:`dsScrollTo('ds-s-notas')`},
-  ];
-  document.getElementById('ds-actions').innerHTML = acts.map(a=>
-    `<span class="ds-act" onclick="${a.fn}">${a.lbl}</span>`).join('');
-}
-
-/* ── Availability mini-grid ── */
-function renderAvailGrid(ref, course, confDay, confH){
-  const prefs = parsePrefs(DS_REQ);
-  if(!prefs.length && !confDay){
-    document.getElementById('ds-avail').style.display = 'none';
-    return;
-  }
-  document.getElementById('ds-avail').style.display = 'block';
-  const grid = document.getElementById('ds-avail-grid');
-
-  let html = `<div></div>`; // corner
-  HRS_MORN.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
-  html += `<div></div>`; // break
-  HRS_AFT.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
-
-  DAYS.forEach(day => {
-    html += `<div class="ds-ag-day">${day}</div>`;
-    HRS_MORN.forEach(h => {
-      const isConf = confDay===day && confH===h;
-      const isReq  = prefs.some(p => p.day===day && p.h===h);
-      html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
-    });
-    html += `<div></div>`;
-    HRS_AFT.forEach(h => {
-      const isConf = confDay===day && confH===h;
-      const isReq  = prefs.some(p => p.day===day && p.h===h);
-      html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
-    });
-  });
-  grid.innerHTML = html;
+  // CHANGE 1: No quick-action links rendered in banner
 }
 
 /* ── Body ── */
+// CHANGE 3: Removed "Pedido de Horário" section
+// CHANGE 4: Removed "Mover Aluno" section
+// CHANGE 2: Availability grid now lives inside the Horários section (lazy-loaded on open)
 function renderBody(turmaCode, turmaDay, turmaH, course){
   const body = document.getElementById('ds-body');
   body.innerHTML = [
     sec('ds-s-inscricao', '📋','Inscrição',
       DS_ENROL ? DS_ENROL.academic_year || 'Carregado' : '—',
       buildEnrol()),
-    sec('ds-s-pedido',    '📝','Pedido de Horário',
-      DS_REQ ? (DS_REQ.status || 'Submetido') : 'Sem pedido',
-      buildRequest()),
     sec('ds-s-hist',      '🎓','Historial',
       DS_HIST.length ? `${DS_HIST.length} anos` : '—',
       buildHistorial()),
     sec('ds-s-horario',   '🗓','Horário · Disponibilidade',
       DS_REQ ? `${parsePrefs(DS_REQ).length} slots` : 'Sem pedido',
       `<div id="ds-tt-content"><div class="ds-empty">Clique para ver detalhe</div></div>`),
-    sec('ds-s-mover',     '🔄','Mover Aluno',
-      turmaCode || 'Sem turma',
-      buildMove(turmaCode)),
     sec('ds-s-notas',     '🚩','Notas Internas',
       DS_ENROL?.notes ? 'Com nota' : '',
       buildNotes()),
@@ -536,18 +442,61 @@ function renderBody(turmaCode, turmaDay, turmaH, course){
     hdr.addEventListener('click', () => {
       const wasOpen = hdr.classList.contains('open');
       hdr.classList.toggle('open');
+      // CHANGE 2: Load availability grid inside section when Horários is opened
       if(!wasOpen && hdr.closest('#ds-s-horario')) loadTimetable(turmaDay, turmaH);
     });
   });
 }
 
-/* ── Horário section (lazy) ── */
+/* ── Horário section (lazy, with availability grid) ── */
 let _ttLoaded2 = false;
 async function loadTimetable(confDay, confH){
   if(_ttLoaded2) return;
   _ttLoaded2 = true;
   const el = document.getElementById('ds-tt-content');
-  if(el) el.innerHTML = buildRequestSlots(DS_REQ, confDay, confH);
+  if(!el) return;
+
+  // Build availability grid HTML
+  const prefs = parsePrefs(DS_REQ);
+  let availHtml = '';
+  if(prefs.length || confDay){
+    availHtml = `<div class="ds-avail" style="margin-bottom:12px;padding-bottom:12px;border-bottom:.5px solid var(--sep2)">
+      <div class="ds-avail-label">Disponibilidade · Pedido</div>
+      <div class="ds-avail-grid" id="ds-avail-grid-inner"></div>
+      <div class="ds-avail-leg">
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = availHtml + buildRequestSlots(DS_REQ, confDay, confH);
+
+  // Populate grid cells after inject
+  if(prefs.length || confDay){
+    const grid = document.getElementById('ds-avail-grid-inner');
+    if(grid){
+      let html = `<div></div>`;
+      HRS_MORN.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
+      html += `<div></div>`;
+      HRS_AFT.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
+      DAYS.forEach(day => {
+        html += `<div class="ds-ag-day">${day}</div>`;
+        HRS_MORN.forEach(h => {
+          const isConf = confDay===day && confH===h;
+          const isReq  = prefs.some(p => p.day===day && p.h===h);
+          html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+        });
+        html += `<div></div>`;
+        HRS_AFT.forEach(h => {
+          const isConf = confDay===day && confH===h;
+          const isReq  = prefs.some(p => p.day===day && p.h===h);
+          html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+        });
+      });
+      grid.innerHTML = html;
+    }
+  }
 }
 
 /* ── Section builder ── */
@@ -612,7 +561,6 @@ function buildEnrol(){
     ? new Date(e.date_of_birth).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'})
     : null;
 
-  // ── Personal data first ──
   const personal = [
     row('Referência',    e.ref||'—', 'tint'),
     row('Nome completo', e.name||'—'),
@@ -629,7 +577,6 @@ function buildEnrol(){
     e.occupation   ? row('Profissão',     e.occupation) : '',
   ].filter(Boolean).join('');
 
-  // ── Academic data second ──
   const academic = [
     row('Nível',         lvl),
     row('Departamento',  dept),
@@ -650,28 +597,6 @@ function buildEnrol(){
     <div style="font-family:var(--f);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);padding:14px 0 4px">Dados académicos</div>
     ${academic}
   `;
-}
-
-function buildRequest(){
-  if(!DS_REQ) return `<div class="ds-empty">Nenhum pedido submetido.</div>`;
-  const r = DS_REQ;
-  const prefs = parsePrefs(r);
-  const slotHtml = prefs.length
-    ? `<div class="ds-slots">${prefs.map(p=>`<span class="ds-slot">${p.day} ${p.start}</span>`).join('')}</div>`
-    : '—';
-  const dateStr = r.created_at
-    ? new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'})
-    : '—';
-  return [
-    `<div class="ds-row"><div class="ds-rk">Slots</div><div class="ds-rv">${slotHtml}</div></div>`,
-    row('Sessões/sem', r.sessions_per_week || '—'),
-    row('Modo', r.mode_used === 'avail' ? 'Disponibilidade' : 'Preferência'),
-    row('Estado', r.status || '—', r.status==='atribuido'?'green':r.status==='pendente'?'amber':''),
-    row('Submetido', dateStr),
-    r.has_id_photo         ? row('Foto ID',      'Enviada','green') : '',
-    r.has_school_timetable ? row('Hor. Escolar', 'Enviado','green') : '',
-    r.notes ? row('Nota', r.notes) : '',
-  ].filter(Boolean).join('');
 }
 
 function buildHistorial(){
@@ -702,27 +627,6 @@ function buildHistorial(){
   }).join('');
 }
 
-function buildMove(currentCode){
-  const CM    = window.CELL_MAP || {};
-  const codes = [...new Set(Object.values(CM).map(c=>c.turmaCode).filter(c=>c&&c!==currentCode))].sort();
-
-  return `${row('Turma actual', currentCode||'Sem turma', currentCode?'tint':'')}
-  <div style="margin-top:12px">
-    <select class="ds-select" id="ds-move-sel">
-      <option value="">Escolher turma destino</option>
-      ${codes.map(c=>{
-        const cell = Object.values(CM).find(x=>x.turmaCode===c);
-        const meta = cell ? ` · ${cell.day||''} ${cell.h||''}h · ${cell.n||'?'} al` : '';
-        return `<option value="${c}">${c}${meta}</option>`;
-      }).join('')}
-    </select>
-    <div class="ds-btn-row">
-      <button class="ds-btn primary" onclick="dsMoveStudent()">Mover</button>
-      ${currentCode ? `<button class="ds-btn danger" onclick="dsRemove('${currentCode}')">Remover da turma</button>` : ''}
-    </div>
-  </div>`;
-}
-
 function buildNotes(){
   const existing = DS_ENROL?.notes || '';
   return `<div class="ds-flags" id="ds-flags">
@@ -742,12 +646,6 @@ function buildNotes(){
 /* ══════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════ */
-window.dsScrollTo = function(id){
-  const el = document.getElementById(id); if(!el) return;
-  el.querySelector('.ds-section-hdr')?.classList.add('open');
-  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
-};
-
 window.dsSendMsg = function(){
   const email = DS_ENROL?.email;
   const phone  = DS_ENROL?.phone;
@@ -784,59 +682,10 @@ window.dsClearNote = async function(){
   }
 };
 
-window.dsMoveStudent = function(){
-  const code = document.getElementById('ds-move-sel')?.value;
-  if(!code){ dsToast('Escolha uma turma destino','warn'); return; }
-  const CM = window.CELL_MAP || {};
-
-  // Remove from current turma
-  Object.entries(CM).forEach(([key, cell]) => {
-    if(cell.studentRefs?.includes(DS_REF)){
-      cell.studentRefs = cell.studentRefs.filter(r=>r!==DS_REF);
-      cell.n = cell.studentRefs.length;
-    }
-  });
-
-  // Add to destination
-  const destKey = Object.keys(CM).find(k => CM[k].turmaCode === code);
-  if(destKey){
-    if(!CM[destKey].studentRefs) CM[destKey].studentRefs = [];
-    if(!CM[destKey].studentRefs.includes(DS_REF)){
-      CM[destKey].studentRefs.push(DS_REF);
-      CM[destKey].n = CM[destKey].studentRefs.length;
-    }
-  }
-
-  // Persist to localStorage
-  try{ localStorage.setItem('alm-cells-2627', JSON.stringify(CM)); }catch(e){}
-
-  // Notify parent page to re-render
-  if(window.renderAll) window.renderAll();
-  dsToast(`Movido para ${code} ✓`, 'ok');
-  setTimeout(()=>openDossier(DS_REF, DS_ROLE), 600);
-};
-
-window.dsRemove = function(code){
-  if(!confirm(`Remover ${DS_REF} de ${code}?`)) return;
-  const CM = window.CELL_MAP || {};
-  Object.entries(CM).forEach(([key, cell]) => {
-    if(cell.turmaCode === code && cell.studentRefs?.includes(DS_REF)){
-      cell.studentRefs = cell.studentRefs.filter(r=>r!==DS_REF);
-      cell.n = cell.studentRefs.length;
-    }
-  });
-  try{ localStorage.setItem('alm-cells-2627', JSON.stringify(CM)); }catch(e){}
-  if(window.renderAll) window.renderAll();
-  dsToast(`Removido de ${code}`, 'ok');
-  setTimeout(()=>openDossier(DS_REF, DS_ROLE), 600);
-};
-
 /* ══════════════════════════════════════
    HELPERS
 ══════════════════════════════════════ */
 
-// Parse day_preferences — handles both real string days ("wednesday")
-// and legacy numeric days (1-6)
 function parsePrefs(req){
   if(!req?.day_preferences) return [];
   try{
@@ -902,8 +751,7 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ── Compat aliases ── */
-window.nmScrollTo      = window.dsScrollTo;
-window.nmToast         = dsToast;
+window.nmToast = dsToast;
 
-console.log('[ALM Dossier v8 — contact strip] loaded ✓');
+console.log('[ALM Dossier v9 — 4 changes] loaded ✓');
 })();
