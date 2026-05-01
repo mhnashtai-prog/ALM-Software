@@ -1,0 +1,411 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --teal:#B0D4D2;--teal-d:#7ABAB8;
+  --pink:#F2ADDA;--pink-d:#E07DC0;
+  --ultra:#9AADF6;--ultra-d:#6080E8;
+  --sun:#FFD166;--sun-d:#F0B429;
+  --warm:#F7F0E6;--text:#3A3040;--text2:#7A6E82;
+  --card-bg:#FFFFFF;
+  --sans:'Nunito',system-ui,sans-serif;
+}
+body{
+  background:var(--warm);
+  background-image:
+    radial-gradient(circle at 20% 20%,rgba(176,212,210,.35) 0%,transparent 50%),
+    radial-gradient(circle at 80% 80%,rgba(242,173,218,.3) 0%,transparent 50%);
+  font-family:var(--sans);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;padding:20px;
+}
+.demo-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.demo-btn{
+  padding:9px 18px;border:none;background:white;
+  color:var(--text2);font-family:var(--sans);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .18s;border-radius:50px;
+  box-shadow:0 4px 14px rgba(0,0,0,.08);
+}
+.demo-btn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.12)}
+.demo-title{font-size:12px;font-weight:700;color:rgba(58,48,64,.35);letter-spacing:.1em;text-transform:uppercase;text-align:center}
+
+.overlay-wrap{
+  width:100%;min-height:560px;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(58,48,64,.38);
+  border-radius:18px;padding:24px;
+}
+.overlay-wrap.open{display:flex;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* card exit animation */
+.alm-card{
+  width:min(560px,94%);
+  background:var(--card-bg);
+  border-radius:28px;overflow:hidden;
+  box-shadow:0 24px 64px rgba(58,48,64,.22),0 2px 8px rgba(0,0,0,.06);
+  animation:cardIn .28s cubic-bezier(.22,.61,.36,1);
+  transition:opacity .22s ease, transform .22s cubic-bezier(.4,0,.6,1);
+}
+.alm-card.exiting{opacity:0;transform:scale(.97) translateY(-6px)}
+@keyframes cardIn{from{opacity:0;transform:scale(.93) translateY(18px)}to{opacity:1;transform:none}}
+
+/* BANNER */
+.card-banner{
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:row;align-items:center;
+  padding:16px 20px 14px;gap:16px;min-height:120px;
+}
+.banner-bg{position:absolute;inset:0;transition:background .4s}
+.banner-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.18) 0%,transparent 70%)}
+.banner-close{
+  position:absolute;top:10px;right:10px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.35);border:none;
+  color:rgba(0,0,0,.5);font-size:13px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;z-index:10;
+  font-family:var(--sans);
+}
+.banner-close:hover{background:rgba(255,255,255,.7);transform:scale(1.08)}
+.dept-badge{
+  position:absolute;top:10px;left:14px;
+  font-size:10px;font-weight:800;letter-spacing:.04em;
+  padding:4px 11px;border-radius:999px;z-index:10;
+  background:rgba(255,255,255,.35);
+}
+.card-avatar{
+  position:relative;z-index:5;
+  width:80px;height:80px;border-radius:50%;flex-shrink:0;
+  border:4px solid rgba(255,255,255,.65);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:900;margin-top:14px;
+  box-shadow:0 6px 24px rgba(0,0,0,.16);
+}
+.card-avatar img{width:100%;height:100%;object-fit:cover}
+.banner-info{position:relative;z-index:5;display:flex;flex-direction:column;gap:3px;margin-top:14px}
+.banner-name-text{font-size:20px;font-weight:900;color:white;text-shadow:0 2px 10px rgba(0,0,0,.16);letter-spacing:-.01em;line-height:1.1}
+.banner-ref{font-size:11px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.05em}
+.banner-pills{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+
+/* ── PERSONAL PILL (banner) ──
+   ripple colour = white; sits on coloured bg */
+.b-pill{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:800;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(255,255,255,.28);border:none;
+  color:rgba(255,255,255,.92);cursor:pointer;
+  font-family:var(--sans);letter-spacing:.02em;
+  transition:background .15s, transform .12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.b-pill:hover{background:rgba(255,255,255,.46)}
+.b-pill:active{transform:scale(.94)}
+.b-pill-icon{font-size:12px}
+
+/* BODY */
+.card-body{padding:14px 22px 20px;display:flex;flex-direction:column;gap:0}
+.card-tags{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.card-tag{font-size:11px;font-weight:800;padding:5px 14px;border-radius:999px;letter-spacing:.01em}
+.section-divider{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.div-line{flex:1;height:1px;background:rgba(0,0,0,.07)}
+.div-label{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);white-space:nowrap}
+
+/* ── ACADEMIC PILL ──
+   Ripple colour = dept accent; neutral warm bg */
+.acad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+
+.acad-pill{
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;
+  gap:5px;padding:12px 8px 10px;
+  background:var(--warm);border:none;border-radius:16px;
+  cursor:pointer;font-family:var(--sans);
+  transition:background .15s, transform .12s, box-shadow .15s;
+  -webkit-tap-highlight-color:transparent;
+  outline:none;
+}
+.acad-pill:hover{
+  background:#EDE7DC;
+  box-shadow:0 4px 12px rgba(0,0,0,.07);
+  transform:translateY(-2px);
+}
+.acad-pill:active{transform:scale(.95) translateY(0)}
+
+/* "selected" flash after ripple completes, before navigate */
+.acad-pill.navigating{
+  background:var(--pill-accent-bg,#EDE7DC);
+  transform:scale(.97);
+}
+
+.ap-icon{font-size:20px;transition:transform .15s}
+.acad-pill:hover .ap-icon{transform:scale(1.12)}
+.ap-lbl{font-size:9px;font-weight:800;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2}
+
+/* ── RIPPLE ── */
+.ripple{
+  position:absolute;border-radius:50%;
+  transform:scale(0);pointer-events:none;
+  animation:rippleAnim .45s cubic-bezier(0,.5,.5,1) forwards;
+}
+@keyframes rippleAnim{
+  from{transform:scale(0);opacity:.38}
+  to{transform:scale(4);opacity:0}
+}
+
+/* TOAST */
+.nav-toast{
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:rgba(58,48,64,.82);color:white;
+  font-size:11px;font-weight:700;letter-spacing:.04em;
+  padding:7px 18px;border-radius:999px;
+  white-space:nowrap;opacity:0;
+  transition:opacity .18s,transform .18s;
+  pointer-events:none;z-index:20;
+}
+.nav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* status + teacher extras */
+.status-line{font-size:12px;font-weight:700;text-align:center;margin-top:4px;padding-top:12px;border-top:1px solid rgba(0,0,0,.06)}
+.hours-wrap{background:var(--warm);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.hours-label{display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--text2);margin-bottom:7px}
+.hours-track{height:9px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden}
+.hours-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.22,.61,.36,1)}
+.turma-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.turma-pill{font-size:10px;font-weight:800;padding:4px 11px;border-radius:999px;letter-spacing:.02em}
+</style>
+
+<div class="demo-title">ALM · Card v3 · Micro-interactions</div>
+<div class="demo-row">
+  <button class="demo-btn" onclick="demoStudent('infantil')">Infantil</button>
+  <button class="demo-btn" onclick="demoStudent('juvenil')">Juvenil</button>
+  <button class="demo-btn" onclick="demoStudent('geral')">Geral</button>
+  <button class="demo-btn" onclick="demoStudent('exam')">Exames</button>
+  <button class="demo-btn" onclick="demoTeacher('EN')">Teacher EN</button>
+  <button class="demo-btn" onclick="demoTeacher('FR')">Teacher FR</button>
+</div>
+
+<div class="overlay-wrap" id="overlay" onclick="handleOverlay(event)">
+  <div style="position:relative;width:min(560px,94%)">
+    <div class="alm-card" id="alm-card" onclick="event.stopPropagation()"></div>
+    <div class="nav-toast" id="nav-toast"></div>
+  </div>
+</div>
+
+<script>
+const DEPT={
+  infantil:{grad:['#B0D4D2','#7DC8C8'],badgeC:'#3A7A78',badgeBg:'rgba(176,212,210,.45)',tag:'#7ABAB8',tagBg:'rgba(176,212,210,.22)',label:'Infantil',ripple:'rgba(122,186,184,.35)'},
+  juvenil: {grad:['#F2ADDA','#E888CC'],badgeC:'#8A2060',badgeBg:'rgba(242,173,218,.45)',tag:'#D060A8',tagBg:'rgba(242,173,218,.22)',label:'Juvenil',ripple:'rgba(208,96,168,.3)'},
+  geral:   {grad:['#9AADF6','#7090F8'],badgeC:'#2040AA',badgeBg:'rgba(154,173,246,.45)',tag:'#5070E8',tagBg:'rgba(154,173,246,.22)',label:'Geral',ripple:'rgba(80,112,232,.28)'},
+  exam:    {grad:['#F0C890','#D4A060'],badgeC:'#7A4A10',badgeBg:'rgba(240,200,144,.45)',tag:'#B07830',tagBg:'rgba(240,200,144,.22)',label:'Exames',ripple:'rgba(176,120,48,.28)'},
+};
+const LANG={
+  EN:{col:'#4A8FF5',bg:'rgba(74,143,245,.18)',flag:'GB',ripple:'rgba(74,143,245,.28)'},
+  FR:{col:'#9B5ECA',bg:'rgba(155,94,202,.18)',flag:'FR',ripple:'rgba(155,94,202,.28)'},
+  PT:{col:'#C8A44A',bg:'rgba(200,164,74,.18)',flag:'PT',ripple:'rgba(200,164,74,.28)'},
+};
+
+const ACAD_ACTIONS={
+  timetable:{icon:'&#128197;',label:'Horário',route:'/horario'},
+  enrolment:{icon:'&#128196;',label:'Inscrição',route:'/inscricao'},
+  tests:    {icon:'&#128221;',label:'Testes &amp; Resultados',route:'/testes'},
+  pastexams:{icon:'&#127891;',label:'Exames Anteriores',route:'/exames-anteriores'},
+  attendance:{icon:'&#9989;',label:'Assiduidade',route:'/assiduidade'},
+  payment:  {icon:'&#128179;',label:'Pagamentos',route:'/pagamentos'},
+  schedule: {icon:'&#128197;',label:'Horário',route:'/horario'},
+  turmas:   {icon:'&#128218;',label:'Turmas',route:'/turmas'},
+  hours:    {icon:'&#128336;',label:'Horas Extra',route:'/horas'},
+};
+
+const PERSONAL_ACTIONS=[
+  {icon:'&#128100;',label:'Perfil',key:'profile'},
+  {icon:'&#9993;',label:'Mensagem',key:'message'},
+  {icon:'&#128222;',label:'Contacto',key:'contact'},
+  {icon:'&#128106;',label:'EE',key:'guardian'},
+];
+
+let currentDeptRipple='rgba(122,186,184,.35)';
+let navigating=false;
+
+function avColor(name){
+  let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+name.charCodeAt(i))&0xffffffff;
+  const p=[{bg:'#FFD6E0',text:'#C94070'},{bg:'#C8E6F5',text:'#2878B0'},{bg:'#D4F0C8',text:'#3A8830'},{bg:'#E8D8F8',text:'#7040C0'},{bg:'#FFE8C0',text:'#C07020'},{bg:'#C8F0E8',text:'#208870'}];
+  return p[Math.abs(h)%p.length];
+}
+function initials(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+
+/* ── RIPPLE ENGINE ── */
+function addRipple(el, e, color){
+  const r=el.querySelector('.ripple');
+  if(r)r.remove();
+  const rect=el.getBoundingClientRect();
+  const x=(e.clientX||rect.left+rect.width/2)-rect.left;
+  const y=(e.clientY||rect.top+rect.height/2)-rect.top;
+  const size=Math.max(rect.width,rect.height)*1.6;
+  const rip=document.createElement('span');
+  rip.className='ripple';
+  rip.style.cssText=`width:${size}px;height:${size}px;left:${x-size/2}px;top:${y-size/2}px;background:${color}`;
+  el.appendChild(rip);
+  rip.addEventListener('animationend',()=>rip.remove());
+}
+
+/* ── NAVIGATE FEEDBACK ── */
+function navigatePill(el, route, label, rippleColor){
+  if(navigating)return;
+  navigating=true;
+  el.classList.add('navigating');
+  el.style.setProperty('--pill-accent-bg', rippleColor.replace('.28',',.12').replace('.35',',.14').replace('.3',',.12'));
+
+  const toast=document.getElementById('nav-toast');
+  toast.textContent='A navegar para '+label+' →';
+  toast.classList.add('show');
+
+  setTimeout(()=>{
+    const card=document.getElementById('alm-card');
+    card.classList.add('exiting');
+    setTimeout(()=>{
+      card.classList.remove('exiting');
+      el.classList.remove('navigating');
+      toast.classList.remove('show');
+      navigating=false;
+      console.log('NAVIGATE →',route);
+    },320);
+  },420);
+}
+
+/* ── PILL BUILDERS ── */
+function bPillsHTML(actions, isEE){
+  return actions.map(a=>`
+    <button class="b-pill" data-key="${a.key||''}" onclick="personalClick(this,'${a.label}')">
+      <span class="b-pill-icon">${a.icon}</span>${a.label}
+    </button>`).join('');
+}
+
+function acadGridHTML(keys, rippleColor){
+  return keys.map(k=>{
+    const a=ACAD_ACTIONS[k];
+    if(!a)return'';
+    return `<button class="acad-pill" onclick="acadClick(event,this,'${k}','${a.route}','${a.label.replace(/&amp;/g,'&')}','${rippleColor}')">
+      <span class="ap-icon">${a.icon}</span>
+      <span class="ap-lbl">${a.label}</span>
+    </button>`;
+  }).join('');
+}
+
+function personalClick(el, label){
+  addRipple(el, {}, 'rgba(255,255,255,.55)');
+  console.log('Personal action:',label);
+}
+
+function acadClick(e, el, key, route, label, rippleColor){
+  addRipple(el, e, rippleColor);
+  setTimeout(()=>navigatePill(el, route, label, rippleColor), 80);
+}
+
+/* ── STUDENT CARD ── */
+function buildStudentCard(data){
+  const dc=DEPT[data.dept]||DEPT.geral;
+  const lc=LANG[data.lang]||LANG.EN;
+  const av=avColor(data.name);
+  const ini=initials(data.name);
+  currentDeptRipple=dc.ripple;
+  const acadKeys=['timetable','enrolment','tests','pastexams','attendance','payment'];
+  return `
+  <div class="card-banner">
+    <div class="banner-bg" style="background:linear-gradient(145deg,${dc.grad[0]},${dc.grad[1]})"></div>
+    <button class="banner-close" onclick="closeCard()">&#x2715;</button>
+    <div class="dept-badge" style="color:${dc.badgeC};background:${dc.badgeBg}">${dc.label}</div>
+    <div class="card-avatar" style="background:${av.bg}">
+      ${data.photo?`<img src="${data.photo}" alt="${data.name}"/>`:`<span style="color:${av.text}">${ini}</span>`}
+    </div>
+    <div class="banner-info">
+      <div class="banner-name-text">${data.name||'—'}</div>
+      <div class="banner-ref">${data.ref||'—'}</div>
+      <div class="banner-pills">${bPillsHTML(PERSONAL_ACTIONS)}</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="card-tags">
+      <span class="card-tag" style="background:${dc.tagBg};color:${dc.tag}">${data.level||'—'}</span>
+      <span class="card-tag" style="background:${lc.bg};color:${lc.col}">${lc.flag} ${data.lang}</span>
+      ${data.turma?`<span class="card-tag" style="background:rgba(93,214,138,.18);color:#28A860">${data.turma}</span>`:''}
+      <span class="card-tag" style="background:rgba(0,0,0,.05);color:var(--text2)">${data.branch||'Funchal'}</span>
+    </div>
+    <div class="section-divider"><div class="div-line"></div><div class="div-label">Área Académica</div><div class="div-line"></div></div>
+    <div class="acad-grid">${acadGridHTML(acadKeys,dc.ripple)}</div>
+    <div class="status-line" style="color:${data.status==='atribuido'?'#28A860':'#C07020'}">
+      ${data.status==='atribuido'?'&#10003; Turma atribuída — inscrito em '+data.enrolDate:'&#9203; A aguardar atribuição · inscrito em '+data.enrolDate}
+    </div>
+  </div>`;
+}
+
+/* ── TEACHER CARD ── */
+function buildTeacherCard(data){
+  const lc=LANG[data.lang]||LANG.EN;
+  const av=avColor(data.name);
+  const ini=initials(data.name);
+  const pct=data.contractH?Math.round(data.usedH/data.contractH*100):0;
+  const barCol=pct>=90?'#E8455A':pct>=75?'#F0B429':'#5DD68A';
+  const turmas=data.turmas||[];
+  currentDeptRipple=lc.ripple;
+  const teacherPersonal=PERSONAL_ACTIONS.slice(0,3);
+  const acadKeys=['schedule','turmas','tests','attendance','hours','payment'];
+  return `
+  <div class="card-banner">
+    <div class="banner-bg" style="background:linear-gradient(145deg,${lc.col}CC,${lc.col}88)"></div>
+    <button class="banner-close" onclick="closeCard()">&#x2715;</button>
+    <div class="dept-badge" style="color:white;background:rgba(255,255,255,.3)">${lc.flag} ${data.lang}${data.native?' · Nativo':''}</div>
+    <div class="card-avatar" style="background:${av.bg}">
+      ${data.photo?`<img src="${data.photo}" alt="${data.name}"/>`:`<span style="color:${av.text}">${ini}</span>`}
+    </div>
+    <div class="banner-info">
+      <div class="banner-name-text">${data.name||'—'}</div>
+      <div class="banner-ref">${data.code||'—'} · Professor</div>
+      <div class="banner-pills">${bPillsHTML(teacherPersonal)}</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="card-tags">
+      <span class="card-tag" style="background:${lc.bg};color:${lc.col}">${lc.flag} ${data.lang}</span>
+      ${data.native?`<span class="card-tag" style="background:rgba(93,214,138,.18);color:#28A860">Nativo</span>`:''}
+      <span class="card-tag" style="background:rgba(0,0,0,.05);color:var(--text2)">${data.branch||'Funchal'}</span>
+    </div>
+    <div class="hours-wrap">
+      <div class="hours-label"><span>Horas semanais</span><span style="color:${barCol}">${data.usedH||0}h / ${data.contractH||22}h</span></div>
+      <div class="hours-track"><div class="hours-fill" style="width:${Math.min(100,pct)}%;background:${barCol}"></div></div>
+    </div>
+    ${turmas.length?`<div class="section-divider"><div class="div-line"></div><div class="div-label">Turmas</div><div class="div-line"></div></div>
+    <div class="turma-row">${turmas.map(t=>`<div class="turma-pill" style="background:${lc.bg};color:${lc.col}">${t}</div>`).join('')}</div>`:''}
+    <div class="section-divider"><div class="div-line"></div><div class="div-label">Área Académica</div><div class="div-line"></div></div>
+    <div class="acad-grid">${acadGridHTML(acadKeys,lc.ripple)}</div>
+  </div>`;
+}
+
+function openCard(html){
+  navigating=false;
+  document.getElementById('alm-card').innerHTML=html;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeCard(){document.getElementById('overlay').classList.remove('open')}
+function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeCard()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCard()});
+
+function demoStudent(dept){
+  const d={
+    infantil:{ref:'ALM-0342',name:'Beatriz Nóbrega',dept:'infantil',level:'PI-a2',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'12 Set 2025'},
+    juvenil: {ref:'ALM-0615',name:'Artur Alves Lopes',dept:'juvenil',level:'Pj1',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'08 Set 2025'},
+    geral:   {ref:'ALM-0870',name:'Sofia Marques',dept:'geral',level:'2º Ano',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0042',enrolDate:'05 Set 2025'},
+    exam:    {ref:'ALM-1124',name:'Tomás Ferreira',dept:'exam',level:'7th C1',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0088',enrolDate:'03 Set 2025'},
+  };
+  openCard(buildStudentCard(d[dept]));
+}
+function demoTeacher(lang){
+  const d={
+    EN:{code:'TK',name:'Tony Kennedy',lang:'EN',native:true,branch:'Funchal',contractH:22,usedH:18,turmas:['2627-0012','2627-0014','2627-0031','2627-0044','2627-0067','2627-0088']},
+    FR:{code:'CM',name:'Catherine Moreau',lang:'FR',native:false,branch:'Funchal',contractH:22,usedH:14,turmas:['2627-0091','2627-0095','2627-0099','2627-0102']},
+  };
+  openCard(buildTeacherCard(d[lang]));
+}
+window.addEventListener('load',()=>demoStudent('infantil'));
+</script>
