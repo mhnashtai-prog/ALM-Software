@@ -306,11 +306,23 @@ const DAY_EN_TO_PT = {
 };
 
 const COURSE_GRAD = {
-  kids:   'linear-gradient(160deg,#2D6A6A,#1A3F4A)',
-  adults: 'linear-gradient(160deg,#243B8A,#131E55)',
-  exam:   'linear-gradient(160deg,#6B430E,#3A200A)',
+  infantil:'linear-gradient(160deg,#6B2038,#3A0E1E)',
+  kids:    'linear-gradient(160deg,#0D6B52,#063828)',
+  adults:  'linear-gradient(160deg,#1A3480,#0C1A48)',
+  exam:    'linear-gradient(160deg,#7A4A08,#3E2004)',
 };
-const COURSE_DEPT  = {kids:'JUVENIL',adults:'GERAL',exam:'EXAMES'};
+const COURSE_DEPT = {
+  infantil:'INFANTIL',
+  kids:    'JUVENIL',
+  adults:  'GERAL',
+  exam:    'EXAMES',
+};
+const COURSE_ACCENT = {
+  infantil:'#FF8FA0',
+  kids:    '#3DE8A8',
+  adults:  '#6AABFF',
+  exam:    '#F5C040',
+};
 
 /* ── State ── */
 let DS_REF=null, DS_ROLE='staff';
@@ -419,7 +431,10 @@ function renderCover(d){
   const lvl=displayLevel(d.cefr,course);
 
   document.getElementById('ds-banner-bg').style.background=COURSE_GRAD[course]||COURSE_GRAD.adults;
-  document.getElementById('ds-dept').textContent=COURSE_DEPT[course]||'GERAL';
+  const accent=COURSE_ACCENT[course]||'rgba(255,255,255,.48)';
+  const deptEl=document.getElementById('ds-dept');
+  deptEl.textContent=COURSE_DEPT[course]||'GERAL';
+  deptEl.style.color=accent;
 
   const av=document.getElementById('ds-avatar');
   const col=avCol(d.name||d.ref||'?');
@@ -695,17 +710,19 @@ function row(k,v,c){
 
 function inferCourse(e){
   if(!e)return'adults';
-  const s=[e.family,e.course,e.department,e.level_cefr,e.notes].filter(Boolean).join(' ').toLowerCase();
-  if(/exam|exame/.test(s))return'exam';
-  if(/kid|juven|junior|infant|prep|infantil/.test(s))return'kids';
+  const s=[e.family,e.course,e.department,e.level_cefr,e.level_raw,e.notes].filter(Boolean).join(' ').toLowerCase();
+  if(/exam|exame/.test(s))           return'exam';
+  if(/infant|prep|pi-a|pia/.test(s)) return'infantil';
+  if(/kid|juven|junior|pj/.test(s))  return'kids';
   return'adults';
 }
 
 function displayLevel(cefr,course){
   const map={
-    kids:  {A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
-    adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
-    exam:  {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'},
+    infantil:{A1:'PI-a1',A2:'PI-a2'},
+    kids:    {A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
+    adults:  {A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
+    exam:    {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'},
   };
   return map[course]?.[cefr]||cefr||'—';
 }
@@ -734,5 +751,5 @@ document.addEventListener('keydown',e=>{
 });
 
 window.nmToast=dsToast;
-console.log('[ALM Dossier v10 — refined] loaded ✓');
+console.log('[ALM Dossier v10 — 4 dept colours] loaded ✓');
 })();
