@@ -3,748 +3,483 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ALM · Card Component</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<title>ALM · Card Component · Child View</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
-/* ═══════════════════════════════════════════
-   ALM CARD COMPONENT
-   Reusable modal profile card for students
-   and teachers. Embed by including this file
-   and calling openStudentCard(data) or
-   openTeacherCard(data).
-
-   iPhone 16 colour palette:
-   Teal        #B0D4D2  → Infantil
-   Pink        #F2ADDA  → Juvenil
-   Ultramarine #9AADF6  → Geral
-   Desert      #BFA48F  → Exames
-   Black       #3C4042  → neutral
-   White       #FAFAFA  → surfaces
-═══════════════════════════════════════════ */
-
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --ip-teal:   #B0D4D2; --ip-teal-d:  #7ABAB8; --ip-teal-bg:  rgba(176,212,210,.15);
-  --ip-pink:   #F2ADDA; --ip-pink-d:  #E07DC0; --ip-pink-bg:  rgba(242,173,218,.15);
-  --ip-ultra:  #9AADF6; --ip-ultra-d: #6080E8; --ip-ultra-bg: rgba(154,173,246,.15);
-  --ip-desert: #BFA48F; --ip-desert-d:#A08060; --ip-desert-bg:rgba(191,164,143,.15);
-  --ip-black:  #3C4042; --ip-white:   #FAFAFA;
-  /* lang colours */
-  --en:#4A8FF5; --pt:#C8A44A; --fr:#9B5ECA; --es:#E8A020; --de:#28C8B0;
-  /* surfaces */
-  --bg:#07060E; --bg2:#0E0B1A; --bg3:#141025;
-  --b:rgba(255,255,255,.06); --b2:rgba(255,255,255,.12);
-  --t:rgba(238,218,168,.92); --t2:rgba(210,188,140,.55); --t3:rgba(210,188,140,.28);
-  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --teal:   #B0D4D2; --teal-d:  #7ABAB8;
+  --pink:   #F2ADDA; --pink-d:  #E07DC0;
+  --ultra:  #9AADF6; --ultra-d: #6080E8;
+  --desert: #BFA48F; --desert-d:#A08060;
+  --sun:    #FFD166; --sun-d:   #F0B429;
+  --mint:   #A8EDBC; --mint-d:  #5DD68A;
+  --cream:  #FDFAF4;
+  --warm:   #F7F0E6;
+  --text:   #3A3040;
+  --text2:  #7A6E82;
+  --card-bg:#FFFFFF;
+  --round:  26px;
+  --sans:   'Nunito',system-ui,sans-serif;
 }
 
 body{
-  background:var(--bg);
+  background:var(--warm);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(176,212,210,.35) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(242,173,218,.3) 0%, transparent 50%),
+    radial-gradient(circle at 60% 10%, rgba(255,209,102,.2) 0%, transparent 40%);
   font-family:var(--sans);
-  color:var(--t);
+  color:var(--text);
   min-height:100vh;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  gap:20px;padding:20px;
+  gap:18px;padding:20px;
 }
 
-/* ═══ DEMO BUTTONS ═══ */
-.demo-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+/* ─── DEMO BUTTONS ─── */
+.demo-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .demo-btn{
-  padding:8px 18px;border:1px solid var(--b2);
-  background:rgba(255,255,255,.04);color:var(--t2);
-  font-family:var(--mono);font-size:9px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
-  transition:all .15s;border-radius:4px;
+  padding:10px 20px;border:none;
+  background:white;
+  color:var(--text2);
+  font-family:var(--sans);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .18s;
+  border-radius:50px;
+  box-shadow:0 4px 14px rgba(0,0,0,.08);
 }
-.demo-btn:hover{background:rgba(255,255,255,.08);color:var(--t);border-color:rgba(255,255,255,.2)}
+.demo-btn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.12)}
 
-/* ═══ OVERLAY ═══ */
+/* ─── OVERLAY ─── */
 .card-overlay{
   display:none;position:fixed;inset:0;
-  background:rgba(4,2,12,.82);z-index:1000;
+  background:rgba(58,48,64,.35);z-index:1000;
   align-items:center;justify-content:center;
   padding:20px;
-  backdrop-filter:blur(12px);
+  backdrop-filter:blur(10px);
 }
 .card-overlay.open{
   display:flex;
-  animation:overlayIn .2s ease;
+  animation:overlayIn .22s ease;
 }
 @keyframes overlayIn{from{opacity:0}to{opacity:1}}
 
-/* ═══ CARD SHELL ═══ */
+/* ─── CARD ─── */
 .alm-card{
-  width:min(620px,96vw);
-  max-height:90vh;
-  overflow-y:auto;
-  background:rgba(14,11,26,.97);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:24px;
+  width:min(400px,94vw);
+  background:var(--card-bg);
+  border-radius:32px;
   overflow:hidden;
-  box-shadow:0 32px 80px rgba(0,0,0,.9);
-  animation:cardIn .22s cubic-bezier(.22,.61,.36,1);
-  scrollbar-width:none;
+  box-shadow:0 30px 80px rgba(58,48,64,.22), 0 2px 8px rgba(0,0,0,.06);
+  animation:cardIn .28s cubic-bezier(.22,.61,.36,1);
 }
-.alm-card::-webkit-scrollbar{display:none}
 @keyframes cardIn{
-  from{opacity:0;transform:scale(.94) translateY(16px)}
+  from{opacity:0;transform:scale(.92) translateY(20px)}
   to{opacity:1;transform:none}
 }
 
-/* ═══ BANNER ═══ */
+/* ─── BANNER ─── */
 .card-banner{
-  height:110px;position:relative;
-  display:flex;align-items:flex-end;
-  padding:0 20px 0;
-  flex-shrink:0;
+  position:relative;
   overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:28px 20px 24px;
+  gap:14px;
 }
 .banner-bg{
   position:absolute;inset:0;
-  background:linear-gradient(135deg, var(--card-color,#9AADF6) 0%, var(--card-color-d,#6080E8) 100%);
-  opacity:.28;
+  transition:background .4s;
 }
-.banner-stripe{
+/* soft inner glow */
+.banner-bg::after{
+  content:'';
   position:absolute;inset:0;
-  background-image:repeating-linear-gradient(
-    45deg,
-    var(--card-color,#9AADF6) 0,
-    var(--card-color,#9AADF6) 1px,
-    transparent 1px,
-    transparent 9px
-  );
-  opacity:.07;
+  background:radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.22) 0%, transparent 70%);
 }
 .banner-close{
   position:absolute;top:14px;right:14px;
-  width:28px;height:28px;border-radius:50%;
-  background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.15);
-  color:rgba(255,255,255,.6);font-size:13px;
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.38);
+  border:none;
+  color:rgba(0,0,0,.5);font-size:14px;font-weight:900;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .13s;z-index:2;
+  cursor:pointer;transition:all .15s;z-index:10;
+  font-family:var(--sans);
+  backdrop-filter:blur(4px);
 }
-.banner-close:hover{background:rgba(232,69,90,.4);color:#fff;border-color:transparent}
-.banner-dept{
-  position:absolute;top:14px;left:16px;
-  font-family:var(--mono);font-size:7px;font-weight:700;
-  letter-spacing:.16em;text-transform:uppercase;
-  padding:3px 9px;border:1px solid;border-radius:999px;
-  z-index:2;
+.banner-close:hover{background:rgba(255,255,255,.75);transform:scale(1.1)}
+
+.dept-badge{
+  position:absolute;top:14px;left:14px;
+  font-family:var(--sans);font-size:11px;font-weight:800;
+  letter-spacing:.04em;
+  padding:5px 13px;border-radius:999px;
+  z-index:10;
+  background:rgba(255,255,255,.38);
+  backdrop-filter:blur(4px);
 }
 
-/* ═══ AVATAR ═══ */
+/* ─── AVATAR (lives inside banner now) ─── */
 .card-avatar-wrap{
-  position:relative;z-index:2;
-  margin-bottom:-28px;
+  position:relative;z-index:5;
+  display:flex;justify-content:center;
 }
 .card-avatar{
-  width:80px;height:80px;border-radius:50%;
-  border:3px solid rgba(14,11,26,.97);
+  width:110px;height:110px;border-radius:50%;
+  border:5px solid rgba(255,255,255,.7);
   overflow:hidden;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:24px;font-weight:700;
+  font-family:var(--sans);font-size:36px;font-weight:900;
   flex-shrink:0;
-  box-shadow:0 8px 24px rgba(0,0,0,.6);
+  box-shadow:0 8px 32px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
 }
 .card-avatar img{width:100%;height:100%;object-fit:cover}
 
-/* ═══ IDENTITY ═══ */
-.card-identity{
-  padding:36px 20px 16px;
-  border-bottom:1px solid var(--b);
+/* banner name strip */
+.banner-name{
+  position:relative;z-index:5;
+  text-align:center;
 }
-.card-name{
-  font-size:22px;font-weight:600;
-  color:var(--ip-white);
-  letter-spacing:.01em;line-height:1.1;
-  margin-bottom:4px;
+.banner-name-text{
+  font-size:22px;font-weight:900;
+  color:white;
+  text-shadow:0 2px 12px rgba(0,0,0,.18);
+  letter-spacing:-.01em;
+  line-height:1.1;
 }
-.card-ref{
-  font-family:var(--mono);font-size:11px;
-  color:var(--t3);letter-spacing:.08em;
+.banner-ref{
+  font-size:12px;font-weight:700;
+  color:rgba(255,255,255,.72);
+  margin-top:3px;
+  letter-spacing:.04em;
 }
+
+/* ─── BODY ─── */
+.card-body{
+  padding:18px 28px 26px;
+  display:flex;flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+
+/* ─── SOCIAL ROW ─── */
+.social-row{
+  display:flex;gap:16px;
+  margin:18px 0;
+  align-items:center;justify-content:center;
+}
+.social-icon{
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;
+  background:var(--warm);
+  transition:transform .15s;
+  cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.07);
+}
+.social-icon:hover{transform:scale(1.18) rotate(-5deg)}
+
+/* ─── TAGS ─── */
 .card-tags{
-  display:flex;gap:6px;flex-wrap:wrap;
-  margin-top:10px;
+  display:flex;gap:8px;flex-wrap:wrap;
+  justify-content:center;
+  margin:6px 0 14px;
 }
 .card-tag{
-  font-family:var(--mono);font-size:8px;font-weight:700;
-  padding:3px 9px;border:1px solid;border-radius:999px;
-  letter-spacing:.06em;
+  font-size:12px;font-weight:800;
+  padding:6px 16px;border-radius:999px;
+  letter-spacing:.01em;
 }
 
-/* ═══ SECTIONS ═══ */
-.card-section{
-  border-bottom:1px solid var(--b);
+/* ─── BIO ─── */
+.card-bio{
+  font-size:14px;font-weight:600;
+  color:var(--text2);
+  line-height:1.6;
+  max-width:300px;
+  margin:0 auto;
 }
-.card-sec-hdr{
-  display:flex;align-items:center;gap:8px;
-  padding:12px 20px;cursor:pointer;
-  user-select:none;transition:background .12s;
-}
-.card-sec-hdr:hover{background:rgba(255,255,255,.03)}
-.card-sec-icon{
-  width:28px;height:28px;border-radius:8px;
-  background:rgba(255,255,255,.05);border:1px solid var(--b);
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.card-sec-icon svg{
-  width:13px;height:13px;stroke:currentColor;
-  stroke-width:1.6;fill:none;
-  stroke-linecap:round;stroke-linejoin:round;
-}
-.card-sec-title{
-  font-family:var(--mono);font-size:8px;font-weight:700;
-  letter-spacing:.14em;text-transform:uppercase;
-  color:var(--t2);flex:1;
-}
-.card-sec-meta{
-  font-family:var(--mono);font-size:8px;color:var(--t3);
-}
-.card-sec-chv{
-  font-family:var(--mono);font-size:9px;color:var(--t3);
-  transition:transform .2s;
-}
-.card-sec-hdr.open .card-sec-chv{transform:rotate(90deg)}
-.card-sec-body{
-  padding:0 20px 14px;
-  display:none;
-}
-.card-sec-hdr.open + .card-sec-body{display:block}
-
-/* ═══ MINI TIMETABLE HEATMAP ═══ */
-.mini-heat{margin-top:4px}
-.mh-hours{
-  display:flex;gap:2px;margin-left:32px;margin-bottom:3px;
-}
-.mh-hlbl{
-  width:20px;text-align:center;
-  font-family:var(--mono);font-size:6px;color:var(--t3);
-  flex-shrink:0;
-}
-.mh-row{display:flex;align-items:center;gap:2px;margin-bottom:2px}
-.mh-day{
-  font-family:var(--mono);font-size:7px;font-weight:700;
-  color:var(--t3);width:28px;flex-shrink:0;
-  letter-spacing:.04em;
-}
-.mh-cell{
-  width:20px;height:16px;border-radius:3px;
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.04);
-  flex-shrink:0;transition:all .1s;
-  cursor:default;
-  display:flex;align-items:center;justify-content:center;
-}
-.mh-cell.confirmed{border:none}
-.mh-cell.requested{border:none}
-.mh-legend{
-  display:flex;gap:12px;margin-top:8px;
-}
-.mh-leg{
-  display:flex;align-items:center;gap:5px;
-  font-family:var(--mono);font-size:7px;color:var(--t3);
-}
-.mh-leg-dot{width:10px;height:10px;border-radius:2px}
-
-/* ═══ INFO ROWS ═══ */
-.info-row{
-  display:flex;align-items:center;gap:10px;
-  padding:6px 0;
-  border-bottom:1px solid rgba(255,255,255,.03);
-}
-.info-row:last-child{border-bottom:none}
-.info-key{
-  font-family:var(--mono);font-size:8px;color:var(--t3);
-  width:110px;flex-shrink:0;letter-spacing:.04em;
-}
-.info-val{
-  font-family:var(--mono);font-size:9px;color:var(--t);
-  flex:1;
+.card-company{
+  font-size:13px;font-weight:700;
+  margin-top:10px;
 }
 
-/* ═══ HOURS BAR (teachers) ═══ */
-.hours-bar-wrap{margin:8px 0}
-.hours-bar-track{
-  height:8px;background:rgba(255,255,255,.05);
-  border-radius:4px;overflow:hidden;
+/* ─── HOURS BAR ─── */
+.hours-wrap{
+  width:100%;
+  background:var(--warm);
+  border-radius:16px;
+  padding:14px 16px;
+  margin-top:18px;
 }
-.hours-bar-fill{
-  height:100%;border-radius:4px;
-  transition:width .6s ease;
-}
-.hours-bar-labels{
+.hours-label{
   display:flex;justify-content:space-between;
-  margin-top:4px;
-  font-family:var(--mono);font-size:7.5px;color:var(--t3);
+  font-size:12px;font-weight:800;
+  color:var(--text2);
+  margin-bottom:8px;
+}
+.hours-track{
+  height:10px;background:rgba(0,0,0,.06);
+  border-radius:99px;overflow:hidden;
+}
+.hours-fill{
+  height:100%;border-radius:99px;
+  transition:width .8s cubic-bezier(.22,.61,.36,1);
 }
 
-/* ═══ ACTION TILES ═══ */
+/* ─── TURMAS ─── */
+.turma-row{
+  display:flex;flex-wrap:wrap;gap:6px;
+  justify-content:center;
+  margin-top:14px;width:100%;
+}
+.turma-pill{
+  font-size:11px;font-weight:800;
+  padding:5px 13px;border-radius:999px;
+  letter-spacing:.02em;
+}
+
+/* ─── ACTIONS ─── */
 .card-actions{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:8px;padding:14px 20px 20px;
+  display:flex;gap:10px;
+  margin-top:20px;
+  justify-content:center;
+  width:100%;
 }
 .card-action{
+  flex:1;
   display:flex;flex-direction:column;align-items:center;
-  gap:7px;padding:14px 8px;
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--b);border-radius:14px;
+  gap:6px;padding:14px 8px;
+  background:var(--warm);
+  border:none;border-radius:20px;
   cursor:pointer;transition:all .18s;
+  font-family:var(--sans);
 }
 .card-action:hover{
-  background:rgba(255,255,255,.07);
-  border-color:var(--b2);
-  transform:translateY(-2px);
+  transform:translateY(-3px);
+  box-shadow:0 8px 20px rgba(0,0,0,.1);
 }
-.card-action-icon{
-  width:40px;height:40px;border-radius:12px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:18px;
-}
-.card-action-lbl{
-  font-family:var(--mono);font-size:7.5px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;
-  color:var(--t2);text-align:center;
-}
-
-/* ═══ TURMAS PILLS ═══ */
-.turma-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.turma-pill{
-  font-family:var(--mono);font-size:8px;font-weight:600;
-  padding:3px 10px;border:1px solid;border-radius:999px;
+.ca-icon{font-size:22px}
+.ca-lbl{
+  font-size:10px;font-weight:800;
+  color:var(--text2);
   letter-spacing:.04em;
+  text-transform:uppercase;
 }
 
-/* ═══ DAY DOTS ═══ */
-.day-dots{display:flex;gap:4px}
-.day-dot{
-  width:26px;height:26px;border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:7.5px;font-weight:700;
-  border:1px solid;
-}
-
-/* ═══ DIVIDER ═══ */
-.card-divider{
-  height:1px;background:var(--b);
-  margin:0 20px;
-}
-
-/* ═══ DEMO PAGE ═══ */
+/* ─── DEMO TITLE ─── */
 .demo-title{
-  font-family:var(--mono);font-size:8px;font-weight:700;
-  letter-spacing:.18em;text-transform:uppercase;
-  color:rgba(255,255,255,.2);margin-bottom:6px;text-align:center;
+  font-family:var(--sans);font-size:12px;font-weight:700;
+  color:rgba(58,48,64,.35);letter-spacing:.1em;
+  text-transform:uppercase;text-align:center;
 }
 </style>
 </head>
 <body>
 
-<div class="demo-title">ALM · Card Component · Demo</div>
+<div class="demo-title">ALM · Child View · Demo</div>
 <div class="demo-row">
-  <button class="demo-btn" onclick="demoStudent('infantil')">👶 Infantil Student</button>
-  <button class="demo-btn" onclick="demoStudent('juvenil')">🧒 Juvenil Student</button>
-  <button class="demo-btn" onclick="demoStudent('geral')">📘 Geral Student</button>
-  <button class="demo-btn" onclick="demoStudent('exam')">🎓 Exames Student</button>
+  <button class="demo-btn" onclick="demoStudent('infantil')">👶 Infantil</button>
+  <button class="demo-btn" onclick="demoStudent('juvenil')">🧒 Juvenil</button>
+  <button class="demo-btn" onclick="demoStudent('geral')">📘 Geral</button>
+  <button class="demo-btn" onclick="demoStudent('exam')">🎓 Exames</button>
   <button class="demo-btn" onclick="demoTeacher('EN')">🇬🇧 Teacher EN</button>
   <button class="demo-btn" onclick="demoTeacher('FR')">🇫🇷 Teacher FR</button>
 </div>
 
-<!-- ═══ CARD OVERLAY ═══ -->
-<div class="card-overlay" id="card-overlay" onclick="handleCardOverlay(event)">
+<!-- OVERLAY -->
+<div class="card-overlay" id="card-overlay" onclick="handleOverlay(event)">
   <div class="alm-card" id="alm-card" onclick="event.stopPropagation()"></div>
 </div>
 
 <script>
-/* ═══════════════════════════════════════
-   DEPT → iPhone 16 colour mapping
-═══════════════════════════════════════ */
-const DEPT_COLOURS = {
-  infantil: { bg:'#B0D4D2', dark:'#5A9E9B', text:'#0D3533', label:'Infantil',  tag:'rgba(176,212,210,.18)', tagBorder:'rgba(176,212,210,.4)',  tagText:'#7ABAB8' },
-  juvenil:  { bg:'#F2ADDA', dark:'#C96FAA', text:'#3D0B28', label:'Juvenil',   tag:'rgba(242,173,218,.18)', tagBorder:'rgba(242,173,218,.4)',  tagText:'#E07DC0' },
-  geral:    { bg:'#9AADF6', dark:'#4A6DE8', text:'#0A1A4A', label:'Geral',     tag:'rgba(154,173,246,.18)', tagBorder:'rgba(154,173,246,.4)',  tagText:'#7090F0' },
-  exam:     { bg:'#BFA48F', dark:'#8A6A44', text:'#2A1A08', label:'Exames',    tag:'rgba(191,164,143,.18)', tagBorder:'rgba(191,164,143,.4)',  tagText:'#A08060' },
+/* ── PALETTE ── */
+const DEPT = {
+  infantil:{ grad:['#B0D4D2','#7DC8C8'], wave:'#B0D4D2', badgeC:'#3A7A78', badgeBg:'rgba(176,212,210,.45)', tag:'#7ABAB8', tagBg:'rgba(176,212,210,.25)', label:'Infantil 🌱' },
+  juvenil: { grad:['#F2ADDA','#E888CC'], wave:'#F2ADDA', badgeC:'#8A2060', badgeBg:'rgba(242,173,218,.45)', tag:'#D060A8', tagBg:'rgba(242,173,218,.25)', label:'Juvenil 🌟' },
+  geral:   { grad:['#9AADF6','#7090F8'], wave:'#9AADF6', badgeC:'#2040AA', badgeBg:'rgba(154,173,246,.45)', tag:'#5070E8', tagBg:'rgba(154,173,246,.25)', label:'Geral 📘' },
+  exam:    { grad:['#F0C890','#D4A060'], wave:'#F0C890', badgeC:'#7A4A10', badgeBg:'rgba(240,200,144,.45)', tag:'#B07830', tagBg:'rgba(240,200,144,.25)', label:'Exames 🎓' },
 };
 
-const LANG_COLOURS = {
-  EN: { col:'#4A8FF5', bg:'rgba(74,143,245,.15)', border:'rgba(74,143,245,.35)', flag:'🇬🇧' },
-  PT: { col:'#C8A44A', bg:'rgba(200,164,74,.15)',  border:'rgba(200,164,74,.35)',  flag:'🇵🇹' },
-  FR: { col:'#9B5ECA', bg:'rgba(155,94,202,.15)',  border:'rgba(155,94,202,.35)',  flag:'🇫🇷' },
-  ES: { col:'#E8A020', bg:'rgba(232,160,32,.15)',  border:'rgba(232,160,32,.35)',  flag:'🇪🇸' },
-  DE: { col:'#28C8B0', bg:'rgba(40,200,176,.15)',  border:'rgba(40,200,176,.35)',  flag:'🇩🇪' },
+const LANG = {
+  EN:{ col:'#4A8FF5', bg:'rgba(74,143,245,.18)', flag:'🇬🇧' },
+  PT:{ col:'#C8A44A', bg:'rgba(200,164,74,.18)',  flag:'🇵🇹' },
+  FR:{ col:'#9B5ECA', bg:'rgba(155,94,202,.18)',  flag:'🇫🇷' },
+  ES:{ col:'#E8A020', bg:'rgba(232,160,32,.18)',  flag:'🇪🇸' },
+  DE:{ col:'#28C8B0', bg:'rgba(40,200,176,.18)',  flag:'🇩🇪' },
 };
 
-const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
-const HOURS = [8,9,10,11,14,15,16,17,18,19,20];
-
-/* Avatar colour from name seed */
 function avColor(name){
   let h=0;
-  for(let i=0;i<(name||'?').length;i++) h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
-  const hues=[200,320,160,270,30,340,22,285];
-  const hue=hues[Math.abs(h)%hues.length];
-  const sat=55+(Math.abs(h>>4)%20);
-  const lit=52+(Math.abs(h>>8)%12);
-  return{bg:`hsl(${hue},${sat}%,22%)`,text:`hsl(${hue},${sat+10}%,72%)`};
+  for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))&0xffffffff;
+  const palette=[
+    {bg:'#FFD6E0',text:'#C94070'},{bg:'#C8E6F5',text:'#2878B0'},
+    {bg:'#D4F0C8',text:'#3A8830'},{bg:'#E8D8F8',text:'#7040C0'},
+    {bg:'#FFE8C0',text:'#C07020'},{bg:'#C8F0E8',text:'#208870'},
+  ];
+  return palette[Math.abs(h)%palette.length];
+}
+function initials(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+
+/* wave path */
+function waveSvg(color){
+  return `<svg class="banner-wave" viewBox="0 0 400 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,30 C60,55 120,5 200,28 C280,50 340,10 400,30 L400,60 L0,60 Z" fill="white"/>
+  </svg>`;
 }
 
-function initials(name){
-  return (name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-}
-
-/* ═══════════════════════════════════════
-   BUILD STUDENT CARD
-   data: { ref, name, dept, level, branch,
-           lang, photo, availability,
-           turma, status, enrolDate }
-═══════════════════════════════════════ */
+/* ── STUDENT CARD ── */
 function buildStudentCard(data){
-  const dc   = DEPT_COLOURS[data.dept] || DEPT_COLOURS.geral;
-  const lc   = LANG_COLOURS[data.lang] || LANG_COLOURS.EN;
-  const av   = avColor(data.name);
-  const ini  = initials(data.name);
-  const avail= data.availability || {};
-
-  // Heatmap
-  const heatRows = DAYS.map(day=>{
-    const cells = HOURS.map(h=>{
-      const key=`${day}_${h}`;
-      const confirmed = avail[key]==='confirmed';
-      const requested = avail[key]==='requested';
-      let bg='rgba(255,255,255,.04)';
-      if(confirmed) bg=dc.bg+'88';
-      if(requested) bg=dc.bg+'44';
-      return `<div class="mh-cell${confirmed?' confirmed':''}${requested?' requested':''}"
-        style="background:${bg};border-color:${confirmed?dc.bg+'66':'transparent'}"
-        title="${day} ${h}h${confirmed?' · confirmado':requested?' · pedido':''}">
-      </div>`;
-    }).join('');
-    return `<div class="mh-row">
-      <span class="mh-day">${day}</span>${cells}
-    </div>`;
-  }).join('');
-
-  const hourLabels = HOURS.map(h=>`<div class="mh-hlbl">${h}</div>`).join('');
-
-  // Day dots from availability
-  const dayDots = DAYS.map(day=>{
-    const hasSlot = HOURS.some(h=>avail[`${day}_${h}`]);
-    return `<div class="day-dot" style="background:${hasSlot?dc.tag:'rgba(255,255,255,.03)'};border-color:${hasSlot?dc.tagBorder:'rgba(255,255,255,.06)'};color:${hasSlot?dc.tagText:'rgba(255,255,255,.2)'}">
-      ${day.slice(0,1)}
-    </div>`;
-  }).join('');
+  const dc = DEPT[data.dept]||DEPT.geral;
+  const lc = LANG[data.lang]||LANG.EN;
+  const av = avColor(data.name);
+  const ini= initials(data.name);
 
   return `
-    <!-- BANNER -->
-    <div class="card-banner" style="--card-color:${dc.bg};--card-color-d:${dc.dark}">
-      <div class="banner-bg"></div>
-      <div class="banner-stripe"></div>
+    <div class="card-banner">
+      <div class="banner-bg" style="background:linear-gradient(145deg,${dc.grad[0]},${dc.grad[1]})"></div>
       <button class="banner-close" onclick="closeCard()">✕</button>
-      <div class="banner-dept" style="background:${dc.tag};border-color:${dc.tagBorder};color:${dc.tagText}">
-        ${dc.label}
-      </div>
+      <div class="dept-badge" style="color:${dc.badgeC};background:${dc.badgeBg}">${dc.label}</div>
       <div class="card-avatar-wrap">
         <div class="card-avatar" style="background:${av.bg}">
-          ${data.photo
-            ? `<img src="${data.photo}" alt="${data.name}"/>`
-            : `<span style="color:${av.text}">${ini}</span>`}
+          ${data.photo?`<img src="${data.photo}" alt="${data.name}"/>`:`<span style="color:${av.text}">${ini}</span>`}
         </div>
+      </div>
+      <div class="banner-name">
+        <div class="banner-name-text">${data.name||'—'}</div>
+        <div class="banner-ref">${data.ref||'—'}</div>
       </div>
     </div>
 
-    <!-- IDENTITY -->
-    <div class="card-identity">
-      <div class="card-name">${data.name||'—'}</div>
-      <div class="card-ref">${data.ref||'—'}</div>
-      <div class="card-tags" style="margin-top:10px">
-        <span class="card-tag" style="background:${dc.tag};border-color:${dc.tagBorder};color:${dc.tagText}">${data.level||'—'}</span>
-        <span class="card-tag" style="background:${lc.bg};border-color:${lc.border};color:${lc.col}">${lc.flag} ${data.lang||'EN'}</span>
-        ${data.turma ? `<span class="card-tag" style="background:rgba(29,184,122,.12);border-color:rgba(29,184,122,.3);color:#1DB87A">✓ ${data.turma}</span>` : ''}
-        <span class="card-tag" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.4)">${data.branch||'—'}</span>
+    <div class="card-body">
+      <div class="card-tags">
+        <span class="card-tag" style="background:${dc.tagBg};color:${dc.tag}">${data.level||'—'}</span>
+        <span class="card-tag" style="background:${lc.bg};color:${lc.col}">${lc.flag} ${data.lang||'EN'}</span>
+        ${data.turma?`<span class="card-tag" style="background:rgba(93,214,138,.2);color:#28A860">✓ ${data.turma}</span>`:''}
       </div>
-      <div style="margin-top:10px">${dayDots.replace(/<\/div>/g,'</div>').split('</div>').join('</div>')}</div>
-      <div class="day-dots" style="margin-top:8px">${dayDots}</div>
-    </div>
 
-    <!-- HORÁRIO SECTION -->
-    <div class="card-section">
-      <div class="card-sec-hdr open" onclick="toggleSec(this)">
-        <div class="card-sec-icon" style="color:${dc.tagText}">
-          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-        </div>
-        <span class="card-sec-title">Horário</span>
-        <span class="card-sec-meta">${Object.keys(avail).length} slots</span>
-        <span class="card-sec-chv">›</span>
+      <div class="card-bio">
+        ${data.branch||'Funchal'} · Inscrito em ${data.enrolDate||'—'}
       </div>
-      <div class="card-sec-body">
-        <div class="mini-heat">
-          <div class="mh-hours">${hourLabels}</div>
-          ${heatRows}
-        </div>
-        <div class="mh-legend">
-          <div class="mh-leg">
-            <div class="mh-leg-dot" style="background:${dc.bg}88"></div>
-            Confirmado
-          </div>
-          <div class="mh-leg">
-            <div class="mh-leg-dot" style="background:${dc.bg}44"></div>
-            Pedido
-          </div>
-          <div class="mh-leg">
-            <div class="mh-leg-dot" style="background:rgba(255,255,255,.04)"></div>
-            Livre
-          </div>
-        </div>
+      <div class="card-company" style="color:${dc.tag}">
+        ${data.status==='atribuido'?'✓ Turma atribuída':'⏳ A aguardar atribuição'}
       </div>
-    </div>
 
-    <!-- INSCRIÇÃO SECTION -->
-    <div class="card-section">
-      <div class="card-sec-hdr" onclick="toggleSec(this)">
-        <div class="card-sec-icon" style="color:${lc.col}">
-          <svg viewBox="0 0 16 16"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M6 6h4M6 9h4M6 12h2"/></svg>
-        </div>
-        <span class="card-sec-title">Inscrição</span>
-        <span class="card-sec-meta">${data.status||'activo'}</span>
-        <span class="card-sec-chv">›</span>
-      </div>
-      <div class="card-sec-body">
-        <div class="info-row"><span class="info-key">Referência</span><span class="info-val">${data.ref||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Nível</span><span class="info-val">${data.level||'—'} · ${data.dept||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Língua</span><span class="info-val">${lc.flag} ${data.lang||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Filial</span><span class="info-val">${data.branch||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Data inscrição</span><span class="info-val">${data.enrolDate||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Estado</span><span class="info-val" style="color:${data.status==='atribuido'?'#1DB87A':'rgba(232,184,75,.9)'}">${data.status||'pendente'}</span></div>
-      </div>
-    </div>
-
-    <!-- ACTIONS -->
-    <div class="card-actions">
-      <div class="card-action" onclick="cardAction('timetable')">
-        <div class="card-action-icon" style="background:${dc.tag}">
-          <span style="font-size:20px">📅</span>
-        </div>
-        <span class="card-action-lbl">Horário</span>
-      </div>
-      <div class="card-action" onclick="cardAction('move')">
-        <div class="card-action-icon" style="background:rgba(154,173,246,.15)">
-          <span style="font-size:20px">↔</span>
-        </div>
-        <span class="card-action-lbl">Mover</span>
-      </div>
-      <div class="card-action" onclick="cardAction('message')">
-        <div class="card-action-icon" style="background:rgba(29,184,122,.12)">
-          <span style="font-size:20px">✉</span>
-        </div>
-        <span class="card-action-lbl">Mensagem</span>
-      </div>
-      <div class="card-action" onclick="cardAction('payment')">
-        <div class="card-action-icon" style="background:rgba(232,160,32,.12)">
-          <span style="font-size:20px">💳</span>
-        </div>
-        <span class="card-action-lbl">Pagamento</span>
-      </div>
-      <div class="card-action" onclick="cardAction('history')">
-        <div class="card-action-icon" style="background:rgba(155,94,202,.12)">
-          <span style="font-size:20px">📖</span>
-        </div>
-        <span class="card-action-lbl">Historial</span>
-      </div>
-      <div class="card-action" onclick="cardAction('docs')">
-        <div class="card-action-icon" style="background:rgba(255,255,255,.05)">
-          <span style="font-size:20px">📎</span>
-        </div>
-        <span class="card-action-lbl">Documentos</span>
+      <div class="card-actions">
+        <button class="card-action" onclick="cardAction('timetable')">
+          <span class="ca-icon">📅</span><span class="ca-lbl">Horário</span>
+        </button>
+        <button class="card-action" onclick="cardAction('message')">
+          <span class="ca-icon">✉️</span><span class="ca-lbl">Mensagem</span>
+        </button>
+        <button class="card-action" onclick="cardAction('payment')">
+          <span class="ca-icon">💳</span><span class="ca-lbl">Pagamento</span>
+        </button>
       </div>
     </div>`;
 }
 
-/* ═══════════════════════════════════════
-   BUILD TEACHER CARD
-   data: { code, name, lang, photo,
-           contractH, usedH, turmas,
-           branch, native, email }
-═══════════════════════════════════════ */
+/* ── TEACHER CARD ── */
 function buildTeacherCard(data){
-  const lc  = LANG_COLOURS[data.lang] || LANG_COLOURS.EN;
+  const lc  = LANG[data.lang]||LANG.EN;
   const av  = avColor(data.name);
   const ini = initials(data.name);
-  const pct = data.contractH ? Math.round(data.usedH/data.contractH*100) : 0;
-  const barCol = pct>=90?'#E8455A':pct>=75?'#E8B84B':'#1DB87A';
-  const turmas = data.turmas || [];
+  const pct = data.contractH?Math.round(data.usedH/data.contractH*100):0;
+  const barCol= pct>=90?'#E8455A':pct>=75?'#F0B429':'#5DD68A';
+  const turmas= data.turmas||[];
 
-  const turmaHtml = turmas.map(t=>
-    `<div class="turma-pill" style="background:${lc.bg};border-color:${lc.border};color:${lc.col}">${t}</div>`
-  ).join('');
+  const teacherGrad = [lc.col+'CC', lc.col+'88'];
 
   return `
-    <!-- BANNER -->
-    <div class="card-banner" style="--card-color:${lc.col};--card-color-d:${lc.col}">
-      <div class="banner-bg"></div>
-      <div class="banner-stripe"></div>
+    <div class="card-banner">
+      <div class="banner-bg" style="background:linear-gradient(145deg,${teacherGrad[0]},${teacherGrad[1]})"></div>
       <button class="banner-close" onclick="closeCard()">✕</button>
-      <div class="banner-dept" style="background:${lc.bg};border-color:${lc.border};color:${lc.col}">
-        ${lc.flag} ${data.lang} ${data.native?'· Native':''}
-      </div>
+      <div class="dept-badge" style="color:white;background:rgba(255,255,255,.35)">${lc.flag} ${data.lang}${data.native?' · Nativo':''}</div>
       <div class="card-avatar-wrap">
-        <div class="card-avatar" style="background:${av.bg};border-color:rgba(14,11,26,.97)">
-          ${data.photo
-            ? `<img src="${data.photo}" alt="${data.name}"/>`
-            : `<span style="color:${av.text}">${ini}</span>`}
+        <div class="card-avatar" style="background:${av.bg}">
+          ${data.photo?`<img src="${data.photo}" alt="${data.name}"/>`:`<span style="color:${av.text}">${ini}</span>`}
         </div>
+      </div>
+      <div class="banner-name">
+        <div class="banner-name-text">${data.name||'—'}</div>
+        <div class="banner-ref">${data.code||'—'} · Professor</div>
       </div>
     </div>
 
-    <!-- IDENTITY -->
-    <div class="card-identity">
-      <div class="card-name">${data.name||'—'}</div>
-      <div class="card-ref" style="color:${lc.col}">${data.code||'—'} · Professor</div>
-      <div class="card-tags" style="margin-top:10px">
-        <span class="card-tag" style="background:${lc.bg};border-color:${lc.border};color:${lc.col}">${lc.flag} ${data.lang}</span>
-        ${data.native?`<span class="card-tag" style="background:rgba(29,184,122,.12);border-color:rgba(29,184,122,.3);color:#1DB87A">Native</span>`:''}
-        <span class="card-tag" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.4)">${data.branch||'—'}</span>
+    <div class="card-body">
+      <div class="card-tags">
+        <span class="card-tag" style="background:${lc.bg};color:${lc.col}">${lc.flag} ${data.lang}</span>
+        ${data.native?`<span class="card-tag" style="background:rgba(93,214,138,.2);color:#28A860">Nativo</span>`:''}
+        <span class="card-tag" style="background:rgba(0,0,0,.05);color:var(--text2)">${data.branch||'Funchal'}</span>
       </div>
 
-      <!-- Hours bar -->
-      <div class="hours-bar-wrap" style="margin-top:14px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-          <span style="font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase">Horas semanais</span>
-          <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${barCol}">${data.usedH||0}h / ${data.contractH||22}h</span>
+      <div class="hours-wrap">
+        <div class="hours-label">
+          <span>Horas semanais</span>
+          <span style="color:${barCol}">${data.usedH||0}h / ${data.contractH||22}h</span>
         </div>
-        <div class="hours-bar-track">
-          <div class="hours-bar-fill" style="width:${Math.min(100,pct)}%;background:${barCol}"></div>
-        </div>
-        <div class="hours-bar-labels">
-          <span>0h</span>
-          <span style="color:${barCol}">${pct}% contrato</span>
-          <span>${data.contractH||22}h</span>
+        <div class="hours-track">
+          <div class="hours-fill" style="width:${Math.min(100,pct)}%;background:${barCol}"></div>
         </div>
       </div>
-    </div>
 
-    <!-- TURMAS SECTION -->
-    <div class="card-section">
-      <div class="card-sec-hdr open" onclick="toggleSec(this)">
-        <div class="card-sec-icon" style="color:${lc.col}">
-          <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-        </div>
-        <span class="card-sec-title">Turmas</span>
-        <span class="card-sec-meta">${turmas.length} atribuídas</span>
-        <span class="card-sec-chv">›</span>
-      </div>
-      <div class="card-sec-body">
-        <div class="turma-pills">${turmaHtml||'<span style="font-family:var(--mono);font-size:8px;color:var(--t3)">Sem turmas atribuídas</span>'}</div>
-      </div>
-    </div>
+      ${turmas.length?`
+      <div class="turma-row">
+        ${turmas.map(t=>`<div class="turma-pill" style="background:${lc.bg};color:${lc.col}">${t}</div>`).join('')}
+      </div>`:''}
 
-    <!-- FICHA SECTION -->
-    <div class="card-section">
-      <div class="card-sec-hdr" onclick="toggleSec(this)">
-        <div class="card-sec-icon" style="color:var(--t2)">
-          <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
-        </div>
-        <span class="card-sec-title">Ficha</span>
-        <span class="card-sec-meta">${data.email||'—'}</span>
-        <span class="card-sec-chv">›</span>
-      </div>
-      <div class="card-sec-body">
-        <div class="info-row"><span class="info-key">Código</span><span class="info-val">${data.code||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Língua</span><span class="info-val">${lc.flag} ${data.lang||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Filial principal</span><span class="info-val">${data.branch||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Email</span><span class="info-val" style="color:${lc.col}">${data.email||'—'}</span></div>
-        <div class="info-row"><span class="info-key">Nativo</span><span class="info-val">${data.native?'✓ Sim':'—'}</span></div>
-        <div class="info-row"><span class="info-key">Contrato</span><span class="info-val">${data.contractH||22}h / semana</span></div>
-      </div>
-    </div>
-
-    <!-- ACTIONS -->
-    <div class="card-actions">
-      <div class="card-action" onclick="cardAction('schedule')">
-        <div class="card-action-icon" style="background:${lc.bg}">
-          <span style="font-size:20px">📅</span>
-        </div>
-        <span class="card-action-lbl">Horário</span>
-      </div>
-      <div class="card-action" onclick="cardAction('turmas')">
-        <div class="card-action-icon" style="background:rgba(154,173,246,.15)">
-          <span style="font-size:20px">📚</span>
-        </div>
-        <span class="card-action-lbl">Turmas</span>
-      </div>
-      <div class="card-action" onclick="cardAction('message')">
-        <div class="card-action-icon" style="background:rgba(29,184,122,.12)">
-          <span style="font-size:20px">✉</span>
-        </div>
-        <span class="card-action-lbl">Mensagem</span>
+      <div class="card-actions">
+        <button class="card-action" onclick="cardAction('schedule')">
+          <span class="ca-icon">📅</span><span class="ca-lbl">Horário</span>
+        </button>
+        <button class="card-action" onclick="cardAction('turmas')">
+          <span class="ca-icon">📚</span><span class="ca-lbl">Turmas</span>
+        </button>
+        <button class="card-action" onclick="cardAction('message')">
+          <span class="ca-icon">✉️</span><span class="ca-lbl">Mensagem</span>
+        </button>
       </div>
     </div>`;
 }
 
-/* ═══════════════════════════════════════
-   OPEN / CLOSE
-═══════════════════════════════════════ */
+/* ── OPEN / CLOSE ── */
 function openCard(html){
-  document.getElementById('alm-card').innerHTML = html;
+  document.getElementById('alm-card').innerHTML=html;
   document.getElementById('card-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow='hidden';
 }
 function closeCard(){
   document.getElementById('card-overlay').classList.remove('open');
-  document.body.style.overflow = '';
+  document.body.style.overflow='';
 }
-function handleCardOverlay(e){
+function handleOverlay(e){
   if(e.target===document.getElementById('card-overlay')) closeCard();
 }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCard(); });
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCard();});
+function cardAction(t){console.log('Action:',t);}
 
-function toggleSec(hdr){
-  hdr.classList.toggle('open');
-}
-
-function cardAction(type){
-  console.log('Action:', type);
-  // Hook your own handlers here
-}
-
-/* Public API */
-function openStudentCard(data){ openCard(buildStudentCard(data)); }
-function openTeacherCard(data){ openCard(buildTeacherCard(data)); }
-
-/* ═══════════════════════════════════════
-   DEMO DATA
-═══════════════════════════════════════ */
-function makeAvail(days, hours){
-  const a={};
-  days.forEach(d=> hours.forEach(h=> a[`${d}_${h}`]='requested'));
-  return a;
-}
-
+/* ── DEMO DATA ── */
 function demoStudent(dept){
-  const demos = {
-    infantil:{ref:'ALM-0342',name:'Beatriz Nóbrega',dept:'infantil',level:'PI-a2',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'12/09/2025',
-      availability:makeAvail(['SEG','QUA'],[9,10,11])},
-    juvenil: {ref:'ALM-0615',name:'Artur Alves Lopes',dept:'juvenil',level:'Pj1',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'08/09/2025',
-      availability:makeAvail(['TER','QUI'],[17,18])},
-    geral:   {ref:'ALM-0870',name:'Sofia Marques',dept:'geral',level:'2º Ano',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0042',enrolDate:'05/09/2025',
-      availability:{...makeAvail(['SEG'],[14,15]),...makeAvail(['QUA'],[14,15])}},
-    exam:    {ref:'ALM-1124',name:'Tomás Ferreira',dept:'exam',level:'7th C1',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0088',enrolDate:'03/09/2025',
-      availability:makeAvail(['TER','QUI'],[8,9])},
+  const d={
+    infantil:{ref:'ALM-0342',name:'Beatriz Nóbrega',dept:'infantil',level:'PI-a2',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'12 Set 2025'},
+    juvenil: {ref:'ALM-0615',name:'Artur Alves Lopes',dept:'juvenil',level:'Pj1',lang:'EN',branch:'Funchal',status:'pendente',enrolDate:'08 Set 2025'},
+    geral:   {ref:'ALM-0870',name:'Sofia Marques',dept:'geral',level:'2º Ano',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0042',enrolDate:'05 Set 2025'},
+    exam:    {ref:'ALM-1124',name:'Tomás Ferreira',dept:'exam',level:'7th C1',lang:'EN',branch:'Funchal',status:'atribuido',turma:'2627-0088',enrolDate:'03 Set 2025'},
   };
-  openStudentCard(demos[dept]);
+  openCard(buildStudentCard(d[dept]));
+}
+function demoTeacher(lang){
+  const d={
+    EN:{code:'TK',name:'Tony Kennedy',lang:'EN',native:true,branch:'Funchal',contractH:22,usedH:18,turmas:['2627-0012','2627-0014','2627-0031','2627-0044','2627-0067','2627-0088']},
+    FR:{code:'CM',name:'Catherine Moreau',lang:'FR',native:false,branch:'Funchal',contractH:22,usedH:14,turmas:['2627-0091','2627-0095','2627-0099','2627-0102']},
+  };
+  openCard(buildTeacherCard(d[lang]));
 }
 
-function demoTeacher(lang){
-  const demos = {
-    EN:{code:'TK',name:'Tony Kennedy',lang:'EN',native:true,branch:'Funchal',contractH:22,usedH:18,
-       email:'tony.k@alm-madeira.com',
-       turmas:['2627-0012','2627-0014','2627-0031','2627-0044','2627-0067','2627-0088']},
-    FR:{code:'CM',name:'Catherine Moreau',lang:'FR',native:false,branch:'Funchal',contractH:22,usedH:14,
-       email:'c.moreau@alm-madeira.com',
-       turmas:['2627-0091','2627-0095','2627-0099','2627-0102']},
-  };
-  openTeacherCard(demos[lang]);
-}
+/* Auto-open Infantil on load so it's immediately visible */
+window.addEventListener('load',()=>demoStudent('infantil'));
 </script>
 </body>
 </html>
