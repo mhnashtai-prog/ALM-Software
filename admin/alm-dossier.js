@@ -1,581 +1,551 @@
-/* ═══════════════════════════════════════════════════════════════
-   ALM STUDENT DOSSIER  v4  —  openDossier(ref, role)
-   Centred neumorphic modal card.
-   Self-contained: injects its own CSS + HTML + JS.
-   role: 'director' | 'staff' | 'teacher'
-═══════════════════════════════════════════════════════════════ */
-
 (function(){
 
-/* ── CSS ─────────────────────────────────────────────────────── */
-const DOSSIER_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  --nm-bg:#E8E2F0;
-  --nm-light:rgba(255,255,255,.85);
-  --nm-dark:rgba(130,110,165,.30);
-  --nm-out: -4px -4px 10px var(--nm-light), 4px 4px 12px var(--nm-dark);
-  --nm-in:  inset 2px 2px 6px var(--nm-dark), inset -2px -2px 6px var(--nm-light);
-  --nm-rim: 0 0 0 1px rgba(255,255,255,.60), 0 0 0 2px rgba(120,100,160,.10);
-  --nm-text:#2E2640;
-  --nm-text2:#7A6E90;
-  --nm-text3:#B0A8C0;
-  --nm-sans:'Nunito',system-ui,sans-serif;
-  --nm-mono:'IBM Plex Mono',monospace;
-  --nm-c:#C8A44A;
-  --nm-green:#18884A;
-  --nm-green-bg:rgba(24,136,74,.14);
-  --nm-red:#C83040;
-  --nm-red-bg:rgba(200,48,64,.12);
-  --nm-amber:#8A5C10;
-  --nm-amber-bg:rgba(138,92,16,.13);
-  --nm-blue:#1850A0;
+  --bg: #FAFAFA;
+  --bg2: #F2F2F7;
+  --bg3: #FFFFFF;
+  --sep: rgba(60,60,67,.12);
+  --sep2: rgba(60,60,67,.06);
+  --label: rgba(60,60,67,.6);
+  --text: #1C1C1E;
+  --sub: #6C6C70;
+  --tint: #007AFF;
+  --red: #FF3B30;
+  --green: #34C759;
+  --amber: #FF9500;
+  --f: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* OVERLAY */
-.nm-overlay {
-  display:none;position:fixed;inset:0;z-index:2000;
-  background:rgba(28,20,48,.72);backdrop-filter:blur(10px);
-  align-items:center;justify-content:center;padding:16px;
-}
-.nm-overlay.open { display:flex; }
-
-/* CARD */
-.nm-card {
-  width:min(540px,96vw);
-  max-height:90dvh;
-  background:var(--nm-bg);
-  border-radius:28px;
-  box-shadow:var(--nm-out), var(--nm-rim);
-  border:.5px solid rgba(255,255,255,.65);
-  display:flex;flex-direction:column;overflow:hidden;
-  animation:nmCardIn .3s cubic-bezier(.22,.61,.36,1);
-}
-.nm-card.nm-exit {
-  animation:nmCardOut .22s ease forwards;
-}
-@keyframes nmCardIn  { from { opacity:0; transform:scale(.93) translateY(16px) } to { opacity:1; transform:none } }
-@keyframes nmCardOut { to   { opacity:0; transform:scale(.97) translateY(-10px) } }
-
-/* ── BANNER ── */
-.nm-banner {
-  position:relative;overflow:hidden;
-  padding:18px 18px 16px;
-  display:flex;align-items:flex-end;gap:15px;
-  min-height:128px;flex-shrink:0;
-}
-.nm-banner-bg   { position:absolute;inset:0;transition:background .35s; }
-.nm-banner-grain {
-  position:absolute;inset:0;opacity:.055;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.nm-banner-close {
-  position:absolute;top:12px;right:12px;z-index:20;
-  width:27px;height:27px;border-radius:50%;border:none;
-  background:rgba(255,255,255,.30);color:rgba(255,255,255,.88);
-  font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-family:var(--nm-sans);
-  box-shadow:0 1px 5px rgba(0,0,0,.20);transition:all .15s;
-}
-.nm-banner-close:hover { background:rgba(255,255,255,.55);transform:scale(1.09); }
-.nm-dept-badge {
-  position:absolute;top:12px;left:14px;z-index:20;
-  font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
-  padding:4px 12px;border-radius:999px;
-  background:rgba(255,255,255,.28);
-  box-shadow:0 1px 5px rgba(0,0,0,.12);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1C1C1E;
+    --bg2: #2C2C2E;
+    --bg3: #3A3A3C;
+    --sep: rgba(255,255,255,.12);
+    --sep2: rgba(255,255,255,.06);
+    --label: rgba(255,255,255,.5);
+    --text: #FFFFFF;
+    --sub: #98989D;
+  }
 }
 
-/* Avatar — neumorphic circle */
-.nm-avatar {
-  position:relative;z-index:5;flex-shrink:0;margin-bottom:2px;
-  width:78px;height:78px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:24px;font-weight:900;font-family:var(--nm-sans);
-  border:3.5px solid rgba(255,255,255,.60);
-  box-shadow:0 6px 22px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.25);
-  overflow:hidden;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.ds-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.4);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
 }
-.nm-avatar img { width:100%;height:100%;object-fit:cover; }
+.ds-overlay.open { display: flex; }
 
-.nm-banner-info { position:relative;z-index:5;flex:1;min-width:0;margin-bottom:2px; }
-.nm-banner-name {
-  font-size:20px;font-weight:900;color:white;line-height:1.1;
-  text-shadow:0 2px 12px rgba(0,0,0,.20);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.ds-sheet {
+  width: min(540px, 100vw);
+  max-height: 92dvh;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sheetUp .35s cubic-bezier(.32,.72,0,1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.nm-banner-ref  { font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.08em;margin-top:2px; }
+.ds-sheet.ds-exit {
+  animation: sheetDown .28s cubic-bezier(.32,.72,0,1) forwards;
+}
+@keyframes sheetUp   { from { transform: translateY(100%) } to { transform: none } }
+@keyframes sheetDown { to   { transform: translateY(100%) } }
 
-/* ── BANNER ACTION PILLS ── */
-.nm-ap {
-  display: flex; align-items: center; gap: 5px;
-  padding: 5px 13px; border-radius: 999px; border: none;
-  cursor: pointer; font-family: var(--nm-sans);
-  transition: all .14s ease;
+/* Grab handle */
+.ds-handle {
+  width: 36px; height: 5px;
+  border-radius: 999px;
+  background: var(--sep);
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
 
-  background: rgba(255,255,255,.18);
-  border: .5px solid rgba(255,255,255,.42);
-  box-shadow: 0 .5px 1px rgba(0,0,0,.10),
-              inset 0 .5px 0 rgba(255,255,255,.30);
+/* Header */
+.ds-header {
+  padding: 16px 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: .5px solid var(--sep);
+  flex-shrink: 0;
+}
+.ds-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 600;
+  font-family: var(--f);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ds-hinfo { flex: 1; min-width: 0; }
+.ds-name {
+  font-family: var(--f);
+  font-size: 17px; font-weight: 600;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ds-ref {
+  font-family: var(--f);
+  font-size: 13px; color: var(--sub);
+  margin-top: 1px;
+}
+.ds-close {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sub);
+  font-size: 14px; font-weight: 500;
+  font-family: var(--f);
+  flex-shrink: 0;
+}
+.ds-close:hover { background: var(--bg3); }
 
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -.01em;
-  color: rgba(255,255,255,.88);
+/* Tag row */
+.ds-tags {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px;
+  border-bottom: .5px solid var(--sep);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ds-tags::-webkit-scrollbar { display: none; }
+.ds-tag {
+  font-family: var(--f);
+  font-size: 12px; font-weight: 500;
+  color: var(--tint);
+  background: rgba(0,122,255,.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ds-tag.green { color: var(--green); background: rgba(52,199,89,.10); }
+.ds-tag.amber { color: var(--amber); background: rgba(255,149,0,.10); }
+.ds-tag.red   { color: var(--red);   background: rgba(255,59,48,.10); }
+
+/* Quick actions */
+.ds-actions {
+  display: flex;
+  padding: 12px 20px;
+  gap: 8px;
+  border-bottom: .5px solid var(--sep);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ds-actions::-webkit-scrollbar { display: none; }
+.ds-act {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 5px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ds-act-icon {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  transition: background .12s;
+}
+.ds-act:hover .ds-act-icon { background: var(--bg3); }
+.ds-act-lbl {
+  font-family: var(--f);
+  font-size: 10px; font-weight: 500;
+  color: var(--sub);
   white-space: nowrap;
 }
-.nm-ap:hover  { background: rgba(255,255,255,.30); transform: translateY(-1px); }
-.nm-ap:active { background: rgba(255,255,255,.12); transform: scale(.97); }
 
-.nm-ap-icon { font-size: 12px; line-height: 1; opacity: .55; filter: grayscale(1); }
-/* ── CHIP ROW (below banner) ── */
-.nm-chips {
-  display:flex;gap:7px;flex-wrap:wrap;
-  padding:12px 18px 0;flex-shrink:0;
+/* Availability mini */
+.ds-avail {
+  padding: 12px 20px;
+  border-bottom: .5px solid var(--sep);
+  flex-shrink: 0;
 }
-.nm-chip {
-  font-size:11px;font-weight:800;padding:5px 13px;border-radius:999px;
-  background:var(--nm-bg);
-  box-shadow:var(--nm-out);
-  border:.5px solid rgba(255,255,255,.72);
-  font-family:var(--nm-sans);
+.ds-avail-label {
+  font-family: var(--f);
+  font-size: 11px; font-weight: 500;
+  color: var(--label);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 8px;
 }
-
-/* ── AVAILABILITY GRID ── */
-.nm-avail-wrap {
-  margin:12px 18px 0;flex-shrink:0;
-  border-radius:16px;
-  background:var(--nm-bg);
-  box-shadow:var(--nm-in);
-  border:.5px solid rgba(255,255,255,.52);
-  padding:10px 12px 8px;
+.ds-avail-grid {
+  display: grid;
+  grid-template-columns: 32px repeat(11, 1fr) 6px repeat(7, 1fr);
+  gap: 2px;
 }
-.nm-avail-title {
-  font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--nm-text3);margin-bottom:7px;font-family:var(--nm-sans);
+.ds-ag-corner { }
+.ds-ag-h {
+  height: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: monospace; font-size: 7px;
+  color: var(--label);
 }
-.nm-avail-grid {
-  display:grid;
-  grid-template-columns:28px repeat(11,1fr) 4px repeat(7,1fr);
-  gap:2px;
+.ds-ag-brk { }
+.ds-ag-day {
+  height: 12px;
+  display: flex; align-items: center;
+  font-family: monospace; font-size: 7px; font-weight: 700;
+  color: var(--label);
 }
-.nm-ag-corner { width:28px; }
-.nm-ag-h {
-  height:13px;display:flex;align-items:center;justify-content:center;
-  font-size:7px;font-weight:800;color:var(--nm-text3);font-family:var(--nm-mono);
+.ds-ag-cell {
+  height: 12px;
+  border-radius: 2px;
+  background: var(--sep2);
 }
-.nm-ag-brk { width:4px; }
-.nm-ag-day {
-  height:13px;display:flex;align-items:center;justify-content:center;
-  font-size:7px;font-weight:800;color:var(--nm-text3);font-family:var(--nm-mono);
-  width:28px;
+.ds-ag-cell.req  { background: rgba(255,149,0,.35); }
+.ds-ag-cell.conf { background: rgba(52,199,89,.45); }
+.ds-avail-leg {
+  display: flex; gap: 14px; margin-top: 6px;
 }
-.nm-ag-cell {
-  height:13px;border-radius:3px;
-  background:rgba(120,100,160,.08);
-  border:.5px solid rgba(255,255,255,.45);
-  transition:background .15s;
+.ds-leg-item {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--f); font-size: 11px; color: var(--label);
 }
-.nm-ag-cell.req  { background:rgba(200,164,74,.38);border-color:rgba(200,164,74,.55); }
-.nm-ag-cell.conf { background:rgba(24,136,74,.40);border-color:rgba(24,136,74,.60); }
-.nm-avail-legend {
-  display:flex;gap:12px;margin-top:6px;
-}
-.nm-al-item {
-  display:flex;align-items:center;gap:4px;
-  font-size:8px;font-weight:700;color:var(--nm-text3);font-family:var(--nm-sans);
-}
-.nm-al-dot {
-  width:8px;height:8px;border-radius:2px;flex-shrink:0;
+.ds-leg-dot {
+  width: 8px; height: 8px; border-radius: 2px;
 }
 
-/* ── SCROLL BODY ── */
-.nm-body {
-  flex:1;overflow-y:auto;padding:0 0 8px;
-  scrollbar-width:thin;scrollbar-color:rgba(120,100,160,.2) transparent;
+/* Scrollable body */
+.ds-body {
+  flex: 1; overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sep) transparent;
 }
-.nm-body::-webkit-scrollbar { width:3px; }
-.nm-body::-webkit-scrollbar-thumb { background:rgba(120,100,160,.25);border-radius:99px; }
+.ds-body::-webkit-scrollbar { width: 3px; }
+.ds-body::-webkit-scrollbar-thumb { background: var(--sep); border-radius: 99px; }
 
-/* ── SECTION DIVIDER ── */
-.nm-divider {
-  display:flex;align-items:center;gap:8px;
-  padding:14px 18px 0;
+/* Section */
+.ds-section {
+  border-bottom: .5px solid var(--sep);
 }
-.nm-divider::before,.nm-divider::after {
-  content:'';flex:1;height:.5px;background:rgba(120,100,160,.15);
+.ds-section-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px 12px;
+  cursor: pointer;
 }
-.nm-divider span {
-  font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--nm-text3);white-space:nowrap;font-family:var(--nm-sans);
+.ds-section-title {
+  font-family: var(--f);
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+  display: flex; align-items: center; gap: 8px;
 }
+.ds-section-icon { font-size: 15px; }
+.ds-section-meta {
+  font-family: var(--f);
+  font-size: 12px; color: var(--sub);
+}
+.ds-section-chv {
+  font-size: 12px; color: var(--label);
+  transition: transform .2s;
+  margin-left: 6px;
+}
+.ds-section-hdr.open .ds-section-chv { transform: rotate(90deg); }
+.ds-section-body { display: none; padding: 0 20px 14px; }
+.ds-section-hdr.open + .ds-section-body { display: block; }
 
-/* ── ACCORDION PILLS ── */
-.nm-pill { border-bottom:.5px solid rgba(120,100,160,.12); }
-.nm-pill-hdr {
-  display:flex;align-items:center;gap:10px;padding:11px 18px;
-  cursor:pointer;transition:background .12s;user-select:none;
+/* Horizontal data rows — key left, value right */
+.ds-row {
+  display: flex; align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: .5px solid var(--sep2);
 }
-.nm-pill-hdr:hover { background:rgba(120,100,160,.05); }
-.nm-pill-hdr.open  { background:rgba(120,100,160,.07); }
-.nm-pill-icon  { font-size:15px;flex-shrink:0;width:22px;text-align:center; }
-.nm-pill-label {
-  font-family:var(--nm-sans);font-size:11px;font-weight:800;
-  color:var(--nm-text);flex:1;letter-spacing:.01em;
+.ds-row:last-child { border-bottom: none; }
+.ds-rk {
+  font-family: var(--f);
+  font-size: 13px; color: var(--sub);
+  flex-shrink: 0;
+  min-width: 90px;
 }
-.nm-pill-meta  { font-family:var(--nm-mono);font-size:8px;color:var(--nm-text3); }
-.nm-pill-chv   { font-size:11px;color:var(--nm-text3);transition:transform .2s; }
-.nm-pill-hdr.open .nm-pill-chv { transform:rotate(90deg); }
-.nm-pill-body  { display:none;padding:2px 18px 14px; }
-.nm-pill-hdr.open + .nm-pill-body { display:block; }
+.ds-rv {
+  font-family: var(--f);
+  font-size: 13px; color: var(--text);
+  text-align: right;
+  flex: 1;
+}
+.ds-rv.tint   { color: var(--tint); }
+.ds-rv.green  { color: var(--green); }
+.ds-rv.amber  { color: var(--amber); }
+.ds-rv.red    { color: var(--red); }
 
-/* ── DATA ROWS ── */
-.nm-data-row {
-  display:flex;align-items:flex-start;gap:10px;
-  padding:5px 0;border-bottom:.5px solid rgba(120,100,160,.07);
-}
-.nm-data-row:last-child { border-bottom:none; }
-.nm-dk { font-family:var(--nm-mono);font-size:7.5px;color:var(--nm-text3);width:92px;flex-shrink:0;padding-top:1px; }
-.nm-dv { font-family:var(--nm-mono);font-size:9px;color:var(--nm-text2);flex:1;line-height:1.5; }
-.nm-dv.hi     { color:var(--nm-text);font-weight:700; }
-.nm-dv.ok     { color:var(--nm-green);font-weight:700; }
-.nm-dv.warn   { color:var(--nm-amber);font-weight:700; }
-.nm-dv.danger { color:var(--nm-red);font-weight:700; }
-
-/* ── SLOT PILLS ── */
-.nm-slot-pill {
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;margin:2px 2px 0 0;border-radius:999px;
-  background:var(--nm-bg);box-shadow:var(--nm-out);
-  border:.5px solid rgba(255,255,255,.70);
-  font-family:var(--nm-mono);font-size:7.5px;font-weight:700;
-}
-.nm-slot-day  { color:var(--nm-c);font-weight:900; }
-.nm-slot-type { color:var(--nm-text3);font-size:6.5px; }
-
-/* ── TIMETABLE MINI GRID ── */
-.nm-tt { overflow-x:auto;margin-top:6px; }
-.nm-tt-grid {
-  display:grid;border-radius:8px;overflow:hidden;
-  border:.5px solid rgba(120,100,160,.15);
-  min-width:280px;font-family:var(--nm-mono);
-}
-.nm-tt-corner { background:rgba(120,100,160,.06); }
-.nm-tt-h {
-  display:flex;align-items:center;justify-content:center;
-  font-size:6px;color:var(--nm-text3);height:14px;
-  background:rgba(120,100,160,.06);
-  border-right:.5px solid rgba(120,100,160,.10);
-  border-bottom:.5px solid rgba(120,100,160,.10);
-}
-.nm-tt-h.brk { border-left:1.5px solid rgba(120,100,160,.25); }
-.nm-tt-day {
-  display:flex;align-items:center;justify-content:center;
-  font-size:6.5px;font-weight:700;color:var(--nm-text3);
-  background:rgba(120,100,160,.06);
-  border-right:.5px solid rgba(120,100,160,.10);
-  border-bottom:.5px solid rgba(120,100,160,.08);
-  padding:0 3px;
-}
-.nm-tt-cell {
-  height:14px;
-  border-right:.5px solid rgba(120,100,160,.06);
-  border-bottom:.5px solid rgba(120,100,160,.06);
-  background:transparent;
-}
-.nm-tt-cell.req  { background:rgba(200,164,74,.28);border-color:rgba(200,164,74,.40); }
-.nm-tt-cell.conf { background:rgba(24,136,74,.32);border-color:rgba(24,136,74,.50); }
-.nm-tt-legend { display:flex;gap:12px;margin-top:6px; }
-.nm-tt-leg {
-  display:flex;align-items:center;gap:4px;
-  font-family:var(--nm-mono);font-size:7px;color:var(--nm-text3);
-}
-.nm-tt-leg-dot { width:8px;height:8px;border-radius:2px; }
-
-/* ── HISTORIAL ── */
-.nm-hist-yr {
-  background:var(--nm-bg);border-radius:12px;
-  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
-  margin-bottom:8px;overflow:hidden;
-}
-.nm-hist-hdr {
-  display:flex;align-items:center;gap:8px;padding:9px 12px;
-  cursor:pointer;transition:background .12s;
-}
-.nm-hist-hdr:hover { background:rgba(120,100,160,.06); }
-.nm-hist-year-lbl { font-family:var(--nm-mono);font-size:9px;font-weight:700;color:var(--nm-c);flex-shrink:0; }
-.nm-hist-turma   { font-family:var(--nm-mono);font-size:8px;color:var(--nm-text3);flex:1; }
-.nm-hist-outcome {
-  font-family:var(--nm-mono);font-size:7.5px;font-weight:700;
-  padding:2px 8px;border-radius:999px;flex-shrink:0;
-}
-.nm-hist-outcome.ok   { background:var(--nm-green-bg);color:var(--nm-green); }
-.nm-hist-outcome.warn { background:var(--nm-red-bg);color:var(--nm-red); }
-.nm-hist-outcome.na   { background:rgba(120,100,160,.10);color:var(--nm-text3); }
-.nm-hist-body { display:none;padding:10px 12px;border-top:.5px solid rgba(120,100,160,.12); }
-.nm-hist-hdr.open + .nm-hist-body { display:block; }
-.nm-camb-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:8px; }
-.nm-camb-cell {
-  text-align:center;padding:6px 4px;border-radius:10px;
-  background:var(--nm-bg);box-shadow:var(--nm-out);
-  border:.5px solid rgba(255,255,255,.65);
-}
-.nm-camb-score { font-family:var(--nm-mono);font-size:13px;font-weight:700;color:var(--nm-text);line-height:1; }
-.nm-camb-lbl   { font-family:var(--nm-mono);font-size:6px;color:var(--nm-text3);margin-top:2px;text-transform:uppercase;letter-spacing:.06em; }
-.nm-camb-cell.pass .nm-camb-score { color:var(--nm-green); }
-.nm-camb-cell.fail .nm-camb-score { color:var(--nm-red); }
-
-/* ── DOCUMENTS ── */
-.nm-doc-list { display:flex;flex-direction:column;gap:6px;margin-top:6px; }
-.nm-doc-row {
-  display:flex;align-items:center;gap:8px;padding:8px 10px;
-  border-radius:10px;background:var(--nm-bg);
-  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
-  transition:all .12s;
-}
-.nm-doc-row:hover { box-shadow:-3px -3px 8px var(--nm-light),3px 3px 10px var(--nm-dark); }
-.nm-doc-icon { font-size:18px;flex-shrink:0; }
-.nm-doc-info { flex:1;min-width:0; }
-.nm-doc-name { font-family:var(--nm-sans);font-size:11px;font-weight:700;color:var(--nm-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.nm-doc-meta { font-family:var(--nm-mono);font-size:7.5px;color:var(--nm-text3);margin-top:2px; }
-.nm-doc-btns { display:flex;gap:4px;flex-shrink:0; }
-.nm-doc-btn {
-  padding:4px 9px;border-radius:999px;font-family:var(--nm-sans);font-size:9px;font-weight:800;
-  cursor:pointer;border:none;
-  background:var(--nm-bg);box-shadow:var(--nm-out);
-  transition:all .12s;
-}
-.nm-doc-btn.view { color:var(--nm-blue); }
-.nm-doc-btn.del  { color:var(--nm-red); }
-.nm-doc-btn:hover { box-shadow:var(--nm-in); }
-
-.nm-upload-zone {
-  border:1.5px dashed rgba(120,100,160,.25);
-  border-radius:12px;padding:14px;text-align:center;
-  cursor:pointer;transition:all .15s;margin-top:8px;
-}
-.nm-upload-zone:hover { border-color:var(--nm-c);background:rgba(200,164,74,.05); }
-.nm-upload-lbl { font-family:var(--nm-sans);font-size:11px;color:var(--nm-text3); }
-
-/* ── MOVE CONTROLS ── */
-.nm-select {
-  width:100%;padding:7px 10px;border-radius:10px;
-  background:var(--nm-bg);box-shadow:var(--nm-in);
-  border:.5px solid rgba(255,255,255,.52);
-  font-family:var(--nm-sans);font-size:12px;font-weight:700;
-  color:var(--nm-text);outline:none;margin-bottom:8px;cursor:pointer;
-}
-.nm-select:focus { border-color:rgba(200,164,74,.5); }
-.nm-select option { background:#E8E2F0; }
-
-/* ── FLAGS & NOTES ── */
-.nm-flag-chips { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px; }
-.nm-flag-chip {
-  padding:5px 13px;border-radius:999px;border:none;
-  font-family:var(--nm-sans);font-size:11px;font-weight:700;
-  cursor:pointer;color:var(--nm-text2);
-  background:var(--nm-bg);box-shadow:var(--nm-out);
-  border:.5px solid rgba(255,255,255,.65);
-  transition:all .14s;
-}
-.nm-flag-chip:hover { box-shadow:var(--nm-in); }
-.nm-flag-chip.on {
-  box-shadow:var(--nm-in);
-  color:var(--nm-red);border-color:rgba(200,48,64,.3);
-  background:rgba(200,48,64,.07);
-}
-.nm-note-add {
-  width:100%;padding:9px 12px;border-radius:12px;
-  background:var(--nm-bg);box-shadow:var(--nm-in);
-  border:.5px solid rgba(255,255,255,.52);
-  font-family:var(--nm-sans);font-size:12px;color:var(--nm-text);
-  outline:none;resize:none;min-height:68px;line-height:1.55;margin-top:4px;
-}
-.nm-note-add::placeholder { color:var(--nm-text3); }
-.nm-note-add:focus { border-color:rgba(200,164,74,.45); }
-
-/* ── ACTION BUTTONS ── */
-.nm-action-row { display:flex;gap:7px;padding:10px 0 2px;flex-wrap:wrap; }
-.nm-btn {
-  padding:7px 16px;border-radius:999px;border:none;
-  font-family:var(--nm-sans);font-size:11px;font-weight:800;
-  cursor:pointer;transition:all .14s;letter-spacing:.02em;
-}
-.nm-btn.primary {
-  background:var(--nm-green);color:white;
-  box-shadow:0 3px 10px rgba(24,136,74,.35);
-}
-.nm-btn.primary:hover { background:#14A055; }
-.nm-btn.ghost {
-  background:var(--nm-bg);color:var(--nm-text2);
-  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
-}
-.nm-btn.ghost:hover { box-shadow:var(--nm-in); }
-.nm-btn.danger {
-  background:var(--nm-bg);color:var(--nm-red);
-  box-shadow:var(--nm-out);border:.5px solid rgba(200,48,64,.25);
-}
-.nm-btn.danger:hover { box-shadow:var(--nm-in); }
-
-/* ── WIP / EMPTY ── */
-.nm-wip {
-  padding:18px 14px;text-align:center;
-  border-radius:12px;background:var(--nm-bg);
-  box-shadow:var(--nm-in);border:.5px solid rgba(255,255,255,.50);
-  font-family:var(--nm-sans);font-size:11px;color:var(--nm-text3);line-height:1.65;
-}
-.nm-wip-icon { font-size:22px;display:block;margin-bottom:7px;opacity:.4; }
-
-/* ── HOURS BAR ── */
-.nm-hours-wrap {
-  border-radius:12px;padding:11px 13px;margin-bottom:10px;
-  background:var(--nm-bg);box-shadow:var(--nm-in);
-  border:.5px solid rgba(255,255,255,.50);
-}
-.nm-hours-label {
-  display:flex;justify-content:space-between;
-  font-family:var(--nm-sans);font-size:11px;font-weight:800;
-  color:var(--nm-text2);margin-bottom:8px;
-}
-.nm-hours-track {
-  height:8px;border-radius:99px;overflow:hidden;
-  background:rgba(120,100,160,.10);
-  box-shadow:inset 1px 1px 3px rgba(120,100,160,.22),inset -1px -1px 2px rgba(255,255,255,.55);
-}
-.nm-hours-fill {
-  height:100%;border-radius:99px;
-  transition:width .8s cubic-bezier(.22,.61,.36,1);
+/* Slot list */
+.ds-slots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.ds-slot {
+  font-family: var(--f);
+  font-size: 12px; color: var(--tint);
+  background: rgba(0,122,255,.07);
+  padding: 3px 8px; border-radius: 6px;
 }
 
-/* ── STATUS LINE ── */
-.nm-status {
-  font-family:var(--nm-sans);font-size:11px;font-weight:800;
-  text-align:center;padding:10px 14px;border-radius:10px;margin-top:6px;
-  background:var(--nm-bg);box-shadow:var(--nm-in);
-  border:.5px solid rgba(255,255,255,.50);
+/* Cambridge scores */
+.ds-camb {
+  display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.ds-camb-cell {
+  flex: 1; min-width: 52px;
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--bg2);
+}
+.ds-camb-score {
+  font-family: var(--f); font-size: 18px; font-weight: 600;
+  color: var(--text);
+}
+.ds-camb-lbl {
+  font-family: var(--f); font-size: 9px; color: var(--sub);
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-top: 2px;
+}
+.ds-camb-cell.pass .ds-camb-score { color: var(--green); }
+.ds-camb-cell.fail .ds-camb-score { color: var(--red); }
+
+/* Year history */
+.ds-yr {
+  border-radius: 10px;
+  background: var(--bg2);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.ds-yr-hdr {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.ds-yr-left { display: flex; align-items: center; gap: 10px; }
+.ds-yr-year {
+  font-family: var(--f); font-size: 13px; font-weight: 600;
+  color: var(--text);
+}
+.ds-yr-turma {
+  font-family: var(--f); font-size: 12px; color: var(--sub);
+}
+.ds-yr-outcome {
+  font-family: var(--f); font-size: 12px; font-weight: 500;
+}
+.ds-yr-outcome.ok   { color: var(--green); }
+.ds-yr-outcome.warn { color: var(--red); }
+.ds-yr-outcome.na   { color: var(--sub); }
+.ds-yr-body { display: none; padding: 0 14px 12px; border-top: .5px solid var(--sep); }
+.ds-yr-hdr.open + .ds-yr-body { display: block; }
+
+/* Document list */
+.ds-doc {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: .5px solid var(--sep2);
+}
+.ds-doc:last-child { border-bottom: none; }
+.ds-doc-icon { font-size: 22px; flex-shrink: 0; }
+.ds-doc-info { flex: 1; min-width: 0; }
+.ds-doc-name {
+  font-family: var(--f); font-size: 13px; font-weight: 500;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ds-doc-meta {
+  font-family: var(--f); font-size: 11px; color: var(--sub);
+  margin-top: 1px;
+}
+.ds-doc-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.ds-doc-btn {
+  font-family: var(--f); font-size: 12px; font-weight: 500;
+  color: var(--tint);
+  background: none; border: none; cursor: pointer; padding: 0;
+}
+.ds-doc-btn.del { color: var(--red); }
+
+/* Upload area */
+.ds-upload {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg2);
+  border: none; cursor: pointer;
+  width: 100%; margin-top: 10px;
+}
+.ds-upload-lbl {
+  font-family: var(--f); font-size: 13px;
+  color: var(--tint);
 }
 
-/* ── TURMA PILLS (teacher) ── */
-.nm-turma-row  { display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px; }
-.nm-turma-pill {
-  font-size:10px;font-weight:800;padding:4px 12px;border-radius:999px;
-  background:var(--nm-bg);box-shadow:var(--nm-out);
-  border:.5px solid rgba(255,255,255,.65);
-  font-family:var(--nm-sans);
+/* Select */
+.ds-select {
+  width: 100%; padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg2);
+  border: none;
+  font-family: var(--f); font-size: 13px; font-weight: 500;
+  color: var(--text);
+  outline: none;
+  margin-bottom: 10px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.ds-select:focus { background: var(--bg3); }
+
+/* Flags */
+.ds-flags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.ds-flag {
+  font-family: var(--f); font-size: 12px; font-weight: 500;
+  color: var(--sub);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--bg2);
+  border: none; cursor: pointer;
+}
+.ds-flag.on { color: var(--red); background: rgba(255,59,48,.10); }
+
+/* Note textarea */
+.ds-note {
+  width: 100%; padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg2);
+  border: none;
+  font-family: var(--f); font-size: 13px;
+  color: var(--text);
+  outline: none;
+  resize: none;
+  min-height: 72px;
+  line-height: 1.55;
+}
+.ds-note::placeholder { color: var(--label); }
+
+/* Buttons */
+.ds-btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ds-btn {
+  font-family: var(--f); font-size: 13px; font-weight: 600;
+  padding: 9px 18px; border-radius: 10px;
+  border: none; cursor: pointer;
+}
+.ds-btn.primary { background: var(--tint); color: #fff; }
+.ds-btn.ghost   { background: var(--bg2); color: var(--text); }
+.ds-btn.danger  { background: rgba(255,59,48,.10); color: var(--red); }
+
+/* Empty state */
+.ds-empty {
+  padding: 16px 0;
+  font-family: var(--f); font-size: 13px;
+  color: var(--sub); text-align: center;
 }
 
-/* ── TOAST ── */
-.nm-toast {
-  position:fixed;bottom:18px;left:50%;
-  transform:translateX(-50%) translateY(8px);
-  background:var(--nm-bg);color:var(--nm-text2);
-  font-size:11px;font-weight:800;letter-spacing:.04em;
-  padding:8px 20px;border-radius:999px;
-  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
-  opacity:0;transition:opacity .2s,transform .2s;
-  pointer-events:none;z-index:3000;white-space:nowrap;
-  font-family:var(--nm-sans);
+/* Toast */
+.ds-toast {
+  position: fixed; bottom: 32px; left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(30,30,32,.90);
+  color: #fff;
+  font-family: var(--f); font-size: 13px; font-weight: 500;
+  padding: 9px 20px; border-radius: 20px;
+  opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; z-index: 3000;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
 }
-.nm-toast.show  { opacity:1;transform:translateX(-50%) translateY(0); }
-.nm-toast.ok    { color:var(--nm-green); }
-.nm-toast.err   { color:var(--nm-red); }
-.nm-toast.warn  { color:var(--nm-amber); }
+.ds-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.ds-toast.ok   { color: #7FE4A0; }
+.ds-toast.err  { color: #FF8080; }
+.ds-toast.warn { color: #FFD060; }
 
-input.nm-file-inp { display:none; }
+input.ds-file-inp { display: none; }
 `;
 
-/* ── HTML SHELL ──────────────────────────────────────────────── */
-const DOSSIER_HTML = `
-<div class="nm-overlay" id="nm-overlay" onclick="if(event.target===this)closeDossier()">
-  <div class="nm-card" id="nm-card">
-    <!-- BANNER -->
-    <div class="nm-banner" id="nm-banner">
-      <div class="nm-banner-bg"  id="nm-banner-bg"></div>
-      <div class="nm-banner-grain"></div>
-      <button class="nm-banner-close" onclick="closeDossier()">✕</button>
-      <div class="nm-dept-badge" id="nm-dept-badge"></div>
-      <div class="nm-avatar" id="nm-avatar">?</div>
-      <div class="nm-banner-info">
-        <div class="nm-banner-name" id="nm-banner-name">—</div>
-        <div class="nm-banner-ref"  id="nm-banner-ref">—</div>
-        <div class="nm-action-pills" id="nm-action-pills"></div>
+const HTML = `
+<div class="ds-overlay" id="ds-overlay" onclick="if(event.target===this)closeDossier()">
+  <div class="ds-sheet" id="ds-sheet">
+    <div class="ds-handle"></div>
+
+    <div class="ds-header">
+      <div class="ds-avatar" id="ds-avatar">?</div>
+      <div class="ds-hinfo">
+        <div class="ds-name" id="ds-name">—</div>
+        <div class="ds-ref"  id="ds-ref">—</div>
+      </div>
+      <button class="ds-close" onclick="closeDossier()">✕</button>
+    </div>
+
+    <div class="ds-tags" id="ds-tags"></div>
+
+    <div class="ds-actions" id="ds-actions"></div>
+
+    <div class="ds-avail" id="ds-avail" style="display:none">
+      <div class="ds-avail-label">Disponibilidade semanal</div>
+      <div class="ds-avail-grid" id="ds-avail-grid"></div>
+      <div class="ds-avail-leg">
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(255,149,0,.35)"></div>Pedido</div>
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(52,199,89,.45)"></div>Confirmado</div>
       </div>
     </div>
 
-    <!-- CHIPS -->
-    <div class="nm-chips" id="nm-chips"></div>
-
-    <!-- AVAILABILITY GRID -->
-    <div class="nm-avail-wrap" id="nm-avail-wrap" style="display:none">
-      <div class="nm-avail-title">Disponibilidade semanal</div>
-      <div class="nm-avail-grid" id="nm-avail-grid"></div>
-      <div class="nm-avail-legend">
-        <div class="nm-al-item"><div class="nm-al-dot" style="background:rgba(200,164,74,.38);border-radius:2px"></div>Pedido</div>
-        <div class="nm-al-item"><div class="nm-al-dot" style="background:rgba(24,136,74,.40);border-radius:2px"></div>Confirmado</div>
-      </div>
-    </div>
-
-    <!-- ACCORDION BODY -->
-    <div class="nm-body" id="nm-body"></div>
+    <div class="ds-body" id="ds-body"></div>
   </div>
 </div>
-<div class="nm-toast" id="nm-toast"></div>
-<input type="file" id="nm-file-inp" class="nm-file-inp" accept=".pdf,image/*"/>
+<div class="ds-toast" id="ds-toast"></div>
+<input type="file" id="ds-file-inp" class="ds-file-inp" accept=".pdf,image/*"/>
 `;
 
-/* ── CONSTANTS ───────────────────────────────────────────────── */
-const DS_DAYS      = ['SEG','TER','QUA','QUI','SEX','SÁB'];
-const DS_DAY_PT    = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta',SÁB:'Sábado'};
-const DS_HRS_MORN  = [8,9,10,11];
-const DS_HRS_AFT   = [14,15,16,17,18,19,20];
-const DS_ALL_HRS   = [...DS_HRS_MORN,...DS_HRS_AFT];
-const DS_FLAGS     = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
-const DS_COURSE_GRAD = {
-  kids: 'linear-gradient(145deg,#88CECE,#5AACAC)',
-  adults:'linear-gradient(145deg,#7090F8,#4868D8)',
-  exam:  'linear-gradient(145deg,#D4A060,#B07830)',
-};
-const DS_COURSE_COL  = {kids:'#1D5E5E',adults:'#182080',exam:'#5A3000'};
-const DS_COURSE_CHIP = {
-  kids:  {col:'#1D7070',bg:'rgba(88,200,200,.18)',label:'Infantil / Juvenil'},
-  adults:{col:'#183898',bg:'rgba(80,100,240,.18)', label:'Geral'},
-  exam:  {col:'#704010',bg:'rgba(200,140,40,.18)',  label:'Exames'},
-};
-const DS_DAY_NUM     = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
-const DS_LANG_COL    = {EN:'#1850A0',FR:'#6820A0',PT:'#806010',ES:'#902010',DE:'#105040'};
-const DS_LANG_BG     = {EN:'rgba(56,120,232,.16)',FR:'rgba(136,64,192,.16)',PT:'rgba(160,120,32,.16)',ES:'rgba(200,64,32,.14)',DE:'rgba(32,120,100,.14)'};
+/* ── Constants ── */
+const DAYS     = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const HRS_MORN = [8,9,10,11];
+const HRS_AFT  = [14,15,16,17,18,19,20];
+const ALL_HRS  = [...HRS_MORN,...HRS_AFT];
+const FLAGS    = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const DAY_NUM  = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
 
-/* ── STATE ───────────────────────────────────────────────────── */
+const COURSE_CHIP = {
+  kids:   {label:'Juvenil',   col:'green'},
+  adults: {label:'Geral',     col:''},
+  exam:   {label:'Exames',    col:'amber'},
+};
+
+/* ── State ── */
 let DS_REF=null, DS_ROLE='staff';
 let DS_ENROL=null, DS_REQ=null, DS_DOCS=[], DS_HIST=[];
 let DS_UPLOAD_CTX=null;
-let nm_toast_t=null;
+let _toast_t=null;
 
-/* ── INJECT ─────────────────────────────────────────────────── */
-function nmInject(){
-  if(document.getElementById('nm-overlay')) return;
-  const s=document.createElement('style');
-  s.textContent=DOSSIER_CSS;
+/* ── Inject ── */
+function inject(){
+  if(document.getElementById('ds-overlay')) return;
+  const s=document.createElement('style'); s.textContent=CSS;
   document.head.appendChild(s);
-  const d=document.createElement('div');
-  d.innerHTML=DOSSIER_HTML;
+  const d=document.createElement('div'); d.innerHTML=HTML;
   while(d.firstElementChild) document.body.appendChild(d.firstElementChild);
-  document.getElementById('nm-file-inp').addEventListener('change', nmOnFile);
+  document.getElementById('ds-file-inp').addEventListener('change', onFile);
 }
 
-/* ── OPEN ────────────────────────────────────────────────────── */
+/* ── Open ── */
 window.openDossier = async function(ref, role){
-  nmInject();
+  inject();
   DS_REF=ref; DS_ROLE=role||'staff';
   DS_ENROL=null; DS_REQ=null; DS_DOCS=[]; DS_HIST=[];
 
-  // Show immediately with skeleton state
-  document.getElementById('nm-overlay').classList.add('open');
-  nmRenderCover({name:ref,ref,lang:'EN',course:'adults',cefr:'A1',branch:'—'});
-  document.getElementById('nm-body').innerHTML='';
+  document.getElementById('ds-overlay').classList.add('open');
+  renderCover({name:ref,ref,lang:'EN',course:'adults',cefr:'A1',branch:'—'});
+  document.getElementById('ds-body').innerHTML='';
 
-  // Fetch in parallel
   const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
   const KEY=window.KEY||'';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
@@ -593,7 +563,6 @@ window.openDossier = async function(ref, role){
   DS_DOCS =docs||[];
   DS_HIST =hist||[];
 
-  // Resolve assigned turma from CELL_MAP (shared from main page)
   let turmaCode=null, turmaDay=null, turmaH=null;
   const CM=window.CELL_MAP||{};
   Object.entries(CM).forEach(([key,cell])=>{
@@ -604,393 +573,354 @@ window.openDossier = async function(ref, role){
     }
   });
 
-  const course=nmInferCourse(DS_ENROL);
+  const course=inferCourse(DS_ENROL);
   const cefr=(DS_ENROL?.level_cefr||'A1').toUpperCase();
   const idPhoto=DS_DOCS.find(d=>d.document_type==='id_photo')?.public_url||null;
 
-  nmRenderCover({
+  renderCover({
     name:DS_ENROL?.name||ref, ref,
     lang:DS_ENROL?.lang||'EN',
     course, cefr,
     branch:DS_ENROL?.branch||'—',
-    phone:DS_ENROL?.phone||null,
-    email:DS_ENROL?.email||null,
-    status:DS_ENROL?.status||'—',
+    status:DS_ENROL?.status||null,
     turmaCode, turmaDay, turmaH,
     idPhoto,
   });
 
-  nmRenderAvail(ref, course, turmaDay, turmaH);
-  nmRenderAccordion(turmaCode, turmaDay, turmaH);
+  renderAvail(ref, course, turmaDay, turmaH);
+  renderBody(turmaCode, turmaDay, turmaH);
 };
 
-/* ── CLOSE ──────────────────────────────────────────────────── */
+/* ── Close ── */
 window.closeDossier = function(){
-  const card=document.getElementById('nm-card');
-  if(!card) return;
-  card.classList.add('nm-exit');
+  const s=document.getElementById('ds-sheet');
+  if(!s) return;
+  s.classList.add('ds-exit');
   setTimeout(()=>{
-    document.getElementById('nm-overlay')?.classList.remove('open');
-    card.classList.remove('nm-exit');
-  }, 230);
+    document.getElementById('ds-overlay')?.classList.remove('open');
+    s.classList.remove('ds-exit');
+  },280);
 };
 
-/* ── COVER ──────────────────────────────────────────────────── */
-function nmRenderCover(d){
+/* ── Cover ── */
+function renderCover(d){
   const course=d.course||'adults';
-  const lc=DS_COURSE_COL[course]||'#182080';
-  const grad=DS_COURSE_GRAD[course]||DS_COURSE_GRAD.adults;
-  const cc=DS_COURSE_CHIP[course]||DS_COURSE_CHIP.adults;
-  const langCol=DS_LANG_COL[d.lang]||'#1850A0';
-  const langBg=DS_LANG_BG[d.lang]||DS_LANG_BG.EN;
-
-  document.getElementById('nm-banner-bg').style.background=grad;
-  document.getElementById('nm-dept-badge').textContent=cc.label;
-  document.getElementById('nm-dept-badge').style.color=lc;
-  document.getElementById('nm-banner-name').textContent=d.name||d.ref||'—';
-  document.getElementById('nm-banner-ref').textContent=
-    `${d.ref} · ${(d.branch||'').replace(/_/g,' ')}`;
+  const cc=COURSE_CHIP[course]||COURSE_CHIP.adults;
+  const lvl=displayLevel(d.cefr, course);
 
   // Avatar
-  const av=document.getElementById('nm-avatar');
+  const av=document.getElementById('ds-avatar');
   if(d.idPhoto){
     av.innerHTML=`<img src="${d.idPhoto}" alt="${d.name}"/>`;
     av.style.background='transparent';
   } else {
-    const col=nmAvCol(d.name||d.ref||'?');
-    av.style.cssText=`background:${col.bg};color:${col.text};font-family:var(--nm-sans)`;
+    const col=avCol(d.name||d.ref||'?');
+    av.style.cssText=`background:${col.bg};color:${col.text}`;
     av.textContent=(d.name||d.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   }
 
-  // ── BANNER ACTION PILLS ──
-  // Context-aware: all 5 actions a staff member needs
-  const pills=[
-    {icon:'📋', label:'Matrícula',   action:`nmScrollTo('nm-pill-inscricao')`},
-    {icon:'✉',  label:'Mensagem',    action:`nmSendMessage()`},
-    {icon:'🗓', label:'Hor. Pedido', action:`nmScrollTo('nm-pill-pedido')`},
-    {icon:'🔄', label:'Mover Nível', action:`nmScrollTo('nm-pill-mover')`},
-    {icon:'🚩', label:'Sinalizar',   action:`nmScrollTo('nm-pill-notas')`},
-  ];
-  document.getElementById('nm-action-pills').innerHTML=pills.map(p=>
-    `<button class="nm-ap" onclick="${p.action}">
-      <span class="nm-ap-icon">${p.icon}</span>${p.label}
-     </button>`
+  document.getElementById('ds-name').textContent=d.name||d.ref||'—';
+  document.getElementById('ds-ref').textContent=`${d.ref} · ${(d.branch||'').replace(/_/g,' ')}`;
+
+  // Tags
+  const tags=[];
+  tags.push({label:lvl, col:cc.col});
+  tags.push({label:`${FLAGS[d.lang]||''} ${d.lang}`, col:''});
+  if(d.turmaCode) tags.push({label:d.turmaCode, col:'green'});
+  if(d.status==='active') tags.push({label:'Activo', col:'green'});
+  else if(d.status) tags.push({label:d.status, col:'amber'});
+  document.getElementById('ds-tags').innerHTML=tags.map(t=>
+    `<span class="ds-tag ${t.col}">${t.label}</span>`
   ).join('');
 
-  // ── CHIPS ──
-  const lvl=nmDisplayLevel(d.cefr, course);
-  const chips=[
-    {label:lvl,             col:cc.col,     bg:cc.bg},
-    {label:`${DS_FLAGS[d.lang]||''} ${d.lang}`, col:langCol, bg:langBg},
+  // Actions
+  const acts=[
+    {icon:'📋',lbl:'Matrícula',   fn:`dsScrollTo('ds-s-inscricao')`},
+    {icon:'✉️', lbl:'Mensagem',    fn:`dsSendMsg()`},
+    {icon:'🗓', lbl:'Pedido',      fn:`dsScrollTo('ds-s-pedido')`},
+    {icon:'🔄', lbl:'Mover',      fn:`dsScrollTo('ds-s-mover')`},
+    {icon:'🚩', lbl:'Sinalizar',  fn:`dsScrollTo('ds-s-notas')`},
   ];
-  if(d.turmaCode) chips.push({label:d.turmaCode, col:'#18884A', bg:'rgba(24,136,74,.14)'});
-  chips.push({label:(d.branch||'Funchal').replace(/_/g,' '), col:'#5A5070', bg:'rgba(90,80,112,.10)'});
-  document.getElementById('nm-chips').innerHTML=chips.map(c=>
-    `<span class="nm-chip" style="color:${c.col};background:${c.bg}">${c.label}</span>`
+  document.getElementById('ds-actions').innerHTML=acts.map(a=>
+    `<div class="ds-act" onclick="${a.fn}">
+      <div class="ds-act-icon">${a.icon}</div>
+      <div class="ds-act-lbl">${a.lbl}</div>
+    </div>`
   ).join('');
-
-  // Status footer chip
-  const statusEl=document.getElementById('nm-chips');
-  // already rendered above
 }
 
-/* ── AVAILABILITY GRID ──────────────────────────────────────── */
-function nmRenderAvail(ref, course, confDay, confH){
-  const prefs=nmGetPrefs(ref, course);
-  if(!prefs.length && !confDay){
-    document.getElementById('nm-avail-wrap').style.display='none';
+/* ── Availability ── */
+function renderAvail(ref, course, confDay, confH){
+  const prefs=getPrefs(ref, course);
+  if(!prefs.length&&!confDay){
+    document.getElementById('ds-avail').style.display='none';
     return;
   }
-  document.getElementById('nm-avail-wrap').style.display='block';
-  const grid=document.getElementById('nm-avail-grid');
+  document.getElementById('ds-avail').style.display='block';
+  const grid=document.getElementById('ds-avail-grid');
 
-  // Header: corner + morning hours + gap + afternoon hours
-  let html=`<div class="nm-ag-corner"></div>`;
-  DS_HRS_MORN.forEach(h=>html+=`<div class="nm-ag-h">${h}</div>`);
-  html+=`<div class="nm-ag-brk"></div>`;
-  DS_HRS_AFT.forEach(h=>html+=`<div class="nm-ag-h">${h}</div>`);
+  let html=`<div class="ds-ag-corner"></div>`;
+  HRS_MORN.forEach(h=>html+=`<div class="ds-ag-h">${h}</div>`);
+  html+=`<div class="ds-ag-brk"></div>`;
+  HRS_AFT.forEach(h=>html+=`<div class="ds-ag-h">${h}</div>`);
 
-  DS_DAYS.forEach(day=>{
-    html+=`<div class="nm-ag-day">${day}</div>`;
-    DS_HRS_MORN.forEach(h=>{
+  DAYS.forEach(day=>{
+    html+=`<div class="ds-ag-day">${day}</div>`;
+    HRS_MORN.forEach(h=>{
       const isConf=confDay===day&&confH===h;
       const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      html+=`<div class="nm-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+      html+=`<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
-    html+=`<div class="nm-ag-brk"></div>`;
-    DS_HRS_AFT.forEach(h=>{
+    html+=`<div class="ds-ag-brk"></div>`;
+    HRS_AFT.forEach(h=>{
       const isConf=confDay===day&&confH===h;
       const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      html+=`<div class="nm-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+      html+=`<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
   });
   grid.innerHTML=html;
 }
 
-/* ── ACCORDION BODY ─────────────────────────────────────────── */
-function nmRenderAccordion(turmaCode, turmaDay, turmaH){
-  const body=document.getElementById('nm-body');
-  const course=nmInferCourse(DS_ENROL);
-  const cefr=(DS_ENROL?.level_cefr||'A1').toUpperCase();
-  const lvl=nmDisplayLevel(cefr,course);
-  const prefs=nmGetPrefs(DS_REF, course);
+/* ── Body ── */
+function renderBody(turmaCode, turmaDay, turmaH){
+  const body=document.getElementById('ds-body');
+  const course=inferCourse(DS_ENROL);
+  const prefs=getPrefs(DS_REF, course);
 
   body.innerHTML=[
-    nmPill('nm-pill-horario',  '🗓','Horário',      prefs.length?`${prefs.length} slots`:'Sem pedido',   nmBuildTimetable(prefs,turmaDay,turmaH)),
-    nmPill('nm-pill-inscricao','📋','Inscrição',    DS_ENROL?'✓ Carregado':'—',                           nmBuildEnrol()),
-    nmPill('nm-pill-pedido',   '📝','Pedido Horário',DS_REQ?'✓ Submetido':'Sem pedido',                   nmBuildRequest()),
-    nmPill('nm-pill-historial','🎓','Historial',    DS_HIST.length?`${DS_HIST.length} anos`:'Em construção', nmBuildHistorial()),
-    nmPill('nm-pill-docs',     '📎','Documentos',   DS_DOCS.length?`${DS_DOCS.length} ficheiros`:'Sem documentos', nmBuildDocs(DS_DOCS,'general')),
-    nmPill('nm-pill-mover',    '🔄','Mover Aluno',  turmaCode||'Sem turma',                               nmBuildMove(turmaCode)),
-    nmPill('nm-pill-notas',    '🚩','Notas & Alertas','',                                                  nmBuildNotes()),
-    DS_ROLE!=='teacher'
-      ? nmPill('nm-pill-pag','💳','Pagamento','Director / Secretaria',
-          `<div class="nm-wip"><span class="nm-wip-icon">🔒</span>Módulo de pagamentos em desenvolvimento</div>`)
-      : '',
+    sec('ds-s-horario',  '🗓','Horário',       prefs.length?`${prefs.length} slots`:'Sem pedido', buildTimetable(prefs,turmaDay,turmaH)),
+    sec('ds-s-inscricao','📋','Inscrição',      DS_ENROL?'Carregado':'—',                          buildEnrol()),
+    sec('ds-s-pedido',   '📝','Pedido Horário', DS_REQ?'Submetido':'Sem pedido',                   buildRequest()),
+    sec('ds-s-hist',     '🎓','Historial',      DS_HIST.length?`${DS_HIST.length} anos`:'—',        buildHistorial()),
+    sec('ds-s-docs',     '📎','Documentos',     DS_DOCS.length?`${DS_DOCS.length} ficheiros`:'—',  buildDocs()),
+    sec('ds-s-mover',    '🔄','Mover Aluno',    turmaCode||'Sem turma',                            buildMove(turmaCode)),
+    sec('ds-s-notas',    '🚩','Notas',          '',                                                buildNotes()),
   ].join('');
 
-  // Toggle accordion
-  body.querySelectorAll('.nm-pill-hdr').forEach(hdr=>{
-    hdr.addEventListener('click',()=>hdr.classList.toggle('open'));
+  body.querySelectorAll('.ds-section-hdr').forEach(h=>{
+    h.addEventListener('click',()=>h.classList.toggle('open'));
   });
 }
 
-function nmPill(id, icon, label, meta, content){
-  return `<div class="nm-pill" id="${id}">
-    <div class="nm-pill-hdr">
-      <span class="nm-pill-icon">${icon}</span>
-      <span class="nm-pill-label">${label}</span>
-      <span class="nm-pill-meta">${meta}</span>
-      <span class="nm-pill-chv">›</span>
+function sec(id,icon,title,meta,content){
+  return `<div class="ds-section" id="${id}">
+    <div class="ds-section-hdr">
+      <div class="ds-section-title">
+        <span class="ds-section-icon">${icon}</span>${title}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="ds-section-meta">${meta}</span>
+        <span class="ds-section-chv">›</span>
+      </div>
     </div>
-    <div class="nm-pill-body">${content}</div>
+    <div class="ds-section-body">${content}</div>
   </div>`;
 }
 
-/* ── SCROLL TO PILL ─────────────────────────────────────────── */
-window.nmScrollTo = function(id){
+/* ── Scroll to ── */
+window.dsScrollTo = function(id){
   const el=document.getElementById(id);
   if(!el) return;
-  el.querySelector('.nm-pill-hdr')?.classList.add('open');
-  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}), 80);
+  el.querySelector('.ds-section-hdr')?.classList.add('open');
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
 };
 
-/* ── SEND MESSAGE ───────────────────────────────────────────── */
-window.nmSendMessage = function(){
+window.dsSendMsg = function(){
   const email=DS_ENROL?.email;
   const phone=DS_ENROL?.phone;
   if(email) window.open(`mailto:${email}`,'_blank');
   else if(phone) window.open(`tel:${phone}`,'_blank');
-  else nmToast('Sem contacto registado','warn');
+  else dsToast('Sem contacto registado','warn');
 };
 
-/* ── TIMETABLE SECTION ──────────────────────────────────────── */
-function nmBuildTimetable(prefs, confDay, confH){
-  const hCols=DS_ALL_HRS.length;
-  let html=`<div class="nm-tt"><div class="nm-tt-grid" style="grid-template-columns:26px repeat(${hCols},1fr);grid-template-rows:14px repeat(6,14px)">`;
-  html+=`<div class="nm-tt-corner"></div>`;
-  DS_ALL_HRS.forEach((h,i)=>{
-    const isBrk=i===DS_HRS_MORN.length;
-    html+=`<div class="nm-tt-h${isBrk?' brk':''}">${h}</div>`;
+/* ── Sections ── */
+function buildTimetable(prefs, confDay, confH){
+  if(!prefs.length&&!confDay) return `<div class="ds-empty">Nenhum horário pedido.</div>`;
+  const hCols=ALL_HRS.length;
+  let html=`<div style="overflow-x:auto;margin-bottom:10px"><div style="display:grid;grid-template-columns:26px repeat(${hCols},1fr);gap:2px;min-width:260px">`;
+  html+=`<div></div>`;
+  ALL_HRS.forEach((h,i)=>{
+    html+=`<div style="height:12px;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--sub);font-family:monospace">${h}</div>`;
   });
-  DS_DAYS.forEach(day=>{
-    html+=`<div class="nm-tt-day">${day}</div>`;
-    DS_ALL_HRS.forEach(h=>{
+  DAYS.forEach(day=>{
+    html+=`<div style="height:12px;display:flex;align-items:center;font-size:7px;font-weight:700;color:var(--sub);font-family:monospace">${day}</div>`;
+    ALL_HRS.forEach(h=>{
       const isConf=confDay===day&&confH===h;
-      const isReq =prefs.some(p=>p.day===day&&p.h===h);
-      html+=`<div class="nm-tt-cell${isConf?' conf':isReq?' req':''}"></div>`;
+      const isReq=prefs.some(p=>p.day===day&&p.h===h);
+      const bg=isConf?'rgba(52,199,89,.45)':isReq?'rgba(255,149,0,.35)':'var(--sep2)';
+      html+=`<div style="height:12px;border-radius:2px;background:${bg}"></div>`;
     });
   });
-  html+=`</div>
-  <div class="nm-tt-legend">
-    <div class="nm-tt-leg"><div class="nm-tt-leg-dot" style="background:rgba(24,136,74,.32);border:.5px solid rgba(24,136,74,.55)"></div>Confirmado</div>
-    <div class="nm-tt-leg"><div class="nm-tt-leg-dot" style="background:rgba(200,164,74,.28);border:.5px solid rgba(200,164,74,.45)"></div>Pedido</div>
-  </div></div>`;
-  return html;
-}
-
-/* ── ENROLMENT ──────────────────────────────────────────────── */
-function nmBuildEnrol(){
-  if(!DS_ENROL) return `<div class="nm-wip"><span class="nm-wip-icon">⚠️</span>Matrícula não encontrada no sistema.</div>`;
-  const e=DS_ENROL;
-  const course=nmInferCourse(e);
-  const lvl=nmDisplayLevel((e.level_cefr||'A1').toUpperCase(),course);
-  const deptLabel=course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral';
-  return [
-    ['Ref. ALM',     e.ref||'—',                                              'hi'],
-    ['Nome',         e.name||'—',                                             ''],
-    ['Nível',        lvl,                                                     'hi'],
-    ['Departamento', deptLabel,                                               ''],
-    ['Filial',       (e.branch||'—').replace(/_/g,' '),                      ''],
-    ['Língua',       `${DS_FLAGS[e.lang]||''} ${e.lang||'—'}`,               ''],
-    ['Estado',       e.status==='active'?'✓ Activo':e.status||'—',           e.status==='active'?'ok':'warn'],
-    ['Email',        e.email||'—',                                            ''],
-    ['Telefone',     e.phone||'—',                                            ''],
-  ].map(([k,v,c])=>nmRow(k,v,c)).join('');
-}
-
-/* ── SCHEDULE REQUEST ───────────────────────────────────────── */
-function nmBuildRequest(){
-  if(!DS_REQ) return `<div class="nm-wip"><span class="nm-wip-icon">📭</span>Nenhum pedido de horário submetido ainda.</div>`;
-  const r=DS_REQ;
-  let slots=[];
-  try{const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
-  const pills=slots.map((s,i)=>{
-    const day=s.day_name||(DS_DAY_NUM[s.day]||`Dia ${s.day}`);
-    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
-    const type=s.type==='availability'?'disponível':i===0?'★ pref':'↩ alt';
-    return `<span class="nm-slot-pill"><span class="nm-slot-day">${day}</span><span>${start}</span><span class="nm-slot-type">${type}</span></span>`;
-  }).join('');
-  const dateStr=r.created_at?new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}):'—';
-  return [
-    ['Slots',        pills||'—',                                              ''],
-    ['Modo',         r.mode_used==='avail'?'Disponibilidade':'Preferência',   'hi'],
-    ['Sessões/sem',  r.sessions_per_week||'—',                               'hi'],
-    ['Submetido',    `${dateStr} · 🔒 Imutável`,                             ''],
-    r.notes?['Nota',r.notes,'']:null,
-    ['Foto de ID',   r.has_id_photo?'✓ Enviada':'—',                         r.has_id_photo?'ok':''],
-    ['Hor. Escolar', r.has_school_timetable?'✓ Enviado':'—',                 r.has_school_timetable?'ok':''],
-  ].filter(Boolean).map(([k,v,c])=>nmRow(k,v,c)).join('');
-}
-
-/* ── HISTORIAL ──────────────────────────────────────────────── */
-function nmBuildHistorial(){
-  if(!DS_HIST.length) return `<div class="nm-wip"><span class="nm-wip-icon">🏗️</span>Historial académico em construção.</div>
-    <div class="nm-action-row">
-      <button class="nm-btn ghost" onclick="nmToast('Adicionar ano — módulo em desenvolvimento','warn')">+ Adicionar ano lectivo</button>
-    </div>`;
-  let html='';
-  DS_HIST.forEach(yr=>{
-    const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
-    const lbl=yr.outcome==='aprovado'?'✓ Aprovado':yr.outcome==='reprovado'?'✗ Reprovado':yr.outcome||'Em curso';
-    const has=yr.cambridge_r||yr.cambridge_w||yr.cambridge_l||yr.cambridge_s||yr.cambridge_uoe;
-    html+=`<div class="nm-hist-yr">
-      <div class="nm-hist-hdr" onclick="this.classList.toggle('open')">
-        <span class="nm-hist-year-lbl">${yr.academic_year}</span>
-        <span class="nm-hist-turma">${yr.turma_code||'—'} · ${yr.level_display||'—'}</span>
-        <span class="nm-hist-outcome ${cls}">${lbl}</span>
-      </div>
-      <div class="nm-hist-body">
-        ${has?`<div class="nm-camb-grid">${[['R',yr.cambridge_r],['W',yr.cambridge_w],['L',yr.cambridge_l],['S',yr.cambridge_s],['UoE',yr.cambridge_uoe]].map(([l,sc])=>`
-          <div class="nm-camb-cell ${sc>=60?'pass':sc>0?'fail':''}">
-            <div class="nm-camb-score">${sc||'—'}</div>
-            <div class="nm-camb-lbl">${l}</div>
-          </div>`).join('')}</div>`:''}
-        ${[
-          yr.grade_final!=null?['Nota final',yr.grade_final+'%','hi']:null,
-          yr.absences!=null?['Faltas',yr.absences,'']:null,
-          yr.notes?['Notas',yr.notes,'']:null,
-        ].filter(Boolean).map(([k,v,c])=>nmRow(k,v,c)).join('')}
-        <div class="nm-action-row">
-          <button class="nm-btn ghost" onclick="nmTriggerUpload('historial_exam','${yr.academic_year}')">+ Adicionar PDF</button>
-        </div>
-      </div>
-    </div>`;
-  });
-  html+=`<div class="nm-action-row">
-    <button class="nm-btn ghost" onclick="nmToast('Adicionar ano — módulo em desenvolvimento','warn')">+ Adicionar ano lectivo</button>
+  html+=`</div></div>`;
+  html+=`<div style="display:flex;gap:14px">
+    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(52,199,89,.45)"></div>Confirmado</div>
+    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(255,149,0,.35)"></div>Pedido</div>
   </div>`;
   return html;
 }
 
-/* ── DOCUMENTS ──────────────────────────────────────────────── */
-function nmBuildDocs(docs, context){
-  const iconMap={id_photo:'🪪',school_timetable:'🏫',historial_exam:'📄',historial_report:'📋',historial_cambridge:'🎓',general:'📁'};
+function buildEnrol(){
+  if(!DS_ENROL) return `<div class="ds-empty">Matrícula não encontrada.</div>`;
+  const e=DS_ENROL;
+  const course=inferCourse(e);
+  const lvl=displayLevel((e.level_cefr||'A1').toUpperCase(),course);
+  const dept=course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral';
+  return [
+    row('Referência', e.ref||'—', 'tint'),
+    row('Nome', e.name||'—'),
+    row('Nível', lvl),
+    row('Departamento', dept),
+    row('Filial', (e.branch||'—').replace(/_/g,' ')),
+    row('Língua', `${FLAGS[e.lang]||''} ${e.lang||'—'}`),
+    row('Estado', e.status==='active'?'Activo':e.status||'—', e.status==='active'?'green':'amber'),
+    e.email?row('Email', e.email, 'tint'):'',
+    e.phone?row('Telefone', e.phone):'',
+  ].join('');
+}
+
+function buildRequest(){
+  if(!DS_REQ) return `<div class="ds-empty">Nenhum pedido submetido.</div>`;
+  const r=DS_REQ;
+  let slots=[];
+  try{const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
+  const slotHtml=slots.length?`<div class="ds-slots">${slots.map((s,i)=>{
+    const day=s.day_name||(DAY_NUM[s.day]||`Dia ${s.day}`);
+    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
+    return `<span class="ds-slot">${day} ${start}</span>`;
+  }).join('')}</div>`:'—';
+  const dateStr=r.created_at?new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  return [
+    `<div class="ds-row"><div class="ds-rk">Slots</div><div class="ds-rv">${slotHtml}</div></div>`,
+    row('Modo', r.mode_used==='avail'?'Disponibilidade':'Preferência'),
+    row('Sessões/sem', r.sessions_per_week||'—'),
+    row('Submetido', dateStr),
+    r.notes?row('Nota', r.notes):'',
+    row('Foto ID', r.has_id_photo?'Enviada':'—', r.has_id_photo?'green':''),
+    row('Hor. Escolar', r.has_school_timetable?'Enviado':'—', r.has_school_timetable?'green':''),
+  ].filter(Boolean).join('');
+}
+
+function buildHistorial(){
+  if(!DS_HIST.length) return `<div class="ds-empty">Historial em construção.</div>
+    <div class="ds-btn-row"><button class="ds-btn ghost" onclick="dsToast('Módulo em desenvolvimento','warn')">Adicionar ano lectivo</button></div>`;
   let html='';
-  if(docs.length){
-    html+=`<div class="nm-doc-list">`;
-    docs.forEach(d=>{
-      const icon=iconMap[d.document_type]||'📁';
-      const name=d.notes||d.document_type||'Documento';
-      const date=d.uploaded_at?new Date(d.uploaded_at).toLocaleDateString('pt-PT'):'';
-      const isPdf=d.storage_path?.endsWith('.pdf');
-      html+=`<div class="nm-doc-row">
-        <div class="nm-doc-icon">${icon}</div>
-        <div class="nm-doc-info">
-          <div class="nm-doc-name">${name}</div>
-          <div class="nm-doc-meta">${d.document_type} · ${date} · ${d.uploaded_by||'—'}</div>
+  DS_HIST.forEach(yr=>{
+    const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
+    const lbl=yr.outcome==='aprovado'?'Aprovado':yr.outcome==='reprovado'?'Reprovado':yr.outcome||'Em curso';
+    const has=yr.cambridge_r||yr.cambridge_w||yr.cambridge_l||yr.cambridge_s||yr.cambridge_uoe;
+    html+=`<div class="ds-yr">
+      <div class="ds-yr-hdr" onclick="this.classList.toggle('open')">
+        <div class="ds-yr-left">
+          <span class="ds-yr-year">${yr.academic_year}</span>
+          <span class="ds-yr-turma">${yr.turma_code||'—'} · ${yr.level_display||'—'}</span>
         </div>
-        <div class="nm-doc-btns">
-          ${d.public_url?`<button class="nm-doc-btn view" onclick="nmViewDoc('${d.public_url}','${isPdf?'pdf':'img'}')">${isPdf?'PDF':'Ver'}</button>`:''}
-          <button class="nm-doc-btn del"  onclick="nmDeleteDoc('${d.id}','${d.storage_path||''}')">✕</button>
+        <span class="ds-yr-outcome ${cls}">${lbl}</span>
+      </div>
+      <div class="ds-yr-body">
+        ${has?`<div class="ds-camb">${[['R',yr.cambridge_r],['W',yr.cambridge_w],['L',yr.cambridge_l],['S',yr.cambridge_s],['UoE',yr.cambridge_uoe]].map(([l,sc])=>
+          `<div class="ds-camb-cell ${sc>=60?'pass':sc>0?'fail':''}">
+            <div class="ds-camb-score">${sc||'—'}</div>
+            <div class="ds-camb-lbl">${l}</div>
+          </div>`).join('')}</div>`:''}
+        ${yr.grade_final!=null?row('Nota final',yr.grade_final+'%'):''}
+        ${yr.absences!=null?row('Faltas',yr.absences):''}
+        ${yr.notes?row('Notas',yr.notes):''}
+        <div class="ds-btn-row">
+          <button class="ds-btn ghost" onclick="dsTriggerUpload('historial_exam','${yr.academic_year}')">Adicionar PDF</button>
         </div>
-      </div>`;
-    });
-    html+=`</div>`;
-  }
-  if(context!=='historial'){
-    html+=`<div class="nm-upload-zone" onclick="nmTriggerUpload('general',null)">
-      <span style="font-size:20px;display:block;margin-bottom:4px;opacity:.4">📎</span>
-      <span class="nm-upload-lbl">Clique para adicionar documento ou PDF</span>
+      </div>
     </div>`;
-  }
+  });
+  html+=`<div class="ds-btn-row"><button class="ds-btn ghost" onclick="dsToast('Módulo em desenvolvimento','warn')">Adicionar ano lectivo</button></div>`;
   return html;
 }
 
-/* ── MOVE ───────────────────────────────────────────────────── */
-function nmBuildMove(currentCode){
-  // Pull available turmas from CELL_MAP excluding current
+function buildDocs(){
+  const iconMap={id_photo:'🪪',school_timetable:'🏫',historial_exam:'📄',historial_report:'📋',historial_cambridge:'🎓',general:'📁'};
+  let html='';
+  DS_DOCS.forEach(d=>{
+    const icon=iconMap[d.document_type]||'📁';
+    const name=d.notes||d.document_type||'Documento';
+    const date=d.uploaded_at?new Date(d.uploaded_at).toLocaleDateString('pt-PT'):'';
+    const isPdf=d.storage_path?.endsWith('.pdf');
+    html+=`<div class="ds-doc">
+      <div class="ds-doc-icon">${icon}</div>
+      <div class="ds-doc-info">
+        <div class="ds-doc-name">${name}</div>
+        <div class="ds-doc-meta">${d.document_type} · ${date}</div>
+      </div>
+      <div class="ds-doc-btns">
+        ${d.public_url?`<button class="ds-doc-btn" onclick="dsViewDoc('${d.public_url}','${isPdf?'pdf':'img'}')">${isPdf?'PDF':'Ver'}</button>`:''}
+        <button class="ds-doc-btn del" onclick="dsDeleteDoc('${d.id}','${d.storage_path||''}')">Remover</button>
+      </div>
+    </div>`;
+  });
+  if(!DS_DOCS.length) html+=`<div class="ds-empty">Sem documentos.</div>`;
+  html+=`<button class="ds-upload" onclick="dsTriggerUpload('general',null)">
+    <span style="font-size:18px">📎</span>
+    <span class="ds-upload-lbl">Adicionar documento</span>
+  </button>`;
+  return html;
+}
+
+function buildMove(currentCode){
   const CM=window.CELL_MAP||{};
-  const codes=Object.values(CM)
-    .map(c=>c.turmaCode)
-    .filter(c=>c&&c!==currentCode);
-  return `${nmRow('Turma actual',currentCode||'Sem turma','hi')}
-  <div style="margin-top:10px">
-    <div style="font-family:var(--nm-mono);font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--nm-text3);margin-bottom:6px">Mover para</div>
-    <select class="nm-select" id="nm-move-sel">
-      <option value="">— escolher turma destino —</option>
+  const codes=[...new Set(Object.values(CM).map(c=>c.turmaCode).filter(c=>c&&c!==currentCode))];
+  return `${row('Turma actual', currentCode||'Sem turma', currentCode?'tint':'')}
+  <div style="margin-top:12px">
+    <select class="ds-select" id="ds-move-sel">
+      <option value="">Escolher turma destino</option>
       ${codes.map(c=>`<option value="${c}">${c}</option>`).join('')}
     </select>
-    <div class="nm-action-row">
-      <button class="nm-btn primary"  onclick="nmDoMove()">✓ Mover</button>
-      ${currentCode?`<button class="nm-btn danger" onclick="nmDoRemove('${currentCode}')">✕ Remover da turma</button>`:''}
+    <div class="ds-btn-row">
+      <button class="ds-btn primary" onclick="dsMoveStudent()">Mover</button>
+      ${currentCode?`<button class="ds-btn danger" onclick="dsRemove('${currentCode}')">Remover da turma</button>`:''}
     </div>
   </div>`;
 }
 
-/* ── NOTES ──────────────────────────────────────────────────── */
-function nmBuildNotes(){
-  return `<div class="nm-flag-chips">
-    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Comportamento</div>
-    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Pagamento pendente</div>
-    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Baixo desempenho</div>
-    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Excesso de faltas</div>
-    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Necessidade especial</div>
+function buildNotes(){
+  return `<div class="ds-flags">
+    <button class="ds-flag" onclick="this.classList.toggle('on')">Comportamento</button>
+    <button class="ds-flag" onclick="this.classList.toggle('on')">Pagamento pendente</button>
+    <button class="ds-flag" onclick="this.classList.toggle('on')">Baixo desempenho</button>
+    <button class="ds-flag" onclick="this.classList.toggle('on')">Excesso de faltas</button>
+    <button class="ds-flag" onclick="this.classList.toggle('on')">Necessidade especial</button>
   </div>
-  <textarea class="nm-note-add" id="nm-note-add" placeholder="Adicionar nota (visível para toda a equipa)…"></textarea>
-  <div class="nm-action-row">
-    <button class="nm-btn primary" onclick="nmSaveNote()">✓ Guardar nota</button>
+  <textarea class="ds-note" id="ds-note" placeholder="Adicionar nota visível para toda a equipa…"></textarea>
+  <div class="ds-btn-row">
+    <button class="ds-btn primary" onclick="dsSaveNote()">Guardar nota</button>
   </div>`;
 }
 
-/* ── ACTIONS ────────────────────────────────────────────────── */
-window.nmDoMove = function(){
-  const code=document.getElementById('nm-move-sel')?.value;
-  if(!code){nmToast('Escolha uma turma destino','warn');return;}
+/* ── Actions ── */
+window.dsMoveStudent = function(){
+  const code=document.getElementById('ds-move-sel')?.value;
+  if(!code){dsToast('Escolha uma turma destino','warn');return;}
   if(window.moveStudent) window.moveStudent(DS_REF,code);
-  else nmToast(`Mover para ${code} — use a página de atribuição`,'warn');
+  else dsToast(`Mover para ${code}','warn`);
 };
-window.nmDoRemove = function(code){
+window.dsRemove = function(code){
   if(!confirm(`Remover ${DS_REF} de ${code}?`)) return;
   if(window.removeFromTurma) window.removeFromTurma(DS_REF,code);
-  else nmToast('Remover — use a página de atribuição','warn');
+  else dsToast('Remover — use a página de atribuição','warn');
 };
-window.nmSaveNote = function(){
-  const txt=document.getElementById('nm-note-add')?.value?.trim();
-  if(!txt){nmToast('Escreva uma nota primeiro','warn');return;}
-  nmToast('Nota guardada ✓','ok');
-  document.getElementById('nm-note-add').value='';
+window.dsSaveNote = function(){
+  const txt=document.getElementById('ds-note')?.value?.trim();
+  if(!txt){dsToast('Escreva uma nota primeiro','warn');return;}
+  dsToast('Nota guardada','ok');
+  document.getElementById('ds-note').value='';
 };
 
-/* ── UPLOAD ─────────────────────────────────────────────────── */
-window.nmTriggerUpload = function(docType, year){
+/* ── Upload ── */
+window.dsTriggerUpload = function(docType, year){
   DS_UPLOAD_CTX={docType,year};
-  document.getElementById('nm-file-inp')?.click();
+  document.getElementById('ds-file-inp')?.click();
 };
-async function nmOnFile(e){
+async function onFile(e){
   const file=e.target.files[0]; if(!file) return;
   const ctx=DS_UPLOAD_CTX; if(!ctx) return;
-  nmToast('A enviar…','ok');
+  dsToast('A enviar…');
   const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
   const KEY=window.KEY||'';
   const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
@@ -1007,17 +937,15 @@ async function nmOnFile(e){
         uploaded_by:'staff',academic_year:'2026/2027',
         notes:ctx.year?`${ctx.docType} · ${ctx.year}`:ctx.docType})
     });
-    nmToast('Documento enviado ✓','ok');
+    dsToast('Enviado','ok');
     setTimeout(()=>openDossier(DS_REF,DS_ROLE),700);
   }catch(err){
-    console.error('[ALM Dossier] Upload error',err);
-    nmToast('Erro no envio','err');
+    dsToast('Erro no envio','err');
   }
   e.target.value='';
 }
 
-/* ── DELETE DOC ─────────────────────────────────────────────── */
-window.nmDeleteDoc = async function(docId, storagePath){
+window.dsDeleteDoc = async function(docId, storagePath){
   if(!confirm('Remover este documento?')) return;
   const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
   const KEY=window.KEY||'';
@@ -1025,80 +953,87 @@ window.nmDeleteDoc = async function(docId, storagePath){
   try{
     await fetch(`${BASE}/rest/v1/student_documents?id=eq.${docId}`,{method:'DELETE',headers:H});
     if(storagePath) await fetch(`${BASE}/storage/v1/object/alm-student-documents/${storagePath}`,{method:'DELETE',headers:H});
-    nmToast('Removido ✓','ok');
+    dsToast('Removido','ok');
     setTimeout(()=>openDossier(DS_REF,DS_ROLE),600);
-  }catch(err){ nmToast('Erro ao remover','err'); }
+  }catch(err){ dsToast('Erro ao remover','err'); }
 };
 
-/* ── VIEW DOC ───────────────────────────────────────────────── */
-window.nmViewDoc = function(url, type){
+window.dsViewDoc = function(url, type){
   const w=window.open('','_blank','width=900,height=700');
   if(type==='pdf')
-    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#08070F}iframe{width:100vw;height:100vh;border:none}</style></head><body><iframe src="${url}"></iframe></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#111}iframe{width:100vw;height:100vh;border:none}</style></head><body><iframe src="${url}"></iframe></body></html>`);
   else
-    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#08070F;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:95vw;max-height:95vh}</style></head><body><img src="${url}"/></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:95vw;max-height:95vh}</style></head><body><img src="${url}"/></body></html>`);
   w.document.close();
 };
 
-/* ── HELPERS ────────────────────────────────────────────────── */
-function nmRow(k,v,c){
-  return `<div class="nm-data-row"><div class="nm-dk">${k}</div><div class="nm-dv ${c||''}">${v}</div></div>`;
+/* ── Helpers ── */
+function row(k,v,c){
+  return `<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`;
 }
-function nmInferCourse(e){
+function inferCourse(e){
   if(!e) return 'adults';
   const str=[e.family,e.course,e.department,e.level_cefr,e.notes].filter(Boolean).join(' ').toLowerCase();
   if(/exam|exame/.test(str)) return 'exam';
   if(/kid|juven|junior|infant|prep/.test(str)) return 'kids';
   return 'adults';
 }
-function nmDisplayLevel(cefr,course){
-  const map={kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
-             adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
-             exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
+function displayLevel(cefr,course){
+  const map={
+    kids:  {A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
+    adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
+    exam:  {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'},
+  };
   return map[course]?.[cefr]||cefr;
 }
-function nmGetPrefs(ref, course){
+function getPrefs(ref, course){
   const r=(window.RMAP||{})[ref]; if(!r) return [];
-  // day_preferences first (canonical)
   if(r.day_preferences){
     try{
       const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
       if(Array.isArray(dp)&&dp.length)
-        return dp.map(p=>({day:DS_DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null),h:parseInt(p.session_start||p.hour||9)})).filter(p=>p.day);
+        return dp.map(p=>({day:DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null),h:parseInt(p.session_start||p.hour||9)})).filter(p=>p.day);
     }catch(e){}
   }
-  // fallback: availability map
   if(r.availability){
     try{
       const av=typeof r.availability==='string'?JSON.parse(r.availability):r.availability;
-      return Object.keys(av).filter(k=>av[k]).map(k=>{const[di,h]=k.split('_').map(Number);return{day:DS_DAY_NUM[di+1]||null,h};}).filter(p=>p.day);
+      return Object.keys(av).filter(k=>av[k]).map(k=>{const[di,h]=k.split('_').map(Number);return{day:DAY_NUM[di+1]||null,h};}).filter(p=>p.day);
     }catch(e){}
   }
   return [];
 }
-function nmAvCol(name){
-  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))&0xffffffff;
-  const p=[{bg:'#EAC8D8',text:'#7A1840'},{bg:'#C8D8EC',text:'#143870'},{bg:'#C8ECD8',text:'#145830'},{bg:'#DCC8EC',text:'#481890'},{bg:'#ECDCC8',text:'#784010'},{bg:'#C8ECE8',text:'#145850'}];
+function avCol(name){
+  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffffffff;
+  const p=[
+    {bg:'#E8D5F5',text:'#6B2FA0'},
+    {bg:'#D5E8F5',text:'#1A5A8A'},
+    {bg:'#D5F5E8',text:'#1A7A50'},
+    {bg:'#F5E8D5',text:'#8A5A1A'},
+    {bg:'#F5D5D5',text:'#8A1A1A'},
+    {bg:'#D5F5F5',text:'#1A7A7A'},
+  ];
   return p[Math.abs(h)%p.length];
 }
-function nmToast(msg,type='ok'){
-  const t=document.getElementById('nm-toast');if(!t)return;
-  t.textContent=msg;t.className='nm-toast '+type+' show';
-  clearTimeout(nm_toast_t);nm_toast_t=setTimeout(()=>t.classList.remove('show'),2600);
+function dsToast(msg,type=''){
+  const t=document.getElementById('ds-toast'); if(!t) return;
+  t.textContent=msg; t.className='ds-toast '+type+' show';
+  clearTimeout(_toast_t);
+  _toast_t=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
-/* ── KEYBOARD ───────────────────────────────────────────────── */
+/* ── Keyboard ── */
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('nm-overlay')?.classList.contains('open'))
+  if(e.key==='Escape'&&document.getElementById('ds-overlay')?.classList.contains('open'))
     closeDossier();
 });
 
-/* ── BACKWARD COMPAT ─────────────────────────────────────────── */
-// Keep old ds-toast + ds-overlay references alive so nothing breaks
-// if any other page code calls closeDossier() or checks ds-overlay
-window.closeDossier = window.closeDossier || (()=>{
-  document.getElementById('nm-overlay')?.classList.remove('open');
-});
+/* ── Compat ── */
+window.nmScrollTo   = window.dsScrollTo;
+window.nmTriggerUpload = window.dsTriggerUpload;
+window.nmDeleteDoc  = window.dsDeleteDoc;
+window.nmViewDoc    = window.dsViewDoc;
+window.nmToast      = dsToast;
 
-console.log('[ALM Dossier v4] Neumorphic engine loaded ✓');
+console.log('[ALM Dossier v5] Apple-style sheet loaded ✓');
 })();
