@@ -1,5 +1,31 @@
 (function(){
 
+/* ══════════════════════════════════════════════════════
+   ALM DOSSIER v6  —  real schema edition
+   ──────────────────────────────────────────────────────
+   Real tables used:
+     enrolments          → student identity + contact + level
+     timetable_requests  → day_preferences (string days), family
+     turma_students      → historic class membership
+     lesson_summaries    → attendance / lesson records
+   
+   Tables that don't exist (removed):
+     student_requests    → was wrong name
+     student_documents   → doesn't exist (upload removed for now)
+     student_history     → doesn't exist (built from turma_students)
+
+   day_preferences real shape:
+     [{"day":"wednesday","session_start":"11:00",...}, ...]
+   
+   enrolments real columns used:
+     ref, name, date_of_birth, age, gender, phone, email,
+     branch, lang, family, level_cefr, level_raw,
+     enrolment_date, academic_year, returning_student,
+     payment_method, guardian_name, guardian_phone,
+     notes, school, school_year, occupation,
+     naturalidade, nif, postal_code, locality
+══════════════════════════════════════════════════════ */
+
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -18,498 +44,233 @@ const CSS = `
   --amber: #FF9F0A;
   --f: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 .ds-overlay {
-  display: none;
-  position: fixed; inset: 0; z-index: 2000;
+  display: none; position: fixed; inset: 0; z-index: 2000;
   background: rgba(0,0,0,.4);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0;
+  align-items: flex-end; justify-content: center;
 }
 .ds-overlay.open { display: flex; }
 
 .ds-sheet {
-  width: min(540px, 100vw);
-  max-height: 92dvh;
-  background: var(--bg);
-  border-radius: 20px 20px 0 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  width: min(540px, 100vw); max-height: 92dvh;
+  background: var(--bg); border-radius: 20px 20px 0 0;
+  display: flex; flex-direction: column; overflow: hidden;
   animation: sheetUp .35s cubic-bezier(.32,.72,0,1);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.ds-sheet.ds-exit {
-  animation: sheetDown .28s cubic-bezier(.32,.72,0,1) forwards;
-}
+.ds-sheet.ds-exit { animation: sheetDown .28s cubic-bezier(.32,.72,0,1) forwards; }
 @keyframes sheetUp   { from { transform: translateY(100%) } to { transform: none } }
 @keyframes sheetDown { to   { transform: translateY(100%) } }
 
-/* ── BANNER HEADER ── */
 .ds-banner {
-  position: relative;
-  flex-shrink: 0;
-  padding: 22px 16px 16px;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  min-height: 158px;
-  overflow: hidden;
+  position: relative; flex-shrink: 0;
+  padding: 14px 14px 12px;
+  display: flex; align-items: flex-start; gap: 12px;
+  min-height: 110px; overflow: hidden;
 }
-.ds-banner-bg {
-  position: absolute; inset: 0;
-  transition: background .3s;
-}
+.ds-banner-bg { position: absolute; inset: 0; transition: background .3s; }
 .ds-banner-noise {
-  position: absolute; inset: 0;
-  opacity: .04;
+  position: absolute; inset: 0; opacity: .04; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
 }
 .ds-banner-scrim {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(to top, rgba(0,0,0,.28) 0%, transparent 60%);
-  pointer-events: none;
 }
-/* Grab handle sits on top of banner */
 .ds-handle {
-  position: absolute;
-  top: 10px; left: 50%; transform: translateX(-50%);
-  width: 36px; height: 5px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.38);
-  z-index: 10;
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  width: 36px; height: 5px; border-radius: 999px;
+  background: rgba(255,255,255,.38); z-index: 10;
 }
 .ds-close {
-  position: absolute;
-  top: 14px; right: 16px;
-  z-index: 10;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: rgba(255,255,255,.22);
-  border: none; cursor: pointer;
+  position: absolute; top: 14px; right: 16px; z-index: 10;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,.22); border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,.90);
-  font-size: 13px; font-weight: 600;
-  font-family: var(--f);
-  backdrop-filter: blur(4px);
-  transition: background .12s;
+  color: rgba(255,255,255,.90); font-size: 13px; font-weight: 600;
+  font-family: var(--f); backdrop-filter: blur(4px); transition: background .12s;
 }
 .ds-close:hover { background: rgba(255,255,255,.38); }
 .ds-dept-badge {
-  position: absolute;
-  top: 14px; left: 16px;
-  z-index: 10;
-  font-family: var(--f);
-  font-size: 10px; font-weight: 600;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,.85);
-  background: rgba(255,255,255,.18);
-  padding: 4px 11px;
-  border-radius: 999px;
-  backdrop-filter: blur(4px);
+  position: absolute; top: 10px; left: 14px; z-index: 10;
+  font-family: var(--f); font-size: 9px; font-weight: 600;
+  letter-spacing: .10em; text-transform: uppercase;
+  color: rgba(255,255,255,.55);
 }
 .ds-avatar {
   position: relative; z-index: 5;
-  width: 72px; height: 72px;
-  border-radius: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 700;
-  font-family: var(--f);
-  flex-shrink: 0;
-  overflow: hidden;
-  border: 3px solid rgba(255,255,255,.55);
-  box-shadow: 0 4px 18px rgba(0,0,0,.22);
-  margin-top: 18px;
+  font-size: 16px; font-weight: 700; font-family: var(--f);
+  flex-shrink: 0; overflow: hidden;
+  border: 2px solid rgba(255,255,255,.45);
+  box-shadow: 0 3px 12px rgba(0,0,0,.22); margin-top: 20px;
 }
 .ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.ds-hinfo {
-  position: relative; z-index: 5;
-  flex: 1; min-width: 0;
-  margin-bottom: 2px;
-}
+.ds-hinfo { position: relative; z-index: 5; flex: 1; min-width: 0; margin-top: 20px; }
 .ds-name {
-  font-family: var(--f);
-  font-size: 20px; font-weight: 700;
-  color: #fff;
+  font-family: var(--f); font-size: 16px; font-weight: 700; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-shadow: 0 1px 8px rgba(0,0,0,.18);
+  text-shadow: 0 1px 6px rgba(0,0,0,.18);
 }
-.ds-ref {
-  font-family: var(--f);
-  font-size: 12px; font-weight: 500;
-  color: rgba(255,255,255,.68);
-  margin-top: 2px;
-  letter-spacing: .02em;
-}
-
-/* Tag row */
-.ds-tags {
-  display: flex; align-items: center; gap: 6px;
-  padding: 10px 20px;
-  border-bottom: .5px solid var(--sep);
-  flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.ds-tags::-webkit-scrollbar { display: none; }
-.ds-tag {
-  font-family: var(--f);
-  font-size: 12px; font-weight: 500;
-  color: #6AB4FF;
-  background: rgba(10,132,255,.18);
-  padding: 4px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.ds-tag.green { color: #32D74B; background: rgba(50,215,75,.15); }
-.ds-tag.amber { color: #FF9F0A; background: rgba(255,159,10,.15); }
-.ds-tag.red   { color: #FF453A; background: rgba(255,69,58,.15); }
-
-/* Actions — compact text links inside banner */
-.ds-banner-acts {
-  display: flex;
-  gap: 0;
-  margin-top: 7px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+.ds-ref { font-family: var(--f); font-size: 11px; font-weight: 400; color: rgba(255,255,255,.58); margin-top: 1px; }
+.ds-banner-acts { display: flex; gap: 0; margin-top: 7px; overflow-x: auto; scrollbar-width: none; }
 .ds-banner-acts::-webkit-scrollbar { display: none; }
 .ds-act {
-  font-family: var(--f);
-  font-size: 11px; font-weight: 500;
-  color: rgba(255,255,255,.72);
-  cursor: pointer;
-  padding: 3px 10px 3px 0;
-  white-space: nowrap;
-  flex-shrink: 0;
-  border: none; background: none;
-  transition: color .12s;
+  font-family: var(--f); font-size: 11px; font-weight: 500;
+  color: rgba(255,255,255,.72); cursor: pointer;
+  padding: 3px 10px 3px 0; white-space: nowrap; flex-shrink: 0;
+  border: none; background: none; transition: color .12s;
 }
-.ds-act:hover { color: rgba(255,255,255,1); }
-.ds-act + .ds-act {
-  border-left: .5px solid rgba(255,255,255,.25);
-  padding-left: 10px;
+.ds-act:hover { color: #fff; }
+.ds-act + .ds-act { border-left: .5px solid rgba(255,255,255,.25); padding-left: 10px; }
+
+.ds-tags {
+  display: flex; align-items: center; gap: 0;
+  padding: 6px 14px; border-bottom: .5px solid var(--sep);
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.ds-tags::-webkit-scrollbar { display: none; }
+.ds-ci {
+  font-family: var(--f); font-size: 11px; font-weight: 400;
+  color: var(--sub); white-space: nowrap; flex-shrink: 0;
+  text-decoration: none;
+}
+.ds-ci-link { color: var(--tint); }
+.ds-ci-link:hover { opacity: .78; }
+.ds-ci-sep {
+  font-size: 10px; color: var(--sep); padding: 0 7px; flex-shrink: 0;
 }
 
-/* Availability mini */
-.ds-avail {
-  padding: 12px 20px;
-  border-bottom: .5px solid var(--sep);
-  flex-shrink: 0;
-}
+/* Avail mini-grid */
+.ds-avail { padding: 12px 20px; border-bottom: .5px solid var(--sep); flex-shrink: 0; }
 .ds-avail-label {
-  font-family: var(--f);
-  font-size: 11px; font-weight: 500;
-  color: var(--label);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  margin-bottom: 8px;
+  font-family: var(--f); font-size: 11px; font-weight: 500;
+  color: var(--label); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
 }
 .ds-avail-grid {
   display: grid;
-  grid-template-columns: 32px repeat(11, 1fr) 6px repeat(7, 1fr);
+  grid-template-columns: 32px repeat(4,1fr) 6px repeat(7,1fr);
   gap: 2px;
 }
-.ds-ag-corner { }
-.ds-ag-h {
-  height: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: monospace; font-size: 7px;
-  color: var(--label);
-}
-.ds-ag-brk { }
-.ds-ag-day {
-  height: 12px;
-  display: flex; align-items: center;
-  font-family: monospace; font-size: 7px; font-weight: 700;
-  color: var(--label);
-}
-.ds-ag-cell {
-  height: 12px;
-  border-radius: 2px;
-  background: #48484A;
-}
-.ds-ag-cell.req  { background: #FF9F0A; }
-.ds-ag-cell.conf { background: #32D74B; }
-.ds-avail-leg {
-  display: flex; gap: 14px; margin-top: 6px;
-}
-.ds-leg-item {
-  display: flex; align-items: center; gap: 5px;
-  font-family: var(--f); font-size: 11px; color: var(--label);
-}
-.ds-leg-dot {
-  width: 8px; height: 8px; border-radius: 2px;
-}
+.ds-ag-h { height:12px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:7px;color:var(--label); }
+.ds-ag-day { height:12px;display:flex;align-items:center;font-family:monospace;font-size:7px;font-weight:700;color:var(--label); }
+.ds-ag-cell { height:12px;border-radius:2px;background:#48484A; }
+.ds-ag-cell.req  { background:#FF9F0A; }
+.ds-ag-cell.conf { background:#32D74B; }
+.ds-avail-leg { display:flex;gap:14px;margin-top:6px; }
+.ds-leg-item { display:flex;align-items:center;gap:5px;font-family:var(--f);font-size:11px;color:var(--label); }
+.ds-leg-dot { width:8px;height:8px;border-radius:2px; }
 
-/* Scrollable body */
 .ds-body {
   flex: 1; overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--sep) transparent;
+  scrollbar-width: thin; scrollbar-color: var(--sep) transparent;
 }
 .ds-body::-webkit-scrollbar { width: 3px; }
 .ds-body::-webkit-scrollbar-thumb { background: var(--sep); border-radius: 99px; }
 
-/* Section */
-.ds-section {
-  border-bottom: .5px solid var(--sep);
-}
+.ds-section { border-bottom: .5px solid var(--sep); }
 .ds-section-hdr {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px 12px;
-  cursor: pointer;
+  padding: 14px 20px 12px; cursor: pointer;
 }
-.ds-section-title {
-  font-family: var(--f);
-  font-size: 13px; font-weight: 600;
-  color: var(--text);
-  display: flex; align-items: center; gap: 8px;
-}
+.ds-section-title { font-family: var(--f); font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .ds-section-icon { font-size: 15px; }
-.ds-section-meta {
-  font-family: var(--f);
-  font-size: 12px; color: var(--sub);
-}
-.ds-section-chv {
-  font-size: 12px; color: var(--label);
-  transition: transform .2s;
-  margin-left: 6px;
-}
+.ds-section-meta { font-family: var(--f); font-size: 12px; color: var(--sub); }
+.ds-section-chv { font-size: 12px; color: var(--label); transition: transform .2s; margin-left: 6px; }
 .ds-section-hdr.open .ds-section-chv { transform: rotate(90deg); }
 .ds-section-body { display: none; padding: 0 20px 14px; }
 .ds-section-hdr.open + .ds-section-body { display: block; }
 
-/* Horizontal data rows — key left, value right */
-.ds-row {
-  display: flex; align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 7px 0;
-  border-bottom: .5px solid var(--sep2);
-}
+.ds-row { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:.5px solid var(--sep2); }
 .ds-row:last-child { border-bottom: none; }
-.ds-rk {
-  font-family: var(--f);
-  font-size: 13px; color: var(--sub);
-  flex-shrink: 0;
-  min-width: 90px;
-}
-.ds-rv {
-  font-family: var(--f);
-  font-size: 13px; color: var(--text);
-  text-align: right;
-  flex: 1;
-}
-.ds-rv.tint   { color: var(--tint); }
-.ds-rv.green  { color: var(--green); }
-.ds-rv.amber  { color: var(--amber); }
-.ds-rv.red    { color: var(--red); }
+.ds-rk { font-family:var(--f);font-size:13px;color:var(--sub);flex-shrink:0;min-width:110px; }
+.ds-rv { font-family:var(--f);font-size:13px;color:var(--text);text-align:right;flex:1; }
+.ds-rv.tint  { color:var(--tint); }
+.ds-rv.green { color:var(--green); }
+.ds-rv.amber { color:var(--amber); }
+.ds-rv.red   { color:var(--red); }
 
-/* Slot list */
-.ds-slots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.ds-slot {
-  font-family: var(--f);
-  font-size: 12px; color: var(--tint);
-  background: rgba(0,122,255,.07);
-  padding: 3px 8px; border-radius: 6px;
-}
+.ds-slots { display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end; }
+.ds-slot { font-family:var(--f);font-size:12px;color:var(--tint);background:rgba(0,122,255,.07);padding:3px 8px;border-radius:6px; }
 
-/* Cambridge scores */
-.ds-camb {
-  display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
-}
-.ds-camb-cell {
-  flex: 1; min-width: 52px;
-  text-align: center;
-  padding: 8px 4px;
-  border-radius: 10px;
-  background: var(--bg2);
-}
-.ds-camb-score {
-  font-family: var(--f); font-size: 18px; font-weight: 600;
-  color: var(--text);
-}
-.ds-camb-lbl {
-  font-family: var(--f); font-size: 9px; color: var(--sub);
-  text-transform: uppercase; letter-spacing: .05em;
-  margin-top: 2px;
-}
-.ds-camb-cell.pass .ds-camb-score { color: var(--green); }
-.ds-camb-cell.fail .ds-camb-score { color: var(--red); }
+/* History */
+.ds-yr { border-radius:10px;background:var(--bg2);margin-bottom:8px;overflow:hidden; }
+.ds-yr-hdr { display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer; }
+.ds-yr-left { display:flex;align-items:center;gap:10px; }
+.ds-yr-year { font-family:var(--f);font-size:13px;font-weight:600;color:var(--text); }
+.ds-yr-turma { font-family:var(--f);font-size:12px;color:var(--sub); }
+.ds-yr-outcome { font-family:var(--f);font-size:12px;font-weight:500; }
+.ds-yr-outcome.ok   { color:var(--green); }
+.ds-yr-outcome.warn { color:var(--red); }
+.ds-yr-outcome.na   { color:var(--sub); }
+.ds-yr-body { display:none;padding:0 14px 12px;border-top:.5px solid var(--sep); }
+.ds-yr-hdr.open + .ds-yr-body { display:block; }
 
-/* Year history */
-.ds-yr {
-  border-radius: 10px;
-  background: var(--bg2);
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-.ds-yr-hdr {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
-}
-.ds-yr-left { display: flex; align-items: center; gap: 10px; }
-.ds-yr-year {
-  font-family: var(--f); font-size: 13px; font-weight: 600;
-  color: var(--text);
-}
-.ds-yr-turma {
-  font-family: var(--f); font-size: 12px; color: var(--sub);
-}
-.ds-yr-outcome {
-  font-family: var(--f); font-size: 12px; font-weight: 500;
-}
-.ds-yr-outcome.ok   { color: var(--green); }
-.ds-yr-outcome.warn { color: var(--red); }
-.ds-yr-outcome.na   { color: var(--sub); }
-.ds-yr-body { display: none; padding: 0 14px 12px; border-top: .5px solid var(--sep); }
-.ds-yr-hdr.open + .ds-yr-body { display: block; }
+/* Attendance bar */
+.ds-att-bar { height:4px;border-radius:2px;background:var(--bg3);margin-top:6px;overflow:hidden; }
+.ds-att-fill { height:100%;border-radius:2px;transition:width .3s; }
 
-/* Document list */
-.ds-doc {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 0;
-  border-bottom: .5px solid var(--sep2);
-}
-.ds-doc:last-child { border-bottom: none; }
-.ds-doc-icon { font-size: 22px; flex-shrink: 0; }
-.ds-doc-info { flex: 1; min-width: 0; }
-.ds-doc-name {
-  font-family: var(--f); font-size: 13px; font-weight: 500;
-  color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.ds-doc-meta {
-  font-family: var(--f); font-size: 11px; color: var(--sub);
-  margin-top: 1px;
-}
-.ds-doc-btns { display: flex; gap: 6px; flex-shrink: 0; }
-.ds-doc-btn {
-  font-family: var(--f); font-size: 12px; font-weight: 500;
-  color: var(--tint);
-  background: none; border: none; cursor: pointer; padding: 0;
-}
-.ds-doc-btn.del { color: var(--red); }
-
-/* Upload area */
-.ds-upload {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--bg2);
-  border: none; cursor: pointer;
-  width: 100%; margin-top: 10px;
-}
-.ds-upload-lbl {
-  font-family: var(--f); font-size: 13px;
-  color: var(--tint);
-}
-
-/* Select */
-.ds-select {
-  width: 100%; padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg2);
-  border: none;
-  font-family: var(--f); font-size: 13px; font-weight: 500;
-  color: var(--text);
-  outline: none;
-  margin-bottom: 10px;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.ds-select:focus { background: var(--bg3); }
-
-/* Flags */
-.ds-flags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+/* Notes */
+.ds-flags { display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px; }
 .ds-flag {
-  font-family: var(--f); font-size: 12px; font-weight: 500;
-  color: var(--sub);
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: var(--bg2);
-  border: .5px solid var(--sep);
-  cursor: pointer;
+  font-family:var(--f);font-size:12px;font-weight:500;color:var(--sub);
+  padding:6px 12px;border-radius:8px;background:var(--bg2);
+  border:.5px solid var(--sep);cursor:pointer;transition:all .12s;
 }
-.ds-flag.on { color: #FF453A; background: rgba(255,69,58,.15); border-color: rgba(255,69,58,.3); }
-
-/* Note textarea */
+.ds-flag.on { color:#FF453A;background:rgba(255,69,58,.15);border-color:rgba(255,69,58,.3); }
 .ds-note {
-  width: 100%; padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg2);
-  border: none;
-  font-family: var(--f); font-size: 13px;
-  color: var(--text);
-  outline: none;
-  resize: none;
-  min-height: 72px;
-  line-height: 1.55;
+  width:100%;padding:10px 12px;border-radius:10px;background:var(--bg2);
+  border:none;font-family:var(--f);font-size:13px;color:var(--text);
+  outline:none;resize:none;min-height:72px;line-height:1.55;
 }
-.ds-note::placeholder { color: var(--label); }
+.ds-note::placeholder { color:var(--label); }
+.ds-btn-row { display:flex;gap:8px;margin-top:12px;flex-wrap:wrap; }
+.ds-btn { font-family:var(--f);font-size:13px;font-weight:600;padding:9px 18px;border-radius:10px;border:none;cursor:pointer; }
+.ds-btn.primary { background:var(--tint);color:#fff; }
+.ds-btn.ghost   { background:var(--bg2);color:var(--text); }
+.ds-btn.danger  { background:rgba(255,59,48,.10);color:var(--red); }
 
-/* Buttons */
-.ds-btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.ds-btn {
-  font-family: var(--f); font-size: 13px; font-weight: 600;
-  padding: 9px 18px; border-radius: 10px;
-  border: none; cursor: pointer;
+/* Move */
+.ds-select {
+  width:100%;padding:10px 12px;border-radius:10px;background:var(--bg2);
+  border:none;font-family:var(--f);font-size:13px;font-weight:500;color:var(--text);
+  outline:none;margin-bottom:10px;cursor:pointer;appearance:none;-webkit-appearance:none;
 }
-.ds-btn.primary { background: var(--tint); color: #fff; }
-.ds-btn.ghost   { background: var(--bg2); color: var(--text); }
-.ds-btn.danger  { background: rgba(255,59,48,.10); color: var(--red); }
+.ds-select:focus { background:var(--bg3); }
 
-/* Empty state */
-.ds-empty {
-  padding: 16px 0;
-  font-family: var(--f); font-size: 13px;
-  color: var(--sub); text-align: center;
-}
+.ds-empty { padding:16px 0;font-family:var(--f);font-size:13px;color:var(--sub);text-align:center; }
 
-/* Toast */
 .ds-toast {
-  position: fixed; bottom: 32px; left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  background: rgba(30,30,32,.90);
-  color: #fff;
-  font-family: var(--f); font-size: 13px; font-weight: 500;
-  padding: 9px 20px; border-radius: 20px;
-  opacity: 0; transition: opacity .2s, transform .2s;
-  pointer-events: none; z-index: 3000;
-  white-space: nowrap;
-  backdrop-filter: blur(10px);
+  position:fixed;bottom:32px;left:50%;
+  transform:translateX(-50%) translateY(8px);
+  background:rgba(30,30,32,.90);color:#fff;
+  font-family:var(--f);font-size:13px;font-weight:500;
+  padding:9px 20px;border-radius:20px;
+  opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;z-index:3000;white-space:nowrap;
+  backdrop-filter:blur(10px);
 }
-.ds-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.ds-toast.ok   { color: #7FE4A0; }
-.ds-toast.err  { color: #FF8080; }
-.ds-toast.warn { color: #FFD060; }
-
-input.ds-file-inp { display: none; }
+.ds-toast.show { opacity:1;transform:translateX(-50%) translateY(0); }
+.ds-toast.ok   { color:#7FE4A0; }
+.ds-toast.err  { color:#FF8080; }
+.ds-toast.warn { color:#FFD060; }
 `;
 
 const HTML = `
 <div class="ds-overlay" id="ds-overlay" onclick="if(event.target===this)closeDossier()">
   <div class="ds-sheet" id="ds-sheet">
-
     <div class="ds-banner" id="ds-banner">
-      <div class="ds-banner-bg"    id="ds-banner-bg"></div>
+      <div class="ds-banner-bg" id="ds-banner-bg"></div>
       <div class="ds-banner-noise"></div>
       <div class="ds-banner-scrim"></div>
       <div class="ds-handle"></div>
-      <div class="ds-dept-badge"   id="ds-dept-badge"></div>
+      <div class="ds-dept-badge" id="ds-dept-badge"></div>
       <button class="ds-close" onclick="closeDossier()">✕</button>
       <div class="ds-avatar" id="ds-avatar">?</div>
       <div class="ds-hinfo">
@@ -518,35 +279,67 @@ const HTML = `
         <div class="ds-banner-acts" id="ds-actions"></div>
       </div>
     </div>
-
     <div class="ds-tags" id="ds-tags"></div>
-
+    <div class="ds-avail" id="ds-avail" style="display:none">
+      <div class="ds-avail-label">Disponibilidade · Pedido</div>
+      <div class="ds-avail-grid" id="ds-avail-grid"></div>
+      <div class="ds-avail-leg">
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
+      </div>
+    </div>
     <div class="ds-body" id="ds-body"></div>
   </div>
 </div>
 <div class="ds-toast" id="ds-toast"></div>
-<input type="file" id="ds-file-inp" class="ds-file-inp" accept=".pdf,image/*"/>
 `;
 
 /* ── Constants ── */
-const DAYS     = ['SEG','TER','QUA','QUI','SEX','SÁB'];
-const HRS_MORN = [8,9,10,11];
-const HRS_AFT  = [14,15,16,17,18,19,20];
-const ALL_HRS  = [...HRS_MORN,...HRS_AFT];
-const FLAGS    = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
-const DAY_NUM  = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+const FLAGS   = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const DAYS    = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const HRS_MORN= [8,9,10,11];
+const HRS_AFT = [14,15,16,17,18,19,20];
 
-const COURSE_CHIP = {
-  kids:   {label:'Juvenil',   col:'green'},
-  adults: {label:'Geral',     col:''},
-  exam:   {label:'Exames',    col:'amber'},
+// Real day_preferences uses English day names (lowercase strings)
+const DAY_EN_TO_PT = {
+  monday:'SEG', tuesday:'TER', wednesday:'QUA',
+  thursday:'QUI', friday:'SEX', saturday:'SÁB',
+  // also handle trimmed variants
+  mon:'SEG', tue:'TER', wed:'QUA', thu:'QUI', fri:'SEX', sat:'SÁB',
+  // numeric fallback (legacy)
+  1:'SEG', 2:'TER', 3:'QUA', 4:'QUI', 5:'SEX', 6:'SÁB',
 };
+
+const COURSE_GRAD = {
+  kids:   'linear-gradient(145deg,#5AACAC,#2E7E7E)',
+  adults: 'linear-gradient(145deg,#5A78E8,#3050C0)',
+  exam:   'linear-gradient(145deg,#C8904A,#8A5A20)',
+};
+const COURSE_DEPT = { kids:'Juvenil', adults:'Geral', exam:'Exames' };
+const COURSE_COL  = { kids:'green', adults:'', exam:'amber' };
 
 /* ── State ── */
 let DS_REF=null, DS_ROLE='staff';
-let DS_ENROL=null, DS_REQ=null, DS_DOCS=[], DS_HIST=[];
-let DS_UPLOAD_CTX=null;
-let _toast_t=null;
+let DS_ENROL=null, DS_REQ=null, DS_HIST=[];
+let _toast_t=null, _ttLoaded=false;
+
+/* ── Supabase ── */
+function sbH(){
+  const KEY=window.KEY||'';
+  return {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+}
+function sbGet(table,q){
+  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+  return fetch(`${BASE}/rest/v1/${table}?${q}`,{headers:sbH()})
+    .then(r=>r.ok?r.json():[])
+    .catch(()=>[]);
+}
+function sbPatch(table,q,body){
+  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+  return fetch(`${BASE}/rest/v1/${table}?${q}`,{
+    method:'PATCH', headers:sbH(), body:JSON.stringify(body)
+  }).then(r=>r.ok?r.json():null).catch(()=>null);
+}
 
 /* ── Inject ── */
 function inject(){
@@ -555,222 +348,210 @@ function inject(){
   document.head.appendChild(s);
   const d=document.createElement('div'); d.innerHTML=HTML;
   while(d.firstElementChild) document.body.appendChild(d.firstElementChild);
-  document.getElementById('ds-file-inp').addEventListener('change', onFile);
 }
 
-/* ── Open ── */
+/* ══════════════════════════════════════
+   OPEN
+══════════════════════════════════════ */
 window.openDossier = async function(ref, role){
   inject();
   DS_REF=ref; DS_ROLE=role||'staff';
-  DS_ENROL=null; DS_REQ=null; DS_DOCS=[]; DS_HIST=[];
+  DS_ENROL=null; DS_REQ=null; DS_HIST=[];
   _ttLoaded=false;
 
   document.getElementById('ds-overlay').classList.add('open');
-  renderCover({name:ref,ref,lang:'EN',course:'adults',cefr:'A1',branch:'—'});
-  document.getElementById('ds-body').innerHTML='';
+  document.getElementById('ds-avail').style.display='none';
+  renderSkeleton(ref);
 
-  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
-  const KEY=window.KEY||'';
-  const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
-  const get=(t,q)=>fetch(`${BASE}/rest/v1/${t}?${q}`,{headers:H}).then(r=>r.json()).catch(()=>[]);
+  // ── Fetch from real tables ──
+  const [enrols, reqs, hist] = await Promise.all([
+    sbGet('enrolments',
+      `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_cefr,level_raw,enrolment_date,academic_year,returning_student,payment_method,guardian_name,guardian_phone,notes,school,school_year,occupation,naturalidade,nif,postal_code,locality&limit=1`),
 
-  const [enrols,reqs,docs,hist]=await Promise.all([
-    get('enrolments',`ref=eq.${encodeURIComponent(ref)}&limit=1`),
-    get('student_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.2026%2F2027&limit=1`),
-    get('student_documents',`ref=eq.${encodeURIComponent(ref)}&order=uploaded_at.desc`),
-    get('student_history',`ref=eq.${encodeURIComponent(ref)}&order=academic_year.desc`),
+    sbGet('timetable_requests',
+      `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.2026%2F2027&select=ref,student_name,branch,lang,family,level_cefr,day_preferences,sessions_per_week,status,created_at,mode_used,has_id_photo,has_school_timetable,notes&limit=1`),
+
+    sbGet('turma_students',
+      `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,family,outcome,absences,grade_final,notes&order=academic_year.desc`),
   ]);
 
-  DS_ENROL=enrols?.[0]||null;
-  DS_REQ  =reqs?.[0]  ||null;
-  DS_DOCS =docs||[];
-  DS_HIST =hist||[];
+  DS_ENROL = enrols?.[0] || null;
+  DS_REQ   = reqs?.[0]   || null;
+  DS_HIST  = hist || [];
 
+  // ── Resolve turma from CELL_MAP (localStorage) ──
   let turmaCode=null, turmaDay=null, turmaH=null;
-  const CM=window.CELL_MAP||{};
-  Object.entries(CM).forEach(([key,cell])=>{
+  const CM = window.CELL_MAP || {};
+  Object.entries(CM).forEach(([key, cell]) => {
     if(cell.studentRefs?.includes(ref)){
-      turmaCode=cell.turmaCode;
-      const parts=key.split('_');
-      turmaDay=parts[0]; turmaH=parseInt(parts[1]||0);
+      turmaCode = cell.turmaCode;
+      const parts = key.split('_');
+      turmaDay = parts[0];
+      turmaH   = parseInt(parts[1] || 0);
     }
   });
 
-  const course=inferCourse(DS_ENROL);
-  const cefr=(DS_ENROL?.level_cefr||'A1').toUpperCase();
-  const idPhoto=DS_DOCS.find(d=>d.document_type==='id_photo')?.public_url||null;
+  const course = inferCourse(DS_ENROL || DS_REQ);
+  const cefr   = (DS_ENROL?.level_cefr || DS_REQ?.level_cefr || 'A1').toUpperCase();
 
-  renderCover({
-    name:DS_ENROL?.name||ref, ref,
-    lang:DS_ENROL?.lang||'EN',
+  renderCover({ name: DS_ENROL?.name || ref, ref,
+    lang: DS_ENROL?.lang || DS_REQ?.lang || 'EN',
     course, cefr,
-    branch:DS_ENROL?.branch||'—',
-    status:DS_ENROL?.status||null,
+    branch: DS_ENROL?.branch || DS_REQ?.branch || '—',
     turmaCode, turmaDay, turmaH,
-    idPhoto,
   });
 
-  renderBody(turmaCode, turmaDay, turmaH);
+  renderAvailGrid(ref, course, turmaDay, turmaH);
+  renderBody(turmaCode, turmaDay, turmaH, course);
 };
 
 /* ── Close ── */
 window.closeDossier = function(){
-  const s=document.getElementById('ds-sheet');
-  if(!s) return;
+  const s = document.getElementById('ds-sheet'); if(!s) return;
   s.classList.add('ds-exit');
   setTimeout(()=>{
     document.getElementById('ds-overlay')?.classList.remove('open');
     s.classList.remove('ds-exit');
-  },280);
+  }, 280);
 };
 
-const COURSE_GRAD = {
-  kids:   'linear-gradient(145deg,#5AACAC,#2E7E7E)',
-  adults: 'linear-gradient(145deg,#5A78E8,#3050C0)',
-  exam:   'linear-gradient(145deg,#C8904A,#8A5A20)',
-};
-const COURSE_DEPT = {
-  kids:   'Juvenil',
-  adults: 'Geral',
-  exam:   'Exames',
-};
+/* ── Skeleton while loading ── */
+function renderSkeleton(ref){
+  document.getElementById('ds-banner-bg').style.background = COURSE_GRAD.adults;
+  document.getElementById('ds-dept-badge').textContent = '…';
+  document.getElementById('ds-name').textContent = ref;
+  document.getElementById('ds-ref').textContent = '…';
+  document.getElementById('ds-tags').innerHTML = '';
+  document.getElementById('ds-actions').innerHTML = '';
+  document.getElementById('ds-body').innerHTML = `<div class="ds-empty" style="padding:40px 0">A carregar…</div>`;
+  const av = document.getElementById('ds-avatar');
+  const col = avCol(ref);
+  av.style.cssText = `background:${col.bg};color:${col.text}`;
+  av.textContent = ref.slice(-2);
+}
 
 /* ── Cover ── */
 function renderCover(d){
-  const course=d.course||'adults';
-  const cc=COURSE_CHIP[course]||COURSE_CHIP.adults;
-  const lvl=displayLevel(d.cefr, course);
+  const course = d.course || 'adults';
+  const lvl    = displayLevel(d.cefr, course);
 
-  // Banner
-  document.getElementById('ds-banner-bg').style.background=COURSE_GRAD[course]||COURSE_GRAD.adults;
-  document.getElementById('ds-dept-badge').textContent=COURSE_DEPT[course]||'Geral';
+  document.getElementById('ds-banner-bg').style.background = COURSE_GRAD[course] || COURSE_GRAD.adults;
+  document.getElementById('ds-dept-badge').textContent = COURSE_DEPT[course] || 'Geral';
 
-  // Avatar
-  const av=document.getElementById('ds-avatar');
-  if(d.idPhoto){
-    av.innerHTML=`<img src="${d.idPhoto}" alt="${d.name}"/>`;
-    av.style.background='transparent';
-  } else {
-    const col=avCol(d.name||d.ref||'?');
-    av.style.cssText=`background:${col.bg};color:${col.text}`;
-    av.textContent=(d.name||d.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-  }
+  const av = document.getElementById('ds-avatar');
+  const col = avCol(d.name || d.ref || '?');
+  av.style.cssText = `background:${col.bg};color:${col.text}`;
+  av.textContent = (d.name || d.ref || '?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
-  document.getElementById('ds-name').textContent=d.name||d.ref||'—';
-  document.getElementById('ds-ref').textContent=`${d.ref} · ${(d.branch||'').replace(/_/g,' ')}`;
+  document.getElementById('ds-name').textContent = d.name || d.ref || '—';
+  document.getElementById('ds-ref').textContent  =
+    `${d.ref} · ${lvl} · ${FLAGS[d.lang]||''}${d.lang}${d.turmaCode?' · '+d.turmaCode:''}`;
 
-  // Tags
-  const tags=[];
-  tags.push({label:lvl, col:cc.col});
-  tags.push({label:`${FLAGS[d.lang]||''} ${d.lang}`, col:''});
-  if(d.turmaCode) tags.push({label:d.turmaCode, col:'green'});
-  if(d.status==='active') tags.push({label:'Activo', col:'green'});
-  else if(d.status) tags.push({label:d.status, col:'amber'});
-  document.getElementById('ds-tags').innerHTML=tags.map(t=>
-    `<span class="ds-tag ${t.col}">${t.label}</span>`
-  ).join('');
+  // ── Contact strip ──
+  const e   = DS_ENROL;
+  const age = e?.age ? `${e.age} anos` : null;
+  const sch = e?.school || null;
+  const ph  = e?.phone  || null;
+  const em  = e?.email  || null;
 
-  // Actions — compact text links
-  const acts=[
-    {lbl:'Matrícula',  fn:`dsScrollTo('ds-s-inscricao')`},
-    {lbl:'Mensagem',   fn:`dsSendMsg()`},
-    {lbl:'Pedido',     fn:`dsScrollTo('ds-s-pedido')`},
-    {lbl:'Mover',      fn:`dsScrollTo('ds-s-mover')`},
-    {lbl:'Sinalizar',  fn:`dsScrollTo('ds-s-notas')`},
+  const items = [];
+  if(age) items.push(`<span class="ds-ci">${age}</span>`);
+  if(sch) items.push(`<span class="ds-ci">${sch}</span>`);
+  if(ph)  items.push(`<a class="ds-ci ds-ci-link" href="tel:${ph}">📞 ${ph}</a>`);
+  if(em)  items.push(`<a class="ds-ci ds-ci-link" href="mailto:${em}">✉ ${em}</a>`);
+  items.push(`<span class="ds-ci ds-ci-link" onclick="dsSendMsg()" style="cursor:pointer">Mensagem</span>`);
+
+  document.getElementById('ds-tags').innerHTML = items.join(
+    `<span class="ds-ci-sep">·</span>`);
+
+  // ── Quick-action links (non-contact) ──
+  const acts = [
+    {lbl:'Matrícula', fn:`dsScrollTo('ds-s-inscricao')`},
+    {lbl:'Pedido',    fn:`dsScrollTo('ds-s-pedido')`},
+    {lbl:'Historial', fn:`dsScrollTo('ds-s-hist')`},
+    {lbl:'Mover',     fn:`dsScrollTo('ds-s-mover')`},
+    {lbl:'Notas',     fn:`dsScrollTo('ds-s-notas')`},
   ];
-  document.getElementById('ds-actions').innerHTML=acts.map(a=>
-    `<span class="ds-act" onclick="${a.fn}">${a.lbl}</span>`
-  ).join('');
+  document.getElementById('ds-actions').innerHTML = acts.map(a=>
+    `<span class="ds-act" onclick="${a.fn}">${a.lbl}</span>`).join('');
 }
 
-/* ── Availability ── */
-function renderAvail(ref, course, confDay, confH){
-  const prefs=getPrefs(ref, course);
-  if(!prefs.length&&!confDay){
-    document.getElementById('ds-avail').style.display='none';
+/* ── Availability mini-grid ── */
+function renderAvailGrid(ref, course, confDay, confH){
+  const prefs = parsePrefs(DS_REQ);
+  if(!prefs.length && !confDay){
+    document.getElementById('ds-avail').style.display = 'none';
     return;
   }
-  document.getElementById('ds-avail').style.display='block';
-  const grid=document.getElementById('ds-avail-grid');
+  document.getElementById('ds-avail').style.display = 'block';
+  const grid = document.getElementById('ds-avail-grid');
 
-  let html=`<div class="ds-ag-corner"></div>`;
-  HRS_MORN.forEach(h=>html+=`<div class="ds-ag-h">${h}</div>`);
-  html+=`<div class="ds-ag-brk"></div>`;
-  HRS_AFT.forEach(h=>html+=`<div class="ds-ag-h">${h}</div>`);
+  let html = `<div></div>`; // corner
+  HRS_MORN.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
+  html += `<div></div>`; // break
+  HRS_AFT.forEach(h => html += `<div class="ds-ag-h">${h}</div>`);
 
-  DAYS.forEach(day=>{
-    html+=`<div class="ds-ag-day">${day}</div>`;
-    HRS_MORN.forEach(h=>{
-      const isConf=confDay===day&&confH===h;
-      const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      html+=`<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+  DAYS.forEach(day => {
+    html += `<div class="ds-ag-day">${day}</div>`;
+    HRS_MORN.forEach(h => {
+      const isConf = confDay===day && confH===h;
+      const isReq  = prefs.some(p => p.day===day && p.h===h);
+      html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
-    html+=`<div class="ds-ag-brk"></div>`;
-    HRS_AFT.forEach(h=>{
-      const isConf=confDay===day&&confH===h;
-      const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      html+=`<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+    html += `<div></div>`;
+    HRS_AFT.forEach(h => {
+      const isConf = confDay===day && confH===h;
+      const isReq  = prefs.some(p => p.day===day && p.h===h);
+      html += `<div class="ds-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
   });
-  grid.innerHTML=html;
+  grid.innerHTML = html;
 }
 
 /* ── Body ── */
-function renderBody(turmaCode, turmaDay, turmaH){
-  const body=document.getElementById('ds-body');
-  const course=inferCourse(DS_ENROL);
-
-  body.innerHTML=[
-    sec('ds-s-horario',  '🗓','Horário',       DS_REQ?`${countSlots(DS_REQ)} slots`:'Sem pedido', `<div id="ds-tt-content"><div class="ds-empty" style="padding:20px 0">A carregar…</div></div>`),
-    sec('ds-s-inscricao','📋','Inscrição',      DS_ENROL?'Carregado':'—',                          buildEnrol()),
-    sec('ds-s-pedido',   '📝','Pedido Horário', DS_REQ?'Submetido':'Sem pedido',                   buildRequest()),
-    sec('ds-s-hist',     '🎓','Historial',      DS_HIST.length?`${DS_HIST.length} anos`:'—',        buildHistorial()),
-    sec('ds-s-docs',     '📎','Documentos',     DS_DOCS.length?`${DS_DOCS.length} ficheiros`:'—',  buildDocs()),
-    sec('ds-s-mover',    '🔄','Mover Aluno',    turmaCode||'Sem turma',                            buildMove(turmaCode)),
-    sec('ds-s-notas',    '🚩','Notas',          '',                                                buildNotes()),
+function renderBody(turmaCode, turmaDay, turmaH, course){
+  const body = document.getElementById('ds-body');
+  body.innerHTML = [
+    sec('ds-s-inscricao', '📋','Inscrição',
+      DS_ENROL ? DS_ENROL.academic_year || 'Carregado' : '—',
+      buildEnrol()),
+    sec('ds-s-pedido',    '📝','Pedido de Horário',
+      DS_REQ ? (DS_REQ.status || 'Submetido') : 'Sem pedido',
+      buildRequest()),
+    sec('ds-s-hist',      '🎓','Historial',
+      DS_HIST.length ? `${DS_HIST.length} anos` : '—',
+      buildHistorial()),
+    sec('ds-s-horario',   '🗓','Horário · Disponibilidade',
+      DS_REQ ? `${parsePrefs(DS_REQ).length} slots` : 'Sem pedido',
+      `<div id="ds-tt-content"><div class="ds-empty">Clique para ver detalhe</div></div>`),
+    sec('ds-s-mover',     '🔄','Mover Aluno',
+      turmaCode || 'Sem turma',
+      buildMove(turmaCode)),
+    sec('ds-s-notas',     '🚩','Notas Internas',
+      DS_ENROL?.notes ? 'Com nota' : '',
+      buildNotes()),
   ].join('');
 
-  // Wire all section toggles
-  body.querySelectorAll('.ds-section-hdr').forEach(hdr=>{
-    hdr.addEventListener('click',()=>{
-      const wasOpen=hdr.classList.contains('open');
+  body.querySelectorAll('.ds-section-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const wasOpen = hdr.classList.contains('open');
       hdr.classList.toggle('open');
-      // Lazy-load timetable on first open
       if(!wasOpen && hdr.closest('#ds-s-horario')) loadTimetable(turmaDay, turmaH);
     });
   });
 }
 
-function countSlots(req){
-  try{
-    const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;
-    return Array.isArray(dp)?dp.length:0;
-  }catch(e){return 0;}
-}
-
-let _ttLoaded=false;
+/* ── Horário section (lazy) ── */
+let _ttLoaded2 = false;
 async function loadTimetable(confDay, confH){
-  if(_ttLoaded) return;
-  _ttLoaded=true;
-  const el=document.getElementById('ds-tt-content');
-  if(el) el.innerHTML=`<div class="ds-empty">A carregar…</div>`;
-
-  // Fetch fresh request if not already loaded
-  if(!DS_REQ){
-    const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
-    const KEY=window.KEY||'';
-    const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
-    try{
-      const r=await fetch(`${BASE}/rest/v1/student_requests?ref=eq.${encodeURIComponent(DS_REF)}&academic_year=eq.2026%2F2027&limit=1`,{headers:H});
-      const rows=await r.json();
-      if(rows?.[0]) DS_REQ=rows[0];
-    }catch(e){}
-  }
-
-  if(el) el.innerHTML=buildRequestSlots(DS_REQ, confDay, confH);
+  if(_ttLoaded2) return;
+  _ttLoaded2 = true;
+  const el = document.getElementById('ds-tt-content');
+  if(el) el.innerHTML = buildRequestSlots(DS_REQ, confDay, confH);
 }
 
-function sec(id,icon,title,meta,content){
+/* ── Section builder ── */
+function sec(id, icon, title, meta, content){
   return `<div class="ds-section" id="${id}">
     <div class="ds-section-hdr">
       <div class="ds-section-title">
@@ -785,67 +566,37 @@ function sec(id,icon,title,meta,content){
   </div>`;
 }
 
-/* ── Scroll to ── */
-window.dsScrollTo = function(id){
-  const el=document.getElementById(id);
-  if(!el) return;
-  el.querySelector('.ds-section-hdr')?.classList.add('open');
-  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
-};
-
-window.dsSendMsg = function(){
-  const email=DS_ENROL?.email;
-  const phone=DS_ENROL?.phone;
-  if(email) window.open(`mailto:${email}`,'_blank');
-  else if(phone) window.open(`tel:${phone}`,'_blank');
-  else dsToast('Sem contacto registado','warn');
-};
-
-/* ── Sections ── */
+/* ── Content builders ── */
 function buildRequestSlots(req, confDay, confH){
-  if(!req) return `<div class="ds-empty">Nenhum pedido de horário registado.</div>`;
+  if(!req) return `<div class="ds-empty">Nenhum pedido registado.</div>`;
+  const prefs = parsePrefs(req);
 
-  let slots=[];
-  try{
-    const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;
-    if(Array.isArray(dp)) slots=dp;
-  }catch(e){}
-
-  const dateStr=req.created_at?new Date(req.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}):'—';
-  const mode=req.mode_used==='avail'?'Disponibilidade':'Preferência';
-
-  let html='';
-
-  // Confirmed slot at top if exists
-  if(confDay&&confH!==null){
-    html+=`<div class="ds-row">
-      <div class="ds-rk">Confirmado</div>
-      <div class="ds-rv green">${confDay} · ${confH}:00</div>
-    </div>`;
+  let html = '';
+  if(confDay && confH !== null){
+    html += row('Confirmado', `${confDay} · ${confH}:00`, 'green');
   }
 
-  // Each requested slot as a row
-  if(slots.length){
-    slots.forEach((s,i)=>{
-      const day=s.day_name||(DAY_NUM[s.day]||`Dia ${s.day}`);
-      const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
-      const label=i===0?'1ª preferência':i===1?'2ª preferência':`Opção ${i+1}`;
-      html+=`<div class="ds-row">
-        <div class="ds-rk">${label}</div>
-        <div class="ds-rv">${day} · ${start}</div>
-      </div>`;
+  if(prefs.length){
+    prefs.forEach((p, i) => {
+      const label = i===0 ? '1ª opção' : i===1 ? '2ª opção' : `Opção ${i+1}`;
+      html += row(label, `${p.day} · ${p.start}`);
     });
   } else {
-    html+=`<div class="ds-row"><div class="ds-rk">Slots</div><div class="ds-rv" style="color:var(--sub)">Sem slots registados</div></div>`;
+    html += row('Slots', 'Sem slots registados');
   }
 
-  html+=[
-    row('Modo', mode),
-    row('Sessões/sem', req.sessions_per_week||'—'),
+  const dateStr = req.created_at
+    ? new Date(req.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'})
+    : '—';
+
+  html += [
+    row('Sessões/sem', req.sessions_per_week || '—'),
+    row('Modo', req.mode_used === 'avail' ? 'Disponibilidade' : 'Preferência'),
+    row('Estado', req.status || '—', req.status === 'atribuido' ? 'green' : req.status === 'pendente' ? 'amber' : ''),
     row('Submetido', dateStr),
-    req.has_id_photo?row('Foto ID','Enviada','green'):'',
-    req.has_school_timetable?row('Hor. Escolar','Enviado','green'):'',
-    req.notes?row('Nota', req.notes):'',
+    req.has_id_photo         ? row('Foto ID',       'Enviada', 'green') : '',
+    req.has_school_timetable ? row('Hor. Escolar',  'Enviado', 'green') : '',
+    req.notes ? row('Nota', req.notes) : '',
   ].filter(Boolean).join('');
 
   return html;
@@ -853,281 +604,306 @@ function buildRequestSlots(req, confDay, confH){
 
 function buildEnrol(){
   if(!DS_ENROL) return `<div class="ds-empty">Matrícula não encontrada.</div>`;
-  const e=DS_ENROL;
-  const course=inferCourse(e);
-  const lvl=displayLevel((e.level_cefr||'A1').toUpperCase(),course);
-  const dept=course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral';
-  return [
-    row('Referência', e.ref||'—', 'tint'),
-    row('Nome', e.name||'—'),
-    row('Nível', lvl),
-    row('Departamento', dept),
-    row('Filial', (e.branch||'—').replace(/_/g,' ')),
-    row('Língua', `${FLAGS[e.lang]||''} ${e.lang||'—'}`),
-    row('Estado', e.status==='active'?'Activo':e.status||'—', e.status==='active'?'green':'amber'),
-    e.email?row('Email', e.email, 'tint'):'',
-    e.phone?row('Telefone', e.phone):'',
-  ].join('');
+  const e = DS_ENROL;
+  const course = inferCourse(e);
+  const lvl    = displayLevel((e.level_cefr||'A1').toUpperCase(), course);
+  const dept   = COURSE_DEPT[course] || 'Geral';
+  const dob    = e.date_of_birth
+    ? new Date(e.date_of_birth).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'})
+    : null;
+
+  // ── Personal data first ──
+  const personal = [
+    row('Referência',    e.ref||'—', 'tint'),
+    row('Nome completo', e.name||'—'),
+    dob ? row('Data nasc.', `${dob}${e.age ? ' · '+e.age+' anos' : ''}`) : '',
+    e.gender ? row('Género', e.gender==='M'?'Masculino':e.gender==='F'?'Feminino':e.gender) : '',
+    e.email        ? row('Email',       e.email, 'tint') : '',
+    e.phone        ? row('Telefone',    e.phone) : '',
+    e.guardian_name  ? row('Encarregado', e.guardian_name) : '',
+    e.guardian_phone ? row('Tel. EE',     e.guardian_phone) : '',
+    e.locality     ? row('Localidade',    e.locality) : '',
+    e.postal_code  ? row('Código postal', e.postal_code) : '',
+    e.naturalidade ? row('Naturalidade',  e.naturalidade) : '',
+    e.nif          ? row('NIF',           e.nif) : '',
+    e.occupation   ? row('Profissão',     e.occupation) : '',
+  ].filter(Boolean).join('');
+
+  // ── Academic data second ──
+  const academic = [
+    row('Nível',         lvl),
+    row('Departamento',  dept),
+    row('Filial',        (e.branch||'—').replace(/_/g,' ')),
+    row('Língua',        `${FLAGS[e.lang]||''} ${e.lang||'—'}`),
+    e.academic_year    ? row('Ano lectivo',      e.academic_year) : '',
+    e.enrolment_date   ? row('Data matrícula',   new Date(e.enrolment_date).toLocaleDateString('pt-PT')) : '',
+    e.returning_student != null ? row('Tipo', e.returning_student ? 'Recorrente' : 'Novo') : '',
+    e.payment_method   ? row('Pagamento',        e.payment_method) : '',
+    e.school           ? row('Escola',           e.school) : '',
+    e.school_year      ? row('Ano escolar',      e.school_year) : '',
+    e.level_raw        ? row('Nível (original)', e.level_raw) : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div style="font-family:var(--f);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);padding:6px 0 4px">Dados pessoais</div>
+    ${personal}
+    <div style="font-family:var(--f);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);padding:14px 0 4px">Dados académicos</div>
+    ${academic}
+  `;
 }
 
 function buildRequest(){
   if(!DS_REQ) return `<div class="ds-empty">Nenhum pedido submetido.</div>`;
-  const r=DS_REQ;
-  let slots=[];
-  try{const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
-  const slotHtml=slots.length?`<div class="ds-slots">${slots.map((s,i)=>{
-    const day=s.day_name||(DAY_NUM[s.day]||`Dia ${s.day}`);
-    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
-    return `<span class="ds-slot">${day} ${start}</span>`;
-  }).join('')}</div>`:'—';
-  const dateStr=r.created_at?new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  const r = DS_REQ;
+  const prefs = parsePrefs(r);
+  const slotHtml = prefs.length
+    ? `<div class="ds-slots">${prefs.map(p=>`<span class="ds-slot">${p.day} ${p.start}</span>`).join('')}</div>`
+    : '—';
+  const dateStr = r.created_at
+    ? new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'})
+    : '—';
   return [
     `<div class="ds-row"><div class="ds-rk">Slots</div><div class="ds-rv">${slotHtml}</div></div>`,
-    row('Modo', r.mode_used==='avail'?'Disponibilidade':'Preferência'),
-    row('Sessões/sem', r.sessions_per_week||'—'),
+    row('Sessões/sem', r.sessions_per_week || '—'),
+    row('Modo', r.mode_used === 'avail' ? 'Disponibilidade' : 'Preferência'),
+    row('Estado', r.status || '—', r.status==='atribuido'?'green':r.status==='pendente'?'amber':''),
     row('Submetido', dateStr),
-    r.notes?row('Nota', r.notes):'',
-    row('Foto ID', r.has_id_photo?'Enviada':'—', r.has_id_photo?'green':''),
-    row('Hor. Escolar', r.has_school_timetable?'Enviado':'—', r.has_school_timetable?'green':''),
+    r.has_id_photo         ? row('Foto ID',      'Enviada','green') : '',
+    r.has_school_timetable ? row('Hor. Escolar', 'Enviado','green') : '',
+    r.notes ? row('Nota', r.notes) : '',
   ].filter(Boolean).join('');
 }
 
 function buildHistorial(){
-  if(!DS_HIST.length) return `<div class="ds-empty">Historial em construção.</div>
-    <div class="ds-btn-row"><button class="ds-btn ghost" onclick="dsToast('Módulo em desenvolvimento','warn')">Adicionar ano lectivo</button></div>`;
-  let html='';
-  DS_HIST.forEach(yr=>{
-    const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
-    const lbl=yr.outcome==='aprovado'?'Aprovado':yr.outcome==='reprovado'?'Reprovado':yr.outcome||'Em curso';
-    const has=yr.cambridge_r||yr.cambridge_w||yr.cambridge_l||yr.cambridge_s||yr.cambridge_uoe;
-    html+=`<div class="ds-yr">
+  if(!DS_HIST.length) return `<div class="ds-empty">Sem historial registado.</div>`;
+
+  return DS_HIST.map(yr => {
+    const course  = inferCourse(yr);
+    const lvl     = displayLevel((yr.level_cefr||'').toUpperCase(), course);
+    const cls     = yr.outcome === 'aprovado' ? 'ok' : yr.outcome === 'reprovado' ? 'warn' : 'na';
+    const lbl     = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
+    const att     = yr.absences != null ? Math.max(0, 100 - yr.absences * 5) : null;
+
+    return `<div class="ds-yr">
       <div class="ds-yr-hdr" onclick="this.classList.toggle('open')">
         <div class="ds-yr-left">
-          <span class="ds-yr-year">${yr.academic_year}</span>
-          <span class="ds-yr-turma">${yr.turma_code||'—'} · ${yr.level_display||'—'}</span>
+          <span class="ds-yr-year">${yr.academic_year || '—'}</span>
+          <span class="ds-yr-turma">${yr.turma_code||'—'} · ${lvl}</span>
         </div>
         <span class="ds-yr-outcome ${cls}">${lbl}</span>
       </div>
       <div class="ds-yr-body">
-        ${has?`<div class="ds-camb">${[['R',yr.cambridge_r],['W',yr.cambridge_w],['L',yr.cambridge_l],['S',yr.cambridge_s],['UoE',yr.cambridge_uoe]].map(([l,sc])=>
-          `<div class="ds-camb-cell ${sc>=60?'pass':sc>0?'fail':''}">
-            <div class="ds-camb-score">${sc||'—'}</div>
-            <div class="ds-camb-lbl">${l}</div>
-          </div>`).join('')}</div>`:''}
-        ${yr.grade_final!=null?row('Nota final',yr.grade_final+'%'):''}
-        ${yr.absences!=null?row('Faltas',yr.absences):''}
-        ${yr.notes?row('Notas',yr.notes):''}
-        <div class="ds-btn-row">
-          <button class="ds-btn ghost" onclick="dsTriggerUpload('historial_exam','${yr.academic_year}')">Adicionar PDF</button>
-        </div>
+        ${yr.grade_final != null ? row('Nota final', yr.grade_final + '%') : ''}
+        ${yr.absences != null ? row('Faltas', yr.absences) : ''}
+        ${att != null ? `<div class="ds-att-bar"><div class="ds-att-fill" style="width:${att}%;background:${att>75?'#32D74B':att>50?'#FF9F0A':'#FF453A'}"></div></div>` : ''}
+        ${yr.notes ? row('Notas', yr.notes) : ''}
       </div>
     </div>`;
-  });
-  html+=`<div class="ds-btn-row"><button class="ds-btn ghost" onclick="dsToast('Módulo em desenvolvimento','warn')">Adicionar ano lectivo</button></div>`;
-  return html;
-}
-
-function buildDocs(){
-  const iconMap={id_photo:'🪪',school_timetable:'🏫',historial_exam:'📄',historial_report:'📋',historial_cambridge:'🎓',general:'📁'};
-  let html='';
-  DS_DOCS.forEach(d=>{
-    const icon=iconMap[d.document_type]||'📁';
-    const name=d.notes||d.document_type||'Documento';
-    const date=d.uploaded_at?new Date(d.uploaded_at).toLocaleDateString('pt-PT'):'';
-    const isPdf=d.storage_path?.endsWith('.pdf');
-    html+=`<div class="ds-doc">
-      <div class="ds-doc-icon">${icon}</div>
-      <div class="ds-doc-info">
-        <div class="ds-doc-name">${name}</div>
-        <div class="ds-doc-meta">${d.document_type} · ${date}</div>
-      </div>
-      <div class="ds-doc-btns">
-        ${d.public_url?`<button class="ds-doc-btn" onclick="dsViewDoc('${d.public_url}','${isPdf?'pdf':'img'}')">${isPdf?'PDF':'Ver'}</button>`:''}
-        <button class="ds-doc-btn del" onclick="dsDeleteDoc('${d.id}','${d.storage_path||''}')">Remover</button>
-      </div>
-    </div>`;
-  });
-  if(!DS_DOCS.length) html+=`<div class="ds-empty">Sem documentos.</div>`;
-  html+=`<button class="ds-upload" onclick="dsTriggerUpload('general',null)">
-    <span style="font-size:18px">📎</span>
-    <span class="ds-upload-lbl">Adicionar documento</span>
-  </button>`;
-  return html;
+  }).join('');
 }
 
 function buildMove(currentCode){
-  const CM=window.CELL_MAP||{};
-  const codes=[...new Set(Object.values(CM).map(c=>c.turmaCode).filter(c=>c&&c!==currentCode))];
+  const CM    = window.CELL_MAP || {};
+  const codes = [...new Set(Object.values(CM).map(c=>c.turmaCode).filter(c=>c&&c!==currentCode))].sort();
+
   return `${row('Turma actual', currentCode||'Sem turma', currentCode?'tint':'')}
   <div style="margin-top:12px">
     <select class="ds-select" id="ds-move-sel">
       <option value="">Escolher turma destino</option>
-      ${codes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      ${codes.map(c=>{
+        const cell = Object.values(CM).find(x=>x.turmaCode===c);
+        const meta = cell ? ` · ${cell.day||''} ${cell.h||''}h · ${cell.n||'?'} al` : '';
+        return `<option value="${c}">${c}${meta}</option>`;
+      }).join('')}
     </select>
     <div class="ds-btn-row">
       <button class="ds-btn primary" onclick="dsMoveStudent()">Mover</button>
-      ${currentCode?`<button class="ds-btn danger" onclick="dsRemove('${currentCode}')">Remover da turma</button>`:''}
+      ${currentCode ? `<button class="ds-btn danger" onclick="dsRemove('${currentCode}')">Remover da turma</button>` : ''}
     </div>
   </div>`;
 }
 
 function buildNotes(){
-  return `<div class="ds-flags">
-    <button class="ds-flag" onclick="this.classList.toggle('on')">Comportamento</button>
-    <button class="ds-flag" onclick="this.classList.toggle('on')">Pagamento pendente</button>
-    <button class="ds-flag" onclick="this.classList.toggle('on')">Baixo desempenho</button>
-    <button class="ds-flag" onclick="this.classList.toggle('on')">Excesso de faltas</button>
-    <button class="ds-flag" onclick="this.classList.toggle('on')">Necessidade especial</button>
+  const existing = DS_ENROL?.notes || '';
+  return `<div class="ds-flags" id="ds-flags">
+    <button class="ds-flag" data-flag="comportamento"    onclick="dsToggleFlag(this)">⚠ Comportamento</button>
+    <button class="ds-flag" data-flag="pagamento"        onclick="dsToggleFlag(this)">💳 Pagamento</button>
+    <button class="ds-flag" data-flag="desempenho"       onclick="dsToggleFlag(this)">📉 Desempenho</button>
+    <button class="ds-flag" data-flag="faltas"           onclick="dsToggleFlag(this)">📅 Faltas</button>
+    <button class="ds-flag" data-flag="necessidade_esp"  onclick="dsToggleFlag(this)">♿ Nec. especial</button>
   </div>
-  <textarea class="ds-note" id="ds-note" placeholder="Adicionar nota visível para toda a equipa…"></textarea>
+  <textarea class="ds-note" id="ds-note" placeholder="Nota visível para toda a equipa…">${existing}</textarea>
   <div class="ds-btn-row">
     <button class="ds-btn primary" onclick="dsSaveNote()">Guardar nota</button>
+    ${existing ? `<button class="ds-btn ghost" onclick="dsClearNote()">Limpar</button>` : ''}
   </div>`;
 }
 
-/* ── Actions ── */
-window.dsMoveStudent = function(){
-  const code=document.getElementById('ds-move-sel')?.value;
-  if(!code){dsToast('Escolha uma turma destino','warn');return;}
-  if(window.moveStudent) window.moveStudent(DS_REF,code);
-  else dsToast(`Mover para ${code}','warn`);
+/* ══════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════ */
+window.dsScrollTo = function(id){
+  const el = document.getElementById(id); if(!el) return;
+  el.querySelector('.ds-section-hdr')?.classList.add('open');
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
 };
+
+window.dsSendMsg = function(){
+  const email = DS_ENROL?.email;
+  const phone  = DS_ENROL?.phone;
+  if(email)      window.open(`mailto:${email}`, '_blank');
+  else if(phone) window.open(`tel:${phone}`, '_blank');
+  else dsToast('Sem contacto registado', 'warn');
+};
+
+window.dsToggleFlag = function(btn){
+  btn.classList.toggle('on');
+};
+
+window.dsSaveNote = async function(){
+  const txt = document.getElementById('ds-note')?.value?.trim();
+  if(txt == null){ dsToast('Erro ao ler nota','err'); return; }
+  const ok = await sbPatch('enrolments', `ref=eq.${encodeURIComponent(DS_REF)}`, { notes: txt });
+  if(ok !== null){
+    if(DS_ENROL) DS_ENROL.notes = txt;
+    dsToast('Nota guardada ✓', 'ok');
+  } else {
+    dsToast('Erro ao guardar','err');
+  }
+};
+
+window.dsClearNote = async function(){
+  if(!confirm('Limpar a nota?')) return;
+  const ok = await sbPatch('enrolments', `ref=eq.${encodeURIComponent(DS_REF)}`, { notes: '' });
+  if(ok !== null){
+    document.getElementById('ds-note').value = '';
+    if(DS_ENROL) DS_ENROL.notes = '';
+    dsToast('Nota removida', 'ok');
+  } else {
+    dsToast('Erro ao remover', 'err');
+  }
+};
+
+window.dsMoveStudent = function(){
+  const code = document.getElementById('ds-move-sel')?.value;
+  if(!code){ dsToast('Escolha uma turma destino','warn'); return; }
+  const CM = window.CELL_MAP || {};
+
+  // Remove from current turma
+  Object.entries(CM).forEach(([key, cell]) => {
+    if(cell.studentRefs?.includes(DS_REF)){
+      cell.studentRefs = cell.studentRefs.filter(r=>r!==DS_REF);
+      cell.n = cell.studentRefs.length;
+    }
+  });
+
+  // Add to destination
+  const destKey = Object.keys(CM).find(k => CM[k].turmaCode === code);
+  if(destKey){
+    if(!CM[destKey].studentRefs) CM[destKey].studentRefs = [];
+    if(!CM[destKey].studentRefs.includes(DS_REF)){
+      CM[destKey].studentRefs.push(DS_REF);
+      CM[destKey].n = CM[destKey].studentRefs.length;
+    }
+  }
+
+  // Persist to localStorage
+  try{ localStorage.setItem('alm-cells-2627', JSON.stringify(CM)); }catch(e){}
+
+  // Notify parent page to re-render
+  if(window.renderAll) window.renderAll();
+  dsToast(`Movido para ${code} ✓`, 'ok');
+  setTimeout(()=>openDossier(DS_REF, DS_ROLE), 600);
+};
+
 window.dsRemove = function(code){
   if(!confirm(`Remover ${DS_REF} de ${code}?`)) return;
-  if(window.removeFromTurma) window.removeFromTurma(DS_REF,code);
-  else dsToast('Remover — use a página de atribuição','warn');
-};
-window.dsSaveNote = function(){
-  const txt=document.getElementById('ds-note')?.value?.trim();
-  if(!txt){dsToast('Escreva uma nota primeiro','warn');return;}
-  dsToast('Nota guardada','ok');
-  document.getElementById('ds-note').value='';
+  const CM = window.CELL_MAP || {};
+  Object.entries(CM).forEach(([key, cell]) => {
+    if(cell.turmaCode === code && cell.studentRefs?.includes(DS_REF)){
+      cell.studentRefs = cell.studentRefs.filter(r=>r!==DS_REF);
+      cell.n = cell.studentRefs.length;
+    }
+  });
+  try{ localStorage.setItem('alm-cells-2627', JSON.stringify(CM)); }catch(e){}
+  if(window.renderAll) window.renderAll();
+  dsToast(`Removido de ${code}`, 'ok');
+  setTimeout(()=>openDossier(DS_REF, DS_ROLE), 600);
 };
 
-/* ── Upload ── */
-window.dsTriggerUpload = function(docType, year){
-  DS_UPLOAD_CTX={docType,year};
-  document.getElementById('ds-file-inp')?.click();
-};
-async function onFile(e){
-  const file=e.target.files[0]; if(!file) return;
-  const ctx=DS_UPLOAD_CTX; if(!ctx) return;
-  dsToast('A enviar…');
-  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
-  const KEY=window.KEY||'';
-  const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+
+// Parse day_preferences — handles both real string days ("wednesday")
+// and legacy numeric days (1-6)
+function parsePrefs(req){
+  if(!req?.day_preferences) return [];
   try{
-    const ext=file.name.split('.').pop();
-    const path=`${DS_REF}/${ctx.docType}-${Date.now()}.${ext}`;
-    const r=await fetch(`${BASE}/storage/v1/object/alm-student-documents/${path}`,
-      {method:'POST',headers:{...H,'Content-Type':file.type||'application/pdf','x-upsert':'true'},body:file});
-    if(!r.ok) throw new Error(await r.text());
-    const url=`${BASE}/storage/v1/object/public/alm-student-documents/${path}`;
-    await fetch(`${BASE}/rest/v1/student_documents`,{method:'POST',
-      headers:{...H,'Content-Type':'application/json','Prefer':'return=representation'},
-      body:JSON.stringify({ref:DS_REF,document_type:ctx.docType,storage_path:path,public_url:url,
-        uploaded_by:'staff',academic_year:'2026/2027',
-        notes:ctx.year?`${ctx.docType} · ${ctx.year}`:ctx.docType})
-    });
-    dsToast('Enviado','ok');
-    setTimeout(()=>openDossier(DS_REF,DS_ROLE),700);
-  }catch(err){
-    dsToast('Erro no envio','err');
-  }
-  e.target.value='';
+    const dp = typeof req.day_preferences === 'string'
+      ? JSON.parse(req.day_preferences)
+      : req.day_preferences;
+    if(!Array.isArray(dp)) return [];
+    return dp.map(p => {
+      const rawDay = (p.day || p.weekday || p.dia || '').toString().toLowerCase().trim();
+      const day = DAY_EN_TO_PT[rawDay] || DAY_EN_TO_PT[parseInt(rawDay)] || null;
+      const start = p.session_start || p.start_time || (p.hour ? `${p.hour}:00` : '—');
+      const h = parseInt((start+'').split(':')[0]);
+      return { day, start, h: isNaN(h) ? null : h };
+    }).filter(p => p.day);
+  }catch(e){ return []; }
 }
 
-window.dsDeleteDoc = async function(docId, storagePath){
-  if(!confirm('Remover este documento?')) return;
-  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
-  const KEY=window.KEY||'';
-  const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
-  try{
-    await fetch(`${BASE}/rest/v1/student_documents?id=eq.${docId}`,{method:'DELETE',headers:H});
-    if(storagePath) await fetch(`${BASE}/storage/v1/object/alm-student-documents/${storagePath}`,{method:'DELETE',headers:H});
-    dsToast('Removido','ok');
-    setTimeout(()=>openDossier(DS_REF,DS_ROLE),600);
-  }catch(err){ dsToast('Erro ao remover','err'); }
-};
-
-window.dsViewDoc = function(url, type){
-  const w=window.open('','_blank','width=900,height=700');
-  if(type==='pdf')
-    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#111}iframe{width:100vw;height:100vh;border:none}</style></head><body><iframe src="${url}"></iframe></body></html>`);
-  else
-    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:95vw;max-height:95vh}</style></head><body><img src="${url}"/></body></html>`);
-  w.document.close();
-};
-
-/* ── Helpers ── */
-function row(k,v,c){
+function row(k, v, c){
   return `<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`;
 }
+
 function inferCourse(e){
   if(!e) return 'adults';
-  const str=[e.family,e.course,e.department,e.level_cefr,e.notes].filter(Boolean).join(' ').toLowerCase();
-  if(/exam|exame/.test(str)) return 'exam';
-  if(/kid|juven|junior|infant|prep/.test(str)) return 'kids';
+  const str = [e.family, e.course, e.department, e.level_cefr, e.notes]
+    .filter(Boolean).join(' ').toLowerCase();
+  if(/exam|exame/.test(str))              return 'exam';
+  if(/kid|juven|junior|infant|prep|infantil/.test(str)) return 'kids';
   return 'adults';
 }
-function displayLevel(cefr,course){
-  const map={
-    kids:  {A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
-    adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
-    exam:  {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'},
+
+function displayLevel(cefr, course){
+  const map = {
+    kids:   {A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
+    adults: {A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
+    exam:   {B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'},
   };
-  return map[course]?.[cefr]||cefr;
+  return map[course]?.[cefr] || cefr || '—';
 }
-function getPrefs(ref, course){
-  const r=(window.RMAP||{})[ref]; if(!r) return [];
-  if(r.day_preferences){
-    try{
-      const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
-      if(Array.isArray(dp)&&dp.length)
-        return dp.map(p=>({day:DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null),h:parseInt(p.session_start||p.hour||9)})).filter(p=>p.day);
-    }catch(e){}
-  }
-  if(r.availability){
-    try{
-      const av=typeof r.availability==='string'?JSON.parse(r.availability):r.availability;
-      return Object.keys(av).filter(k=>av[k]).map(k=>{const[di,h]=k.split('_').map(Number);return{day:DAY_NUM[di+1]||null,h};}).filter(p=>p.day);
-    }catch(e){}
-  }
-  return [];
-}
+
 function avCol(name){
-  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffffffff;
+  let h=0; for(let i=0;i<(name||'?').length;i++) h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
   const p=[
-    {bg:'#EAC8D8',text:'#7A1840'},
-    {bg:'#C8D8EC',text:'#143870'},
-    {bg:'#C8ECD8',text:'#145830'},
-    {bg:'#DCC8EC',text:'#481890'},
-    {bg:'#ECDCC8',text:'#784010'},
-    {bg:'#C8ECE8',text:'#145850'},
-    {bg:'#ECE8C8',text:'#706010'},
-    {bg:'#F0C8C8',text:'#801818'},
+    {bg:'#EAC8D8',text:'#7A1840'},{bg:'#C8D8EC',text:'#143870'},
+    {bg:'#C8ECD8',text:'#145830'},{bg:'#DCC8EC',text:'#481890'},
+    {bg:'#ECDCC8',text:'#784010'},{bg:'#C8ECE8',text:'#145850'},
+    {bg:'#ECE8C8',text:'#706010'},{bg:'#F0C8C8',text:'#801818'},
   ];
   return p[Math.abs(h)%p.length];
 }
-function dsToast(msg,type=''){
-  const t=document.getElementById('ds-toast'); if(!t) return;
-  t.textContent=msg; t.className='ds-toast '+type+' show';
+
+function dsToast(msg, type=''){
+  const t = document.getElementById('ds-toast'); if(!t) return;
+  t.textContent = msg;
+  t.className = 'ds-toast ' + type + ' show';
   clearTimeout(_toast_t);
-  _toast_t=setTimeout(()=>t.classList.remove('show'),2600);
+  _toast_t = setTimeout(()=>t.classList.remove('show'), 2600);
 }
 
 /* ── Keyboard ── */
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('ds-overlay')?.classList.contains('open'))
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && document.getElementById('ds-overlay')?.classList.contains('open'))
     closeDossier();
 });
 
-/* ── Compat ── */
-window.nmScrollTo   = window.dsScrollTo;
-window.nmTriggerUpload = window.dsTriggerUpload;
-window.nmDeleteDoc  = window.dsDeleteDoc;
-window.nmViewDoc    = window.dsViewDoc;
-window.nmToast      = dsToast;
+/* ── Compat aliases ── */
+window.nmScrollTo      = window.dsScrollTo;
+window.nmToast         = dsToast;
 
-console.log('[ALM Dossier v5] Apple-style sheet loaded ✓');
+console.log('[ALM Dossier v8 — contact strip] loaded ✓');
 })();
