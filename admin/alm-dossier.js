@@ -173,38 +173,31 @@ const CSS = `
 .ds-tag.amber { color: #FF9F0A; background: rgba(255,159,10,.15); }
 .ds-tag.red   { color: #FF453A; background: rgba(255,69,58,.15); }
 
-/* Actions — inside banner, horizontal strip */
+/* Actions — compact text links inside banner */
 .ds-banner-acts {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 0;
+  margin-top: 7px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .ds-banner-acts::-webkit-scrollbar { display: none; }
 .ds-act {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 4px;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-.ds-act-icon {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: rgba(255,255,255,.18);
-  backdrop-filter: blur(6px);
-  border: .5px solid rgba(255,255,255,.28);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  transition: background .12s;
-}
-.ds-act:hover .ds-act-icon { background: rgba(255,255,255,.30); }
-.ds-act-lbl {
   font-family: var(--f);
-  font-size: 9px; font-weight: 500;
-  color: rgba(255,255,255,.75);
+  font-size: 11px; font-weight: 500;
+  color: rgba(255,255,255,.72);
+  cursor: pointer;
+  padding: 3px 10px 3px 0;
   white-space: nowrap;
+  flex-shrink: 0;
+  border: none; background: none;
+  transition: color .12s;
+}
+.ds-act:hover { color: rgba(255,255,255,1); }
+.ds-act + .ds-act {
+  border-left: .5px solid rgba(255,255,255,.25);
+  padding-left: 10px;
 }
 
 /* Availability mini */
@@ -528,15 +521,6 @@ const HTML = `
 
     <div class="ds-tags" id="ds-tags"></div>
 
-    <div class="ds-avail" id="ds-avail" style="display:none">
-      <div class="ds-avail-label">Disponibilidade semanal</div>
-      <div class="ds-avail-grid" id="ds-avail-grid"></div>
-      <div class="ds-avail-leg">
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
-      </div>
-    </div>
-
     <div class="ds-body" id="ds-body"></div>
   </div>
 </div>
@@ -626,7 +610,6 @@ window.openDossier = async function(ref, role){
     idPhoto,
   });
 
-  renderAvail(ref, course, turmaDay, turmaH);
   renderBody(turmaCode, turmaDay, turmaH);
 };
 
@@ -687,19 +670,16 @@ function renderCover(d){
     `<span class="ds-tag ${t.col}">${t.label}</span>`
   ).join('');
 
-  // Actions
+  // Actions — compact text links
   const acts=[
-    {icon:'📋',lbl:'Matrícula',   fn:`dsScrollTo('ds-s-inscricao')`},
-    {icon:'✉️', lbl:'Mensagem',    fn:`dsSendMsg()`},
-    {icon:'🗓', lbl:'Pedido',      fn:`dsScrollTo('ds-s-pedido')`},
-    {icon:'🔄', lbl:'Mover',      fn:`dsScrollTo('ds-s-mover')`},
-    {icon:'🚩', lbl:'Sinalizar',  fn:`dsScrollTo('ds-s-notas')`},
+    {lbl:'Matrícula',  fn:`dsScrollTo('ds-s-inscricao')`},
+    {lbl:'Mensagem',   fn:`dsSendMsg()`},
+    {lbl:'Pedido',     fn:`dsScrollTo('ds-s-pedido')`},
+    {lbl:'Mover',      fn:`dsScrollTo('ds-s-mover')`},
+    {lbl:'Sinalizar',  fn:`dsScrollTo('ds-s-notas')`},
   ];
   document.getElementById('ds-actions').innerHTML=acts.map(a=>
-    `<div class="ds-act" onclick="${a.fn}">
-      <div class="ds-act-icon">${a.icon}</div>
-      <div class="ds-act-lbl">${a.lbl}</div>
-    </div>`
+    `<span class="ds-act" onclick="${a.fn}">${a.lbl}</span>`
   ).join('');
 }
 
@@ -773,13 +753,10 @@ async function loadTimetable(confDay, confH){
   if(_ttLoaded) return;
   _ttLoaded=true;
   const el=document.getElementById('ds-tt-content');
-  if(el) el.innerHTML=`<div class="ds-empty" style="padding:20px 0">A carregar…</div>`;
+  if(el) el.innerHTML=`<div class="ds-empty">A carregar…</div>`;
 
-  const course=inferCourse(DS_ENROL);
-  const prefs=getPrefs(DS_REF, course);
-
-  // Also try fetching fresh request data from Supabase in case RMAP is stale
-  if(!prefs.length){
+  // Fetch fresh request if not already loaded
+  if(!DS_REQ){
     const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
     const KEY=window.KEY||'';
     const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
@@ -790,8 +767,7 @@ async function loadTimetable(confDay, confH){
     }catch(e){}
   }
 
-  const freshPrefs=getPrefs(DS_REF, course);
-  if(el) el.innerHTML=buildTimetable(freshPrefs, confDay, confH);
+  if(el) el.innerHTML=buildRequestSlots(DS_REQ, confDay, confH);
 }
 
 function sec(id,icon,title,meta,content){
@@ -826,28 +802,52 @@ window.dsSendMsg = function(){
 };
 
 /* ── Sections ── */
-function buildTimetable(prefs, confDay, confH){
-  if(!prefs.length&&!confDay) return `<div class="ds-empty">Nenhum horário pedido.</div>`;
-  const hCols=ALL_HRS.length;
-  let html=`<div style="overflow-x:auto;margin-bottom:10px"><div style="display:grid;grid-template-columns:26px repeat(${hCols},1fr);gap:2px;min-width:260px">`;
-  html+=`<div></div>`;
-  ALL_HRS.forEach((h,i)=>{
-    html+=`<div style="height:12px;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--sub);font-family:monospace">${h}</div>`;
-  });
-  DAYS.forEach(day=>{
-    html+=`<div style="height:12px;display:flex;align-items:center;font-size:7px;font-weight:700;color:var(--sub);font-family:monospace">${day}</div>`;
-    ALL_HRS.forEach(h=>{
-      const isConf=confDay===day&&confH===h;
-      const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      const bg=isConf?'#32D74B':isReq?'#FF9F0A':'#48484A';
-      html+=`<div style="height:12px;border-radius:2px;background:${bg}"></div>`;
+function buildRequestSlots(req, confDay, confH){
+  if(!req) return `<div class="ds-empty">Nenhum pedido de horário registado.</div>`;
+
+  let slots=[];
+  try{
+    const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;
+    if(Array.isArray(dp)) slots=dp;
+  }catch(e){}
+
+  const dateStr=req.created_at?new Date(req.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}):'—';
+  const mode=req.mode_used==='avail'?'Disponibilidade':'Preferência';
+
+  let html='';
+
+  // Confirmed slot at top if exists
+  if(confDay&&confH!==null){
+    html+=`<div class="ds-row">
+      <div class="ds-rk">Confirmado</div>
+      <div class="ds-rv green">${confDay} · ${confH}:00</div>
+    </div>`;
+  }
+
+  // Each requested slot as a row
+  if(slots.length){
+    slots.forEach((s,i)=>{
+      const day=s.day_name||(DAY_NUM[s.day]||`Dia ${s.day}`);
+      const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
+      const label=i===0?'1ª preferência':i===1?'2ª preferência':`Opção ${i+1}`;
+      html+=`<div class="ds-row">
+        <div class="ds-rk">${label}</div>
+        <div class="ds-rv">${day} · ${start}</div>
+      </div>`;
     });
-  });
-  html+=`</div></div>`;
-  html+=`<div style="display:flex;gap:14px;margin-top:6px">
-    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
-    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
-  </div>`;
+  } else {
+    html+=`<div class="ds-row"><div class="ds-rk">Slots</div><div class="ds-rv" style="color:var(--sub)">Sem slots registados</div></div>`;
+  }
+
+  html+=[
+    row('Modo', mode),
+    row('Sessões/sem', req.sessions_per_week||'—'),
+    row('Submetido', dateStr),
+    req.has_id_photo?row('Foto ID','Enviada','green'):'',
+    req.has_school_timetable?row('Hor. Escolar','Enviado','green'):'',
+    req.notes?row('Nota', req.notes):'',
+  ].filter(Boolean).join('');
+
   return html;
 }
 
