@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · 2026/2027</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.15);--gold4:rgba(201,168,76,.06);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.14);--green-b:rgba(29,184,122,.3);
+  --red:#E8455A;--red-a:rgba(232,69,90,.12);--red-b:rgba(232,69,90,.3);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.13);--amber-b:rgba(232,160,32,.3);
+  --teal:#28C8B0;--purple:#9B5ECA;--blue:#4A8FF5;
+  --bg:#07060E;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A1530;
+  --b:rgba(201,168,76,.07);--b2:rgba(201,168,76,.16);--b3:rgba(201,168,76,.30);
+  --t:rgba(238,218,168,.92);--t2:rgba(210,188,140,.52);--t3:rgba(210,188,140,.26);--t4:rgba(210,188,140,.10);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;
+  --c-juv:#28C8B0;--c-ger:#C8A44A;--c-exa:#9B5ECA;--c-inf:#4A8FF5;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;flex-direction:column}
+
+/* ══ TOPBAR ══ */
+.topbar{
+  flex-shrink:0;height:50px;
+  display:flex;align-items:center;
+  background:rgba(7,6,14,.99);
+  border-bottom:1px solid var(--b2);
+  padding:0;
+  position:relative;z-index:200;
+}
+.brand{
+  display:flex;align-items:center;gap:0;
+  padding:0 18px;height:100%;
+  border-right:1px solid var(--b);
+  flex-shrink:0;
+}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2)}
+.brand-yr{font-size:7px;color:var(--t3);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+
+/* ══ TABS ══ */
+.tabs{display:flex;align-items:stretch;height:100%;flex:1;overflow:hidden}
+.tab{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 20px;cursor:pointer;
+  border-right:1px solid var(--b);
+  border-bottom:2px solid transparent;
+  transition:all .18s;
+  position:relative;flex-shrink:0;
+  gap:3px;
+}
+.tab:hover{background:var(--gold4)}
+.tab.active{
+  background:rgba(201,168,76,.05);
+  border-bottom-color:var(--gold);
+}
+.tab-num{
+  font-size:7px;font-weight:700;letter-spacing:.08em;
+  color:var(--t4);
+  width:16px;height:16px;
+  border:1px solid var(--b);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .18s;
+}
+.tab.active .tab-num{background:var(--gold);color:#07060E;border-color:var(--gold)}
+.tab.done .tab-num{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.tab-label{font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);transition:color .18s;white-space:nowrap}
+.tab.active .tab-label{color:var(--gold2)}
+.tab:hover .tab-label{color:var(--t2)}
+.tab-badge{
+  position:absolute;top:7px;right:7px;
+  background:var(--red);color:#fff;
+  font-size:6px;font-weight:700;
+  padding:1px 4px;min-width:14px;text-align:center;
+  border-radius:6px;line-height:1.4;
+}
+.topbar-right{
+  margin-left:auto;display:flex;align-items:center;gap:8px;
+  padding:0 14px;border-left:1px solid var(--b);height:100%;flex-shrink:0;
+}
+.live{display:flex;align-items:center;gap:5px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.live-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--green)}
+.topbar-pill{
+  font-size:7px;font-weight:600;letter-spacing:.08em;
+  padding:2px 9px;border:1px solid var(--b2);
+  color:var(--t2);
+}
+.topbar-pill.gold{color:var(--gold2);border-color:var(--b3);background:var(--gold4)}
+
+/* ══ PANELS ══ */
+.panels{flex:1;overflow:hidden;position:relative}
+.panel{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  display:none;
+  padding:18px 20px 40px;
+  scrollbar-width:thin;scrollbar-color:var(--b) transparent;
+}
+.panel.active{display:block;animation:fadeIn .18s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.panel::-webkit-scrollbar{width:3px}
+.panel::-webkit-scrollbar-thumb{background:var(--b2)}
+
+/* ══ SHARED COMPONENTS ══ */
+.sec{font-size:7.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sec::after{content:'';flex:1;height:.5px;background:var(--b2)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:16px}
+.kpi{background:var(--bg2);border:1px solid var(--b);padding:11px 13px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,currentColor,transparent)}
+.kpi-v{font-size:24px;font-weight:700;line-height:1}
+.kpi-l{font-size:6.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-top:3px}
+.card{background:var(--bg2);border:1px solid var(--b);margin-bottom:8px;overflow:hidden}
+.card-hdr{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--b);background:rgba(0,0,0,.15)}
+.card-body{padding:11px 13px}
+.card-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.badge{font-size:6.5px;font-weight:700;padding:1px 6px;border:1px solid}
+.badge-ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.badge-warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.badge-err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.badge-mute{background:rgba(255,255,255,.03);border-color:var(--b);color:var(--t3)}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 13px;border:1px solid;cursor:pointer;
+  font-family:var(--mono);font-size:8px;font-weight:700;
+  letter-spacing:.06em;transition:all .13s;background:transparent;
+}
+.btn-green{border-color:var(--green-b);color:var(--green)}
+.btn-green:hover{background:var(--green-a)}
+.btn-gold{border-color:var(--b2);color:var(--gold)}
+.btn-gold:hover{background:var(--gold3)}
+.btn-red{border-color:var(--red-b);color:var(--red)}
+.btn-red:hover{background:var(--red-a)}
+.toast{
+  position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(8px);
+  padding:5px 18px;font-size:9px;font-weight:500;
+  opacity:0;transition:all .2s;z-index:9000;pointer-events:none;
+  border:1px solid;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.info{background:var(--gold4);border-color:var(--b2);color:var(--gold2)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+
+/* ══ P1 OVERVIEW ══ */
+.dept-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)}
+.dept-row:last-child{border-bottom:none}
+.dept-name{font-size:10px;font-weight:600;width:68px;flex-shrink:0}
+.dept-track{flex:1;height:4px;background:rgba(255,255,255,.04)}
+.dept-fill{height:100%;transition:width .8s ease}
+.dept-n{font-size:9px;color:var(--t2);width:34px;text-align:right;flex-shrink:0}
+.action-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--b);font-size:9px}
+.action-row:last-child{border-bottom:none}
+.action-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ══ P2 AUDIT ══ */
+.audit-hdr{display:grid;grid-template-columns:150px 80px 1fr 70px;gap:0;font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:5px 0 8px}
+.audit-hdr span{padding:0 4px}
+.audit-row{display:grid;grid-template-columns:150px 80px 1fr 70px;align-items:center;gap:0;border-bottom:.5px solid rgba(201,168,76,.04);transition:background .1s}
+.audit-row:hover{background:rgba(201,168,76,.02)}
+.ar-cell{padding:7px 4px}
+.heatstrip{display:flex;gap:1px}
+.hcell{width:11px;height:11px;border-radius:1px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.04)}
+.hcell.on{background:rgba(40,200,176,.35);border-color:rgba(40,200,176,.5)}
+
+/* ══ P3 FORMATION ══ */
+.dept-section{margin-bottom:18px}
+.dept-heading{
+  font-size:7px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  padding:5px 10px;margin-bottom:8px;
+  border-left:3px solid;
+}
+.level-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:0}
+.level-tile{
+  background:var(--bg2);border:1px solid var(--b);
+  padding:14px 13px;cursor:pointer;
+  transition:all .18s;position:relative;overflow:hidden;
+}
+.level-tile::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;opacity:.6}
+.level-tile:hover{border-color:var(--b2);transform:translateY(-1px)}
+.level-tile.selected{border-color:var(--gold);background:rgba(201,168,76,.04)}
+.tile-n{font-size:28px;font-weight:700;line-height:1}
+.tile-name{font-size:8px;color:var(--t3);margin-top:3px;letter-spacing:.06em}
+.tile-bar{height:3px;background:rgba(255,255,255,.05);margin-top:9px;overflow:hidden}
+.tile-fill{height:100%;transition:width .5s}
+.tile-pct{font-size:6.5px;color:var(--t3);margin-top:3px}
+
+/* Slot detail */
+.slot-detail{
+  background:var(--bg3);border:1px solid var(--b2);
+  padding:14px;margin-top:8px;
+  display:none;
+  animation:fadeIn .15s ease;
+}
+.slot-detail.open{display:block}
+.slot-detail-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.slot-options{display:flex;flex-direction:column;gap:5px}
+.slot-pair{display:flex;gap:6px}
+.slot-btn{
+  flex:1;padding:9px 12px;border:1px solid var(--b);
+  cursor:pointer;font-family:var(--mono);font-size:9px;
+  color:var(--t2);transition:all .15s;background:transparent;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.slot-btn:hover{border-color:var(--b2);color:var(--t)}
+.slot-btn.chosen{background:var(--gold3);border-color:var(--gold);color:var(--gold2)}
+.slot-pct{font-size:7px;padding:1px 5px;border:1px solid;font-weight:700}
+.slot-pct.hi{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.slot-pct.mid{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.slot-label-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.slot-label{font-size:7px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase}
+.slot-star{font-size:8px;color:var(--gold)}
+
+/* ══ P4 DECISION ══ */
+.dec-hdr{
+  display:grid;grid-template-columns:72px 1fr 90px 90px 60px;
+  gap:0;font-size:7px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--t3);padding:4px 0 8px;
+}
+.dec-hdr span{padding:0 10px}
+.dec-row{
+  display:grid;grid-template-columns:72px 1fr 90px 90px 60px;
+  align-items:center;gap:0;
+  border:1px solid var(--b);margin-bottom:4px;
+  transition:border-color .15s,opacity .2s;
+}
+.dec-row.approved{border-color:rgba(29,184,122,.4)}
+.dec-row.rejected{border-color:rgba(232,69,90,.3);opacity:.38}
+.dc{padding:9px 10px;border-right:1px solid var(--b)}
+.dc:last-child{border-right:none}
+.dc-level{font-size:14px;font-weight:700;line-height:1}
+.dc-dept{font-size:7px;color:var(--t3);margin-top:2px}
+.dc-n{font-size:20px;font-weight:700;line-height:1}
+.dc-bar{height:3px;background:rgba(255,255,255,.05);margin-top:5px;overflow:hidden}
+.dc-fill{height:100%;transition:width .5s}
+.dc-slot-l{font-size:6.5px;color:var(--t3)}
+.dc-slot-v{font-size:9px;font-weight:600;color:var(--t2);margin-top:1px}
+.act-cell{display:flex;gap:4px;justify-content:center;align-items:center;background:rgba(0,0,0,.1)}
+.ico-btn{
+  width:28px;height:28px;border:1px solid var(--b);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:13px;transition:all .14s;background:transparent;
+}
+.ico-btn:hover{transform:scale(1.1)}
+.dec-row.approved .ico-ok{background:var(--green-a);border-color:var(--green-b)}
+.dec-row.rejected .ico-no{background:var(--red-a);border-color:var(--red-b)}
+.dec-tally{display:flex;gap:16px;padding:10px 0 0;font-size:9px;color:var(--t3)}
+.dec-tally strong{color:var(--t);font-weight:600}
+
+/* ══ P5 ASSIGN ══ */
+.grid-scroll{overflow-x:auto}
+.gtable{width:100%;border-collapse:collapse;min-width:600px}
+.gtable th{
+  font-size:7px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--t3);padding:6px 4px;
+  border-bottom:1px solid var(--b2);text-align:center;
+}
+.gtable th.day-th{text-align:left;padding-left:10px;width:44px}
+.gcell{padding:3px 2px;text-align:center;cursor:pointer;vertical-align:middle}
+.gslot{
+  height:42px;border:1px solid transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:all .14s;background:rgba(255,255,255,.015);
+}
+.gslot:hover{background:var(--gold4);border-color:var(--b)}
+.gslot.booked{background:rgba(29,184,122,.12);border-color:rgba(29,184,122,.28)}
+.gslot.heat-hi{background:rgba(40,200,176,.1);border-color:rgba(40,200,176,.2)}
+.gslot.heat-lo{background:rgba(201,168,76,.06);border-color:rgba(201,168,76,.12)}
+.gcode{font-size:8px;font-weight:700;color:rgba(100,220,160,.9)}
+.gnums{font-size:6.5px;color:rgba(100,220,160,.5)}
+.gplus{font-size:14px;color:rgba(201,168,76,.08)}
+
+/* ══ P6 PORTAL ══ */
+.portal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.portal-card{background:var(--bg2);border:1px solid var(--b);padding:14px 13px;transition:border-color .15s;cursor:pointer}
+.portal-card:hover{border-color:var(--b2)}
+.portal-name{font-size:11px;font-weight:600;color:var(--t)}
+.portal-code{font-size:7px;color:var(--t3);margin-top:2px}
+.portal-slot{font-size:9px;color:var(--t2);margin-top:8px}
+.portal-hours{display:flex;align-items:center;gap:6px;margin-top:8px}
+.phbar{flex:1;height:3px;background:rgba(255,255,255,.05)}
+.phfill{height:100%;transition:width .5s}
+.phval{font-size:7.5px;color:var(--t3)}
+</style>
+</head>
+<body>
+
+<!-- ══ TOPBAR ══ -->
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-alm">ALM</span>
+    <span class="brand-yr">2026/27</span>
+  </div>
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-panel="overview"   onclick="switchTab(this)"><div class="tab-num">1</div><div class="tab-label">Overview</div></div>
+    <div class="tab"        data-panel="audit"      onclick="switchTab(this)"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-badge">200</div></div>
+    <div class="tab"        data-panel="formation"  onclick="switchTab(this)"><div class="tab-num">3</div><div class="tab-label">Formation</div></div>
+    <div class="tab"        data-panel="decision"   onclick="switchTab(this)"><div class="tab-num">4</div><div class="tab-label">Decision</div><div class="tab-badge" id="dec-badge">13</div></div>
+    <div class="tab"        data-panel="assign"     onclick="switchTab(this)"><div class="tab-num">5</div><div class="tab-label">Assign</div></div>
+    <div class="tab"        data-panel="portal"     onclick="switchTab(this)"><div class="tab-num">6</div><div class="tab-label">Portal</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="live"><div class="live-dot"></div><span class="live-lbl">LIVE</span></div>
+    <div class="topbar-pill">PT003 · Funchal</div>
+    <div class="topbar-pill gold">1 000 al</div>
+  </div>
+</div>
+
+<!-- ══ PANELS ══ -->
+<div class="panels">
+
+  <!-- ── 1. OVERVIEW ── -->
+  <div class="panel active" id="panel-overview">
+    <div class="kpis">
+      <div class="kpi" style="color:var(--gold2)"><div class="kpi-v">1 000</div><div class="kpi-l">Inscritos</div></div>
+      <div class="kpi" style="color:var(--teal)"><div class="kpi-v">800</div><div class="kpi-l">Pedidos</div></div>
+      <div class="kpi" style="color:var(--blue)"><div class="kpi-v">113</div><div class="kpi-l">Turmas</div></div>
+      <div class="kpi" style="color:var(--green)"><div class="kpi-v">45</div><div class="kpi-l">Viáveis</div></div>
+      <div class="kpi" style="color:var(--red)"><div class="kpi-v">200</div><div class="kpi-l">Sem pedido</div></div>
+      <div class="kpi" style="color:var(--amber)"><div class="kpi-v">68</div><div class="kpi-l">Por decidir</div></div>
+    </div>
+
+    <div class="sec">Distribuição por departamento</div>
+    <div class="card">
+      <div class="card-body">
+        <div class="dept-row"><span class="dept-name" style="color:var(--c-inf)">Infantil</span><div class="dept-track"><div class="dept-fill" style="width:31.5%;background:var(--c-inf)"></div></div><span class="dept-n">126</span></div>
+        <div class="dept-row"><span class="dept-name" style="color:var(--c-juv)">Juvenil</span><div class="dept-track"><div class="dept-fill" style="width:35%;background:var(--c-juv)"></div></div><span class="dept-n">140</span></div>
+        <div class="dept-row"><span class="dept-name" style="color:var(--c-ger)">Geral</span><div class="dept-track"><div class="dept-fill" style="width:66%;background:var(--c-ger)"></div></div><span class="dept-n">527</span></div>
+        <div class="dept-row"><span class="dept-name" style="color:var(--c-exa)">Exames</span><div class="dept-track"><div class="dept-fill" style="width:25.7%;background:var(--c-exa)"></div></div><span class="dept-n">103</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="margin-top:14px">Próximas acções</div>
+    <div class="card">
+      <div class="card-body">
+        <div class="action-row">
+          <div class="action-dot" style="background:var(--red)"></div>
+          <span style="color:var(--t2)">200 alunos sem pedido de horário</span>
+          <button class="btn btn-gold" style="margin-left:auto" onclick="gotoTab('audit')">Audit →</button>
+        </div>
+        <div class="action-row">
+          <div class="action-dot" style="background:var(--amber)"></div>
+          <span style="color:var(--t2)">68 turmas aguardam decisão do director</span>
+          <button class="btn btn-gold" style="margin-left:auto" onclick="gotoTab('decision')">Decidir →</button>
+        </div>
+        <div class="action-row">
+          <div class="action-dot" style="background:var(--teal)"></div>
+          <span style="color:var(--t2)">Formação de turmas em curso — Infantil pronto</span>
+          <button class="btn btn-gold" style="margin-left:auto" onclick="gotoTab('formation')">Formation →</button>
+        </div>
+        <div class="action-row">
+          <div class="action-dot" style="background:var(--green)"></div>
+          <span style="color:var(--t2)">45 turmas aprovadas — atribuir professor</span>
+          <button class="btn btn-green" style="margin-left:auto" onclick="gotoTab('assign')">Assign →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. AUDIT ── -->
+  <div class="panel" id="panel-audit">
+    <div class="kpis">
+      <div class="kpi" style="color:var(--gold2)"><div class="kpi-v">1000</div><div class="kpi-l">Total alunos</div></div>
+      <div class="kpi" style="color:var(--green)"><div class="kpi-v">800</div><div class="kpi-l">Com pedido</div></div>
+      <div class="kpi" style="color:var(--red)"><div class="kpi-v">200</div><div class="kpi-l">Sem pedido</div></div>
+      <div class="kpi" style="color:var(--amber)"><div class="kpi-v">798</div><div class="kpi-l">Pendentes</div></div>
+    </div>
+    <div class="sec">Statement View · Funchal · PJ1 · EN · Juvenil</div>
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title" style="color:var(--c-juv)">PJ1 · Juvenil</span>
+        <span class="badge badge-warn" style="margin-left:auto">34/43 com pedido</span>
+      </div>
+      <div class="card-body" style="padding:8px 13px">
+        <div class="audit-hdr"><span>Nome</span><span>Slots</span><span>Disponibilidade</span><span>Status</span></div>
+        <div id="audit-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. FORMATION ── -->
+  <div class="panel" id="panel-formation">
+    <div class="sec">Clique num nível · ver slots viáveis · confirmar</div>
+
+    <div class="dept-section">
+      <div class="dept-heading" style="color:var(--c-inf);border-color:var(--c-inf)">Infantil · 126 alunos · 4 níveis</div>
+      <div class="level-tiles" id="tiles-inf"></div>
+    </div>
+
+    <div class="dept-section">
+      <div class="dept-heading" style="color:var(--c-juv);border-color:var(--c-juv)">Juvenil · 140 alunos · 3 níveis</div>
+      <div class="level-tiles" id="tiles-juv"></div>
+    </div>
+
+    <div class="dept-section">
+      <div class="dept-heading" style="color:var(--c-ger);border-color:var(--c-ger)">Geral · 527 alunos · 5 níveis</div>
+      <div class="level-tiles" id="tiles-ger"></div>
+    </div>
+
+    <div class="dept-section">
+      <div class="dept-heading" style="color:var(--c-exa);border-color:var(--c-exa)">Exames · 103 alunos · 3 níveis</div>
+      <div class="level-tiles" id="tiles-exa"></div>
+    </div>
+
+    <div class="slot-detail" id="slot-detail">
+      <div class="slot-detail-title" id="slot-detail-title">—</div>
+      <div class="slot-options" id="slot-options"></div>
+    </div>
+  </div>
+
+  <!-- ── 4. DECISION ── -->
+  <div class="panel" id="panel-decision">
+    <div class="dec-hdr">
+      <span>Nível</span><span>Alunos</span><span>Slot A</span><span>Slot B</span><span style="text-align:center">Decide</span>
+    </div>
+    <div id="dec-rows"></div>
+    <div class="dec-tally" id="dec-tally"></div>
+  </div>
+
+  <!-- ── 5. ASSIGN ── -->
+  <div class="panel" id="panel-assign">
+    <div class="sec">Grelha Semanal · Funchal · 2026/2027</div>
+    <div class="grid-scroll">
+      <table class="gtable" id="gtable"></table>
+    </div>
+  </div>
+
+  <!-- ── 6. PORTAL ── -->
+  <div class="panel" id="panel-portal">
+    <div class="sec">Portal do Professor</div>
+    <div class="portal-grid" id="portal-grid"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══ NAV ══ */
+function switchTab(el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+el.dataset.panel).classList.add('active');
+}
+function gotoTab(id){
+  const t=document.querySelector(`.tab[data-panel="${id}"]`);
+  if(t) switchTab(t);
+}
+
+/* ══ TOAST ══ */
+let toastTimer;
+function showToast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`toast ${type} show`;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+/* ══ DATA ══ */
+const TILES={
+  inf:[
+    {id:'PI-a1',n:44,max:60,color:'var(--c-inf)',slots:[
+      [{day:'SEG',h:'08h',pct:86},{day:'QUA',h:'08h',pct:91}],
+      [{day:'TER',h:'10h',pct:66},{day:'QUI',h:'10h',pct:70}],
+    ]},
+    {id:'PI-a2',n:46,max:60,color:'var(--c-inf)',slots:[
+      [{day:'TER',h:'14h',pct:87},{day:'QUI',h:'14h',pct:91}],
+      [{day:'QUA',h:'16h',pct:48}],
+    ]},
+    {id:'Pj1',n:32,max:60,color:'var(--c-inf)',slots:[
+      [{day:'SEG',h:'08h30',pct:88},{day:'QUA',h:'08h30',pct:94}],
+      [{day:'TER',h:'08h30',pct:78}],
+    ]},
+    {id:'Pj2',n:15,max:60,color:'var(--c-inf)',slots:[
+      [{day:'QUA',h:'14h',pct:80},{day:'SEX',h:'14h',pct:87}],
+    ]},
+  ],
+  juv:[
+    {id:'PJ1',n:62,max:90,color:'var(--c-juv)',slots:[
+      [{day:'SEG',h:'08h30',pct:84},{day:'QUA',h:'08h30',pct:88}],
+      [{day:'TER',h:'15h',pct:72},{day:'QUI',h:'15h',pct:69}],
+    ]},
+    {id:'PJ2',n:66,max:90,color:'var(--c-juv)',slots:[
+      [{day:'TER',h:'08h30',pct:80},{day:'QUI',h:'14h30',pct:83}],
+      [{day:'QUA',h:'17h',pct:55}],
+    ]},
+    {id:'PJ3',n:42,max:90,color:'var(--c-juv)',slots:[
+      [{day:'TER',h:'08h30',pct:76},{day:'QUI',h:'14h30',pct:79}],
+    ]},
+  ],
+  ger:[
+    {id:'1st',n:123,max:200,color:'var(--c-ger)',slots:[
+      [{day:'SEG',h:'14h30',pct:82},{day:'QUA',h:'14h30',pct:85}],
+      [{day:'TER',h:'18h',pct:60},{day:'QUI',h:'18h',pct:58}],
+    ]},
+    {id:'2nd',n:128,max:200,color:'var(--c-ger)',slots:[
+      [{day:'TER',h:'14h',pct:79},{day:'QUI',h:'12h',pct:83}],
+    ]},
+    {id:'3rd',n:94,max:200,color:'var(--c-ger)',slots:[
+      [{day:'QUA',h:'14h30',pct:74},{day:'SEX',h:'12h',pct:71}],
+    ]},
+    {id:'4th',n:88,max:200,color:'var(--c-ger)',slots:[
+      [{day:'SEG',h:'19h',pct:66},{day:'QUA',h:'19h',pct:69}],
+    ]},
+    {id:'5th',n:34,max:200,color:'var(--c-ger)',slots:[
+      [{day:'TER',h:'20h',pct:59},{day:'QUI',h:'20h',pct:62}],
+    ]},
+  ],
+  exa:[
+    {id:'6th B2',n:42,max:60,color:'var(--c-exa)',slots:[
+      [{day:'SEG',h:'14h30',pct:90},{day:'QUA',h:'08h30',pct:86}],
+      [{day:'SÁB',h:'09h',pct:71}],
+    ]},
+    {id:'7th C1',n:44,max:60,color:'var(--c-exa)',slots:[
+      [{day:'TER',h:'08h30',pct:88},{day:'QUI',h:'14h30',pct:84}],
+    ]},
+    {id:'8th C2',n:17,max:60,color:'var(--c-exa)',slots:[
+      [{day:'TER',h:'08h30',pct:76},{day:'QUI',h:'12h',pct:72}],
+    ]},
+  ],
+};
+
+/* ══ FORMATION ══ */
+let selTile=null;
+
+function buildTiles(key,containerId){
+  const tiles=TILES[key];
+  const el=document.getElementById(containerId);
+  el.innerHTML=tiles.map((t,i)=>{
+    const pct=Math.round(t.n/t.max*100);
+    return`<div class="level-tile" id="tile-${key}-${i}" onclick="selectTile('${key}',${i})">
+      <div class="tile-n" style="color:${t.color}">${t.n}</div>
+      <div class="tile-name">${t.id}</div>
+      <div class="tile-bar"><div class="tile-fill" style="width:${pct}%;background:${t.color}88"></div></div>
+      <div class="tile-pct">${pct}% capacidade</div>
+    </div>`;
+  }).join('');
+}
+
+function selectTile(key,i){
+  // deselect all
+  document.querySelectorAll('.level-tile').forEach(t=>t.classList.remove('selected'));
+  document.getElementById(`tile-${key}-${i}`).classList.add('selected');
+  const t=TILES[key][i];
+  selTile={key,i,t};
+
+  const detail=document.getElementById('slot-detail');
+  document.getElementById('slot-detail-title').textContent=
+    `${t.id} · ${t.n} alunos · slots sem falhar`;
+
+  const opts=document.getElementById('slot-options');
+  opts.innerHTML=t.slots.map((pair,pi)=>`
+    <div>
+      <div class="slot-label-row">
+        ${pi===0?'<span class="slot-star">★</span>':''}
+        <span class="slot-label">${pi===0?'Recomendado':'Alternativa'}</span>
+      </div>
+      <div class="slot-pair">
+        ${pair.map(s=>`
+          <button class="slot-btn" onclick="toggleSlot(this,'${t.id}','${s.day} ${s.h}')">
+            <span>${s.day} · ${s.h}</span>
+            <span class="slot-pct ${s.pct>=75?'hi':'mid'}">${s.pct}%</span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+
+  detail.classList.add('open');
+  // scroll into view
+  setTimeout(()=>detail.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+}
+
+function toggleSlot(btn,level,slot){
+  const wasChosen=btn.classList.contains('chosen');
+  // deselect siblings in same pair
+  btn.closest('.slot-pair').querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('chosen'));
+  if(!wasChosen){
+    btn.classList.add('chosen');
+    showToast(`${level} · ${slot} confirmado ✓`,'ok');
+  }
+}
+
+buildTiles('inf','tiles-inf');
+buildTiles('juv','tiles-juv');
+buildTiles('ger','tiles-ger');
+buildTiles('exa','tiles-exa');
+
+/* ══ AUDIT ══ */
+const NAMES=['Afonso Castro Spinola','Afonso Mendes Pestana','Artur Alves Lopes','Artur Neves Pestana','Beatriz Marques Lopes','Carla Freitas','Daniel Sousa Neves','Eduardo Pinheiro'];
+const SLOTS_SAMPLE=[['SEG 11h','QUA 17h'],['QUA 11h','SÁB 08h'],['TER 17h','SEX 09h'],['TER 15h','QUA 11h'],['SEG 10h','QUA 10h'],['TER 08h','QUI 14h'],['SEG 09h','QUI 09h'],['QUA 08h','SEX 08h']];
+document.getElementById('audit-rows').innerHTML=NAMES.map((n,i)=>{
+  const slots=SLOTS_SAMPLE[i];
+  const dayIdxs=slots.map(s=>['SEG','TER','QUA','QUI','SEX','SÁB'].findIndex(d=>s.startsWith(d)));
+  const cells=Array(6).fill(0).map((_,di)=>`<div class="hcell${dayIdxs.includes(di)?' on':''}"></div>`).join('');
+  return`<div class="audit-row">
+    <div class="ar-cell">
+      <div style="font-size:9px;color:var(--t)">${n}</div>
+      <div style="font-size:7px;color:var(--t3)">ALM-0${960+i}</div>
+    </div>
+    <div class="ar-cell" style="font-size:8px;line-height:1.6;color:var(--teal)">${slots.map(s=>`<div>${s}</div>`).join('')}</div>
+    <div class="ar-cell">
+      <div class="heatstrip">${cells}</div>
+      <div style="font-size:6px;color:var(--t4);margin-top:3px;letter-spacing:.06em">S T Q Q S S</div>
+    </div>
+    <div class="ar-cell" style="text-align:center">
+      <span class="badge ${i<2?'badge-ok':'badge-warn'}">${i<2?'atribuído':'pendente'}</span>
+    </div>
+  </div>`;
+}).join('');
+
+/* ══ DECISION ══ */
+const DEC_GROUPS=[
+  {level:'PI-a1',dept:'Infantil',color:'var(--c-inf)',n:44,max:60,slotA:'SEG 8h',slotB:'QUA 8h'},
+  {level:'PI-a2',dept:'Infantil',color:'var(--c-inf)',n:46,max:60,slotA:'TER 14h',slotB:'QUI 14h'},
+  {level:'Pj1', dept:'Juvenil', color:'var(--c-juv)',n:62,max:90, slotA:'SEG 8h30',slotB:'QUA 8h30'},
+  {level:'Pj2', dept:'Juvenil', color:'var(--c-juv)',n:66,max:90, slotA:'TER 8h30',slotB:'QUI 14h30'},
+  {level:'1st', dept:'Geral',   color:'var(--c-ger)',n:123,max:200,slotA:'SEG 14h30',slotB:'QUA 14h30'},
+  {level:'2nd', dept:'Geral',   color:'var(--c-ger)',n:128,max:200,slotA:'TER 14h', slotB:'QUI 12h'},
+  {level:'6th', dept:'Exames',  color:'var(--c-exa)',n:42,max:60, slotA:'SEG 14h30',slotB:'QUA 8h30'},
+  {level:'7th', dept:'Exames',  color:'var(--c-exa)',n:44,max:60, slotA:'TER 8h30', slotB:'QUI 14h30'},
+  {level:'8th', dept:'Exames',  color:'var(--c-exa)',n:17,max:60, slotA:'TER 8h30', slotB:'QUI 12h'},
+  {level:'3rd', dept:'Geral',   color:'var(--c-ger)',n:94,max:200,slotA:'QUA 14h30',slotB:'SEX 12h'},
+  {level:'4th', dept:'Geral',   color:'var(--c-ger)',n:88,max:200,slotA:'SEG 19h',  slotB:'QUA 19h'},
+  {level:'5th', dept:'Geral',   color:'var(--c-ger)',n:34,max:200,slotA:'TER 20h',  slotB:'QUI 20h'},
+  {level:'Pj3', dept:'Juvenil', color:'var(--c-juv)',n:42,max:90, slotA:'TER 8h30', slotB:'QUI 14h30'},
+];
+const decState={};
+
+function buildDecision(){
+  document.getElementById('dec-rows').innerHTML=DEC_GROUPS.map((g,i)=>{
+    decState[i]='pending';
+    const pct=Math.round(g.n/g.max*100);
+    return`<div class="dec-row" id="dr-${i}">
+      <div class="dc"><div class="dc-level" style="color:${g.color}">${g.level}</div><div class="dc-dept">${g.dept}</div></div>
+      <div class="dc">
+        <div class="dc-n" style="color:${g.color}">${g.n}</div>
+        <div class="dc-bar"><div class="dc-fill" style="width:${pct}%;background:${g.color}"></div></div>
+      </div>
+      <div class="dc"><div class="dc-slot-l">A</div><div class="dc-slot-v">${g.slotA}</div></div>
+      <div class="dc"><div class="dc-slot-l">B</div><div class="dc-slot-v">${g.slotB}</div></div>
+      <div class="dc act-cell">
+        <div class="ico-btn ico-ok" onclick="decide(${i},'approved')" title="Aprovar">✓</div>
+        <div class="ico-btn ico-no" onclick="decide(${i},'rejected')" title="Rejeitar">✕</div>
+      </div>
+    </div>`;
+  }).join('');
+  updateTally();
+}
+
+function decide(i,val){
+  decState[i]=decState[i]===val?'pending':val;
+  const row=document.getElementById('dr-'+i);
+  row.classList.remove('approved','rejected');
+  if(decState[i]!=='pending') row.classList.add(decState[i]);
+  updateTally();
+  const g=DEC_GROUPS[i];
+  if(decState[i]==='approved') showToast(`${g.level} aprovado ✓`,'ok');
+}
+
+function updateTally(){
+  const vals=Object.values(decState);
+  const ok=vals.filter(v=>v==='approved').length;
+  const no=vals.filter(v=>v==='rejected').length;
+  const pend=vals.filter(v=>v==='pending').length;
+  document.getElementById('dec-tally').innerHTML=
+    `<span>Aprovadas: <strong style="color:var(--green)">${ok}</strong></span>
+     <span>Rejeitadas: <strong style="color:var(--red)">${no}</strong></span>
+     <span>Pendentes: <strong>${pend}</strong></span>`;
+  const badge=document.getElementById('dec-badge');
+  if(badge) badge.textContent=pend;
+}
+buildDecision();
+
+/* ══ ASSIGN GRID ══ */
+const DAYS_G=['SEG','TER','QUA','QUI','SEX','SÁB'];
+const HRS_G=[8,9,10,11,14,15,16,17,18,19,20];
+const BOOKED_G={
+  'SEG_10':{code:'2627-0001',n:38,level:'PI-a1'},
+  'QUA_14':{code:'2627-0002',n:41,level:'PI-a2'},
+  'TER_8': {code:'2627-0003',n:40,level:'PJ1'},
+  'QUI_14':{code:'2627-0004',n:44,level:'PJ2'},
+  'SEG_14':{code:'2627-0005',n:42,level:'6th'},
+};
+const HEAT={
+  'SEG_8':2,'QUA_8':2,'TER_14':2,'QUI_14':1,
+  'SEG_14':1,'QUA_14':1,'TER_8':2,'QUI_8':1,
+  'SEX_12':1,'QUA_19':1,'TER_20':1,
+};
+function buildGrid(){
+  let html='<thead><tr><th class="day-th">Dia</th>'+HRS_G.map(h=>`<th>${h}h</th>`).join('')+'</tr></thead><tbody>';
+  DAYS_G.forEach(day=>{
+    html+=`<tr><td class="day-th" style="padding:5px 10px;font-size:9px;font-weight:700;color:var(--t2)">${day}</td>`;
+    HRS_G.forEach(h=>{
+      const key=`${day}_${h}`;
+      const b=BOOKED_G[key];
+      const heat=HEAT[key];
+      if(b){
+        html+=`<td class="gcell"><div class="gslot booked"><div class="gcode">${b.code}</div><div class="gnums">${b.n}al · ${b.level}</div></div></td>`;
+      } else {
+        const hc=heat===2?'heat-hi':heat===1?'heat-lo':'';
+        html+=`<td class="gcell" onclick="bookSlot('${day}',${h})"><div class="gslot ${hc}"><div class="gplus">+</div></div></td>`;
+      }
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('gtable').innerHTML=html;
+}
+function bookSlot(day,h){
+  showToast(`${day} · ${h}h — seleccionar turma`,'info');
+}
+buildGrid();
+
+/* ══ PORTAL ══ */
+const TEACHERS=[
+  {name:'Nélia Baptista',code:'NB',h:18,max:22,color:'var(--c-ger)',turmas:['EN-1ST-FUN-A','EN-2ND-FUN-B']},
+  {name:'Sally Macedo',code:'SM',h:20,max:22,color:'var(--c-ger)',turmas:['EN-3RD-FUN-A','EN-4TH-FUN-A']},
+  {name:'Tony Kennedy',code:'TK',h:14,max:22,color:'var(--c-exa)',turmas:['EN-6TH-FUN-A']},
+  {name:'Catherine Moreau',code:'CM',h:16,max:22,color:'var(--c-exa)',turmas:['FR-1ST-FUN-A']},
+  {name:'Águeda Correia',code:'AG',h:22,max:22,color:'var(--c-juv)',turmas:['EN-PJ1-FUN-A','EN-PJ2-FUN-A','EN-PJ3-FUN-A']},
+  {name:'Dina Silva',code:'DS',h:10,max:22,color:'var(--c-inf)',turmas:['EN-PI1-FUN-A']},
+];
+document.getElementById('portal-grid').innerHTML=TEACHERS.map(t=>{
+  const pct=Math.round(t.h/t.max*100);
+  const col=pct>=90?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+  return`<div class="portal-card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:${t.color}22;border:1px solid ${t.color}44;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:${t.color};flex-shrink:0">${t.code}</div>
+      <div>
+        <div class="portal-name">${t.name}</div>
+        <div class="portal-code">${t.code}</div>
+      </div>
+    </div>
+    ${t.turmas.map(c=>`<div class="portal-slot">${c}</div>`).join('')}
+    <div class="portal-hours">
+      <div class="phbar"><div class="phfill" style="width:${pct}%;background:${col}"></div></div>
+      <span class="phval" style="color:${col}">${t.h}/${t.max}h</span>
+    </div>
+  </div>`;
+}).join('');
+</script>
+</body>
+</html>
