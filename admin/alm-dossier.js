@@ -4,32 +4,19 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  --bg: #FAFAFA;
-  --bg2: #F2F2F7;
-  --bg3: #FFFFFF;
-  --sep: rgba(60,60,67,.12);
-  --sep2: rgba(60,60,67,.06);
-  --label: rgba(60,60,67,.6);
-  --text: #1C1C1E;
-  --sub: #6C6C70;
-  --tint: #007AFF;
-  --red: #FF3B30;
-  --green: #34C759;
-  --amber: #FF9500;
+  --bg:    #1C1C1E;
+  --bg2:   #2C2C2E;
+  --bg3:   #3A3A3C;
+  --sep:   rgba(255,255,255,.10);
+  --sep2:  rgba(255,255,255,.05);
+  --label: rgba(255,255,255,.45);
+  --text:  #FFFFFF;
+  --sub:   #98989D;
+  --tint:  #0A84FF;
+  --red:   #FF453A;
+  --green: #32D74B;
+  --amber: #FF9F0A;
   --f: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1C1C1E;
-    --bg2: #2C2C2E;
-    --bg3: #3A3A3C;
-    --sep: rgba(255,255,255,.12);
-    --sep2: rgba(255,255,255,.06);
-    --label: rgba(255,255,255,.5);
-    --text: #FFFFFF;
-    --sub: #98989D;
-  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -63,58 +50,103 @@ const CSS = `
 @keyframes sheetUp   { from { transform: translateY(100%) } to { transform: none } }
 @keyframes sheetDown { to   { transform: translateY(100%) } }
 
-/* Grab handle */
+/* ── BANNER HEADER ── */
+.ds-banner {
+  position: relative;
+  flex-shrink: 0;
+  padding: 22px 20px 18px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  min-height: 140px;
+  overflow: hidden;
+}
+.ds-banner-bg {
+  position: absolute; inset: 0;
+  transition: background .3s;
+}
+.ds-banner-noise {
+  position: absolute; inset: 0;
+  opacity: .04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.ds-banner-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.28) 0%, transparent 60%);
+  pointer-events: none;
+}
+/* Grab handle sits on top of banner */
 .ds-handle {
+  position: absolute;
+  top: 10px; left: 50%; transform: translateX(-50%);
   width: 36px; height: 5px;
   border-radius: 999px;
-  background: var(--sep);
-  margin: 10px auto 0;
-  flex-shrink: 0;
+  background: rgba(255,255,255,.38);
+  z-index: 10;
 }
-
-/* Header */
-.ds-header {
-  padding: 16px 20px 14px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border-bottom: .5px solid var(--sep);
-  flex-shrink: 0;
+.ds-close {
+  position: absolute;
+  top: 14px; right: 16px;
+  z-index: 10;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.22);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.90);
+  font-size: 13px; font-weight: 600;
+  font-family: var(--f);
+  backdrop-filter: blur(4px);
+  transition: background .12s;
+}
+.ds-close:hover { background: rgba(255,255,255,.38); }
+.ds-dept-badge {
+  position: absolute;
+  top: 14px; left: 16px;
+  z-index: 10;
+  font-family: var(--f);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.85);
+  background: rgba(255,255,255,.18);
+  padding: 4px 11px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
 }
 .ds-avatar {
-  width: 52px; height: 52px;
+  position: relative; z-index: 5;
+  width: 72px; height: 72px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 600;
+  font-size: 22px; font-weight: 700;
   font-family: var(--f);
   flex-shrink: 0;
   overflow: hidden;
+  border: 3px solid rgba(255,255,255,.55);
+  box-shadow: 0 4px 18px rgba(0,0,0,.22);
 }
 .ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.ds-hinfo { flex: 1; min-width: 0; }
+.ds-hinfo {
+  position: relative; z-index: 5;
+  flex: 1; min-width: 0;
+  margin-bottom: 2px;
+}
 .ds-name {
   font-family: var(--f);
-  font-size: 17px; font-weight: 600;
-  color: var(--text);
+  font-size: 20px; font-weight: 700;
+  color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 8px rgba(0,0,0,.18);
 }
 .ds-ref {
   font-family: var(--f);
-  font-size: 13px; color: var(--sub);
-  margin-top: 1px;
+  font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,.68);
+  margin-top: 2px;
+  letter-spacing: .02em;
 }
-.ds-close {
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  background: var(--bg2);
-  border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--sub);
-  font-size: 14px; font-weight: 500;
-  font-family: var(--f);
-  flex-shrink: 0;
-}
-.ds-close:hover { background: var(--bg3); }
 
 /* Tag row */
 .ds-tags {
@@ -129,16 +161,16 @@ const CSS = `
 .ds-tag {
   font-family: var(--f);
   font-size: 12px; font-weight: 500;
-  color: var(--tint);
-  background: rgba(0,122,255,.08);
+  color: #6AB4FF;
+  background: rgba(10,132,255,.18);
   padding: 4px 10px;
   border-radius: 6px;
   white-space: nowrap;
   flex-shrink: 0;
 }
-.ds-tag.green { color: var(--green); background: rgba(52,199,89,.10); }
-.ds-tag.amber { color: var(--amber); background: rgba(255,149,0,.10); }
-.ds-tag.red   { color: var(--red);   background: rgba(255,59,48,.10); }
+.ds-tag.green { color: #32D74B; background: rgba(50,215,75,.15); }
+.ds-tag.amber { color: #FF9F0A; background: rgba(255,159,10,.15); }
+.ds-tag.red   { color: #FF453A; background: rgba(255,69,58,.15); }
 
 /* Quick actions */
 .ds-actions {
@@ -209,10 +241,10 @@ const CSS = `
 .ds-ag-cell {
   height: 12px;
   border-radius: 2px;
-  background: var(--sep2);
+  background: #48484A;
 }
-.ds-ag-cell.req  { background: rgba(255,149,0,.35); }
-.ds-ag-cell.conf { background: rgba(52,199,89,.45); }
+.ds-ag-cell.req  { background: #FF9F0A; }
+.ds-ag-cell.conf { background: #32D74B; }
 .ds-avail-leg {
   display: flex; gap: 14px; margin-top: 6px;
 }
@@ -414,9 +446,10 @@ const CSS = `
   padding: 6px 12px;
   border-radius: 8px;
   background: var(--bg2);
-  border: none; cursor: pointer;
+  border: .5px solid var(--sep);
+  cursor: pointer;
 }
-.ds-flag.on { color: var(--red); background: rgba(255,59,48,.10); }
+.ds-flag.on { color: #FF453A; background: rgba(255,69,58,.15); border-color: rgba(255,69,58,.3); }
 
 /* Note textarea */
 .ds-note {
@@ -475,15 +508,19 @@ input.ds-file-inp { display: none; }
 const HTML = `
 <div class="ds-overlay" id="ds-overlay" onclick="if(event.target===this)closeDossier()">
   <div class="ds-sheet" id="ds-sheet">
-    <div class="ds-handle"></div>
 
-    <div class="ds-header">
+    <div class="ds-banner" id="ds-banner">
+      <div class="ds-banner-bg"    id="ds-banner-bg"></div>
+      <div class="ds-banner-noise"></div>
+      <div class="ds-banner-scrim"></div>
+      <div class="ds-handle"></div>
+      <div class="ds-dept-badge"   id="ds-dept-badge"></div>
+      <button class="ds-close" onclick="closeDossier()">✕</button>
       <div class="ds-avatar" id="ds-avatar">?</div>
       <div class="ds-hinfo">
         <div class="ds-name" id="ds-name">—</div>
         <div class="ds-ref"  id="ds-ref">—</div>
       </div>
-      <button class="ds-close" onclick="closeDossier()">✕</button>
     </div>
 
     <div class="ds-tags" id="ds-tags"></div>
@@ -494,8 +531,8 @@ const HTML = `
       <div class="ds-avail-label">Disponibilidade semanal</div>
       <div class="ds-avail-grid" id="ds-avail-grid"></div>
       <div class="ds-avail-leg">
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(255,149,0,.35)"></div>Pedido</div>
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(52,199,89,.45)"></div>Confirmado</div>
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
+        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
       </div>
     </div>
 
@@ -602,11 +639,26 @@ window.closeDossier = function(){
   },280);
 };
 
+const COURSE_GRAD = {
+  kids:   'linear-gradient(145deg,#5AACAC,#2E7E7E)',
+  adults: 'linear-gradient(145deg,#5A78E8,#3050C0)',
+  exam:   'linear-gradient(145deg,#C8904A,#8A5A20)',
+};
+const COURSE_DEPT = {
+  kids:   'Juvenil',
+  adults: 'Geral',
+  exam:   'Exames',
+};
+
 /* ── Cover ── */
 function renderCover(d){
   const course=d.course||'adults';
   const cc=COURSE_CHIP[course]||COURSE_CHIP.adults;
   const lvl=displayLevel(d.cefr, course);
+
+  // Banner
+  document.getElementById('ds-banner-bg').style.background=COURSE_GRAD[course]||COURSE_GRAD.adults;
+  document.getElementById('ds-dept-badge').textContent=COURSE_DEPT[course]||'Geral';
 
   // Avatar
   const av=document.getElementById('ds-avatar');
@@ -747,14 +799,14 @@ function buildTimetable(prefs, confDay, confH){
     ALL_HRS.forEach(h=>{
       const isConf=confDay===day&&confH===h;
       const isReq=prefs.some(p=>p.day===day&&p.h===h);
-      const bg=isConf?'rgba(52,199,89,.45)':isReq?'rgba(255,149,0,.35)':'var(--sep2)';
+      const bg=isConf?'#32D74B':isReq?'#FF9F0A':'#48484A';
       html+=`<div style="height:12px;border-radius:2px;background:${bg}"></div>`;
     });
   });
   html+=`</div></div>`;
-  html+=`<div style="display:flex;gap:14px">
-    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(52,199,89,.45)"></div>Confirmado</div>
-    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:rgba(255,149,0,.35)"></div>Pedido</div>
+  html+=`<div style="display:flex;gap:14px;margin-top:6px">
+    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#32D74B"></div>Confirmado</div>
+    <div class="ds-leg-item"><div class="ds-leg-dot" style="background:#FF9F0A"></div>Pedido</div>
   </div>`;
   return html;
 }
@@ -1006,12 +1058,14 @@ function getPrefs(ref, course){
 function avCol(name){
   let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffffffff;
   const p=[
-    {bg:'#E8D5F5',text:'#6B2FA0'},
-    {bg:'#D5E8F5',text:'#1A5A8A'},
-    {bg:'#D5F5E8',text:'#1A7A50'},
-    {bg:'#F5E8D5',text:'#8A5A1A'},
-    {bg:'#F5D5D5',text:'#8A1A1A'},
-    {bg:'#D5F5F5',text:'#1A7A7A'},
+    {bg:'#EAC8D8',text:'#7A1840'},
+    {bg:'#C8D8EC',text:'#143870'},
+    {bg:'#C8ECD8',text:'#145830'},
+    {bg:'#DCC8EC',text:'#481890'},
+    {bg:'#ECDCC8',text:'#784010'},
+    {bg:'#C8ECE8',text:'#145850'},
+    {bg:'#ECE8C8',text:'#706010'},
+    {bg:'#F0C8C8',text:'#801818'},
   ];
   return p[Math.abs(h)%p.length];
 }
