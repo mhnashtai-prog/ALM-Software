@@ -1,4 +1,5 @@
 (function(){
+
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -53,11 +54,11 @@ const CSS = `
 .ds-banner {
   position: relative;
   flex-shrink: 0;
-  padding: 22px 20px 18px;
+  padding: 22px 16px 16px;
   display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  min-height: 140px;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 158px;
   overflow: hidden;
 }
 .ds-banner-bg {
@@ -125,6 +126,7 @@ const CSS = `
   overflow: hidden;
   border: 3px solid rgba(255,255,255,.55);
   box-shadow: 0 4px 18px rgba(0,0,0,.22);
+  margin-top: 18px;
 }
 .ds-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .ds-hinfo {
@@ -171,36 +173,37 @@ const CSS = `
 .ds-tag.amber { color: #FF9F0A; background: rgba(255,159,10,.15); }
 .ds-tag.red   { color: #FF453A; background: rgba(255,69,58,.15); }
 
-/* Quick actions */
-.ds-actions {
+/* Actions — inside banner, horizontal strip */
+.ds-banner-acts {
   display: flex;
-  padding: 12px 20px;
-  gap: 8px;
-  border-bottom: .5px solid var(--sep);
-  flex-shrink: 0;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
 }
-.ds-actions::-webkit-scrollbar { display: none; }
+.ds-banner-acts::-webkit-scrollbar { display: none; }
 .ds-act {
   display: flex; flex-direction: column;
-  align-items: center; gap: 5px;
+  align-items: center; gap: 4px;
   flex-shrink: 0;
   cursor: pointer;
 }
 .ds-act-icon {
-  width: 42px; height: 42px;
-  border-radius: 12px;
-  background: var(--bg2);
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.18);
+  backdrop-filter: blur(6px);
+  border: .5px solid rgba(255,255,255,.28);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 16px;
   transition: background .12s;
 }
-.ds-act:hover .ds-act-icon { background: var(--bg3); }
+.ds-act:hover .ds-act-icon { background: rgba(255,255,255,.30); }
 .ds-act-lbl {
   font-family: var(--f);
-  font-size: 10px; font-weight: 500;
-  color: var(--sub);
+  font-size: 9px; font-weight: 500;
+  color: rgba(255,255,255,.75);
   white-space: nowrap;
 }
 
@@ -519,12 +522,11 @@ const HTML = `
       <div class="ds-hinfo">
         <div class="ds-name" id="ds-name">—</div>
         <div class="ds-ref"  id="ds-ref">—</div>
+        <div class="ds-banner-acts" id="ds-actions"></div>
       </div>
     </div>
 
     <div class="ds-tags" id="ds-tags"></div>
-
-    <div class="ds-actions" id="ds-actions"></div>
 
     <div class="ds-avail" id="ds-avail" style="display:none">
       <div class="ds-avail-label">Disponibilidade semanal</div>
@@ -577,6 +579,7 @@ window.openDossier = async function(ref, role){
   inject();
   DS_REF=ref; DS_ROLE=role||'staff';
   DS_ENROL=null; DS_REQ=null; DS_DOCS=[]; DS_HIST=[];
+  _ttLoaded=false;
 
   document.getElementById('ds-overlay').classList.add('open');
   renderCover({name:ref,ref,lang:'EN',course:'adults',cefr:'A1',branch:'—'});
@@ -736,10 +739,9 @@ function renderAvail(ref, course, confDay, confH){
 function renderBody(turmaCode, turmaDay, turmaH){
   const body=document.getElementById('ds-body');
   const course=inferCourse(DS_ENROL);
-  const prefs=getPrefs(DS_REF, course);
 
   body.innerHTML=[
-    sec('ds-s-horario',  '🗓','Horário',       prefs.length?`${prefs.length} slots`:'Sem pedido', buildTimetable(prefs,turmaDay,turmaH)),
+    sec('ds-s-horario',  '🗓','Horário',       DS_REQ?`${countSlots(DS_REQ)} slots`:'Sem pedido', `<div id="ds-tt-content"><div class="ds-empty" style="padding:20px 0">A carregar…</div></div>`),
     sec('ds-s-inscricao','📋','Inscrição',      DS_ENROL?'Carregado':'—',                          buildEnrol()),
     sec('ds-s-pedido',   '📝','Pedido Horário', DS_REQ?'Submetido':'Sem pedido',                   buildRequest()),
     sec('ds-s-hist',     '🎓','Historial',      DS_HIST.length?`${DS_HIST.length} anos`:'—',        buildHistorial()),
@@ -748,9 +750,48 @@ function renderBody(turmaCode, turmaDay, turmaH){
     sec('ds-s-notas',    '🚩','Notas',          '',                                                buildNotes()),
   ].join('');
 
-  body.querySelectorAll('.ds-section-hdr').forEach(h=>{
-    h.addEventListener('click',()=>h.classList.toggle('open'));
+  // Wire all section toggles
+  body.querySelectorAll('.ds-section-hdr').forEach(hdr=>{
+    hdr.addEventListener('click',()=>{
+      const wasOpen=hdr.classList.contains('open');
+      hdr.classList.toggle('open');
+      // Lazy-load timetable on first open
+      if(!wasOpen && hdr.closest('#ds-s-horario')) loadTimetable(turmaDay, turmaH);
+    });
   });
+}
+
+function countSlots(req){
+  try{
+    const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;
+    return Array.isArray(dp)?dp.length:0;
+  }catch(e){return 0;}
+}
+
+let _ttLoaded=false;
+async function loadTimetable(confDay, confH){
+  if(_ttLoaded) return;
+  _ttLoaded=true;
+  const el=document.getElementById('ds-tt-content');
+  if(el) el.innerHTML=`<div class="ds-empty" style="padding:20px 0">A carregar…</div>`;
+
+  const course=inferCourse(DS_ENROL);
+  const prefs=getPrefs(DS_REF, course);
+
+  // Also try fetching fresh request data from Supabase in case RMAP is stale
+  if(!prefs.length){
+    const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+    const KEY=window.KEY||'';
+    const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+    try{
+      const r=await fetch(`${BASE}/rest/v1/student_requests?ref=eq.${encodeURIComponent(DS_REF)}&academic_year=eq.2026%2F2027&limit=1`,{headers:H});
+      const rows=await r.json();
+      if(rows?.[0]) DS_REQ=rows[0];
+    }catch(e){}
+  }
+
+  const freshPrefs=getPrefs(DS_REF, course);
+  if(el) el.innerHTML=buildTimetable(freshPrefs, confDay, confH);
 }
 
 function sec(id,icon,title,meta,content){
