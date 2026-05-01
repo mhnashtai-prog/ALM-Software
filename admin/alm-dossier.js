@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
-   ALM STUDENT DOSSIER  —  openDossier(ref, role)
-   Self-contained: injects its own CSS + HTML + JS
-   Works in any ALM page that has Supabase configured.
+   ALM STUDENT DOSSIER  v4  —  openDossier(ref, role)
+   Centred neumorphic modal card.
+   Self-contained: injects its own CSS + HTML + JS.
    role: 'director' | 'staff' | 'teacher'
 ═══════════════════════════════════════════════════════════════ */
 
@@ -9,754 +9,1096 @@
 
 /* ── CSS ─────────────────────────────────────────────────────── */
 const DOSSIER_CSS = `
-:root{
-  --ds-bg:#0A0814;--ds-bg2:#0E0C1A;--ds-bg3:#141220;
-  --ds-seam:rgba(200,164,74,.10);--ds-seam2:rgba(200,164,74,.20);
-  --ds-ink:rgba(238,218,168,.90);--ds-ink2:rgba(218,192,138,.52);--ds-ink3:rgba(208,182,128,.28);
-  --ds-gold:#C8A44A;--ds-gold2:#E8C870;--ds-green:#28C870;--ds-red:#F04848;--ds-amber:#F09830;
-  --ds-blue:#4888E8;--ds-teal:#28C8B0;--ds-purple:#9B5ECA;
-  --ds-mono:'IBM Plex Mono',monospace;--ds-sans:'IBM Plex Sans',system-ui,sans-serif;
-  --ds-c:#C8A44A;
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+:root {
+  --nm-bg:#E8E2F0;
+  --nm-light:rgba(255,255,255,.85);
+  --nm-dark:rgba(130,110,165,.30);
+  --nm-out: -4px -4px 10px var(--nm-light), 4px 4px 12px var(--nm-dark);
+  --nm-in:  inset 2px 2px 6px var(--nm-dark), inset -2px -2px 6px var(--nm-light);
+  --nm-rim: 0 0 0 1px rgba(255,255,255,.60), 0 0 0 2px rgba(120,100,160,.10);
+  --nm-text:#2E2640;
+  --nm-text2:#7A6E90;
+  --nm-text3:#B0A8C0;
+  --nm-sans:'Nunito',system-ui,sans-serif;
+  --nm-mono:'IBM Plex Mono',monospace;
+  --nm-c:#C8A44A;
+  --nm-green:#18884A;
+  --nm-green-bg:rgba(24,136,74,.14);
+  --nm-red:#C83040;
+  --nm-red-bg:rgba(200,48,64,.12);
+  --nm-amber:#8A5C10;
+  --nm-amber-bg:rgba(138,92,16,.13);
+  --nm-blue:#1850A0;
 }
-.ds-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(4,2,12,.85);backdrop-filter:blur(8px);align-items:flex-start;justify-content:flex-end;padding:0}
-.ds-overlay.open{display:flex}
-.ds-panel{width:min(420px,100vw);height:100dvh;background:var(--ds-bg);border-left:1px solid var(--ds-c,rgba(200,164,74,.2));display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .24s cubic-bezier(.22,.61,.36,1);box-shadow:-24px 0 80px rgba(0,0,0,.95)}
-.ds-overlay.open .ds-panel{transform:translateX(0)}
 
-/* Cover */
-.ds-cover{flex-shrink:0;position:relative;overflow:hidden}
-.ds-banner{height:80px;position:relative}
-.ds-banner-bg{position:absolute;inset:0;background:linear-gradient(135deg,var(--ds-c)44,var(--ds-c)18,rgba(0,0,0,.8))}
-.ds-banner-stripe{position:absolute;inset:0;opacity:.10;background-image:repeating-linear-gradient(45deg,var(--ds-c) 0,var(--ds-c) 1px,transparent 1px,transparent 9px)}
-.ds-close{position:absolute;top:10px;right:10px;width:26px;height:26px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);color:rgba(238,218,168,.6);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:all .12s;font-family:var(--ds-mono)}
-.ds-close:hover{background:rgba(240,72,72,.2);color:var(--ds-red);border-color:rgba(240,72,72,.4)}
-.ds-av-wrap{position:absolute;bottom:-28px;left:16px;z-index:2}
-.ds-av{width:56px;height:56px;border-radius:50%;border:4px solid var(--ds-bg);display:flex;align-items:center;justify-content:center;font-family:var(--ds-mono);font-size:16px;font-weight:700;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.7)}
-.ds-av img{width:100%;height:100%;object-fit:cover}
-.ds-level-badge{position:absolute;bottom:-10px;right:16px;font-family:var(--ds-mono);font-size:8px;font-weight:700;padding:3px 10px;border:1.5px solid var(--ds-c);color:var(--ds-c);background:color-mix(in srgb,var(--ds-c) 15%,var(--ds-bg))}
+/* OVERLAY */
+.nm-overlay {
+  display:none;position:fixed;inset:0;z-index:2000;
+  background:rgba(28,20,48,.72);backdrop-filter:blur(10px);
+  align-items:center;justify-content:center;padding:16px;
+}
+.nm-overlay.open { display:flex; }
 
-.ds-id{padding:36px 16px 12px;border-bottom:1px solid var(--ds-seam)}
-.ds-name{font-family:var(--ds-mono);font-size:18px;font-weight:700;color:var(--ds-ink);line-height:1.1;margin-bottom:3px}
-.ds-handle{font-family:var(--ds-mono);font-size:8px;color:var(--ds-ink3);letter-spacing:.06em;margin-bottom:10px}
-.ds-contact{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.ds-contact-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--ds-seam2);font-family:var(--ds-mono);font-size:8px;color:var(--ds-ink2);cursor:pointer;transition:all .12s;text-decoration:none;background:transparent}
-.ds-contact-btn:hover{background:var(--ds-c);color:#000;border-color:var(--ds-c)}
-.ds-school-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.ds-school-pill{font-family:var(--ds-mono);font-size:8px;padding:2px 9px;border:1px solid var(--ds-seam);color:var(--ds-ink3)}
-.ds-school-pill.code{border-color:var(--ds-c);color:var(--ds-c);font-weight:700}
-.ds-school-pill.ok{border-color:rgba(40,200,112,.3);color:var(--ds-green)}
-.ds-school-pill.warn{border-color:rgba(240,152,48,.3);color:var(--ds-amber)}
+/* CARD */
+.nm-card {
+  width:min(540px,96vw);
+  max-height:90dvh;
+  background:var(--nm-bg);
+  border-radius:28px;
+  box-shadow:var(--nm-out), var(--nm-rim);
+  border:.5px solid rgba(255,255,255,.65);
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:nmCardIn .3s cubic-bezier(.22,.61,.36,1);
+}
+.nm-card.nm-exit {
+  animation:nmCardOut .22s ease forwards;
+}
+@keyframes nmCardIn  { from { opacity:0; transform:scale(.93) translateY(16px) } to { opacity:1; transform:none } }
+@keyframes nmCardOut { to   { opacity:0; transform:scale(.97) translateY(-10px) } }
 
-/* Scroll body */
-.ds-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--ds-seam) transparent}
-.ds-body::-webkit-scrollbar{width:3px}.ds-body::-webkit-scrollbar-thumb{background:var(--ds-seam2)}
+/* ── BANNER ── */
+.nm-banner {
+  position:relative;overflow:hidden;
+  padding:18px 18px 16px;
+  display:flex;align-items:flex-end;gap:15px;
+  min-height:128px;flex-shrink:0;
+}
+.nm-banner-bg   { position:absolute;inset:0;transition:background .35s; }
+.nm-banner-grain {
+  position:absolute;inset:0;opacity:.055;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.nm-banner-close {
+  position:absolute;top:12px;right:12px;z-index:20;
+  width:27px;height:27px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.30);color:rgba(255,255,255,.88);
+  font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:var(--nm-sans);
+  box-shadow:0 1px 5px rgba(0,0,0,.20);transition:all .15s;
+}
+.nm-banner-close:hover { background:rgba(255,255,255,.55);transform:scale(1.09); }
+.nm-dept-badge {
+  position:absolute;top:12px;left:14px;z-index:20;
+  font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 12px;border-radius:999px;
+  background:rgba(255,255,255,.28);
+  box-shadow:0 1px 5px rgba(0,0,0,.12);
+}
 
-/* Pills */
-.ds-pill{border-bottom:1px solid var(--ds-seam)}
-.ds-pill-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;transition:background .12s;user-select:none}
-.ds-pill-hdr:hover{background:rgba(200,164,74,.04)}
-.ds-pill-hdr.open{background:rgba(200,164,74,.05)}
-.ds-pill-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
-.ds-pill-label{font-family:var(--ds-mono);font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--ds-ink2);flex:1}
-.ds-pill-meta{font-family:var(--ds-mono);font-size:7.5px;color:var(--ds-ink3)}
-.ds-pill-chv{font-family:var(--ds-mono);font-size:10px;color:var(--ds-ink3);transition:transform .2s}
-.ds-pill-hdr.open .ds-pill-chv{transform:rotate(90deg)}
-.ds-pill-body{display:none;padding:0 16px 14px}
-.ds-pill-hdr.open + .ds-pill-body{display:block}
+/* Avatar — neumorphic circle */
+.nm-avatar {
+  position:relative;z-index:5;flex-shrink:0;margin-bottom:2px;
+  width:78px;height:78px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:900;font-family:var(--nm-sans);
+  border:3.5px solid rgba(255,255,255,.60);
+  box-shadow:0 6px 22px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.25);
+  overflow:hidden;
+}
+.nm-avatar img { width:100%;height:100%;object-fit:cover; }
 
-/* Timetable grid inside pill — days vertical, hours horizontal */
-.ds-tt{overflow-x:auto;margin-top:4px}
-.ds-tt-grid{display:grid;border:1px solid rgba(200,164,74,.15);min-width:260px;font-family:var(--ds-mono)}
-.ds-tt-corner{background:rgba(0,0,0,.3);border-right:1px solid rgba(200,164,74,.12);border-bottom:1px solid rgba(200,164,74,.12)}
-.ds-tt-h{display:flex;align-items:center;justify-content:center;font-size:6px;color:var(--ds-ink3);height:14px;background:rgba(0,0,0,.2);border-right:1px solid rgba(200,164,74,.08);border-bottom:1px solid rgba(200,164,74,.08)}
-.ds-tt-h.brk{border-left:1.5px solid rgba(200,164,74,.2)}
-.ds-tt-day{display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:600;color:var(--ds-ink3);background:rgba(0,0,0,.2);border-right:1px solid rgba(200,164,74,.08);border-bottom:1px solid rgba(200,164,74,.08);padding:0 4px;letter-spacing:.04em}
-.ds-tt-cell{height:14px;border-right:1px solid rgba(200,164,74,.05);border-bottom:1px solid rgba(200,164,74,.05);background:rgba(255,255,255,.01)}
-.ds-tt-cell.req{background:color-mix(in srgb,var(--ds-c) 30%,transparent);border-color:color-mix(in srgb,var(--ds-c) 45%,transparent)}
-.ds-tt-cell.conf{background:rgba(40,200,112,.28);border-color:rgba(40,200,112,.5)}
-.ds-tt-legend{display:flex;gap:10px;margin-top:5px}
-.ds-tt-leg{display:flex;align-items:center;gap:3px;font-family:var(--ds-mono);font-size:6.5px;color:var(--ds-ink3)}
-.ds-tt-leg-dot{width:8px;height:8px;border:1px solid}
+.nm-banner-info { position:relative;z-index:5;flex:1;min-width:0;margin-bottom:2px; }
+.nm-banner-name {
+  font-size:20px;font-weight:900;color:white;line-height:1.1;
+  text-shadow:0 2px 12px rgba(0,0,0,.20);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.nm-banner-ref  { font-size:10px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.08em;margin-top:2px; }
 
-/* Data rows */
-.ds-data-row{display:flex;align-items:flex-start;gap:10px;padding:4px 0;border-bottom:1px solid rgba(200,164,74,.04)}
-.ds-data-row:last-child{border-bottom:none}
-.ds-dk{font-family:var(--ds-mono);font-size:7.5px;color:var(--ds-ink3);width:88px;flex-shrink:0;padding-top:1px}
-.ds-dv{font-family:var(--ds-mono);font-size:9px;color:var(--ds-ink2);flex:1}
-.ds-dv.hi{color:var(--ds-gold2);font-weight:600}
-.ds-dv.ok{color:var(--ds-green)}.ds-dv.warn{color:var(--ds-amber)}
+/* ── BANNER ACTION PILLS ── */
+.nm-ap {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 13px; border-radius: 999px; border: none;
+  cursor: pointer; font-family: var(--nm-sans);
+  transition: all .14s ease;
 
-/* Slot pills */
-.ds-slot-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;margin:2px 2px 0 0;border:1px solid color-mix(in srgb,var(--ds-c) 38%,transparent);background:color-mix(in srgb,var(--ds-c) 12%,transparent);font-family:var(--ds-mono);font-size:7.5px;font-weight:700}
-.ds-slot-pill .sp-day{color:var(--ds-c);font-weight:800}
-.ds-slot-pill .sp-type{color:var(--ds-c);opacity:.6;font-size:6.5px}
+  background: rgba(255,255,255,.18);
+  border: .5px solid rgba(255,255,255,.42);
+  box-shadow: 0 .5px 1px rgba(0,0,0,.10),
+              inset 0 .5px 0 rgba(255,255,255,.30);
 
-/* Historial */
-.ds-hist-year{background:rgba(255,255,255,.02);border:1px solid var(--ds-seam);margin-bottom:8px;overflow:hidden}
-.ds-hist-yr-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:rgba(0,0,0,.15);transition:background .12s}
-.ds-hist-yr-hdr:hover{background:rgba(0,0,0,.25)}
-.ds-hist-yr{font-family:var(--ds-mono);font-size:9px;font-weight:700;color:var(--ds-gold2);flex-shrink:0}
-.ds-hist-turma{font-family:var(--ds-mono);font-size:8px;color:var(--ds-ink3);flex:1}
-.ds-hist-outcome{font-family:var(--ds-mono);font-size:7.5px;font-weight:700;padding:1px 7px;flex-shrink:0}
-.ds-hist-outcome.ok{background:rgba(40,200,112,.1);border:1px solid rgba(40,200,112,.3);color:var(--ds-green)}
-.ds-hist-outcome.warn{background:rgba(240,152,48,.1);border:1px solid rgba(240,152,48,.3);color:var(--ds-amber)}
-.ds-hist-outcome.na{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--ds-ink3)}
-.ds-hist-yr-body{display:none;padding:10px 12px;border-top:1px solid var(--ds-seam)}
-.ds-hist-yr-hdr.open + .ds-hist-yr-body{display:block}
-.ds-camb-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px}
-.ds-camb-cell{text-align:center;padding:5px 4px;background:rgba(255,255,255,.02);border:1px solid var(--ds-seam)}
-.ds-camb-score{font-family:var(--ds-mono);font-size:13px;font-weight:700;color:var(--ds-gold2);line-height:1}
-.ds-camb-lbl{font-family:var(--ds-mono);font-size:6px;color:var(--ds-ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
-.ds-camb-cell.pass .ds-camb-score{color:var(--ds-green)}
-.ds-camb-cell.fail .ds-camb-score{color:var(--ds-red)}
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: rgba(255,255,255,.88);
+  white-space: nowrap;
+}
+.nm-ap:hover  { background: rgba(255,255,255,.30); transform: translateY(-1px); }
+.nm-ap:active { background: rgba(255,255,255,.12); transform: scale(.97); }
 
-/* Documents inside pills */
-.ds-doc-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
-.ds-doc-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.02);border:1px solid var(--ds-seam);transition:background .12s}
-.ds-doc-row:hover{background:rgba(255,255,255,.04)}
-.ds-doc-icon{font-size:16px;flex-shrink:0}
-.ds-doc-info{flex:1;min-width:0}
-.ds-doc-name{font-family:var(--ds-mono);font-size:8.5px;color:var(--ds-ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ds-doc-meta{font-family:var(--ds-mono);font-size:6.5px;color:var(--ds-ink3);margin-top:1px}
-.ds-doc-btns{display:flex;gap:4px;flex-shrink:0}
-.ds-doc-btn{padding:3px 8px;font-family:var(--ds-mono);font-size:7.5px;cursor:pointer;border:1px solid;transition:all .12s}
-.ds-doc-btn.view{background:rgba(72,136,232,.1);border-color:rgba(72,136,232,.3);color:var(--ds-blue)}
-.ds-doc-btn.del{background:rgba(240,72,72,.1);border-color:rgba(240,72,72,.3);color:var(--ds-red)}
-.ds-doc-btn:hover{filter:brightness(1.2)}
-.ds-upload-zone{border:1px dashed var(--ds-seam2);padding:12px;text-align:center;cursor:pointer;transition:all .15s;margin-top:8px}
-.ds-upload-zone:hover{border-color:var(--ds-c);background:rgba(200,164,74,.04)}
-.ds-upload-lbl{font-family:var(--ds-mono);font-size:8px;color:var(--ds-ink3)}
-.ds-upload-zone.drag{border-color:var(--ds-c);background:rgba(200,164,74,.08)}
-input.ds-file-inp{display:none}
+.nm-ap-icon { font-size: 12px; line-height: 1; opacity: .55; filter: grayscale(1); }
+/* ── CHIP ROW (below banner) ── */
+.nm-chips {
+  display:flex;gap:7px;flex-wrap:wrap;
+  padding:12px 18px 0;flex-shrink:0;
+}
+.nm-chip {
+  font-size:11px;font-weight:800;padding:5px 13px;border-radius:999px;
+  background:var(--nm-bg);
+  box-shadow:var(--nm-out);
+  border:.5px solid rgba(255,255,255,.72);
+  font-family:var(--nm-sans);
+}
 
-/* Notes */
-.ds-note-row{padding:8px 10px;background:rgba(255,255,255,.02);border:1px solid var(--ds-seam);margin-bottom:5px}
-.ds-note-text{font-family:var(--ds-mono);font-size:8.5px;color:var(--ds-ink2);line-height:1.5;margin-bottom:4px}
-.ds-note-meta{font-family:var(--ds-mono);font-size:6.5px;color:var(--ds-ink3)}
-.ds-note-add{width:100%;padding:7px 9px;background:rgba(0,0,0,.3);border:1px solid var(--ds-seam2);font-family:var(--ds-sans);font-size:11px;color:var(--ds-ink);outline:none;resize:none;min-height:60px;line-height:1.5;margin-top:8px}
-.ds-note-add::placeholder{color:var(--ds-ink3)}.ds-note-add:focus{border-color:var(--ds-c)}
+/* ── AVAILABILITY GRID ── */
+.nm-avail-wrap {
+  margin:12px 18px 0;flex-shrink:0;
+  border-radius:16px;
+  background:var(--nm-bg);
+  box-shadow:var(--nm-in);
+  border:.5px solid rgba(255,255,255,.52);
+  padding:10px 12px 8px;
+}
+.nm-avail-title {
+  font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--nm-text3);margin-bottom:7px;font-family:var(--nm-sans);
+}
+.nm-avail-grid {
+  display:grid;
+  grid-template-columns:28px repeat(11,1fr) 4px repeat(7,1fr);
+  gap:2px;
+}
+.nm-ag-corner { width:28px; }
+.nm-ag-h {
+  height:13px;display:flex;align-items:center;justify-content:center;
+  font-size:7px;font-weight:800;color:var(--nm-text3);font-family:var(--nm-mono);
+}
+.nm-ag-brk { width:4px; }
+.nm-ag-day {
+  height:13px;display:flex;align-items:center;justify-content:center;
+  font-size:7px;font-weight:800;color:var(--nm-text3);font-family:var(--nm-mono);
+  width:28px;
+}
+.nm-ag-cell {
+  height:13px;border-radius:3px;
+  background:rgba(120,100,160,.08);
+  border:.5px solid rgba(255,255,255,.45);
+  transition:background .15s;
+}
+.nm-ag-cell.req  { background:rgba(200,164,74,.38);border-color:rgba(200,164,74,.55); }
+.nm-ag-cell.conf { background:rgba(24,136,74,.40);border-color:rgba(24,136,74,.60); }
+.nm-avail-legend {
+  display:flex;gap:12px;margin-top:6px;
+}
+.nm-al-item {
+  display:flex;align-items:center;gap:4px;
+  font-size:8px;font-weight:700;color:var(--nm-text3);font-family:var(--nm-sans);
+}
+.nm-al-dot {
+  width:8px;height:8px;border-radius:2px;flex-shrink:0;
+}
 
-/* Action row */
-.ds-action-row{display:flex;gap:6px;padding:8px 0;flex-wrap:wrap}
-.ds-action-btn{padding:6px 14px;font-family:var(--ds-mono);font-size:8px;font-weight:700;cursor:pointer;border:1px solid;transition:all .14s;letter-spacing:.04em}
-.ds-action-btn.primary{background:var(--ds-green);border-color:transparent;color:#051208}
-.ds-action-btn.primary:hover{background:#2ed877}
-.ds-action-btn.ghost{background:transparent;border-color:var(--ds-seam2);color:var(--ds-ink2)}
-.ds-action-btn.ghost:hover{border-color:var(--ds-seam2);background:rgba(255,255,255,.04)}
-.ds-action-btn.danger{background:rgba(240,72,72,.1);border-color:rgba(240,72,72,.3);color:var(--ds-red)}
-.ds-action-btn.danger:hover{background:rgba(240,72,72,.2)}
+/* ── SCROLL BODY ── */
+.nm-body {
+  flex:1;overflow-y:auto;padding:0 0 8px;
+  scrollbar-width:thin;scrollbar-color:rgba(120,100,160,.2) transparent;
+}
+.nm-body::-webkit-scrollbar { width:3px; }
+.nm-body::-webkit-scrollbar-thumb { background:rgba(120,100,160,.25);border-radius:99px; }
 
-/* Move controls */
-.ds-move-sel{width:100%;padding:5px 8px;background:rgba(0,0,0,.3);border:1px solid var(--ds-seam2);font-family:var(--ds-mono);font-size:9px;color:var(--ds-ink);outline:none;margin-bottom:6px}
-.ds-move-sel:focus{border-color:var(--ds-c)}
-.ds-move-sel option{background:var(--ds-bg2)}
+/* ── SECTION DIVIDER ── */
+.nm-divider {
+  display:flex;align-items:center;gap:8px;
+  padding:14px 18px 0;
+}
+.nm-divider::before,.nm-divider::after {
+  content:'';flex:1;height:.5px;background:rgba(120,100,160,.15);
+}
+.nm-divider span {
+  font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--nm-text3);white-space:nowrap;font-family:var(--nm-sans);
+}
 
-/* Flag chips */
-.ds-flag-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
-.ds-flag-chip{padding:4px 10px;border:1px solid var(--ds-seam);font-family:var(--ds-mono);font-size:8px;cursor:pointer;color:var(--ds-ink3);transition:all .12s}
-.ds-flag-chip:hover{border-color:var(--ds-seam2);color:var(--ds-ink2)}
-.ds-flag-chip.on{background:rgba(240,72,72,.1);border-color:rgba(240,72,72,.3);color:var(--ds-red)}
+/* ── ACCORDION PILLS ── */
+.nm-pill { border-bottom:.5px solid rgba(120,100,160,.12); }
+.nm-pill-hdr {
+  display:flex;align-items:center;gap:10px;padding:11px 18px;
+  cursor:pointer;transition:background .12s;user-select:none;
+}
+.nm-pill-hdr:hover { background:rgba(120,100,160,.05); }
+.nm-pill-hdr.open  { background:rgba(120,100,160,.07); }
+.nm-pill-icon  { font-size:15px;flex-shrink:0;width:22px;text-align:center; }
+.nm-pill-label {
+  font-family:var(--nm-sans);font-size:11px;font-weight:800;
+  color:var(--nm-text);flex:1;letter-spacing:.01em;
+}
+.nm-pill-meta  { font-family:var(--nm-mono);font-size:8px;color:var(--nm-text3); }
+.nm-pill-chv   { font-size:11px;color:var(--nm-text3);transition:transform .2s; }
+.nm-pill-hdr.open .nm-pill-chv { transform:rotate(90deg); }
+.nm-pill-body  { display:none;padding:2px 18px 14px; }
+.nm-pill-hdr.open + .nm-pill-body { display:block; }
 
-/* Under construction */
-.ds-wip{padding:14px 12px;text-align:center;font-family:var(--ds-mono);font-size:8.5px;color:var(--ds-ink3);line-height:1.7;border:1px dashed var(--ds-seam)}
-.ds-wip-icon{font-size:24px;display:block;margin-bottom:8px;opacity:.4}
+/* ── DATA ROWS ── */
+.nm-data-row {
+  display:flex;align-items:flex-start;gap:10px;
+  padding:5px 0;border-bottom:.5px solid rgba(120,100,160,.07);
+}
+.nm-data-row:last-child { border-bottom:none; }
+.nm-dk { font-family:var(--nm-mono);font-size:7.5px;color:var(--nm-text3);width:92px;flex-shrink:0;padding-top:1px; }
+.nm-dv { font-family:var(--nm-mono);font-size:9px;color:var(--nm-text2);flex:1;line-height:1.5; }
+.nm-dv.hi     { color:var(--nm-text);font-weight:700; }
+.nm-dv.ok     { color:var(--nm-green);font-weight:700; }
+.nm-dv.warn   { color:var(--nm-amber);font-weight:700; }
+.nm-dv.danger { color:var(--nm-red);font-weight:700; }
 
-/* Toast */
-.ds-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;font-family:var(--ds-mono);font-size:10px;font-weight:500;opacity:0;transition:all .2s;z-index:3000;white-space:nowrap;border:1px solid;pointer-events:none}
-.ds-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.ds-toast.ok{background:rgba(40,200,112,.1);border-color:rgba(40,200,112,.36);color:var(--ds-green)}
-.ds-toast.info{background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.36);color:var(--ds-gold2)}
-.ds-toast.err{background:rgba(240,72,72,.1);border-color:rgba(240,72,72,.36);color:var(--ds-red)}
+/* ── SLOT PILLS ── */
+.nm-slot-pill {
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;margin:2px 2px 0 0;border-radius:999px;
+  background:var(--nm-bg);box-shadow:var(--nm-out);
+  border:.5px solid rgba(255,255,255,.70);
+  font-family:var(--nm-mono);font-size:7.5px;font-weight:700;
+}
+.nm-slot-day  { color:var(--nm-c);font-weight:900; }
+.nm-slot-type { color:var(--nm-text3);font-size:6.5px; }
+
+/* ── TIMETABLE MINI GRID ── */
+.nm-tt { overflow-x:auto;margin-top:6px; }
+.nm-tt-grid {
+  display:grid;border-radius:8px;overflow:hidden;
+  border:.5px solid rgba(120,100,160,.15);
+  min-width:280px;font-family:var(--nm-mono);
+}
+.nm-tt-corner { background:rgba(120,100,160,.06); }
+.nm-tt-h {
+  display:flex;align-items:center;justify-content:center;
+  font-size:6px;color:var(--nm-text3);height:14px;
+  background:rgba(120,100,160,.06);
+  border-right:.5px solid rgba(120,100,160,.10);
+  border-bottom:.5px solid rgba(120,100,160,.10);
+}
+.nm-tt-h.brk { border-left:1.5px solid rgba(120,100,160,.25); }
+.nm-tt-day {
+  display:flex;align-items:center;justify-content:center;
+  font-size:6.5px;font-weight:700;color:var(--nm-text3);
+  background:rgba(120,100,160,.06);
+  border-right:.5px solid rgba(120,100,160,.10);
+  border-bottom:.5px solid rgba(120,100,160,.08);
+  padding:0 3px;
+}
+.nm-tt-cell {
+  height:14px;
+  border-right:.5px solid rgba(120,100,160,.06);
+  border-bottom:.5px solid rgba(120,100,160,.06);
+  background:transparent;
+}
+.nm-tt-cell.req  { background:rgba(200,164,74,.28);border-color:rgba(200,164,74,.40); }
+.nm-tt-cell.conf { background:rgba(24,136,74,.32);border-color:rgba(24,136,74,.50); }
+.nm-tt-legend { display:flex;gap:12px;margin-top:6px; }
+.nm-tt-leg {
+  display:flex;align-items:center;gap:4px;
+  font-family:var(--nm-mono);font-size:7px;color:var(--nm-text3);
+}
+.nm-tt-leg-dot { width:8px;height:8px;border-radius:2px; }
+
+/* ── HISTORIAL ── */
+.nm-hist-yr {
+  background:var(--nm-bg);border-radius:12px;
+  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
+  margin-bottom:8px;overflow:hidden;
+}
+.nm-hist-hdr {
+  display:flex;align-items:center;gap:8px;padding:9px 12px;
+  cursor:pointer;transition:background .12s;
+}
+.nm-hist-hdr:hover { background:rgba(120,100,160,.06); }
+.nm-hist-year-lbl { font-family:var(--nm-mono);font-size:9px;font-weight:700;color:var(--nm-c);flex-shrink:0; }
+.nm-hist-turma   { font-family:var(--nm-mono);font-size:8px;color:var(--nm-text3);flex:1; }
+.nm-hist-outcome {
+  font-family:var(--nm-mono);font-size:7.5px;font-weight:700;
+  padding:2px 8px;border-radius:999px;flex-shrink:0;
+}
+.nm-hist-outcome.ok   { background:var(--nm-green-bg);color:var(--nm-green); }
+.nm-hist-outcome.warn { background:var(--nm-red-bg);color:var(--nm-red); }
+.nm-hist-outcome.na   { background:rgba(120,100,160,.10);color:var(--nm-text3); }
+.nm-hist-body { display:none;padding:10px 12px;border-top:.5px solid rgba(120,100,160,.12); }
+.nm-hist-hdr.open + .nm-hist-body { display:block; }
+.nm-camb-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:8px; }
+.nm-camb-cell {
+  text-align:center;padding:6px 4px;border-radius:10px;
+  background:var(--nm-bg);box-shadow:var(--nm-out);
+  border:.5px solid rgba(255,255,255,.65);
+}
+.nm-camb-score { font-family:var(--nm-mono);font-size:13px;font-weight:700;color:var(--nm-text);line-height:1; }
+.nm-camb-lbl   { font-family:var(--nm-mono);font-size:6px;color:var(--nm-text3);margin-top:2px;text-transform:uppercase;letter-spacing:.06em; }
+.nm-camb-cell.pass .nm-camb-score { color:var(--nm-green); }
+.nm-camb-cell.fail .nm-camb-score { color:var(--nm-red); }
+
+/* ── DOCUMENTS ── */
+.nm-doc-list { display:flex;flex-direction:column;gap:6px;margin-top:6px; }
+.nm-doc-row {
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-radius:10px;background:var(--nm-bg);
+  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
+  transition:all .12s;
+}
+.nm-doc-row:hover { box-shadow:-3px -3px 8px var(--nm-light),3px 3px 10px var(--nm-dark); }
+.nm-doc-icon { font-size:18px;flex-shrink:0; }
+.nm-doc-info { flex:1;min-width:0; }
+.nm-doc-name { font-family:var(--nm-sans);font-size:11px;font-weight:700;color:var(--nm-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.nm-doc-meta { font-family:var(--nm-mono);font-size:7.5px;color:var(--nm-text3);margin-top:2px; }
+.nm-doc-btns { display:flex;gap:4px;flex-shrink:0; }
+.nm-doc-btn {
+  padding:4px 9px;border-radius:999px;font-family:var(--nm-sans);font-size:9px;font-weight:800;
+  cursor:pointer;border:none;
+  background:var(--nm-bg);box-shadow:var(--nm-out);
+  transition:all .12s;
+}
+.nm-doc-btn.view { color:var(--nm-blue); }
+.nm-doc-btn.del  { color:var(--nm-red); }
+.nm-doc-btn:hover { box-shadow:var(--nm-in); }
+
+.nm-upload-zone {
+  border:1.5px dashed rgba(120,100,160,.25);
+  border-radius:12px;padding:14px;text-align:center;
+  cursor:pointer;transition:all .15s;margin-top:8px;
+}
+.nm-upload-zone:hover { border-color:var(--nm-c);background:rgba(200,164,74,.05); }
+.nm-upload-lbl { font-family:var(--nm-sans);font-size:11px;color:var(--nm-text3); }
+
+/* ── MOVE CONTROLS ── */
+.nm-select {
+  width:100%;padding:7px 10px;border-radius:10px;
+  background:var(--nm-bg);box-shadow:var(--nm-in);
+  border:.5px solid rgba(255,255,255,.52);
+  font-family:var(--nm-sans);font-size:12px;font-weight:700;
+  color:var(--nm-text);outline:none;margin-bottom:8px;cursor:pointer;
+}
+.nm-select:focus { border-color:rgba(200,164,74,.5); }
+.nm-select option { background:#E8E2F0; }
+
+/* ── FLAGS & NOTES ── */
+.nm-flag-chips { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px; }
+.nm-flag-chip {
+  padding:5px 13px;border-radius:999px;border:none;
+  font-family:var(--nm-sans);font-size:11px;font-weight:700;
+  cursor:pointer;color:var(--nm-text2);
+  background:var(--nm-bg);box-shadow:var(--nm-out);
+  border:.5px solid rgba(255,255,255,.65);
+  transition:all .14s;
+}
+.nm-flag-chip:hover { box-shadow:var(--nm-in); }
+.nm-flag-chip.on {
+  box-shadow:var(--nm-in);
+  color:var(--nm-red);border-color:rgba(200,48,64,.3);
+  background:rgba(200,48,64,.07);
+}
+.nm-note-add {
+  width:100%;padding:9px 12px;border-radius:12px;
+  background:var(--nm-bg);box-shadow:var(--nm-in);
+  border:.5px solid rgba(255,255,255,.52);
+  font-family:var(--nm-sans);font-size:12px;color:var(--nm-text);
+  outline:none;resize:none;min-height:68px;line-height:1.55;margin-top:4px;
+}
+.nm-note-add::placeholder { color:var(--nm-text3); }
+.nm-note-add:focus { border-color:rgba(200,164,74,.45); }
+
+/* ── ACTION BUTTONS ── */
+.nm-action-row { display:flex;gap:7px;padding:10px 0 2px;flex-wrap:wrap; }
+.nm-btn {
+  padding:7px 16px;border-radius:999px;border:none;
+  font-family:var(--nm-sans);font-size:11px;font-weight:800;
+  cursor:pointer;transition:all .14s;letter-spacing:.02em;
+}
+.nm-btn.primary {
+  background:var(--nm-green);color:white;
+  box-shadow:0 3px 10px rgba(24,136,74,.35);
+}
+.nm-btn.primary:hover { background:#14A055; }
+.nm-btn.ghost {
+  background:var(--nm-bg);color:var(--nm-text2);
+  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
+}
+.nm-btn.ghost:hover { box-shadow:var(--nm-in); }
+.nm-btn.danger {
+  background:var(--nm-bg);color:var(--nm-red);
+  box-shadow:var(--nm-out);border:.5px solid rgba(200,48,64,.25);
+}
+.nm-btn.danger:hover { box-shadow:var(--nm-in); }
+
+/* ── WIP / EMPTY ── */
+.nm-wip {
+  padding:18px 14px;text-align:center;
+  border-radius:12px;background:var(--nm-bg);
+  box-shadow:var(--nm-in);border:.5px solid rgba(255,255,255,.50);
+  font-family:var(--nm-sans);font-size:11px;color:var(--nm-text3);line-height:1.65;
+}
+.nm-wip-icon { font-size:22px;display:block;margin-bottom:7px;opacity:.4; }
+
+/* ── HOURS BAR ── */
+.nm-hours-wrap {
+  border-radius:12px;padding:11px 13px;margin-bottom:10px;
+  background:var(--nm-bg);box-shadow:var(--nm-in);
+  border:.5px solid rgba(255,255,255,.50);
+}
+.nm-hours-label {
+  display:flex;justify-content:space-between;
+  font-family:var(--nm-sans);font-size:11px;font-weight:800;
+  color:var(--nm-text2);margin-bottom:8px;
+}
+.nm-hours-track {
+  height:8px;border-radius:99px;overflow:hidden;
+  background:rgba(120,100,160,.10);
+  box-shadow:inset 1px 1px 3px rgba(120,100,160,.22),inset -1px -1px 2px rgba(255,255,255,.55);
+}
+.nm-hours-fill {
+  height:100%;border-radius:99px;
+  transition:width .8s cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── STATUS LINE ── */
+.nm-status {
+  font-family:var(--nm-sans);font-size:11px;font-weight:800;
+  text-align:center;padding:10px 14px;border-radius:10px;margin-top:6px;
+  background:var(--nm-bg);box-shadow:var(--nm-in);
+  border:.5px solid rgba(255,255,255,.50);
+}
+
+/* ── TURMA PILLS (teacher) ── */
+.nm-turma-row  { display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px; }
+.nm-turma-pill {
+  font-size:10px;font-weight:800;padding:4px 12px;border-radius:999px;
+  background:var(--nm-bg);box-shadow:var(--nm-out);
+  border:.5px solid rgba(255,255,255,.65);
+  font-family:var(--nm-sans);
+}
+
+/* ── TOAST ── */
+.nm-toast {
+  position:fixed;bottom:18px;left:50%;
+  transform:translateX(-50%) translateY(8px);
+  background:var(--nm-bg);color:var(--nm-text2);
+  font-size:11px;font-weight:800;letter-spacing:.04em;
+  padding:8px 20px;border-radius:999px;
+  box-shadow:var(--nm-out);border:.5px solid rgba(255,255,255,.65);
+  opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;z-index:3000;white-space:nowrap;
+  font-family:var(--nm-sans);
+}
+.nm-toast.show  { opacity:1;transform:translateX(-50%) translateY(0); }
+.nm-toast.ok    { color:var(--nm-green); }
+.nm-toast.err   { color:var(--nm-red); }
+.nm-toast.warn  { color:var(--nm-amber); }
+
+input.nm-file-inp { display:none; }
 `;
 
 /* ── HTML SHELL ──────────────────────────────────────────────── */
 const DOSSIER_HTML = `
-<div class="ds-overlay" id="ds-overlay" onclick="if(event.target===this)closeDossier()">
-  <div class="ds-panel" id="ds-panel">
-    <!-- COVER -->
-    <div class="ds-cover">
-      <div class="ds-banner" id="ds-banner">
-        <div class="ds-banner-bg" id="ds-banner-bg"></div>
-        <div class="ds-banner-stripe"></div>
-        <div class="ds-av-wrap"><div class="ds-av" id="ds-av">?</div></div>
-        <div class="ds-level-badge" id="ds-level-badge">—</div>
-        <button class="ds-close" onclick="closeDossier()">✕</button>
-      </div>
-      <div class="ds-id">
-        <div class="ds-name" id="ds-name">—</div>
-        <div class="ds-handle" id="ds-handle">—</div>
-        <div class="ds-contact" id="ds-contact"></div>
-        <div class="ds-school-row" id="ds-school-row"></div>
+<div class="nm-overlay" id="nm-overlay" onclick="if(event.target===this)closeDossier()">
+  <div class="nm-card" id="nm-card">
+    <!-- BANNER -->
+    <div class="nm-banner" id="nm-banner">
+      <div class="nm-banner-bg"  id="nm-banner-bg"></div>
+      <div class="nm-banner-grain"></div>
+      <button class="nm-banner-close" onclick="closeDossier()">✕</button>
+      <div class="nm-dept-badge" id="nm-dept-badge"></div>
+      <div class="nm-avatar" id="nm-avatar">?</div>
+      <div class="nm-banner-info">
+        <div class="nm-banner-name" id="nm-banner-name">—</div>
+        <div class="nm-banner-ref"  id="nm-banner-ref">—</div>
+        <div class="nm-action-pills" id="nm-action-pills"></div>
       </div>
     </div>
-    <!-- PILLS -->
-    <div class="ds-body" id="ds-body"></div>
+
+    <!-- CHIPS -->
+    <div class="nm-chips" id="nm-chips"></div>
+
+    <!-- AVAILABILITY GRID -->
+    <div class="nm-avail-wrap" id="nm-avail-wrap" style="display:none">
+      <div class="nm-avail-title">Disponibilidade semanal</div>
+      <div class="nm-avail-grid" id="nm-avail-grid"></div>
+      <div class="nm-avail-legend">
+        <div class="nm-al-item"><div class="nm-al-dot" style="background:rgba(200,164,74,.38);border-radius:2px"></div>Pedido</div>
+        <div class="nm-al-item"><div class="nm-al-dot" style="background:rgba(24,136,74,.40);border-radius:2px"></div>Confirmado</div>
+      </div>
+    </div>
+
+    <!-- ACCORDION BODY -->
+    <div class="nm-body" id="nm-body"></div>
   </div>
 </div>
-<div class="ds-toast" id="ds-toast"></div>
-<input type="file" id="ds-file-inp" class="ds-file-inp" accept=".pdf,image/*"/>
+<div class="nm-toast" id="nm-toast"></div>
+<input type="file" id="nm-file-inp" class="nm-file-inp" accept=".pdf,image/*"/>
 `;
 
 /* ── CONSTANTS ───────────────────────────────────────────────── */
-const DS_DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
-const DS_HRS  = [8,9,10,11,null,14,15,16,17,18,19,20];
-const DS_FLAGS = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
-const DS_COURSE_COL = {kids:'#28C8B0',adults:'#4888E8',exam:'#C8A44A'};
-const DS_DAY_NUM = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+const DS_DAYS      = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const DS_DAY_PT    = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta',SÁB:'Sábado'};
+const DS_HRS_MORN  = [8,9,10,11];
+const DS_HRS_AFT   = [14,15,16,17,18,19,20];
+const DS_ALL_HRS   = [...DS_HRS_MORN,...DS_HRS_AFT];
+const DS_FLAGS     = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const DS_COURSE_GRAD = {
+  kids: 'linear-gradient(145deg,#88CECE,#5AACAC)',
+  adults:'linear-gradient(145deg,#7090F8,#4868D8)',
+  exam:  'linear-gradient(145deg,#D4A060,#B07830)',
+};
+const DS_COURSE_COL  = {kids:'#1D5E5E',adults:'#182080',exam:'#5A3000'};
+const DS_COURSE_CHIP = {
+  kids:  {col:'#1D7070',bg:'rgba(88,200,200,.18)',label:'Infantil / Juvenil'},
+  adults:{col:'#183898',bg:'rgba(80,100,240,.18)', label:'Geral'},
+  exam:  {col:'#704010',bg:'rgba(200,140,40,.18)',  label:'Exames'},
+};
+const DS_DAY_NUM     = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
+const DS_LANG_COL    = {EN:'#1850A0',FR:'#6820A0',PT:'#806010',ES:'#902010',DE:'#105040'};
+const DS_LANG_BG     = {EN:'rgba(56,120,232,.16)',FR:'rgba(136,64,192,.16)',PT:'rgba(160,120,32,.16)',ES:'rgba(200,64,32,.14)',DE:'rgba(32,120,100,.14)'};
 
 /* ── STATE ───────────────────────────────────────────────────── */
-let DS_REF = null, DS_ROLE = 'staff';
-let DS_ENROL = null, DS_REQ = null, DS_DOCS = [], DS_HIST = [], DS_NOTES_DATA = [];
-let DS_UPLOAD_CONTEXT = null; // {type, year} for pending upload
-let ds_toast_t = null;
+let DS_REF=null, DS_ROLE='staff';
+let DS_ENROL=null, DS_REQ=null, DS_DOCS=[], DS_HIST=[];
+let DS_UPLOAD_CTX=null;
+let nm_toast_t=null;
 
-/* ── INIT ────────────────────────────────────────────────────── */
-function injectDossier() {
-  if (document.getElementById('ds-overlay')) return;
-  // Inject CSS
-  const style = document.createElement('style');
-  style.textContent = DOSSIER_CSS;
-  document.head.appendChild(style);
-  // Inject HTML
-  const div = document.createElement('div');
-  div.innerHTML = DOSSIER_HTML;
-  document.body.appendChild(div.firstElementChild);
-  document.body.appendChild(div.firstElementChild); // toast
-  // File input handler
-  document.getElementById('ds-file-inp').addEventListener('change', onDsFileChosen);
+/* ── INJECT ─────────────────────────────────────────────────── */
+function nmInject(){
+  if(document.getElementById('nm-overlay')) return;
+  const s=document.createElement('style');
+  s.textContent=DOSSIER_CSS;
+  document.head.appendChild(s);
+  const d=document.createElement('div');
+  d.innerHTML=DOSSIER_HTML;
+  while(d.firstElementChild) document.body.appendChild(d.firstElementChild);
+  document.getElementById('nm-file-inp').addEventListener('change', nmOnFile);
 }
 
-/* ── OPEN DOSSIER ─────────────────────────────────────────────── */
-window.openDossier = async function(ref, role) {
-  injectDossier();
-  DS_REF = ref; DS_ROLE = role || 'staff';
-  DS_ENROL = null; DS_REQ = null; DS_DOCS = []; DS_HIST = []; DS_NOTES_DATA = [];
+/* ── OPEN ────────────────────────────────────────────────────── */
+window.openDossier = async function(ref, role){
+  nmInject();
+  DS_REF=ref; DS_ROLE=role||'staff';
+  DS_ENROL=null; DS_REQ=null; DS_DOCS=[]; DS_HIST=[];
 
-  // Show overlay immediately — load data async
-  document.getElementById('ds-overlay').classList.add('open');
-  renderDossierCover({name: ref, ref, lang:'EN', course:'adults', levelCefr:'A1', branch:'—'});
-  renderDossierPills([], [], [], []); // placeholders while loading
+  // Show immediately with skeleton state
+  document.getElementById('nm-overlay').classList.add('open');
+  nmRenderCover({name:ref,ref,lang:'EN',course:'adults',cefr:'A1',branch:'—'});
+  document.getElementById('nm-body').innerHTML='';
 
-  // Load all data in parallel
-  const SB_URL = window.SB || 'https://oapygbeliocdvitbdjbq.supabase.co';
-  const SB_KEY = window.KEY || '';
-  const H = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-  const sbGet = (t,q) => fetch(`${SB_URL}/rest/v1/${t}?${q}`,{headers:H}).then(r=>r.json()).catch(()=>[]);
-  const sbPost = (t,b) => fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>null);
-  const sbDel = (t,q) => fetch(`${SB_URL}/rest/v1/${t}?${q}`,{method:'DELETE',headers:H}).catch(()=>{});
+  // Fetch in parallel
+  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+  const KEY=window.KEY||'';
+  const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+  const get=(t,q)=>fetch(`${BASE}/rest/v1/${t}?${q}`,{headers:H}).then(r=>r.json()).catch(()=>[]);
 
-  const [enrols, reqs, docs, hist] = await Promise.all([
-    sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&limit=1`),
-    sbGet('student_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.2026%2F2027&limit=1`),
-    sbGet('student_documents', `ref=eq.${encodeURIComponent(ref)}&order=uploaded_at.desc`),
-    sbGet('student_history', `ref=eq.${encodeURIComponent(ref)}&order=academic_year.desc`),
+  const [enrols,reqs,docs,hist]=await Promise.all([
+    get('enrolments',`ref=eq.${encodeURIComponent(ref)}&limit=1`),
+    get('student_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.2026%2F2027&limit=1`),
+    get('student_documents',`ref=eq.${encodeURIComponent(ref)}&order=uploaded_at.desc`),
+    get('student_history',`ref=eq.${encodeURIComponent(ref)}&order=academic_year.desc`),
   ]);
 
-  DS_ENROL = enrols?.[0] || null;
-  DS_REQ   = reqs?.[0]   || null;
-  DS_DOCS  = docs || [];
-  DS_HIST  = hist || [];
+  DS_ENROL=enrols?.[0]||null;
+  DS_REQ  =reqs?.[0]  ||null;
+  DS_DOCS =docs||[];
+  DS_HIST =hist||[];
 
-  // Find assigned turma
-  const GRIDS_ALL = window.GRIDS || {};
-  let turmaCode = null, turmaDay = null, turmaH = null;
-  Object.values(GRIDS_ALL).forEach(tGrid => {
-    DS_DAYS.forEach(d => {
-      DS_HRS.forEach(h => {
-        if(!h) return;
-        const s = tGrid?.[d]?.[h];
-        if(s?.groupKey) {
-          const g = (window.GROUPS||[]).find(x=>x.studentRefs?.includes(ref)||x.students?.some(s=>s.ref===ref));
-          if(g && s.groupKey===g.key) { turmaCode=s.turmaCode; turmaDay=d; turmaH=h; }
-        }
-      });
-    });
+  // Resolve assigned turma from CELL_MAP (shared from main page)
+  let turmaCode=null, turmaDay=null, turmaH=null;
+  const CM=window.CELL_MAP||{};
+  Object.entries(CM).forEach(([key,cell])=>{
+    if(cell.studentRefs?.includes(ref)){
+      turmaCode=cell.turmaCode;
+      const parts=key.split('_');
+      turmaDay=parts[0]; turmaH=parseInt(parts[1]||0);
+    }
   });
-  // Also check localStorage turma caches
-  if(!turmaCode) {
-    Object.keys(localStorage).filter(k=>k.startsWith('alm-turma-')).forEach(k => {
-      try{const p=JSON.parse(localStorage.getItem(k));if(p.students?.some(s=>s.ref===ref)){turmaCode=p.turmaCode;turmaDay=p.day;turmaH=p.h;}}catch(e){}
-    });
-  }
 
-  const course = inferCourseFromEnrol(DS_ENROL);
-  const cefr = (DS_ENROL?.level_cefr||'A1').toUpperCase();
+  const course=nmInferCourse(DS_ENROL);
+  const cefr=(DS_ENROL?.level_cefr||'A1').toUpperCase();
+  const idPhoto=DS_DOCS.find(d=>d.document_type==='id_photo')?.public_url||null;
 
-  renderDossierCover({
-    name: DS_ENROL?.name || ref,
-    ref,
-    lang: DS_ENROL?.lang || 'EN',
-    course,
-    levelCefr: cefr,
-    branch: DS_ENROL?.branch || '—',
-    phone: DS_ENROL?.phone || null,
-    email: DS_ENROL?.email || null,
+  nmRenderCover({
+    name:DS_ENROL?.name||ref, ref,
+    lang:DS_ENROL?.lang||'EN',
+    course, cefr,
+    branch:DS_ENROL?.branch||'—',
+    phone:DS_ENROL?.phone||null,
+    email:DS_ENROL?.email||null,
+    status:DS_ENROL?.status||'—',
     turmaCode, turmaDay, turmaH,
-    status: DS_ENROL?.status || '—',
-    idPhotoUrl: DS_DOCS.find(d=>d.document_type==='id_photo')?.public_url || null,
+    idPhoto,
   });
 
-  renderDossierPills(DS_DOCS, DS_HIST, DS_NOTES_DATA, {turmaCode, turmaDay, turmaH, sbPost, sbDel, SB_URL, SB_KEY});
+  nmRenderAvail(ref, course, turmaDay, turmaH);
+  nmRenderAccordion(turmaCode, turmaDay, turmaH);
 };
 
-function inferCourseFromEnrol(e) {
-  if(!e) return 'adults';
-  const str = [e.family, e.course, e.department, e.level_cefr, e.notes].filter(Boolean).join(' ');
-  return inferCourse(str);
-}
+/* ── CLOSE ──────────────────────────────────────────────────── */
+window.closeDossier = function(){
+  const card=document.getElementById('nm-card');
+  if(!card) return;
+  card.classList.add('nm-exit');
+  setTimeout(()=>{
+    document.getElementById('nm-overlay')?.classList.remove('open');
+    card.classList.remove('nm-exit');
+  }, 230);
+};
 
-function dsDisplayLevel(cefr, course) {
-  const map={kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},exam:{B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
-  return map[course]?.[cefr]||cefr;
-}
+/* ── COVER ──────────────────────────────────────────────────── */
+function nmRenderCover(d){
+  const course=d.course||'adults';
+  const lc=DS_COURSE_COL[course]||'#182080';
+  const grad=DS_COURSE_GRAD[course]||DS_COURSE_GRAD.adults;
+  const cc=DS_COURSE_CHIP[course]||DS_COURSE_CHIP.adults;
+  const langCol=DS_LANG_COL[d.lang]||'#1850A0';
+  const langBg=DS_LANG_BG[d.lang]||DS_LANG_BG.EN;
 
-/* ── COVER ─────────────────────────────────────────────────────── */
-function renderDossierCover(d) {
-  const lc = DS_COURSE_COL[d.course] || '#C8A44A';
-  const lvl = dsDisplayLevel(d.levelCefr, d.course);
-  document.getElementById('ds-panel').style.setProperty('--ds-c', lc);
-  document.getElementById('ds-banner-bg').style.background =
-    `linear-gradient(135deg,${lc}44,${lc}18,rgba(0,0,0,.8))`;
-  document.getElementById('ds-level-badge').textContent = lvl;
-  document.getElementById('ds-level-badge').style.color = lc;
-  document.getElementById('ds-level-badge').style.borderColor = lc;
+  document.getElementById('nm-banner-bg').style.background=grad;
+  document.getElementById('nm-dept-badge').textContent=cc.label;
+  document.getElementById('nm-dept-badge').style.color=lc;
+  document.getElementById('nm-banner-name').textContent=d.name||d.ref||'—';
+  document.getElementById('nm-banner-ref').textContent=
+    `${d.ref} · ${(d.branch||'').replace(/_/g,' ')}`;
 
   // Avatar
-  const av = document.getElementById('ds-av');
-  if(d.idPhotoUrl) {
-    av.innerHTML = `<img src="${d.idPhotoUrl}" alt="${d.name}"/>`;
-    av.style.background = 'transparent';
+  const av=document.getElementById('nm-avatar');
+  if(d.idPhoto){
+    av.innerHTML=`<img src="${d.idPhoto}" alt="${d.name}"/>`;
+    av.style.background='transparent';
   } else {
-    const col = dsAvColor(d.name||d.ref);
-    av.style.cssText = `background:${col.bg};border-color:${col.border};color:${col.text}`;
-    av.textContent = (d.name||d.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const col=nmAvCol(d.name||d.ref||'?');
+    av.style.cssText=`background:${col.bg};color:${col.text};font-family:var(--nm-sans)`;
+    av.textContent=(d.name||d.ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   }
 
-  document.getElementById('ds-name').textContent = d.name || d.ref || '—';
-  document.getElementById('ds-handle').textContent =
-    `${d.ref} · ${(d.branch||'').replace(/_/g,' ')} · ${DS_FLAGS[d.lang]||''} ${d.lang}`;
+  // ── BANNER ACTION PILLS ──
+  // Context-aware: all 5 actions a staff member needs
+  const pills=[
+    {icon:'📋', label:'Matrícula',   action:`nmScrollTo('nm-pill-inscricao')`},
+    {icon:'✉',  label:'Mensagem',    action:`nmSendMessage()`},
+    {icon:'🗓', label:'Hor. Pedido', action:`nmScrollTo('nm-pill-pedido')`},
+    {icon:'🔄', label:'Mover Nível', action:`nmScrollTo('nm-pill-mover')`},
+    {icon:'🚩', label:'Sinalizar',   action:`nmScrollTo('nm-pill-notas')`},
+  ];
+  document.getElementById('nm-action-pills').innerHTML=pills.map(p=>
+    `<button class="nm-ap" onclick="${p.action}">
+      <span class="nm-ap-icon">${p.icon}</span>${p.label}
+     </button>`
+  ).join('');
 
-  // Contact
-  const cEl = document.getElementById('ds-contact');
-  cEl.innerHTML = [
-    d.phone ? `<a class="ds-contact-btn" href="tel:${d.phone}">📞 ${d.phone}</a>` : '',
-    d.email ? `<a class="ds-contact-btn" href="mailto:${d.email}">✉ ${d.email}</a>` : '',
-  ].join('');
+  // ── CHIPS ──
+  const lvl=nmDisplayLevel(d.cefr, course);
+  const chips=[
+    {label:lvl,             col:cc.col,     bg:cc.bg},
+    {label:`${DS_FLAGS[d.lang]||''} ${d.lang}`, col:langCol, bg:langBg},
+  ];
+  if(d.turmaCode) chips.push({label:d.turmaCode, col:'#18884A', bg:'rgba(24,136,74,.14)'});
+  chips.push({label:(d.branch||'Funchal').replace(/_/g,' '), col:'#5A5070', bg:'rgba(90,80,112,.10)'});
+  document.getElementById('nm-chips').innerHTML=chips.map(c=>
+    `<span class="nm-chip" style="color:${c.col};background:${c.bg}">${c.label}</span>`
+  ).join('');
 
-  // School row
-  const sEl = document.getElementById('ds-school-row');
-  sEl.innerHTML = [
-    `<span class="ds-school-pill">${(d.branch||'—').replace(/_/g,' ')}</span>`,
-    d.turmaCode ? `<span class="ds-school-pill code">${d.turmaCode}</span>` : '<span class="ds-school-pill">Sem turma</span>',
-    `<span class="ds-school-pill ${d.status==='active'?'ok':'warn'}">${d.status==='active'?'✓ Activo':'⚠ '+d.status}</span>`,
-    lvl ? `<span class="ds-school-pill">${lvl}</span>` : '',
-  ].join('');
+  // Status footer chip
+  const statusEl=document.getElementById('nm-chips');
+  // already rendered above
 }
 
-/* ── PILLS ─────────────────────────────────────────────────────── */
-function renderDossierPills(docs, hist, notes, ctx) {
-  const body = document.getElementById('ds-body');
-  const course = inferCourseFromEnrol(DS_ENROL);
-  const cefr = (DS_ENROL?.level_cefr||'A1').toUpperCase();
-  const lvl = dsDisplayLevel(cefr, course);
-  const lc = DS_COURSE_COL[course]||'#C8A44A';
+/* ── AVAILABILITY GRID ──────────────────────────────────────── */
+function nmRenderAvail(ref, course, confDay, confH){
+  const prefs=nmGetPrefs(ref, course);
+  if(!prefs.length && !confDay){
+    document.getElementById('nm-avail-wrap').style.display='none';
+    return;
+  }
+  document.getElementById('nm-avail-wrap').style.display='block';
+  const grid=document.getElementById('nm-avail-grid');
 
-  // Build timetable grid data
-  const reqPrefs = dsGetSlotPrefs(DS_REF);
-  const confDay = ctx?.turmaDay, confH = ctx?.turmaH;
+  // Header: corner + morning hours + gap + afternoon hours
+  let html=`<div class="nm-ag-corner"></div>`;
+  DS_HRS_MORN.forEach(h=>html+=`<div class="nm-ag-h">${h}</div>`);
+  html+=`<div class="nm-ag-brk"></div>`;
+  DS_HRS_AFT.forEach(h=>html+=`<div class="nm-ag-h">${h}</div>`);
 
-  body.innerHTML = [
-    buildPill('🗓','HORÁRIO', reqPrefs.length>0?`${reqPrefs.length} slots pedidos`:'Sem pedido',
-      buildTimetablePill(reqPrefs, confDay, confH)),
+  DS_DAYS.forEach(day=>{
+    html+=`<div class="nm-ag-day">${day}</div>`;
+    DS_HRS_MORN.forEach(h=>{
+      const isConf=confDay===day&&confH===h;
+      const isReq=prefs.some(p=>p.day===day&&p.h===h);
+      html+=`<div class="nm-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+    });
+    html+=`<div class="nm-ag-brk"></div>`;
+    DS_HRS_AFT.forEach(h=>{
+      const isConf=confDay===day&&confH===h;
+      const isReq=prefs.some(p=>p.day===day&&p.h===h);
+      html+=`<div class="nm-ag-cell${isConf?' conf':isReq?' req':''}"></div>`;
+    });
+  });
+  grid.innerHTML=html;
+}
 
-    buildPill('📋','INSCRIÇÃO', DS_ENROL?'✓ Dados carregados':'—',
-      buildEnrolPill()),
+/* ── ACCORDION BODY ─────────────────────────────────────────── */
+function nmRenderAccordion(turmaCode, turmaDay, turmaH){
+  const body=document.getElementById('nm-body');
+  const course=nmInferCourse(DS_ENROL);
+  const cefr=(DS_ENROL?.level_cefr||'A1').toUpperCase();
+  const lvl=nmDisplayLevel(cefr,course);
+  const prefs=nmGetPrefs(DS_REF, course);
 
-    buildPill('📝','PEDIDO DE HORÁRIO', DS_REQ?'✓ Submetido':'Sem pedido',
-      buildRequestPill(lc)),
-
-    buildPill('🎓','HISTORIAL', hist.length>0?`${hist.length} ano${hist.length!==1?'s':''}`:' Em construção',
-      buildHistorialPill(hist, ctx)),
-
-    buildPill('📎','DOCUMENTOS', docs.length>0?`${docs.length} ficheiro${docs.length!==1?'s':''}`:'Sem documentos',
-      buildDocsPill(docs, 'general', ctx)),
-
-    buildPill('🔄','MOVER ALUNO', ctx?.turmaCode||'Sem turma',
-      buildMovePill(ctx)),
-
-    buildPill('🚩','NOTAS E ALERTAS', '',
-      buildNotesPill()),
-
-    DS_ROLE !== 'teacher'
-      ? buildPill('💳','PAGAMENTO','Director / Secretaria',
-          `<div class="ds-wip"><span class="ds-wip-icon">🔒</span>Módulo de pagamentos em desenvolvimento</div>`)
+  body.innerHTML=[
+    nmPill('nm-pill-horario',  '🗓','Horário',      prefs.length?`${prefs.length} slots`:'Sem pedido',   nmBuildTimetable(prefs,turmaDay,turmaH)),
+    nmPill('nm-pill-inscricao','📋','Inscrição',    DS_ENROL?'✓ Carregado':'—',                           nmBuildEnrol()),
+    nmPill('nm-pill-pedido',   '📝','Pedido Horário',DS_REQ?'✓ Submetido':'Sem pedido',                   nmBuildRequest()),
+    nmPill('nm-pill-historial','🎓','Historial',    DS_HIST.length?`${DS_HIST.length} anos`:'Em construção', nmBuildHistorial()),
+    nmPill('nm-pill-docs',     '📎','Documentos',   DS_DOCS.length?`${DS_DOCS.length} ficheiros`:'Sem documentos', nmBuildDocs(DS_DOCS,'general')),
+    nmPill('nm-pill-mover',    '🔄','Mover Aluno',  turmaCode||'Sem turma',                               nmBuildMove(turmaCode)),
+    nmPill('nm-pill-notas',    '🚩','Notas & Alertas','',                                                  nmBuildNotes()),
+    DS_ROLE!=='teacher'
+      ? nmPill('nm-pill-pag','💳','Pagamento','Director / Secretaria',
+          `<div class="nm-wip"><span class="nm-wip-icon">🔒</span>Módulo de pagamentos em desenvolvimento</div>`)
       : '',
   ].join('');
 
-  // Attach pill toggle handlers
-  document.querySelectorAll('.ds-pill-hdr').forEach(hdr => {
-    hdr.addEventListener('click', () => {
-      hdr.classList.toggle('open');
-    });
+  // Toggle accordion
+  body.querySelectorAll('.nm-pill-hdr').forEach(hdr=>{
+    hdr.addEventListener('click',()=>hdr.classList.toggle('open'));
   });
 }
 
-function buildPill(icon, label, meta, content) {
-  return `<div class="ds-pill">
-    <div class="ds-pill-hdr">
-      <span class="ds-pill-icon">${icon}</span>
-      <span class="ds-pill-label">${label}</span>
-      <span class="ds-pill-meta">${meta}</span>
-      <span class="ds-pill-chv">›</span>
+function nmPill(id, icon, label, meta, content){
+  return `<div class="nm-pill" id="${id}">
+    <div class="nm-pill-hdr">
+      <span class="nm-pill-icon">${icon}</span>
+      <span class="nm-pill-label">${label}</span>
+      <span class="nm-pill-meta">${meta}</span>
+      <span class="nm-pill-chv">›</span>
     </div>
-    <div class="ds-pill-body">${content}</div>
+    <div class="nm-pill-body">${content}</div>
   </div>`;
 }
 
-/* ── TIMETABLE PILL ────────────────────────────────────────────── */
-function buildTimetablePill(prefs, confDay, confH) {
-  const hCols = DS_HRS.length;
-  let html = `<div class="ds-tt"><div class="ds-tt-grid" style="grid-template-columns:28px repeat(${hCols},1fr);grid-template-rows:14px repeat(6,14px)">`;
-  html += `<div class="ds-tt-corner"></div>`;
-  DS_HRS.forEach(h => {
-    if(h===null) html += `<div class="ds-tt-h brk">·</div>`;
-    else html += `<div class="ds-tt-h">${h}</div>`;
+/* ── SCROLL TO PILL ─────────────────────────────────────────── */
+window.nmScrollTo = function(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.querySelector('.nm-pill-hdr')?.classList.add('open');
+  setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}), 80);
+};
+
+/* ── SEND MESSAGE ───────────────────────────────────────────── */
+window.nmSendMessage = function(){
+  const email=DS_ENROL?.email;
+  const phone=DS_ENROL?.phone;
+  if(email) window.open(`mailto:${email}`,'_blank');
+  else if(phone) window.open(`tel:${phone}`,'_blank');
+  else nmToast('Sem contacto registado','warn');
+};
+
+/* ── TIMETABLE SECTION ──────────────────────────────────────── */
+function nmBuildTimetable(prefs, confDay, confH){
+  const hCols=DS_ALL_HRS.length;
+  let html=`<div class="nm-tt"><div class="nm-tt-grid" style="grid-template-columns:26px repeat(${hCols},1fr);grid-template-rows:14px repeat(6,14px)">`;
+  html+=`<div class="nm-tt-corner"></div>`;
+  DS_ALL_HRS.forEach((h,i)=>{
+    const isBrk=i===DS_HRS_MORN.length;
+    html+=`<div class="nm-tt-h${isBrk?' brk':''}">${h}</div>`;
   });
-  DS_DAYS.forEach(day => {
-    html += `<div class="ds-tt-day">${day}</div>`;
-    DS_HRS.forEach(h => {
-      if(h===null){html+=`<div class="ds-tt-cell" style="border-left:1.5px solid rgba(200,164,74,.18)"></div>`;return;}
-      const isConf = confDay===day && confH===h;
-      const isReq  = prefs.some(p=>p.day===day&&p.h===h);
-      html += `<div class="ds-tt-cell${isConf?' conf':isReq?' req':''}"></div>`;
+  DS_DAYS.forEach(day=>{
+    html+=`<div class="nm-tt-day">${day}</div>`;
+    DS_ALL_HRS.forEach(h=>{
+      const isConf=confDay===day&&confH===h;
+      const isReq =prefs.some(p=>p.day===day&&p.h===h);
+      html+=`<div class="nm-tt-cell${isConf?' conf':isReq?' req':''}"></div>`;
     });
   });
-  html += `</div>
-  <div class="ds-tt-legend">
-    <div class="ds-tt-leg"><div class="ds-tt-leg-dot" style="background:rgba(40,200,112,.28);border-color:rgba(40,200,112,.5)"></div>Turma confirmada</div>
-    <div class="ds-tt-leg"><div class="ds-tt-leg-dot" style="background:color-mix(in srgb,var(--ds-c) 30%,transparent);border-color:color-mix(in srgb,var(--ds-c) 45%,transparent)"></div>Pedido</div>
+  html+=`</div>
+  <div class="nm-tt-legend">
+    <div class="nm-tt-leg"><div class="nm-tt-leg-dot" style="background:rgba(24,136,74,.32);border:.5px solid rgba(24,136,74,.55)"></div>Confirmado</div>
+    <div class="nm-tt-leg"><div class="nm-tt-leg-dot" style="background:rgba(200,164,74,.28);border:.5px solid rgba(200,164,74,.45)"></div>Pedido</div>
   </div></div>`;
   return html;
 }
 
-/* ── ENROLMENT PILL ───────────────────────────────────────────── */
-function buildEnrolPill() {
-  if(!DS_ENROL) return `<div class="ds-wip"><span class="ds-wip-icon">⚠️</span>Matrícula não encontrada no sistema.</div>`;
-  const e = DS_ENROL;
-  const course = inferCourseFromEnrol(e);
-  const lvl = dsDisplayLevel((e.level_cefr||'A1').toUpperCase(), course);
-  const courseLabel = course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral';
+/* ── ENROLMENT ──────────────────────────────────────────────── */
+function nmBuildEnrol(){
+  if(!DS_ENROL) return `<div class="nm-wip"><span class="nm-wip-icon">⚠️</span>Matrícula não encontrada no sistema.</div>`;
+  const e=DS_ENROL;
+  const course=nmInferCourse(e);
+  const lvl=nmDisplayLevel((e.level_cefr||'A1').toUpperCase(),course);
+  const deptLabel=course==='kids'?'Juvenil':course==='exam'?'Exames':'Geral';
   return [
-    ['Ref. ALM', e.ref||'—', 'hi'],
-    ['Nome completo', e.name||'—', ''],
-    ['Nível ALM', lvl, 'hi'],
-    ['Departamento', courseLabel, ''],
-    ['Filial', (e.branch||'—').replace(/_/g,' '), ''],
-    ['Língua', `${DS_FLAGS[e.lang]||''} ${e.lang||'—'}`, ''],
-    ['Estado', e.status==='active'?'✓ Activo':e.status||'—', e.status==='active'?'ok':'warn'],
-    ['Email', e.email||'—', ''],
-    ['Telefone', e.phone||'—', ''],
-  ].map(([k,v,c])=>`<div class="ds-data-row"><div class="ds-dk">${k}</div><div class="ds-dv ${c}">${v}</div></div>`).join('');
+    ['Ref. ALM',     e.ref||'—',                                              'hi'],
+    ['Nome',         e.name||'—',                                             ''],
+    ['Nível',        lvl,                                                     'hi'],
+    ['Departamento', deptLabel,                                               ''],
+    ['Filial',       (e.branch||'—').replace(/_/g,' '),                      ''],
+    ['Língua',       `${DS_FLAGS[e.lang]||''} ${e.lang||'—'}`,               ''],
+    ['Estado',       e.status==='active'?'✓ Activo':e.status||'—',           e.status==='active'?'ok':'warn'],
+    ['Email',        e.email||'—',                                            ''],
+    ['Telefone',     e.phone||'—',                                            ''],
+  ].map(([k,v,c])=>nmRow(k,v,c)).join('');
 }
 
-/* ── REQUEST PILL ─────────────────────────────────────────────── */
-function buildRequestPill(lc) {
-  if(!DS_REQ) return `<div class="ds-wip"><span class="ds-wip-icon">📭</span>Nenhum pedido de horário submetido.<br>O encarregado ainda não preencheu o formulário.</div>`;
-  const r = DS_REQ;
+/* ── SCHEDULE REQUEST ───────────────────────────────────────── */
+function nmBuildRequest(){
+  if(!DS_REQ) return `<div class="nm-wip"><span class="nm-wip-icon">📭</span>Nenhum pedido de horário submetido ainda.</div>`;
+  const r=DS_REQ;
   let slots=[];
   try{const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;if(Array.isArray(dp))slots=dp;}catch(e){}
-  const pills = slots.map((s,i)=>{
-    const day = s.day_name||(DS_DAY_NUM[s.day]||`Dia ${s.day}`);
-    const start = s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
-    const type = s.type==='availability'?'disponível':i===0?'★ preferência':'↩ alternativa';
-    return `<span class="ds-slot-pill"><span class="sp-day">${day}</span><span>${start}</span><span class="sp-type">${type}</span></span>`;
+  const pills=slots.map((s,i)=>{
+    const day=s.day_name||(DS_DAY_NUM[s.day]||`Dia ${s.day}`);
+    const start=s.session_start||s.start_time||(s.hour?`${s.hour}:00`:'—');
+    const type=s.type==='availability'?'disponível':i===0?'★ pref':'↩ alt';
+    return `<span class="nm-slot-pill"><span class="nm-slot-day">${day}</span><span>${start}</span><span class="nm-slot-type">${type}</span></span>`;
   }).join('');
-
-  const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}) : 'Data não registada';
+  const dateStr=r.created_at?new Date(r.created_at).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}):'—';
   return [
-    ['Slots pedidos', pills||'—', ''],
-    ['Modo', r.mode_used==='avail'?'Disponibilidade':'Preferência', 'hi'],
-    ['Sessões/sem', r.sessions_per_week||'—', 'hi'],
-    ['Submetido', `${dateStr} · 🔒 Imutável`, ''],
-    r.notes?['Nota', r.notes, '']:null,
-    ['Foto de ID', r.has_id_photo?'✓ Enviada':'—', r.has_id_photo?'ok':''],
-    ['Horário escolar', r.has_school_timetable?'✓ Enviado':'—', r.has_school_timetable?'ok':''],
-  ].filter(Boolean).map(([k,v,c])=>`<div class="ds-data-row"><div class="ds-dk">${k}</div><div class="ds-dv ${c}">${v}</div></div>`).join('');
+    ['Slots',        pills||'—',                                              ''],
+    ['Modo',         r.mode_used==='avail'?'Disponibilidade':'Preferência',   'hi'],
+    ['Sessões/sem',  r.sessions_per_week||'—',                               'hi'],
+    ['Submetido',    `${dateStr} · 🔒 Imutável`,                             ''],
+    r.notes?['Nota',r.notes,'']:null,
+    ['Foto de ID',   r.has_id_photo?'✓ Enviada':'—',                         r.has_id_photo?'ok':''],
+    ['Hor. Escolar', r.has_school_timetable?'✓ Enviado':'—',                 r.has_school_timetable?'ok':''],
+  ].filter(Boolean).map(([k,v,c])=>nmRow(k,v,c)).join('');
 }
 
-/* ── HISTORIAL PILL ───────────────────────────────────────────── */
-function buildHistorialPill(hist, ctx) {
-  let html = '';
-
-  if(!hist.length) {
-    html += `<div class="ds-wip"><span class="ds-wip-icon">🏗️</span>Historial académico em construção.<br><span style="font-size:7px;opacity:.6">Os anos lectivos anteriores serão adicionados aqui.</span></div>`;
-  } else {
-    hist.forEach(yr => {
-      const outcome = yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
-      const outLabel = yr.outcome==='aprovado'?'✓ Aprovado':yr.outcome==='reprovado'?'✗ Reprovado':yr.outcome||'Em curso';
-      const hasScores = yr.cambridge_r||yr.cambridge_w||yr.cambridge_l||yr.cambridge_s||yr.cambridge_uoe;
-
-      html += `<div class="ds-hist-year">
-        <div class="ds-hist-yr-hdr" onclick="this.classList.toggle('open')">
-          <span class="ds-hist-yr">${yr.academic_year}</span>
-          <span class="ds-hist-turma">${yr.turma_code||'—'} · ${yr.level_display||'—'} · ${yr.teacher_name||'—'}</span>
-          <span class="ds-hist-outcome ${outcome}">${outLabel}</span>
+/* ── HISTORIAL ──────────────────────────────────────────────── */
+function nmBuildHistorial(){
+  if(!DS_HIST.length) return `<div class="nm-wip"><span class="nm-wip-icon">🏗️</span>Historial académico em construção.</div>
+    <div class="nm-action-row">
+      <button class="nm-btn ghost" onclick="nmToast('Adicionar ano — módulo em desenvolvimento','warn')">+ Adicionar ano lectivo</button>
+    </div>`;
+  let html='';
+  DS_HIST.forEach(yr=>{
+    const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
+    const lbl=yr.outcome==='aprovado'?'✓ Aprovado':yr.outcome==='reprovado'?'✗ Reprovado':yr.outcome||'Em curso';
+    const has=yr.cambridge_r||yr.cambridge_w||yr.cambridge_l||yr.cambridge_s||yr.cambridge_uoe;
+    html+=`<div class="nm-hist-yr">
+      <div class="nm-hist-hdr" onclick="this.classList.toggle('open')">
+        <span class="nm-hist-year-lbl">${yr.academic_year}</span>
+        <span class="nm-hist-turma">${yr.turma_code||'—'} · ${yr.level_display||'—'}</span>
+        <span class="nm-hist-outcome ${cls}">${lbl}</span>
+      </div>
+      <div class="nm-hist-body">
+        ${has?`<div class="nm-camb-grid">${[['R',yr.cambridge_r],['W',yr.cambridge_w],['L',yr.cambridge_l],['S',yr.cambridge_s],['UoE',yr.cambridge_uoe]].map(([l,sc])=>`
+          <div class="nm-camb-cell ${sc>=60?'pass':sc>0?'fail':''}">
+            <div class="nm-camb-score">${sc||'—'}</div>
+            <div class="nm-camb-lbl">${l}</div>
+          </div>`).join('')}</div>`:''}
+        ${[
+          yr.grade_final!=null?['Nota final',yr.grade_final+'%','hi']:null,
+          yr.absences!=null?['Faltas',yr.absences,'']:null,
+          yr.notes?['Notas',yr.notes,'']:null,
+        ].filter(Boolean).map(([k,v,c])=>nmRow(k,v,c)).join('')}
+        <div class="nm-action-row">
+          <button class="nm-btn ghost" onclick="nmTriggerUpload('historial_exam','${yr.academic_year}')">+ Adicionar PDF</button>
         </div>
-        <div class="ds-hist-yr-body">
-          ${hasScores?`<div class="ds-camb-grid">
-            ${[['R',yr.cambridge_r],['W',yr.cambridge_w],['L',yr.cambridge_l],['S',yr.cambridge_s],['UoE',yr.cambridge_uoe]].map(([lbl,sc])=>`
-            <div class="ds-camb-cell ${sc>=60?'pass':sc>0?'fail':''}">
-              <div class="ds-camb-score">${sc||'—'}</div>
-              <div class="ds-camb-lbl">${lbl}</div>
-            </div>`).join('')}
-          </div>`:''}
-          ${[
-            yr.grade_final!=null?['Nota final',yr.grade_final+'%','hi']:null,
-            yr.absences!=null?['Faltas',yr.absences,'']:null,
-            yr.notes?['Notas',yr.notes,'']:null,
-          ].filter(Boolean).map(([k,v,c])=>`<div class="ds-data-row"><div class="ds-dk">${k}</div><div class="ds-dv ${c}">${v}</div></div>`).join('')}
-          <!-- Attached documents for this year -->
-          <div id="hist-docs-${yr.id}" style="margin-top:8px">
-            ${buildDocsPill(DS_DOCS.filter(d=>d.document_type?.startsWith('historial')&&d.notes?.includes(yr.academic_year)), 'historial', {...ctx, year:yr.academic_year})}
-          </div>
-          <div class="ds-action-row">
-            <button class="ds-action-btn ghost" onclick="triggerDsUpload('historial_exam','${yr.academic_year}')">+ Adicionar PDF</button>
-          </div>
-        </div>
-      </div>`;
-    });
-  }
-
-  // Add new year button
-  html += `<div class="ds-action-row" style="margin-top:8px">
-    <button class="ds-action-btn ghost" onclick="addHistorialYear()">+ Adicionar ano lectivo</button>
+      </div>
+    </div>`;
+  });
+  html+=`<div class="nm-action-row">
+    <button class="nm-btn ghost" onclick="nmToast('Adicionar ano — módulo em desenvolvimento','warn')">+ Adicionar ano lectivo</button>
   </div>`;
-
   return html;
 }
 
-/* ── DOCUMENTS PILL ───────────────────────────────────────────── */
-function buildDocsPill(docs, context, ctx) {
-  const iconMap = {
-    id_photo:'🪪', school_timetable:'🏫', historial_exam:'📄', historial_report:'📋', historial_cambridge:'🎓',
-    general:'📁'
-  };
-  let html = '';
-  if(docs.length) {
-    html += `<div class="ds-doc-list">`;
-    docs.forEach(d => {
-      const icon = iconMap[d.document_type]||'📁';
-      const name = d.notes||d.document_type||'Documento';
-      const date = d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('pt-PT') : '';
-      const isPdf = d.storage_path?.endsWith('.pdf');
-      html += `<div class="ds-doc-row">
-        <div class="ds-doc-icon">${icon}</div>
-        <div class="ds-doc-info">
-          <div class="ds-doc-name">${name}</div>
-          <div class="ds-doc-meta">${d.document_type} · ${date} · ${d.uploaded_by||'—'}</div>
+/* ── DOCUMENTS ──────────────────────────────────────────────── */
+function nmBuildDocs(docs, context){
+  const iconMap={id_photo:'🪪',school_timetable:'🏫',historial_exam:'📄',historial_report:'📋',historial_cambridge:'🎓',general:'📁'};
+  let html='';
+  if(docs.length){
+    html+=`<div class="nm-doc-list">`;
+    docs.forEach(d=>{
+      const icon=iconMap[d.document_type]||'📁';
+      const name=d.notes||d.document_type||'Documento';
+      const date=d.uploaded_at?new Date(d.uploaded_at).toLocaleDateString('pt-PT'):'';
+      const isPdf=d.storage_path?.endsWith('.pdf');
+      html+=`<div class="nm-doc-row">
+        <div class="nm-doc-icon">${icon}</div>
+        <div class="nm-doc-info">
+          <div class="nm-doc-name">${name}</div>
+          <div class="nm-doc-meta">${d.document_type} · ${date} · ${d.uploaded_by||'—'}</div>
         </div>
-        <div class="ds-doc-btns">
-          ${d.public_url?`<button class="ds-doc-btn view" onclick="dsViewDoc('${d.public_url}','${isPdf?'pdf':'img'}')">${isPdf?'PDF':'Ver'}</button>`:''}
-          <button class="ds-doc-btn del" onclick="dsDeleteDoc('${d.id}','${d.storage_path||''}')">✕</button>
+        <div class="nm-doc-btns">
+          ${d.public_url?`<button class="nm-doc-btn view" onclick="nmViewDoc('${d.public_url}','${isPdf?'pdf':'img'}')">${isPdf?'PDF':'Ver'}</button>`:''}
+          <button class="nm-doc-btn del"  onclick="nmDeleteDoc('${d.id}','${d.storage_path||''}')">✕</button>
         </div>
       </div>`;
     });
-    html += `</div>`;
+    html+=`</div>`;
   }
-
-  if(context!=='historial') {
-    html += `<div class="ds-upload-zone" onclick="triggerDsUpload('general',null)">
+  if(context!=='historial'){
+    html+=`<div class="nm-upload-zone" onclick="nmTriggerUpload('general',null)">
       <span style="font-size:20px;display:block;margin-bottom:4px;opacity:.4">📎</span>
-      <span class="ds-upload-lbl">Clique para adicionar documento ou PDF</span>
+      <span class="nm-upload-lbl">Clique para adicionar documento ou PDF</span>
     </div>`;
   }
   return html;
 }
 
-/* ── MOVE PILL ─────────────────────────────────────────────────── */
-function buildMovePill(ctx) {
-  const currentCode = ctx?.turmaCode || null;
-  const allCodes = [];
-  Object.keys(localStorage).filter(k=>k.startsWith('alm-turma-')&&!k.includes(currentCode||'__')).forEach(k=>{
-    try{const p=JSON.parse(localStorage.getItem(k));if(p.turmaCode) allCodes.push(p.turmaCode);}catch(e){}
-  });
-
-  return `<div class="ds-data-row"><div class="ds-dk">Turma actual</div><div class="ds-dv hi">${currentCode||'Sem turma'}</div></div>
+/* ── MOVE ───────────────────────────────────────────────────── */
+function nmBuildMove(currentCode){
+  // Pull available turmas from CELL_MAP excluding current
+  const CM=window.CELL_MAP||{};
+  const codes=Object.values(CM)
+    .map(c=>c.turmaCode)
+    .filter(c=>c&&c!==currentCode);
+  return `${nmRow('Turma actual',currentCode||'Sem turma','hi')}
   <div style="margin-top:10px">
-    <div style="font-family:var(--ds-mono);font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ds-ink3);margin-bottom:5px">Mover para</div>
-    <select class="ds-move-sel" id="ds-move-sel">
+    <div style="font-family:var(--nm-mono);font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--nm-text3);margin-bottom:6px">Mover para</div>
+    <select class="nm-select" id="nm-move-sel">
       <option value="">— escolher turma destino —</option>
-      ${allCodes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      ${codes.map(c=>`<option value="${c}">${c}</option>`).join('')}
     </select>
-    <div class="ds-action-row">
-      <button class="ds-action-btn primary" onclick="dsMoveStudent()">✓ Mover</button>
-      ${currentCode?`<button class="ds-action-btn danger" onclick="dsRemoveFromTurma('${currentCode}')">✕ Remover da turma</button>`:''}
+    <div class="nm-action-row">
+      <button class="nm-btn primary"  onclick="nmDoMove()">✓ Mover</button>
+      ${currentCode?`<button class="nm-btn danger" onclick="nmDoRemove('${currentCode}')">✕ Remover da turma</button>`:''}
     </div>
   </div>`;
 }
 
-/* ── NOTES PILL ────────────────────────────────────────────────── */
-function buildNotesPill() {
-  return `<div class="ds-flag-chips">
-    <div class="ds-flag-chip" onclick="this.classList.toggle('on')">Comportamento</div>
-    <div class="ds-flag-chip" onclick="this.classList.toggle('on')">Pagamento pendente</div>
-    <div class="ds-flag-chip" onclick="this.classList.toggle('on')">Baixo desempenho</div>
-    <div class="ds-flag-chip" onclick="this.classList.toggle('on')">Excesso de faltas</div>
-    <div class="ds-flag-chip" onclick="this.classList.toggle('on')">Necessidade especial</div>
+/* ── NOTES ──────────────────────────────────────────────────── */
+function nmBuildNotes(){
+  return `<div class="nm-flag-chips">
+    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Comportamento</div>
+    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Pagamento pendente</div>
+    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Baixo desempenho</div>
+    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Excesso de faltas</div>
+    <div class="nm-flag-chip" onclick="this.classList.toggle('on')">Necessidade especial</div>
   </div>
-  <textarea class="ds-note-add" id="ds-note-add" placeholder="Adicionar nota (visível para toda a equipa)…"></textarea>
-  <div class="ds-action-row">
-    <button class="ds-action-btn primary" onclick="dsSaveNote()">✓ Guardar nota</button>
+  <textarea class="nm-note-add" id="nm-note-add" placeholder="Adicionar nota (visível para toda a equipa)…"></textarea>
+  <div class="nm-action-row">
+    <button class="nm-btn primary" onclick="nmSaveNote()">✓ Guardar nota</button>
   </div>`;
 }
 
-/* ── CLOSE ─────────────────────────────────────────────────────── */
-window.closeDossier = function() {
-  document.getElementById('ds-overlay')?.classList.remove('open');
+/* ── ACTIONS ────────────────────────────────────────────────── */
+window.nmDoMove = function(){
+  const code=document.getElementById('nm-move-sel')?.value;
+  if(!code){nmToast('Escolha uma turma destino','warn');return;}
+  if(window.moveStudent) window.moveStudent(DS_REF,code);
+  else nmToast(`Mover para ${code} — use a página de atribuição`,'warn');
+};
+window.nmDoRemove = function(code){
+  if(!confirm(`Remover ${DS_REF} de ${code}?`)) return;
+  if(window.removeFromTurma) window.removeFromTurma(DS_REF,code);
+  else nmToast('Remover — use a página de atribuição','warn');
+};
+window.nmSaveNote = function(){
+  const txt=document.getElementById('nm-note-add')?.value?.trim();
+  if(!txt){nmToast('Escreva uma nota primeiro','warn');return;}
+  nmToast('Nota guardada ✓','ok');
+  document.getElementById('nm-note-add').value='';
 };
 
-/* ── SLOT PREFS ────────────────────────────────────────────────── */
-function dsGetSlotPrefs(ref) {
-  const r = (window.RMAP||{})[ref]; if(!r) return [];
-  if(r.mode_used==='avail'&&r.availability){
+/* ── UPLOAD ─────────────────────────────────────────────────── */
+window.nmTriggerUpload = function(docType, year){
+  DS_UPLOAD_CTX={docType,year};
+  document.getElementById('nm-file-inp')?.click();
+};
+async function nmOnFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const ctx=DS_UPLOAD_CTX; if(!ctx) return;
+  nmToast('A enviar…','ok');
+  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+  const KEY=window.KEY||'';
+  const H={'apikey':KEY,'Authorization':'Bearer '+KEY};
+  try{
+    const ext=file.name.split('.').pop();
+    const path=`${DS_REF}/${ctx.docType}-${Date.now()}.${ext}`;
+    const r=await fetch(`${BASE}/storage/v1/object/alm-student-documents/${path}`,
+      {method:'POST',headers:{...H,'Content-Type':file.type||'application/pdf','x-upsert':'true'},body:file});
+    if(!r.ok) throw new Error(await r.text());
+    const url=`${BASE}/storage/v1/object/public/alm-student-documents/${path}`;
+    await fetch(`${BASE}/rest/v1/student_documents`,{method:'POST',
+      headers:{...H,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify({ref:DS_REF,document_type:ctx.docType,storage_path:path,public_url:url,
+        uploaded_by:'staff',academic_year:'2026/2027',
+        notes:ctx.year?`${ctx.docType} · ${ctx.year}`:ctx.docType})
+    });
+    nmToast('Documento enviado ✓','ok');
+    setTimeout(()=>openDossier(DS_REF,DS_ROLE),700);
+  }catch(err){
+    console.error('[ALM Dossier] Upload error',err);
+    nmToast('Erro no envio','err');
+  }
+  e.target.value='';
+}
+
+/* ── DELETE DOC ─────────────────────────────────────────────── */
+window.nmDeleteDoc = async function(docId, storagePath){
+  if(!confirm('Remover este documento?')) return;
+  const BASE=window.SB||'https://oapygbeliocdvitbdjbq.supabase.co';
+  const KEY=window.KEY||'';
+  const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
+  try{
+    await fetch(`${BASE}/rest/v1/student_documents?id=eq.${docId}`,{method:'DELETE',headers:H});
+    if(storagePath) await fetch(`${BASE}/storage/v1/object/alm-student-documents/${storagePath}`,{method:'DELETE',headers:H});
+    nmToast('Removido ✓','ok');
+    setTimeout(()=>openDossier(DS_REF,DS_ROLE),600);
+  }catch(err){ nmToast('Erro ao remover','err'); }
+};
+
+/* ── VIEW DOC ───────────────────────────────────────────────── */
+window.nmViewDoc = function(url, type){
+  const w=window.open('','_blank','width=900,height=700');
+  if(type==='pdf')
+    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#08070F}iframe{width:100vw;height:100vh;border:none}</style></head><body><iframe src="${url}"></iframe></body></html>`);
+  else
+    w.document.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#08070F;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:95vw;max-height:95vh}</style></head><body><img src="${url}"/></body></html>`);
+  w.document.close();
+};
+
+/* ── HELPERS ────────────────────────────────────────────────── */
+function nmRow(k,v,c){
+  return `<div class="nm-data-row"><div class="nm-dk">${k}</div><div class="nm-dv ${c||''}">${v}</div></div>`;
+}
+function nmInferCourse(e){
+  if(!e) return 'adults';
+  const str=[e.family,e.course,e.department,e.level_cefr,e.notes].filter(Boolean).join(' ').toLowerCase();
+  if(/exam|exame/.test(str)) return 'exam';
+  if(/kid|juven|junior|infant|prep/.test(str)) return 'kids';
+  return 'adults';
+}
+function nmDisplayLevel(cefr,course){
+  const map={kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},
+             adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
+             exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
+  return map[course]?.[cefr]||cefr;
+}
+function nmGetPrefs(ref, course){
+  const r=(window.RMAP||{})[ref]; if(!r) return [];
+  // day_preferences first (canonical)
+  if(r.day_preferences){
+    try{
+      const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
+      if(Array.isArray(dp)&&dp.length)
+        return dp.map(p=>({day:DS_DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null),h:parseInt(p.session_start||p.hour||9)})).filter(p=>p.day);
+    }catch(e){}
+  }
+  // fallback: availability map
+  if(r.availability){
     try{
       const av=typeof r.availability==='string'?JSON.parse(r.availability):r.availability;
       return Object.keys(av).filter(k=>av[k]).map(k=>{const[di,h]=k.split('_').map(Number);return{day:DS_DAY_NUM[di+1]||null,h};}).filter(p=>p.day);
     }catch(e){}
   }
-  if(r.day_preferences){
-    try{
-      const dp=typeof r.day_preferences==='string'?JSON.parse(r.day_preferences):r.day_preferences;
-      if(Array.isArray(dp)) return dp.map(p=>{
-        const day=DS_DAY_NUM[p.day]||(p.day_name?p.day_name.slice(0,3).toUpperCase():null);
-        const h=parseInt(p.session_start||p.hour||9);
-        return{day,h};
-      }).filter(p=>p.day);
-    }catch(e){}
-  }
   return [];
 }
-
-/* ── AVATAR COLOR ──────────────────────────────────────────────── */
-function dsAvColor(name){
-  let h=0;for(let i=0;i<(name||'?').length;i++)h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
-  const hues=[200,215,160,270,8,340,22,285],hue=hues[Math.abs(h)%hues.length];
-  const sat=55+(Math.abs(h>>4)%25),lit=58+(Math.abs(h>>8)%14);
-  return{bg:`hsl(${hue},${sat}%,18%)`,border:`hsl(${hue},${sat}%,35%)`,text:`hsl(${hue},${sat+10}%,${lit}%)`};
+function nmAvCol(name){
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))&0xffffffff;
+  const p=[{bg:'#EAC8D8',text:'#7A1840'},{bg:'#C8D8EC',text:'#143870'},{bg:'#C8ECD8',text:'#145830'},{bg:'#DCC8EC',text:'#481890'},{bg:'#ECDCC8',text:'#784010'},{bg:'#C8ECE8',text:'#145850'}];
+  return p[Math.abs(h)%p.length];
+}
+function nmToast(msg,type='ok'){
+  const t=document.getElementById('nm-toast');if(!t)return;
+  t.textContent=msg;t.className='nm-toast '+type+' show';
+  clearTimeout(nm_toast_t);nm_toast_t=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
-/* ── PDF / DOC VIEWER ──────────────────────────────────────────── */
-window.dsViewDoc = function(url, type) {
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if(type==='pdf') {
-    win.document.write(`<!DOCTYPE html><html><head><title>ALM · Documento</title><style>body{margin:0;background:#08070F}iframe{width:100vw;height:100vh;border:none}</style></head><body><iframe src="${url}"></iframe></body></html>`);
-  } else {
-    win.document.write(`<!DOCTYPE html><html><head><title>ALM · Documento</title><style>body{margin:0;background:#08070F;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:95vw;max-height:95vh;box-shadow:0 0 40px rgba(0,0,0,.8)}</style></head><body><img src="${url}"/></body></html>`);
-  }
-  win.document.close();
-};
-
-/* ── FILE UPLOAD ───────────────────────────────────────────────── */
-window.triggerDsUpload = function(docType, year) {
-  DS_UPLOAD_CONTEXT = {docType, year};
-  document.getElementById('ds-file-inp').click();
-};
-
-async function onDsFileChosen(e) {
-  const file = e.target.files[0]; if(!file) return;
-  const ctx = DS_UPLOAD_CONTEXT; if(!ctx) return;
-  const ref = DS_REF;
-  dsTst('A enviar…','info');
-
-  const SB_URL = window.SB || 'https://oapygbeliocdvitbdjbq.supabase.co';
-  const SB_KEY = window.KEY || '';
-  const H = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
-
-  try {
-    const ext = file.name.split('.').pop();
-    const path = `${ref}/${ctx.docType}-${Date.now()}.${ext}`;
-    // Upload to storage
-    const r = await fetch(`${SB_URL}/storage/v1/object/alm-student-documents/${path}`, {
-      method:'POST', headers:{...H,'Content-Type':file.type||'application/pdf','x-upsert':'true'}, body:file
-    });
-    if(!r.ok) throw new Error(await r.text());
-    const publicUrl = `${SB_URL}/storage/v1/object/public/alm-student-documents/${path}`;
-    // Record in student_documents
-    await fetch(`${SB_URL}/rest/v1/student_documents`, {
-      method:'POST',
-      headers:{...H,'Content-Type':'application/json','Prefer':'return=representation'},
-      body:JSON.stringify({
-        ref, document_type:ctx.docType, storage_path:path, public_url:publicUrl,
-        uploaded_by:'staff', academic_year:'2026/2027',
-        notes: ctx.year ? `${ctx.docType} · ${ctx.year}` : ctx.docType
-      })
-    });
-    dsTst('Documento enviado ✓','ok');
-    // Refresh dossier
-    setTimeout(()=>openDossier(ref, DS_ROLE), 800);
-  } catch(err) {
-    console.error('Upload failed', err);
-    dsTst('Erro no envio','err');
-  }
-  e.target.value = '';
-}
-
-/* ── DELETE DOC ────────────────────────────────────────────────── */
-window.dsDeleteDoc = async function(docId, storagePath) {
-  if(!confirm('Remover este documento?')) return;
-  const SB_URL = window.SB || 'https://oapygbeliocdvitbdjbq.supabase.co';
-  const SB_KEY = window.KEY || '';
-  const H = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-  try {
-    await fetch(`${SB_URL}/rest/v1/student_documents?id=eq.${docId}`, {method:'DELETE',headers:H});
-    if(storagePath) await fetch(`${SB_URL}/storage/v1/object/alm-student-documents/${storagePath}`, {method:'DELETE',headers:H});
-    dsTst('Removido ✓','ok');
-    setTimeout(()=>openDossier(DS_REF, DS_ROLE), 600);
-  } catch(e) { dsTst('Erro ao remover','err'); }
-};
-
-/* ── MOVE STUDENT ──────────────────────────────────────────────── */
-window.dsMoveStudent = async function() {
-  const targetCode = document.getElementById('ds-move-sel')?.value;
-  if(!targetCode){dsTst('Escolha uma turma destino','err');return;}
-  if(window.moveStudent) { await window.moveStudent(DS_REF, ''); }
-  else dsTst(`Mover para ${targetCode} — função disponível na página de atribuição`,'info');
-};
-
-window.dsRemoveFromTurma = async function(code) {
-  if(!confirm(`Remover ${DS_REF} de ${code}?`)) return;
-  if(window.removeFromTurma) { await window.removeFromTurma(DS_REF, code); closeDossier(); }
-  else dsTst('Remover — função disponível na página de atribuição','info');
-};
-
-/* ── SAVE NOTE ─────────────────────────────────────────────────── */
-window.dsSaveNote = function() {
-  const txt = document.getElementById('ds-note-add')?.value?.trim();
-  if(!txt){dsTst('Escreva uma nota primeiro','err');return;}
-  dsTst('Nota guardada ✓ (base de dados em breve)','ok');
-  document.getElementById('ds-note-add').value='';
-};
-
-/* ── ADD HISTORIAL YEAR ────────────────────────────────────────── */
-window.addHistorialYear = function() {
-  dsTst('Adicionar ano — módulo em desenvolvimento','info');
-};
-
-/* ── TOAST ─────────────────────────────────────────────────────── */
-function dsTst(msg, type='info') {
-  const t = document.getElementById('ds-toast');
-  if(!t) return;
-  t.textContent = msg; t.className = 'ds-toast '+type+' show';
-  clearTimeout(ds_toast_t);
-  ds_toast_t = setTimeout(()=>t.classList.remove('show'), 2600);
-}
-
-/* ── KEYBOARD ──────────────────────────────────────────────────── */
-document.addEventListener('keydown', e => {
-  if(e.key==='Escape' && document.getElementById('ds-overlay')?.classList.contains('open')) {
+/* ── KEYBOARD ───────────────────────────────────────────────── */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('nm-overlay')?.classList.contains('open'))
     closeDossier();
-  }
 });
 
-console.log('[ALM Dossier] Engine loaded ✓');
+/* ── BACKWARD COMPAT ─────────────────────────────────────────── */
+// Keep old ds-toast + ds-overlay references alive so nothing breaks
+// if any other page code calls closeDossier() or checks ds-overlay
+window.closeDossier = window.closeDossier || (()=>{
+  document.getElementById('nm-overlay')?.classList.remove('open');
+});
+
+console.log('[ALM Dossier v4] Neumorphic engine loaded ✓');
 })();
