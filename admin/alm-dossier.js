@@ -390,8 +390,23 @@ window.openDossier = async function(ref, role){
     }
   });
 
-  const course=inferCourse(DS_ENROL||DS_REQ);
   const cefr=(DS_ENROL?.level_cefr||DS_REQ?.level_cefr||'A1').toUpperCase();
+
+  // Prefer course from CELL_MAP (already resolved by main app),
+  // then from enrolment/request family field, then infer from text
+  let course='adults';
+  if(turmaCode){
+    // Find the cell that has this turmaCode and read its dept/course
+    const matchCell=Object.values(CM).find(c=>c.turmaCode===turmaCode);
+    if(matchCell?.course) course=matchCell.course;
+    else if(matchCell?.dept) course=deptToCourse(matchCell.dept);
+    else course=inferCourse(DS_ENROL||DS_REQ);
+  } else {
+    course=inferCourse(DS_ENROL||DS_REQ);
+  }
+
+  // Debug — open console to verify
+  console.log('[Dossier] ref='+ref+' | family='+(DS_ENROL?.family||DS_REQ?.family||'—')+' | level_cefr='+cefr+' | level_raw='+(DS_ENROL?.level_raw||'—')+' | course='+course);
 
   renderCover({name:DS_ENROL?.name||ref,ref,
     lang:DS_ENROL?.lang||DS_REQ?.lang||'EN',
@@ -708,12 +723,34 @@ function row(k,v,c){
   return`<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`;
 }
 
+/* Map dept string (from CELL_MAP) → course key */
+function deptToCourse(dept){
+  const d=(dept||'').toLowerCase();
+  if(/exam/.test(d))   return'exam';
+  if(/infant/.test(d)) return'infantil';
+  if(/juven|kid/.test(d)) return'kids';
+  return'adults';
+}
+
 function inferCourse(e){
   if(!e)return'adults';
-  const s=[e.family,e.course,e.department,e.level_cefr,e.level_raw,e.notes].filter(Boolean).join(' ').toLowerCase();
-  if(/exam|exame/.test(s))           return'exam';
-  if(/infant|prep|pi-a|pia/.test(s)) return'infantil';
-  if(/kid|juven|junior|pj/.test(s))  return'kids';
+  // Collect every string field that might encode department
+  const s=[
+    e.family, e.course, e.department, e.dept,
+    e.level_cefr, e.level_raw, e.level_display,
+    e.turma_code, e.notes
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if(/exam|exame/.test(s))                          return'exam';
+  if(/infant|prep|pi-?a\d?/.test(s))                return'infantil';
+  if(/kid|juven|junior|pj\d|p\.j/.test(s))          return'kids';
+
+  // Fallback: if family is literally 'kids' or 'juvenil'
+  const fam=(e.family||'').toLowerCase();
+  if(fam==='kids'||fam==='juvenil'||fam==='juv')    return'kids';
+  if(fam==='infantil'||fam==='infant'||fam==='prep') return'infantil';
+  if(fam==='exam'||fam==='exames')                  return'exam';
+
   return'adults';
 }
 
@@ -751,5 +788,5 @@ document.addEventListener('keydown',e=>{
 });
 
 window.nmToast=dsToast;
-console.log('[ALM Dossier v10 — 4 dept colours] loaded ✓');
+console.log('[ALM Dossier v10 — 4 dept colours + CELL_MAP lookup] loaded ✓');
 })();
