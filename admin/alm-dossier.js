@@ -34,22 +34,22 @@ const CSS = `
   background:rgba(0,0,0,.55);
   backdrop-filter:blur(24px) saturate(180%);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
-  align-items:flex-end;justify-content:center;
+  align-items:center;justify-content:center;
 }
 .ds-overlay.open{display:flex;}
 
 .ds-sheet{
-  width:min(520px,100vw);max-height:91dvh;
+  width:min(520px,96vw);max-height:88dvh;
   background:var(--bg);
-  border-radius:18px 18px 0 0;
-  border-top:.5px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  border:.5px solid rgba(255,255,255,.10);
   display:flex;flex-direction:column;overflow:hidden;
-  animation:shUp .32s cubic-bezier(.32,.72,0,1);
-  padding-bottom:env(safe-area-inset-bottom,0px);
+  animation:shUp .28s cubic-bezier(.32,.72,0,1);
+  padding-bottom:0;
 }
-.ds-sheet.ds-exit{animation:shDn .25s cubic-bezier(.32,.72,0,1) forwards;}
-@keyframes shUp{from{transform:translateY(100%)}to{transform:none}}
-@keyframes shDn{to{transform:translateY(100%)}}
+.ds-sheet.ds-exit{animation:shDn .22s cubic-bezier(.32,.72,0,1) forwards;}
+@keyframes shUp{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+@keyframes shDn{to{transform:scale(.94);opacity:0}}
 
 /* ── Banner ── */
 .ds-banner{
@@ -63,11 +63,7 @@ const CSS = `
   position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(to bottom,rgba(0,0,0,.22) 0%,rgba(0,0,0,.54) 100%);
 }
-.ds-handle{
-  position:absolute;top:9px;left:50%;transform:translateX(-50%);
-  width:34px;height:4px;border-radius:99px;
-  background:rgba(255,255,255,.28);z-index:10;
-}
+.ds-handle{display:none;}
 .ds-close{
   position:absolute;top:13px;right:14px;z-index:10;
   width:26px;height:26px;border-radius:50%;
