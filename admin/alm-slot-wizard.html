@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Motor de Horários</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,0.15);--gold4:rgba(201,168,76,0.06);
+  --green:#1DB87A;--green2:rgba(29,184,122,0.15);--green3:rgba(29,184,122,0.07);
+  --red:#E8455A;--red2:rgba(232,69,90,0.18);--red3:rgba(232,69,90,0.07);
+  --amber:#E8A020;--amber2:rgba(232,160,32,0.18);--amber3:rgba(232,160,32,0.07);
+  --teal:#28C8B0;--purple:#9B5ECA;--blue:#4A8FF5;
+  --bg:#070510;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A1530;
+  --b:rgba(255,255,255,0.055);--b2:rgba(201,168,76,0.18);--b3:rgba(201,168,76,0.32);
+  --t:rgba(235,218,175,0.92);--t2:rgba(210,188,140,0.52);--t3:rgba(210,188,140,0.26);--t4:rgba(210,188,140,0.12);
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --display:'Bebas Neue',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);font-family:var(--sans);color:var(--t);font-size:13px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:0}
+
+/* ── BAR ── */
+.bar{position:sticky;top:0;z-index:200;height:44px;display:flex;align-items:center;padding:0 16px;gap:0;background:rgba(7,5,16,0.97);border-bottom:0.5px solid var(--b2);backdrop-filter:blur(20px)}
+.bar-brand{font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--gold2);flex-shrink:0}
+.bar-sep{width:0.5px;height:18px;background:var(--b2);margin:0 12px;flex-shrink:0}
+.bar-page{font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--t2)}
+.bar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.bar-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:3px;border:0.5px solid var(--b);background:var(--gold4);color:var(--t2);font-size:9px;font-weight:600;letter-spacing:0.08em;text-decoration:none;cursor:pointer;transition:all .12s;font-family:var(--sans)}
+.bar-btn:hover,.bar-btn.act{background:var(--gold3);border-color:var(--b2);color:var(--gold2)}
+.bar-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bar-btn.green{background:var(--green3);border-color:rgba(29,184,122,0.3);color:var(--green)}
+.bar-btn.green:hover{background:var(--green2)}
+.live{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:3px;background:var(--green3);border:0.5px solid rgba(29,184,122,0.25)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+.live-lbl{font-family:var(--mono);font-size:8px;font-weight:600;color:var(--green);letter-spacing:0.1em}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 44px);position:relative;z-index:1}
+
+/* ── SIDEBAR ── */
+.sidebar{background:var(--bg2);border-right:0.5px solid var(--b);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-hdr{padding:12px 14px;border-bottom:0.5px solid var(--b);flex-shrink:0}
+.sidebar-title{font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.filter-stack{display:flex;flex-direction:column;gap:5px}
+.filter-row{display:flex;flex-direction:column;gap:3px}
+.filter-lbl{font-size:7.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3)}
+.filter-btns{display:flex;flex-wrap:wrap;gap:2px}
+.fb{padding:2px 7px;border-radius:2px;font-size:8px;font-weight:600;letter-spacing:0.06em;cursor:pointer;border:0.5px solid var(--b);background:transparent;color:var(--t3);transition:all .1s;font-family:var(--sans)}
+.fb:hover{border-color:var(--b2);color:var(--t2)}
+.fb.act{background:var(--gold3);border-color:var(--b2);color:var(--gold2)}
+.fb.juve.act{background:rgba(40,200,176,0.12);border-color:rgba(40,200,176,0.3);color:var(--teal)}
+.fb.geral.act{background:rgba(200,164,74,0.12);border-color:rgba(200,164,74,0.3);color:var(--gold)}
+.fb.exam.act{background:rgba(155,94,202,0.12);border-color:rgba(155,94,202,0.3);color:var(--purple)}
+.search-box{background:var(--bg3);border:0.5px solid var(--b);border-radius:3px;padding:5px 8px;font-size:9px;color:var(--t);font-family:var(--mono);width:100%;outline:none;margin-top:4px}
+.search-box:focus{border-color:var(--b2)}
+.search-box::placeholder{color:var(--t4)}
+
+/* ── STATS STRIP ── */
+.stats-strip{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px 14px;border-bottom:0.5px solid var(--b);flex-shrink:0}
+.stat-box{background:var(--bg3);border:0.5px solid var(--b);border-radius:3px;padding:6px 8px}
+.stat-val{font-family:var(--display);font-size:18px;color:var(--gold2);line-height:1}
+.stat-lbl{font-size:7px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-top:1px}
+
+/* ── GROUP LIST ── */
+.group-list{flex:1;overflow-y:auto;padding:6px}
+.group-list::-webkit-scrollbar{width:3px}
+.group-list::-webkit-scrollbar-track{background:transparent}
+.group-list::-webkit-scrollbar-thumb{background:var(--b2);border-radius:999px}
+.group-card{background:var(--bg3);border:0.5px solid var(--b);border-radius:4px;margin-bottom:4px;cursor:pointer;transition:all .15s;overflow:hidden}
+.group-card:hover{border-color:var(--b2)}
+.group-card.selected{border-color:var(--gold);background:var(--bg4)}
+.group-card.confirmed{border-color:rgba(29,184,122,0.4);background:rgba(29,184,122,0.04)}
+.gc-top{display:flex;align-items:center;gap:6px;padding:7px 10px}
+.gc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.gc-name{font-size:9px;font-weight:600;color:var(--t);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-count{font-family:var(--mono);font-size:9px;font-weight:600;flex-shrink:0}
+.gc-meta{padding:0 10px 7px;display:flex;gap:4px;flex-wrap:wrap}
+.gc-tag{font-family:var(--mono);font-size:7px;padding:1px 5px;border-radius:2px;border:0.5px solid var(--b);color:var(--t3)}
+.gc-slots{padding:0 10px 7px;display:flex;gap:4px}
+.gc-slot{font-family:var(--mono);font-size:7.5px;padding:2px 6px;border-radius:2px;font-weight:600}
+.slot-a{background:rgba(74,143,245,0.12);border:0.5px solid rgba(74,143,245,0.3);color:var(--blue)}
+.slot-b{background:rgba(155,94,202,0.12);border:0.5px solid rgba(155,94,202,0.3);color:var(--purple)}
+.slot-none{background:var(--amber3);border:0.5px solid rgba(232,160,32,0.3);color:var(--amber)}
+.gc-confirmed-badge{padding:0 10px 7px}
+.confirmed-pill{font-family:var(--mono);font-size:7px;font-weight:600;padding:2px 6px;border-radius:2px;background:var(--green3);border:0.5px solid rgba(29,184,122,0.3);color:var(--green);display:inline-block}
+
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.main-hdr{padding:12px 16px;border-bottom:0.5px solid var(--b);background:rgba(0,0,0,0.2);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.main-title{font-family:var(--display);font-size:18px;letter-spacing:2px;color:var(--gold2)}
+.main-sub{font-size:9px;color:var(--t3);margin-top:2px}
+.main-actions{margin-left:auto;display:flex;gap:6px}
+.action-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:3px;border:0.5px solid;font-size:9px;font-weight:600;letter-spacing:0.08em;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.action-btn.primary{background:var(--green3);border-color:rgba(29,184,122,0.4);color:var(--green)}
+.action-btn.primary:hover{background:var(--green2)}
+.action-btn.primary:disabled{opacity:0.3;cursor:not-allowed}
+.action-btn.secondary{background:var(--gold4);border-color:var(--b2);color:var(--gold)}
+.action-btn.secondary:hover{background:var(--gold3)}
+.action-btn.danger{background:var(--red3);border-color:rgba(232,69,90,0.3);color:var(--red)}
+.action-btn.danger:hover{background:var(--red2)}
+.action-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+.main-body{flex:1;overflow-y:auto;padding:16px}
+.main-body::-webkit-scrollbar{width:3px}
+.main-body::-webkit-scrollbar-thumb{background:var(--b2);border-radius:999px}
+
+/* ── EMPTY STATE ── */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--t3)}
+.empty-icon{width:48px;height:48px;border-radius:50%;background:var(--bg2);border:0.5px solid var(--b);display:flex;align-items:center;justify-content:center}
+.empty-icon svg{width:20px;height:20px;stroke:var(--t3);stroke-width:1.5;fill:none}
+.empty-title{font-size:11px;font-weight:600;color:var(--t2)}
+.empty-sub{font-size:9px;text-align:center;max-width:240px;line-height:1.5}
+
+/* ── DETAIL PANEL ── */
+.detail-section{margin-bottom:16px}
+.detail-sec-title{font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.detail-sec-title::after{content:'';flex:1;height:0.5px;background:var(--b)}
+
+/* ── SLOTS PICKER ── */
+.slots-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.slot-picker{background:var(--bg2);border:0.5px solid var(--b);border-radius:4px;padding:10px;position:relative}
+.slot-picker.selected{border-color:var(--blue)}
+.slot-picker-label{font-size:8px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px}
+.slot-a-label{color:var(--blue)}
+.slot-b-label{color:var(--purple)}
+.slot-options{display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto}
+.slot-option{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:3px;cursor:pointer;border:0.5px solid transparent;transition:all .1s}
+.slot-option:hover{background:rgba(255,255,255,0.04)}
+.slot-option.chosen{background:rgba(74,143,245,0.08);border-color:rgba(74,143,245,0.2)}
+.slot-option.chosen.slot-b-opt{background:rgba(155,94,202,0.08);border-color:rgba(155,94,202,0.2)}
+.slot-day{font-family:var(--display);font-size:14px;color:var(--gold2);width:28px;flex-shrink:0}
+.slot-time{font-family:var(--mono);font-size:9px;color:var(--t2)}
+.slot-n{font-family:var(--mono);font-size:8px;font-weight:600;margin-left:auto;flex-shrink:0}
+
+/* ── AVAILABILITY HEATMAP ── */
+.avail-grid{background:var(--bg2);border:0.5px solid var(--b);border-radius:4px;padding:10px;margin-bottom:12px;overflow-x:auto}
+.avail-table{border-collapse:collapse;width:100%;min-width:500px}
+.avail-table th{font-size:7px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);padding:3px 5px;text-align:center;border-bottom:0.5px solid var(--b)}
+.avail-table td{padding:2px 3px;text-align:center}
+.avail-cell{width:32px;height:22px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:7px;font-weight:600;cursor:pointer;border:0.5px solid transparent;transition:all .1s}
+.avail-cell:hover{filter:brightness(1.3)}
+.avail-cell.marked-a{outline:2px solid var(--blue);outline-offset:-1px}
+.avail-cell.marked-b{outline:2px solid var(--purple);outline-offset:-1px}
+.avail-day-lbl{font-size:7.5px;font-weight:700;letter-spacing:0.08em;color:var(--t3);text-align:right;padding-right:6px;font-family:var(--mono)}
+
+/* ── STUDENT LIST ── */
+.student-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px}
+.student-chip{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg2);border:0.5px solid var(--b);border-radius:3px;cursor:pointer;transition:all .1s}
+.student-chip:hover{border-color:var(--b2)}
+.student-chip.excluded{opacity:0.35;background:var(--bg);text-decoration:line-through}
+.sc-ini{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0}
+.sc-name{font-size:9px;color:var(--t);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-ref{font-family:var(--mono);font-size:7px;color:var(--t3)}
+.sc-avail{font-family:var(--mono);font-size:7px;color:var(--green);margin-left:auto;flex-shrink:0}
+.sc-miss{font-family:var(--mono);font-size:7px;color:var(--red);margin-left:auto;flex-shrink:0}
+
+/* ── CONFIRM PANEL ── */
+.confirm-box{background:var(--green3);border:0.5px solid rgba(29,184,122,0.3);border-radius:4px;padding:12px 14px;margin-bottom:12px}
+.confirm-box-title{font-size:10px;font-weight:600;color:var(--green);margin-bottom:4px}
+.confirm-box-sub{font-size:9px;color:rgba(29,184,122,0.7);line-height:1.5}
+.turma-input{background:rgba(29,184,122,0.08);border:0.5px solid rgba(29,184,122,0.3);border-radius:3px;padding:6px 10px;font-size:11px;font-weight:600;color:var(--green);font-family:var(--mono);width:100%;outline:none;margin-top:6px}
+.turma-input::placeholder{color:rgba(29,184,122,0.35)}
+.turma-input:focus{border-color:rgba(29,184,122,0.6)}
+
+/* ── COMPATIBILITY SCORE ── */
+.compat-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.compat-label{font-size:8px;color:var(--t3);width:80px;flex-shrink:0}
+.compat-track{flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:999px;overflow:hidden}
+.compat-fill{height:100%;border-radius:999px;transition:width .8s ease}
+.compat-val{font-family:var(--mono);font-size:8px;font-weight:600;width:32px;text-align:right;flex-shrink:0}
+
+/* ── LOADING ── */
+.loading{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px}
+.ld{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);animation:ld 1.2s ease infinite}
+.ld:nth-child(2){animation-delay:.2s;background:var(--teal)}
+.ld:nth-child(3){animation-delay:.4s;background:var(--purple)}
+@keyframes ld{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:0.5px solid var(--b2);border-radius:6px;padding:10px 16px;font-size:10px;color:var(--t);z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(29,184,122,0.4);background:rgba(29,184,122,0.08);color:var(--green)}
+.toast.err{border-color:rgba(232,69,90,0.4);background:rgba(232,69,90,0.08);color:var(--red)}
+
+/* ── PAIR VIABILITY MATRIX ── */
+.pair-matrix{display:grid;gap:4px;margin-bottom:12px}
+.pair-row{display:flex;align-items:center;gap:4px}
+.pair-day-lbl{font-family:var(--display);font-size:13px;color:var(--t3);width:28px;flex-shrink:0;text-align:right}
+.pair-cells{display:flex;gap:3px;flex-wrap:wrap}
+.pair-cell{padding:4px 8px;border-radius:3px;font-family:var(--mono);font-size:8px;font-weight:600;cursor:pointer;border:0.5px solid;transition:all .15s;white-space:nowrap}
+.pair-cell:hover{filter:brightness(1.2)}
+.pair-cell.viable{background:rgba(29,184,122,0.1);border-color:rgba(29,184,122,0.3);color:var(--green)}
+.pair-cell.sustain{background:rgba(232,160,32,0.1);border-color:rgba(232,160,32,0.3);color:var(--amber)}
+.pair-cell.risk{background:rgba(232,69,90,0.08);border-color:rgba(232,69,90,0.2);color:var(--red)}
+.pair-cell.selected-pair{outline:1.5px solid var(--gold);outline-offset:1px}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- BAR -->
+<div class="bar">
+  <div style="display:flex;align-items:center;border:0.5px solid var(--b2);background:var(--gold4);border-radius:4px;overflow:hidden;flex-shrink:0">
+    <a style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;color:var(--t2);text-decoration:none;border-right:0.5px solid var(--b);transition:all .13s" href="dashboard.html">
+      <svg style="width:12px;height:12px;stroke:currentColor;stroke-width:1.8;fill:none" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    </a>
+    <button style="display:flex;align-items:center;padding:0 10px;height:30px;background:transparent;border:none;cursor:pointer;font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--t2);font-family:var(--sans)" onclick="location.href='dashboard.html'">MENU</button>
+  </div>
+  <div class="bar-sep"></div>
+  <span class="bar-brand">ALM</span>
+  <div class="bar-sep"></div>
+  <span class="bar-page">Motor de Horários · Formação de Turmas</span>
+  <div class="bar-right">
+    <a class="bar-btn" href="command-centre.html">
+      <svg viewBox="0 0 16 16"><path d="M2 12l3-4 3 2 3-5 3 3"/></svg>ANÁLISE
+    </a>
+    <a class="bar-btn" href="timetable-audit.html">
+      <svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h8M2 12h5"/></svg>AUDITORIA
+    </a>
+    <div class="live"><div class="live-dot"></div><span class="live-lbl">LIVE</span></div>
+    <div style="font-family:var(--display);font-size:20px;color:var(--gold);letter-spacing:3px" id="clock">--:--</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-hdr">
+      <div class="sidebar-title">Grupos Propostos</div>
+      <div class="filter-stack">
+        <div class="filter-row">
+          <div class="filter-lbl">Filial</div>
+          <div class="filter-btns" id="branch-filters"></div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-lbl">Departamento</div>
+          <div class="filter-btns">
+            <button class="fb act" onclick="setDept('all',this)">TODOS</button>
+            <button class="fb juve" onclick="setDept('juvenil',this)">JUVENIL</button>
+            <button class="fb geral" onclick="setDept('geral',this)">GERAL</button>
+            <button class="fb exam" onclick="setDept('exam',this)">EXAMES</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-lbl">Status</div>
+          <div class="filter-btns">
+            <button class="fb act" onclick="setStatus('all',this)">TODOS</button>
+            <button class="fb" onclick="setStatus('pending',this)">POR TRATAR</button>
+            <button class="fb" onclick="setStatus('confirmed',this)">CONFIRMADOS</button>
+          </div>
+        </div>
+        <input class="search-box" id="search-inp" placeholder="pesquisar grupo…" oninput="renderGroupList()"/>
+      </div>
+    </div>
+
+    <div class="stats-strip" id="stats-strip">
+      <div class="stat-box"><div class="stat-val" id="st-total">—</div><div class="stat-lbl">Grupos</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--green)" id="st-confirmed">—</div><div class="stat-lbl">Confirmados</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--amber)" id="st-pending">—</div><div class="stat-lbl">Por tratar</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--teal)" id="st-students">—</div><div class="stat-lbl">Alunos</div></div>
+    </div>
+
+    <div class="group-list" id="group-list">
+      <div class="loading"><div class="ld"></div><div class="ld"></div><div class="ld"></div></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-hdr" id="main-hdr">
+      <div>
+        <div class="main-title" id="main-title">MOTOR DE HORÁRIOS</div>
+        <div class="main-sub" id="main-sub">Seleccione um grupo para ver detalhes e propor horário</div>
+      </div>
+      <div class="main-actions" id="main-actions"></div>
+    </div>
+    <div class="main-body" id="main-body">
+      <div class="empty-state">
+        <div class="empty-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M9 4v5M15 4v5"/></svg></div>
+        <div class="empty-title">Seleccione um grupo</div>
+        <div class="empty-sub">Escolha um grupo na lista à esquerda para ver a disponibilidade dos alunos e propor um horário</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ CONFIG ══ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = { 'apikey': KEY, 'Authorization': `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+const ACADEMIC_YEAR = '2026/2027';
+
+/* ══ ALM LEVELS ══ */
+const ALM = {
+  lookup: {
+    'kids|A1':   { dept:'juvenil', label:'Pj1', color:'#28C8B0', order:1, max:12, min:4 },
+    'kids|A2':   { dept:'juvenil', label:'Pj2', color:'#28C8B0', order:2, max:12, min:4 },
+    'kids|B1':   { dept:'juvenil', label:'Pj3', color:'#28C8B0', order:3, max:12, min:4 },
+    'adults|A1': { dept:'geral',   label:'1st', color:'#C8A44A', order:4, max:14, min:4 },
+    'adults|A2': { dept:'geral',   label:'2nd', color:'#C8A44A', order:5, max:14, min:4 },
+    'adults|B1': { dept:'geral',   label:'3rd', color:'#C8A44A', order:6, max:14, min:4 },
+    'adults|B2': { dept:'geral',   label:'4th', color:'#C8A44A', order:7, max:14, min:4 },
+    'adults|C1': { dept:'geral',   label:'5th', color:'#C8A44A', order:8, max:14, min:4 },
+    'exam|B2':   { dept:'exam',    label:'6th', color:'#9B5ECA', order:9, max:12, min:4 },
+    'exam|C1':   { dept:'exam',    label:'7th', color:'#9B5ECA', order:10, max:12, min:4 },
+    'exam|C2':   { dept:'exam',    label:'8th', color:'#9B5ECA', order:11, max:12, min:4 },
+  },
+  get(family, cefr) {
+    const key = `${(family||'adults').toLowerCase()}|${(cefr||'').toUpperCase()}`;
+    return this.lookup[key] || { dept:'geral', label:cefr||'?', color:'#C8A44A', order:99, max:14, min:4 };
+  }
+};
+
+const DAYS     = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+const DAYS_PT  = { monday:'SEG', tuesday:'TER', wednesday:'QUA', thursday:'QUI', friday:'SEX', saturday:'SÁB' };
+const DAYS_FULL= { monday:'Segunda', tuesday:'Terça', wednesday:'Quarta', thursday:'Quinta', friday:'Sexta', saturday:'Sábado' };
+const HOURS    = [8,9,10,11,14,15,16,17,18,19,20];
+const LANG_FLAGS = { English:'🇬🇧', Português:'🇵🇹', Español:'🇪🇸', Deutsch:'🇩🇪', Français:'🇫🇷' };
+const BRANCH_NAMES = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
+
+/* ══ STATE ══ */
+let allRequests = [];
+let proposedGroups = [];
+let selectedGroup = null;
+let filters = { branch:'all', dept:'all', status:'all' };
+let confirmedGroups = {}; // groupKey → { turmaId, slotA, slotB, excluded }
+
+/* ══ FETCH ══ */
+async function sbGet(table, q='') {
+  const r = await fetch(`${SB}/rest/v1/${table}?${q}`, { headers: H });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+async function sbPatch(table, q, body) {
+  const r = await fetch(`${SB}/rest/v1/${table}?${q}`, {
+    method:'PATCH', headers:{...H,'Prefer':'return=minimal'}, body:JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(r.status);
+}
+
+/* ══ CLOCK ══ */
+function tick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+}
+tick(); setInterval(tick, 60000);
+
+/* ══ TOAST ══ */
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ══ LOAD ══ */
+async function loadAll() {
+  try {
+    const reqs = await sbGet('timetable_requests',
+      `select=ref,student_name,branch,lang,level_cefr,family,day_preferences,status,assigned_turma` +
+      `&academic_year=eq.${encodeURIComponent(ACADEMIC_YEAR)}&limit=2000`);
+    allRequests = (reqs || []).filter(r => r.day_preferences && r.day_preferences.length > 0);
+    buildProposedGroups();
+    buildBranchFilters();
+    renderGroupList();
+    renderStats();
+  } catch(e) {
+    document.getElementById('group-list').innerHTML =
+      `<div style="padding:16px;font-size:9px;color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+/* ══ GROUP BUILDER ══ */
+function normBranch(b) {
+  return (b||'N/A').toUpperCase().replace(/[\s\-]+/g,'_').trim();
+}
+
+function buildProposedGroups() {
+  const map = {};
+  allRequests.forEach(r => {
+    const family = (r.family||'adults').toLowerCase();
+    const cefr   = (r.level_cefr||'').toUpperCase();
+    const branch = normBranch(r.branch);
+    const lang   = r.lang || 'Unknown';
+    const info   = ALM.get(family, cefr);
+    const key    = `${lang}||${family}||${cefr}||${branch}`;
+
+    if (!map[key]) map[key] = {
+      key, lang, family, cefr, branch, info,
+      students: [], slotA: null, slotB: null, confirmed: false, turmaId: ''
+    };
+    map[key].students.push(r);
+  });
+
+  // For each group, find best slot pair
+  proposedGroups = Object.values(map).map(g => {
+    const best = findBestSlotPair(g.students, g.info.dept);
+    g.bestPairs = best;
+    // Restore confirmed state
+    const saved = confirmedGroups[g.key];
+    if (saved) {
+      g.slotA = saved.slotA;
+      g.slotB = saved.slotB;
+      g.confirmed = true;
+      g.turmaId = saved.turmaId;
+      g.excluded = saved.excluded || [];
+    } else {
+      g.slotA = best[0] ? best[0].slotA : null;
+      g.slotB = best[0] ? best[0].slotB : null;
+      g.excluded = [];
+    }
+    return g;
+  });
+
+  proposedGroups.sort((a, b) => {
+    if (a.info.order !== b.info.order) return a.info.order - b.info.order;
+    return a.lang.localeCompare(b.lang);
+  });
+}
+
+function getSlotKey(day, hour) { return `${day}|${hour}`; }
+
+function findBestSlotPair(students, dept) {
+  // Count availability per slot
+  const slotCount = {};
+  students.forEach(s => {
+    (s.day_preferences || []).forEach(p => {
+      const h = parseInt((p.session_start||'').split(':')[0]);
+      if (isNaN(h)) return;
+      const key = getSlotKey(p.day, h);
+      slotCount[key] = (slotCount[key] || 0) + 1;
+    });
+  });
+
+  // Preferred day pairs
+  const dayPairs = [
+    ['tuesday','thursday'],
+    ['wednesday','friday'],
+    ['thursday','saturday'],
+    ['tuesday','saturday'],
+    ['monday','wednesday'],
+    ['monday','thursday'],
+    ['wednesday','saturday'],
+    ['monday','friday'],
+  ];
+
+  const results = [];
+
+  // For each day pair and each hour combination
+  dayPairs.forEach(([d1, d2]) => {
+    HOURS.forEach(h1 => {
+      HOURS.forEach(h2 => {
+        const key1 = getSlotKey(d1, h1);
+        const key2 = getSlotKey(d2, h2);
+        const n1 = slotCount[key1] || 0;
+        const n2 = slotCount[key2] || 0;
+
+        // Count students free on BOTH slots
+        const bothFree = students.filter(s => {
+          const prefs = s.day_preferences || [];
+          const hasA = prefs.some(p => p.day === d1 && parseInt((p.session_start||'').split(':')[0]) === h1);
+          const hasB = prefs.some(p => p.day === d2 && parseInt((p.session_start||'').split(':')[0]) === h2);
+          return hasA && hasB;
+        }).length;
+
+        if (bothFree >= 2) {
+          results.push({
+            slotA: { day: d1, hour: h1 },
+            slotB: { day: d2, hour: h2 },
+            count: bothFree,
+            score: bothFree * 2 + n1 + n2
+          });
+        }
+      });
+    });
+  });
+
+  return results.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+function countFitStudents(group, slotA, slotB) {
+  if (!slotA || !slotB) return 0;
+  return group.students.filter(s => {
+    if ((group.excluded||[]).includes(s.ref)) return false;
+    const prefs = s.day_preferences || [];
+    const hasA = prefs.some(p => p.day === slotA.day && parseInt((p.session_start||'').split(':')[0]) === slotA.hour);
+    const hasB = prefs.some(p => p.day === slotB.day && parseInt((p.session_start||'').split(':')[0]) === slotB.hour);
+    return hasA && hasB;
+  }).length;
+}
+
+/* ══ FILTERS ══ */
+function buildBranchFilters() {
+  const branches = [...new Set(allRequests.map(r => normBranch(r.branch)))].sort();
+  const wrap = document.getElementById('branch-filters');
+  wrap.innerHTML = `<button class="fb act" onclick="setBranch('all',this)">TODAS</button>` +
+    branches.map(b => `<button class="fb" onclick="setBranch('${b}',this)">${BRANCH_NAMES[b]||b}</button>`).join('');
+}
+
+function setBranch(v, el) {
+  filters.branch = v;
+  el.closest('.filter-btns').querySelectorAll('.fb').forEach(b => b.classList.remove('act'));
+  el.classList.add('act');
+  renderGroupList();
+}
+function setDept(v, el) {
+  filters.dept = v;
+  el.closest('.filter-btns').querySelectorAll('.fb').forEach(b => b.classList.remove('act'));
+  el.classList.add('act');
+  renderGroupList();
+}
+function setStatus(v, el) {
+  filters.status = v;
+  el.closest('.filter-btns').querySelectorAll('.fb').forEach(b => b.classList.remove('act'));
+  el.classList.add('act');
+  renderGroupList();
+}
+
+function getFilteredGroups() {
+  const q = (document.getElementById('search-inp')?.value||'').toLowerCase();
+  return proposedGroups.filter(g => {
+    if (filters.branch !== 'all' && g.branch !== filters.branch) return false;
+    if (filters.dept !== 'all' && g.info.dept !== filters.dept) return false;
+    if (filters.status === 'pending' && g.confirmed) return false;
+    if (filters.status === 'confirmed' && !g.confirmed) return false;
+    if (q) {
+      const str = `${g.lang} ${g.info.label} ${g.branch} ${BRANCH_NAMES[g.branch]||''}`.toLowerCase();
+      if (!str.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ══ RENDER GROUP LIST ══ */
+function renderGroupList() {
+  const groups = getFilteredGroups();
+  const el = document.getElementById('group-list');
+  if (!groups.length) {
+    el.innerHTML = '<div style="padding:16px;font-size:9px;color:var(--t3);text-align:center">Nenhum grupo encontrado</div>';
+    return;
+  }
+  el.innerHTML = groups.map(g => {
+    const fitCount = countFitStudents(g, g.slotA, g.slotB);
+    const viability = fitCount >= g.info.min ? 'green' : fitCount >= Math.ceil(g.info.min*0.6) ? 'amber' : 'red';
+    const flag = LANG_FLAGS[g.lang] || '';
+    const isSelected = selectedGroup && selectedGroup.key === g.key;
+    return `<div class="group-card${isSelected?' selected':''}${g.confirmed?' confirmed':''}" onclick="selectGroup('${g.key}')">
+      <div class="gc-top">
+        <div class="gc-dot" style="background:${g.info.color}"></div>
+        <div class="gc-name">${flag} ${g.lang} · ${g.info.label} · ${BRANCH_NAMES[g.branch]||g.branch}</div>
+        <div class="gc-count" style="color:var(--${viability})">${fitCount}</div>
+      </div>
+      <div class="gc-meta">
+        <span class="gc-tag">${g.students.length} com disponib.</span>
+        <span class="gc-tag">${g.info.dept}</span>
+      </div>
+      ${g.slotA && g.slotB ? `<div class="gc-slots">
+        <span class="gc-slot slot-a">A: ${DAYS_PT[g.slotA.day]} ${g.slotA.hour}h</span>
+        <span class="gc-slot slot-b">B: ${DAYS_PT[g.slotB.day]} ${g.slotB.hour}h</span>
+      </div>` : `<div class="gc-slots"><span class="gc-slot slot-none">sem horário</span></div>`}
+      ${g.confirmed ? `<div class="gc-confirmed-badge"><span class="confirmed-pill">✓ ${g.turmaId||'confirmado'}</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const groups = proposedGroups;
+  document.getElementById('st-total').textContent = groups.length;
+  document.getElementById('st-confirmed').textContent = groups.filter(g=>g.confirmed).length;
+  document.getElementById('st-pending').textContent = groups.filter(g=>!g.confirmed).length;
+  document.getElementById('st-students').textContent = allRequests.length;
+}
+
+/* ══ SELECT GROUP ══ */
+function selectGroup(key) {
+  selectedGroup = proposedGroups.find(g => g.key === key);
+  renderGroupList();
+  renderDetail();
+}
+
+/* ══ RENDER DETAIL ══ */
+function renderDetail() {
+  if (!selectedGroup) return;
+  const g = selectedGroup;
+  const flag = LANG_FLAGS[g.lang] || '';
+  const fitCount = countFitStudents(g, g.slotA, g.slotB);
+
+  document.getElementById('main-title').textContent =
+    `${flag} ${g.lang} · ${g.info.label} · ${BRANCH_NAMES[g.branch]||g.branch}`;
+  document.getElementById('main-sub').textContent =
+    `${g.students.length} alunos com disponibilidade · ${g.info.dept.toUpperCase()} · ${g.cefr}`;
+
+  // Actions
+  const acts = document.getElementById('main-actions');
+  if (g.confirmed) {
+    acts.innerHTML = `
+      <button class="action-btn danger" onclick="unconfirmGroup()">
+        <svg viewBox="0 0 16 16"><path d="M2 2l12 12M14 2L2 14"/></svg>CANCELAR TURMA
+      </button>`;
+  } else {
+    acts.innerHTML = `
+      <button class="action-btn secondary" onclick="autoAssign()">
+        <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8l6-6 6 6"/></svg>AUTO HORÁRIO
+      </button>
+      <button class="action-btn primary" id="confirm-btn" onclick="showConfirmPanel()" ${fitCount < g.info.min ? 'disabled' : ''}>
+        <svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg>CONFIRMAR TURMA
+      </button>`;
+  }
+
+  // Build body
+  let html = '';
+
+  // Confirm box if confirmed
+  if (g.confirmed) {
+    html += `<div class="confirm-box">
+      <div class="confirm-box-title">✓ Turma confirmada — ${g.turmaId}</div>
+      <div class="confirm-box-sub">
+        Lesson A: ${DAYS_FULL[g.slotA?.day]||'—'} às ${g.slotA?.hour}h &nbsp;·&nbsp;
+        Lesson B: ${DAYS_FULL[g.slotB?.day]||'—'} às ${g.slotB?.hour}h<br>
+        ${fitCount} alunos atribuídos a esta turma
+      </div>
+    </div>`;
+  }
+
+  // Compatibility score
+  html += `<div class="detail-section">
+    <div class="detail-sec-title">Compatibilidade de horário</div>
+    ${renderCompatBars(g)}
+  </div>`;
+
+  // Best pairs matrix
+  html += `<div class="detail-section">
+    <div class="detail-sec-title">Pares de dias viáveis <span style="font-size:7px;color:var(--t4);margin-left:4px">clique para seleccionar</span></div>
+    ${renderPairMatrix(g)}
+  </div>`;
+
+  // Availability heatmap
+  html += `<div class="detail-section">
+    <div class="detail-sec-title">Mapa de disponibilidade</div>
+    <div class="avail-grid">${renderAvailHeatmap(g)}</div>
+  </div>`;
+
+  // Confirm panel
+  if (!g.confirmed) {
+    html += `<div class="detail-section" id="confirm-panel" style="display:none">
+      <div class="detail-sec-title">Confirmar turma</div>
+      <div class="confirm-box">
+        <div class="confirm-box-title">Atribuir turma</div>
+        <div class="confirm-box-sub">
+          Lesson A: <b>${g.slotA ? DAYS_FULL[g.slotA.day]+' '+g.slotA.hour+'h' : '—'}</b> &nbsp;·&nbsp;
+          Lesson B: <b>${g.slotB ? DAYS_FULL[g.slotB.day]+' '+g.slotB.hour+'h' : '—'}</b><br>
+          ${fitCount} alunos com disponibilidade para ambos os slots
+        </div>
+        <input class="turma-input" id="turma-id-inp" placeholder="código da turma (ex: EN-1ST-FUN-A)…"/>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="action-btn primary" style="flex:1" onclick="confirmGroup()">
+            <svg viewBox="0 0 16 16"><polyline points="3 8 6 11 13 4"/></svg>CONFIRMAR
+          </button>
+          <button class="action-btn secondary" onclick="hideConfirmPanel()">CANCELAR</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Student list
+  html += `<div class="detail-section">
+    <div class="detail-sec-title">Alunos (${g.students.length}) <span style="font-size:7px;color:var(--t4);margin-left:4px">clique para excluir/incluir</span></div>
+    <div class="student-grid">${renderStudents(g)}</div>
+  </div>`;
+
+  document.getElementById('main-body').innerHTML = html;
+}
+
+function renderCompatBars(g) {
+  if (!g.bestPairs || !g.bestPairs.length) return '<div style="font-size:9px;color:var(--t3)">Sem pares viáveis encontrados</div>';
+  const max = g.bestPairs[0].count;
+  return g.bestPairs.slice(0, 5).map(p => {
+    const pct = Math.round(p.count / g.students.length * 100);
+    const col = pct >= 60 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+    const isSelected = g.slotA && g.slotB &&
+      g.slotA.day === p.slotA.day && g.slotA.hour === p.slotA.hour &&
+      g.slotB.day === p.slotB.day && g.slotB.hour === p.slotB.hour;
+    return `<div class="compat-bar" style="${isSelected?'background:rgba(201,168,76,0.05);border-radius:3px;padding:2px 4px;margin:-2px -4px':''}" onclick="selectPair('${p.slotA.day}',${p.slotA.hour},'${p.slotB.day}',${p.slotB.hour})">
+      <div class="compat-label" style="cursor:pointer;font-size:7.5px;color:${isSelected?'var(--gold)':'var(--t3)'}">${DAYS_PT[p.slotA.day]} ${p.slotA.hour}h + ${DAYS_PT[p.slotB.day]} ${p.slotB.hour}h</div>
+      <div class="compat-track"><div class="compat-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="compat-val" style="color:${col}">${p.count}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPairMatrix(g) {
+  // Count students available per slot
+  const slotCount = {};
+  g.students.forEach(s => {
+    (s.day_preferences||[]).forEach(p => {
+      const h = parseInt((p.session_start||'').split(':')[0]);
+      if (!isNaN(h)) {
+        const key = getSlotKey(p.day, h);
+        slotCount[key] = (slotCount[key] || 0) + 1;
+      }
+    });
+  });
+
+  // Show top slots per day
+  const topSlots = {};
+  DAYS.forEach(day => {
+    const daySlots = HOURS
+      .map(h => ({ h, n: slotCount[getSlotKey(day, h)] || 0 }))
+      .filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 4);
+    if (daySlots.length) topSlots[day] = daySlots;
+  });
+
+  const rows = DAYS.filter(d => topSlots[d]).map(day => {
+    const cells = (topSlots[day] || []).map(({ h, n }) => {
+      const pct = n / g.students.length;
+      const cls = pct >= 0.5 ? 'viable' : pct >= 0.3 ? 'sustain' : 'risk';
+      const isA = g.slotA && g.slotA.day === day && g.slotA.hour === h;
+      const isB = g.slotB && g.slotB.day === day && g.slotB.hour === h;
+      return `<div class="pair-cell ${cls}${isA?' selected-pair':''}" 
+        onclick="toggleSlot('${day}',${h})"
+        style="${isA?'outline-color:var(--blue)':isB?'outline:1.5px solid var(--purple);outline-offset:1px':''}">
+        ${h}h · ${n}
+      </div>`;
+    }).join('');
+    return `<div class="pair-row">
+      <div class="pair-day-lbl">${DAYS_PT[day]}</div>
+      <div class="pair-cells">${cells}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="pair-matrix">${rows}</div>
+    <div style="display:flex;gap:8px;font-size:8px;color:var(--t3);margin-top:4px">
+      <span style="color:var(--blue)">■ Lesson A</span>
+      <span style="color:var(--purple)">■ Lesson B</span>
+      <span style="margin-left:auto;font-size:7.5px">Clique para atribuir slot</span>
+    </div>`;
+}
+
+let slotSelectState = 'A'; // 'A' or 'B'
+function toggleSlot(day, hour) {
+  if (!selectedGroup) return;
+  const g = selectedGroup;
+  if (slotSelectState === 'A') {
+    g.slotA = { day, hour };
+    slotSelectState = 'B';
+  } else {
+    if (g.slotA && g.slotA.day === day && g.slotA.hour === hour) {
+      // Can't pick same slot
+      toast('Lesson A e B não podem ser o mesmo slot', 'err');
+      return;
+    }
+    g.slotB = { day, hour };
+    slotSelectState = 'A';
+  }
+  renderDetail();
+  renderGroupList();
+}
+
+function selectPair(dayA, hourA, dayB, hourB) {
+  if (!selectedGroup) return;
+  selectedGroup.slotA = { day: dayA, hour: parseInt(hourA) };
+  selectedGroup.slotB = { day: dayB, hour: parseInt(hourB) };
+  slotSelectState = 'A';
+  renderDetail();
+  renderGroupList();
+}
+
+function renderAvailHeatmap(g) {
+  const slotCount = {};
+  g.students.forEach(s => {
+    (s.day_preferences||[]).forEach(p => {
+      const h = parseInt((p.session_start||'').split(':')[0]);
+      if (!isNaN(h)) {
+        const key = getSlotKey(p.day, h);
+        slotCount[key] = (slotCount[key] || 0) + 1;
+      }
+    });
+  });
+  const maxN = Math.max(1, ...Object.values(slotCount));
+
+  const hourHeaders = HOURS.map(h => `<th>${h}h</th>`).join('');
+  const rows = DAYS.map(day => {
+    const cells = HOURS.map(h => {
+      const n = slotCount[getSlotKey(day, h)] || 0;
+      const pct = n / maxN;
+      const isA = g.slotA && g.slotA.day === day && g.slotA.hour === h;
+      const isB = g.slotB && g.slotB.day === day && g.slotB.hour === h;
+      let bg = n === 0 ? 'rgba(255,255,255,0.02)' :
+        pct > 0.7 ? `rgba(29,184,122,${0.2+pct*0.4})` :
+        pct > 0.35 ? `rgba(232,160,32,${0.15+pct*0.3})` :
+        `rgba(74,143,245,${0.1+pct*0.25})`;
+      const markerCls = isA ? 'marked-a' : isB ? 'marked-b' : '';
+      return `<td><div class="avail-cell ${markerCls}" style="background:${bg};color:${n?'var(--t)':'var(--t4)'}" onclick="toggleSlot('${day}',${h})">${n||''}</div></td>`;
+    }).join('');
+    return `<tr><td class="avail-day-lbl">${DAYS_PT[day]}</td>${cells}</tr>`;
+  }).join('');
+
+  return `<table class="avail-table">
+    <thead><tr><th></th>${hourHeaders}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="display:flex;gap:12px;margin-top:6px;font-size:7.5px;color:var(--t3)">
+    <span>■ <span style="color:var(--green)">Alta disponib.</span></span>
+    <span>■ <span style="color:var(--amber)">Média</span></span>
+    <span>■ <span style="color:var(--blue)">Baixa</span></span>
+    <span style="color:var(--blue)">┌ Lesson A</span>
+    <span style="color:var(--purple)">┌ Lesson B</span>
+  </div>`;
+}
+
+function renderStudents(g) {
+  return g.students.map(s => {
+    const excluded = (g.excluded||[]).includes(s.ref);
+    const ini = (s.student_name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const hasA = g.slotA && (s.day_preferences||[]).some(p =>
+      p.day === g.slotA.day && parseInt((p.session_start||'').split(':')[0]) === g.slotA.hour);
+    const hasB = g.slotB && (s.day_preferences||[]).some(p =>
+      p.day === g.slotB.day && parseInt((p.session_start||'').split(':')[0]) === g.slotB.hour);
+    const fitsBoth = hasA && hasB;
+    const slotCount = (s.day_preferences||[]).length;
+    return `<div class="student-chip${excluded?' excluded':''}" onclick="toggleStudent('${s.ref}')">
+      <div class="sc-ini" style="background:${g.info.color}22;color:${g.info.color}">${ini}</div>
+      <div style="flex:1;min-width:0">
+        <div class="sc-name">${s.student_name||'—'}</div>
+        <div class="sc-ref">${s.ref}</div>
+      </div>
+      ${excluded ? '<span style="font-size:7px;color:var(--red)">excl.</span>' :
+        fitsBoth ? '<span class="sc-avail">✓ A+B</span>' :
+        hasA ? '<span style="font-size:7px;color:var(--amber)">só A</span>' :
+        hasB ? '<span style="font-size:7px;color:var(--amber)">só B</span>' :
+        g.slotA||g.slotB ? '<span class="sc-miss">✗</span>' :
+        `<span style="font-size:7px;color:var(--t3)">${slotCount} slots</span>`}
+    </div>`;
+  }).join('');
+}
+
+function toggleStudent(ref) {
+  if (!selectedGroup) return;
+  const g = selectedGroup;
+  if (!g.excluded) g.excluded = [];
+  const idx = g.excluded.indexOf(ref);
+  if (idx >= 0) g.excluded.splice(idx, 1);
+  else g.excluded.push(ref);
+  renderDetail();
+  renderGroupList();
+}
+
+function autoAssign() {
+  if (!selectedGroup || !selectedGroup.bestPairs.length) {
+    toast('Sem pares viáveis para auto-atribuição', 'err');
+    return;
+  }
+  const best = selectedGroup.bestPairs[0];
+  selectedGroup.slotA = best.slotA;
+  selectedGroup.slotB = best.slotB;
+  slotSelectState = 'A';
+  renderDetail();
+  renderGroupList();
+  toast(`Auto-horário: ${DAYS_PT[best.slotA.day]} ${best.slotA.hour}h + ${DAYS_PT[best.slotB.day]} ${best.slotB.hour}h · ${best.count} alunos`);
+}
+
+function showConfirmPanel() {
+  const panel = document.getElementById('confirm-panel');
+  if (panel) panel.style.display = '';
+  const inp = document.getElementById('turma-id-inp');
+  if (inp) {
+    // Auto-suggest turma code
+    const g = selectedGroup;
+    const langCode = (g.lang||'').slice(0,2).toUpperCase();
+    const lvl = g.info.label.toUpperCase();
+    const br = g.branch.slice(0,3);
+    inp.value = `${langCode}-${lvl}-${br}-A`;
+    inp.focus();
+  }
+}
+
+function hideConfirmPanel() {
+  const panel = document.getElementById('confirm-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+async function confirmGroup() {
+  if (!selectedGroup) return;
+  const g = selectedGroup;
+  const turmaId = (document.getElementById('turma-id-inp')?.value || '').trim();
+  if (!turmaId) { toast('Introduza um código de turma', 'err'); return; }
+  if (!g.slotA || !g.slotB) { toast('Seleccione Lesson A e Lesson B', 'err'); return; }
+
+  const fitStudents = g.students.filter(s => {
+    if ((g.excluded||[]).includes(s.ref)) return false;
+    const hasA = (s.day_preferences||[]).some(p =>
+      p.day === g.slotA.day && parseInt((p.session_start||'').split(':')[0]) === g.slotA.hour);
+    const hasB = (s.day_preferences||[]).some(p =>
+      p.day === g.slotB.day && parseInt((p.session_start||'').split(':')[0]) === g.slotB.hour);
+    return hasA && hasB;
+  });
+
+  try {
+    // Update all fitting students' status in Supabase
+    for (const s of fitStudents) {
+      await sbPatch('timetable_requests',
+        `ref=eq.${encodeURIComponent(s.ref)}&academic_year=eq.${encodeURIComponent(ACADEMIC_YEAR)}`,
+        { status: 'atribuido', assigned_turma: turmaId, updated_at: new Date().toISOString() }
+      );
+    }
+    g.confirmed = true;
+    g.turmaId = turmaId;
+    confirmedGroups[g.key] = { turmaId, slotA: g.slotA, slotB: g.slotB, excluded: g.excluded };
+    renderDetail();
+    renderGroupList();
+    renderStats();
+    toast(`✓ Turma ${turmaId} confirmada · ${fitStudents.length} alunos atribuídos`);
+  } catch(e) {
+    toast(`Erro ao confirmar: ${e.message}`, 'err');
+  }
+}
+
+async function unconfirmGroup() {
+  if (!selectedGroup || !selectedGroup.confirmed) return;
+  const g = selectedGroup;
+  try {
+    const fitStudents = g.students.filter(s => !(g.excluded||[]).includes(s.ref));
+    for (const s of fitStudents) {
+      await sbPatch('timetable_requests',
+        `ref=eq.${encodeURIComponent(s.ref)}&academic_year=eq.${encodeURIComponent(ACADEMIC_YEAR)}`,
+        { status: 'pendente', assigned_turma: null, updated_at: new Date().toISOString() }
+      );
+    }
+    g.confirmed = false;
+    g.turmaId = '';
+    delete confirmedGroups[g.key];
+    renderDetail();
+    renderGroupList();
+    renderStats();
+    toast('Turma cancelada — alunos recolocados como pendentes');
+  } catch(e) {
+    toast(`Erro: ${e.message}`, 'err');
+  }
+}
+
+/* ══ INIT ══ */
+loadAll();
+</script>
+</body>
+</html>
