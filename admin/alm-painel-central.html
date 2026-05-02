@@ -577,11 +577,14 @@ function countPairStudents(students, pair, dept) {
 let _lastProposals = null;
 
 function buildGroupProposals(lk, branch) {
-  const allLevelStudents = allEnrolments.filter(e => {
+  // All students at this level+branch regardless of request status
+  const allAtLevel = allEnrolments.filter(e => {
     if (levelKey(e) !== lk) return false;
     if (branch !== 'all' && normBranch(e.branch) !== branch) return false;
-    return !!reqByRef[e.ref];
+    return true;
   });
+  // Only those with requests enter the algorithm
+  const allLevelStudents = allAtLevel.filter(e => !!reqByRef[e.ref]);
 
   const lvMeta = LEVEL_MAP[lk] || {};
   const dept = lvMeta.dept || 'adults';
@@ -698,20 +701,27 @@ function buildGroupProposals(lk, branch) {
   // Anyone not placed — valid hours but no viable group — also gets flagged
   const unplaced  = students.filter(e => !placed.has(e.ref));
   const callbacks = [...invalidHour, ...unplaced];
-  return { groups, callbacks, total: allLevelStudents.length,
+  return { groups, callbacks,
+           total: allAtLevel.length,
+           withRequest: allLevelStudents.length,
            placed: placed.size };
 }
 
 function renderGroupProposals(lk, branch, meta) {
   const result = buildGroupProposals(lk, branch);
   _lastProposals = result;
-  const { groups, callbacks, total, placed } = result;
+  const { groups, callbacks, total, withRequest, placed } = result;
   const dept = (LEVEL_MAP[lk] || {}).dept || 'adults';
   if (!groups.length && !callbacks.length) return '';
 
-  const flagged = callbacks.length;
+  const flagged  = callbacks.length;
+  const noReq    = total - withRequest;
+  const inGroups = groups.reduce((s,g) => s + g.students.length, 0);
   let html = `<div class="sec" style="margin-top:4px">
-    Turmas propostas · ${total} alunos · <span style="color:var(--green)">${groups.length} grupo${groups.length!==1?'s':''} viável${groups.length!==1?'is':''}</span> · <span style="color:var(--red)">${flagged} sinalizado${flagged!==1?'s':''}</span>
+    Turmas propostas · ${total} alunos
+    · <span style="color:var(--green);font-weight:700">${inGroups} em turma</span>
+    · <span style="color:var(--red);font-weight:700">${flagged} sinalizados</span>
+    ${noReq ? `· <span style="color:var(--t3)">${noReq} sem pedido</span>` : ''}
   </div>`;
 
   groups.forEach((g, i) => {
