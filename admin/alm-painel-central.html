@@ -516,6 +516,310 @@ function getStudentsForSlot(lk, branch, day, hour) {
   });
 }
 
+/* ══════════════════════════════════════════
+   ALM VALID DAY PAIRS
+   SEG+QUA · TER+QUI · QUA+SEX · SÁB(duplo)
+══════════════════════════════════════════ */
+const ALM_PAIRS = [
+  { a:'SEG', b:'QUA', label:'SEG + QUA' },
+  { a:'TER', b:'QUI', label:'TER + QUI' },
+  { a:'QUA', b:'SEX', label:'QUA + SEX' },
+  { a:'SÁB', b:'SÁB', label:'SÁB (duplo)', examOnly:true },
+];
+
+/* Hour validity per dept
+   kids / kids_juv (preps): 8h and 9h only
+   exam / adults / geral: 8h–19h max (20h invalid)
+   SÁB pairs: exam dept only
+*/
+function isHourValid(h, dept) {
+  if (h === null || h === undefined || isNaN(h)) return false;
+  if (dept === 'kids' || dept === 'kids_juv') return h === 8 || h === 9;
+  return h >= 8 && h <= 19;
+}
+
+let _lastProposals = null;
+
+function buildGroupProposals(lk, branch) {
+  const students = allEnrolments.filter(e => {
+    if (levelKey(e) !== lk) return false;
+    if (branch !== 'all' && normBranch(e.branch) !== branch) return false;
+    return !!reqByRef[e.ref];
+  });
+
+  // Determine dept from level key for constraint checks
+  const lvMeta = LEVEL_MAP[lk] || {};
+  const dept = lvMeta.dept || 'adults';
+
+  const MAX = 17, MIN = 5;
+  const placed = new Set();
+  const groups = [];
+
+  ALM_PAIRS.forEach(pair => {
+    // SAB pairs only valid for exam dept
+    if (pair.examOnly && dept !== 'exam') return;
+
+    const eligible = students.filter(e => {
+      if (placed.has(e.ref)) return false;
+      const prefs = parseDayPrefs(reqByRef[e.ref]?.day_preferences);
+      // Filter prefs to only valid hours for this dept
+      const validPrefs = prefs.filter(p => {
+        const h = parseHour(p.session_start || '');
+        return isHourValid(h, dept);
+      });
+      const days = validPrefs.map(p => {
+        const di = dayIdx(p.day || '');
+        return (di !== undefined && di !== null && !isNaN(di)) ? DAYS_PT[di] : null;
+      }).filter(Boolean);
+      if (pair.a === pair.b) return days.filter(d => d === pair.a).length >= 2;
+      return days.includes(pair.a) && days.includes(pair.b);
+    });
+
+    if (eligible.length < MIN) return;
+
+    // Find best hour combo — only valid hours
+    const combos = {};
+    eligible.forEach(e => {
+      const prefs = parseDayPrefs(reqByRef[e.ref]?.day_preferences);
+      const hoursA = prefs.filter(p => {
+        const di = dayIdx(p.day || '');
+        const h = parseHour(p.session_start || '');
+        return di !== undefined && !isNaN(di) && DAYS_PT[di] === pair.a && isHourValid(h, dept);
+      }).map(p => parseHour(p.session_start || '')).filter(h => h !== null);
+      const hoursB = pair.a === pair.b ? hoursA : prefs.filter(p => {
+        const di = dayIdx(p.day || '');
+        const h = parseHour(p.session_start || '');
+        return di !== undefined && !isNaN(di) && DAYS_PT[di] === pair.b && isHourValid(h, dept);
+      }).map(p => parseHour(p.session_start || '')).filter(h => h !== null);
+
+      if (pair.a === pair.b) {
+        const u = [...new Set(hoursA)];
+        u.forEach((h1, i) => u.slice(i+1).forEach(h2 => {
+          const k = `${h1}+${h2}`; combos[k] = (combos[k]||0) + 1;
+        }));
+      } else {
+        hoursA.forEach(ha => hoursB.forEach(hb => {
+          const k = `${ha}+${hb}`; combos[k] = (combos[k]||0) + 1;
+        }));
+      }
+    });
+
+    const best = Object.entries(combos).sort((a,b) => b[1]-a[1])[0];
+    if (!best) return;
+    const [hA, hB] = best[0].split('+').map(Number);
+
+    const forGroup = eligible.filter(e => {
+      const prefs = parseDayPrefs(reqByRef[e.ref]?.day_preferences);
+      if (pair.a === pair.b) {
+        const hours = prefs.filter(p => {
+          const di = dayIdx(p.day||'');
+          return di !== undefined && !isNaN(di) && DAYS_PT[di] === pair.a;
+        }).map(p => parseHour(p.session_start||''));
+        return hours.includes(hA) && hours.includes(hB);
+      }
+      const hasA = prefs.some(p => {
+        const di = dayIdx(p.day||'');
+        return di !== undefined && !isNaN(di) && DAYS_PT[di] === pair.a && parseHour(p.session_start||'') === hA;
+      });
+      const hasB = prefs.some(p => {
+        const di = dayIdx(p.day||'');
+        return di !== undefined && !isNaN(di) && DAYS_PT[di] === pair.b && parseHour(p.session_start||'') === hB;
+      });
+      return hasA && hasB;
+    });
+
+    if (forGroup.length < MIN) return;
+
+    const chunk = forGroup.slice(0, MAX);
+    chunk.forEach(e => placed.add(e.ref));
+    groups.push({
+      pair, hA, hB,
+      slotA: `${pair.a} ${hA}h`,
+      slotB: pair.a === pair.b ? `${pair.b} ${hB}h` : `${pair.b} ${hB}h`,
+      students: chunk,
+      overflow: forGroup.slice(MAX)
+    });
+
+    // If overflow >= MIN, make a second group from same pair
+    if (forGroup.length > MAX) {
+      const rest = forGroup.slice(MAX);
+      if (rest.length >= MIN) {
+        rest.forEach(e => placed.add(e.ref));
+        groups.push({
+          pair, hA, hB,
+          slotA: `${pair.a} ${hA}h`,
+          slotB: pair.a === pair.b ? `${pair.b} ${hB}h` : `${pair.b} ${hB}h`,
+          students: rest,
+          overflow: []
+        });
+      }
+    }
+  });
+
+  const basket = students.filter(e => !placed.has(e.ref));
+  return { groups, basket, total: students.length };
+}
+
+function renderGroupProposals(lk, branch, meta) {
+  const result = buildGroupProposals(lk, branch);
+  _lastProposals = result;
+  const { groups, basket, total } = result;
+  if (!groups.length && !basket.length) return '';
+
+  let html = `<div class="sec" style="margin-top:4px">
+    Turmas propostas · ${total} alunos · ${groups.length} grupo${groups.length!==1?'s':''} · max 17 · min 5
+  </div>`;
+
+  groups.forEach((g, i) => {
+    const n = g.students.length;
+    const col = n >= 8 ? 'var(--green)' : n >= 5 ? 'var(--amber)' : 'var(--red)';
+    const letter = String.fromCharCode(65 + i);
+    html += `<div style="background:var(--bg2);border:1px solid var(--b2);
+      border-left:3px solid ${col};padding:10px 14px;margin-bottom:5px;cursor:pointer"
+      onclick="toggleGroupDrill('gd-${i}',this)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:12px;font-weight:700;color:${col};width:22px">T${letter}</div>
+        <div style="font-family:var(--mono);font-size:10px;font-weight:600;color:var(--gold2)">
+          ${g.slotA} &nbsp;·&nbsp; ${g.slotB}
+        </div>
+        <div style="font-size:7.5px;color:var(--t3)">${g.pair.label}</div>
+        <div style="margin-left:auto;font-size:22px;font-weight:700;color:${col};line-height:1">${n}</div>
+        <div style="font-size:7px;color:var(--t3)">alunos</div>
+        ${g.overflow.length?`<div style="font-size:7px;color:var(--amber);margin-left:6px">+${g.overflow.length} overflow</div>`:''}
+        <div style="font-size:8px;color:var(--t3);margin-left:8px" class="grp-arrow-${i}">▼</div>
+      </div>
+      <div id="gd-${i}" style="display:none;margin-top:10px;border-top:1px solid var(--b);padding-top:8px">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button onclick="event.stopPropagation();exportGrp(${i})"
+            style="padding:3px 10px;border:1px solid var(--green-b);background:var(--green-a);
+            color:var(--green);font-family:var(--mono);font-size:8px;cursor:pointer">↓ CSV</button>
+          <button onclick="event.stopPropagation();printGrp(${i})"
+            style="padding:3px 10px;border:1px solid var(--b2);background:var(--gold4);
+            color:var(--gold);font-family:var(--mono);font-size:8px;cursor:pointer">⎙ Imprimir</button>
+        </div>
+        ${g.students.map(e => {
+          const req = reqByRef[e.ref];
+          const st = req ? normStatus(req.status) : 'sem_pedido';
+          const bCls = st==='atribuido'?'badge-ok':st==='sem_pedido'?'badge-err':'badge-warn';
+          const br = BRANCH_LABELS[normBranch(e.branch)] || e.branch || '—';
+          const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;
+            border-bottom:.5px solid rgba(201,168,76,.04)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
+              <div style="font-size:7px;color:var(--t3)">${e.ref} · ${br}</div>
+            </div>
+            <span class="badge ${bCls}">${stTxt}</span>
+          </div>`;
+        }).join('')}
+        ${g.overflow.length?`<div style="margin-top:6px;padding:5px 8px;background:var(--amber-a);
+          border:1px solid var(--amber-b);font-size:8px;color:var(--amber)">
+          ⚠ +${g.overflow.length} aluno${g.overflow.length!==1?'s':''} com o mesmo par — sem vaga nesta turma
+        </div>`:''}
+      </div>
+    </div>`;
+  });
+
+  if (basket.length) {
+    html += `<div style="background:var(--bg2);border:1px solid rgba(232,160,32,.3);
+      border-left:3px solid var(--amber);padding:10px 14px;margin-bottom:14px;cursor:pointer"
+      onclick="toggleGroupDrill('basket-drill',this)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:11px;color:var(--amber)">🧺</div>
+        <div style="font-size:10px;font-weight:600;color:var(--amber)">Cesto · sem par válido</div>
+        <div style="font-size:7.5px;color:var(--t3)">SEG+QUA · TER+QUI · QUA+SEX · SÁB</div>
+        <div style="margin-left:auto;font-size:22px;font-weight:700;color:var(--amber);line-height:1">${basket.length}</div>
+        <div style="font-size:7px;color:var(--t3)">alunos</div>
+        <div style="font-size:8px;color:var(--t3);margin-left:8px">▼</div>
+      </div>
+      <div id="basket-drill" style="display:none;margin-top:10px;border-top:1px solid var(--b);padding-top:8px">
+        <div style="font-size:8px;color:var(--t3);margin-bottom:8px">
+          Estes alunos não partilham nenhum par de dias válido com outros alunos deste nível.
+          Contactar individualmente ou aguardar mais pedidos.
+        </div>
+        ${basket.map(e => {
+          const req = reqByRef[e.ref];
+          const prefs = parseDayPrefs(req?.day_preferences);
+          const slots = prefs.map(p => {
+            const di = dayIdx(p.day||'');
+            const h = parseHour(p.session_start||'');
+            return (di!==undefined&&!isNaN(di)&&h!==null)?`${DAYS_PT[di]} ${h}h`:'';
+          }).filter(Boolean).join(' + ');
+          const st = req ? normStatus(req.status) : 'sem_pedido';
+          const bCls = st==='atribuido'?'badge-ok':st==='sem_pedido'?'badge-err':'badge-warn';
+          const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;
+            border-bottom:.5px solid rgba(201,168,76,.04)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
+              <div style="font-size:7px;color:var(--t3)">${e.ref}</div>
+            </div>
+            <div style="font-size:7.5px;color:var(--t2);font-family:var(--mono)">${slots||'sem slots'}</div>
+            <span class="badge ${bCls}">${stTxt}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+function toggleGroupDrill(id, card) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+}
+
+function exportGrp(idx) {
+  if (!_lastProposals?.groups[idx]) return;
+  const g = _lastProposals.groups[idx];
+  const meta = LEVEL_MAP[activeLevel] || {};
+  const letter = String.fromCharCode(65+idx);
+  const rows = [`ALM · ${meta.label||activeLevel} · Turma ${letter} · ${g.slotA} + ${g.slotB}`,
+    `Total: ${g.students.length}`, '', 'Nome,Ref,Filial,Estado'];
+  g.students.forEach(e => {
+    const st = reqByRef[e.ref] ? normStatus(reqByRef[e.ref].status) : 'sem pedido';
+    const br = BRANCH_LABELS[normBranch(e.branch)] || e.branch || '—';
+    rows.push(`"${e.name||''}","${e.ref||''}","${br}","${st}"`);
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'}));
+  a.download = `ALM-T${letter}-${g.slotA}-${g.slotB}.csv`.replace(/\s+/g,'_');
+  a.click();
+  showToast(`CSV exportado · ${g.students.length} alunos`);
+}
+
+function printGrp(idx) {
+  if (!_lastProposals?.groups[idx]) return;
+  const g = _lastProposals.groups[idx];
+  const meta = LEVEL_MAP[activeLevel] || {};
+  const letter = String.fromCharCode(65+idx);
+  const rows = g.students.map((e,i) => {
+    const st = reqByRef[e.ref] ? normStatus(reqByRef[e.ref].status) : 'sem pedido';
+    const br = BRANCH_LABELS[normBranch(e.branch)] || e.branch || '—';
+    return `<tr><td>${i+1}</td><td>${e.name||'—'}</td><td>${e.ref||'—'}</td><td>${br}</td><td>${st}</td></tr>`;
+  }).join('');
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>ALM · Turma ${letter}</title>
+    <style>body{font-family:monospace;margin:30px}h1{font-size:16px;margin-bottom:4px}
+    .meta{font-size:12px;color:#666;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#f0f0f0;padding:6px 10px;text-align:left;font-size:11px;border-bottom:2px solid #ccc}
+    td{padding:6px 10px;font-size:12px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#fafafa}</style>
+  </head><body>
+    <h1>ALM · ${meta.label||activeLevel} · Turma ${letter} · ${g.slotA} + ${g.slotB}</h1>
+    <div class="meta">${g.students.length} alunos · ${new Date().toLocaleString('pt-PT')}</div>
+    <table><thead><tr><th>#</th><th>Nome</th><th>Ref</th><th>Filial</th><th>Estado</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
 /* ══ SLOT DRILL — renders the named list ══ */
 function drillSlot(day, hour, cardEl) {
   // Toggle: clicking the same card again closes the drill
@@ -952,7 +1256,8 @@ function renderOvLevel() {
   </div>`;
 
   if (topSlots.length) {
-    html += `<div class="sec">Disponibilidade por slot · clique para ver os alunos</div>
+    html += renderGroupProposals(activeLevel, activeLoc, meta);
+    html += `<div class="sec" style="margin-top:8px">Disponibilidade por slot · clique para ver os alunos</div>
     <div class="slot-grid">`;
     topSlots.forEach(([key, count]) => {
       const [day, hour] = key.split('_');
