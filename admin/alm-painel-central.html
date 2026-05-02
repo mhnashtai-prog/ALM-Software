@@ -665,21 +665,18 @@ function buildGroupProposals(lk, branch) {
    RENDER GROUP PROPOSALS
 ══════════════════════════════════════════════════════ */
 function renderGroupProposals(lk, branch, meta) {
-  const result = buildGroupProposals(lk, branch);
-  _lastProposals = result;
+  // Reuse result already computed by renderOvLevel — do NOT call buildGroupProposals again
+  const result = _lastProposals;
+  if (!result) return '';
+
   const { groups, sinalizados, total, withRequest, placed } = result;
   if (!groups.length && !sinalizados.length) return '';
 
-  const noReq   = total - withRequest;
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const blockLabel = b => b === 'manha' ? 'Manhã 08–11h' : 'Tarde 14–20h';
 
-  let html = `<div class="sec" style="margin-top:4px">
-    Turmas propostas · ${total} alunos
-    · <span style="color:var(--green);font-weight:700">${placed} em turma</span>
-    · <span style="color:var(--red);font-weight:700">${sinalizados.length} sinalizados</span>
-   ${noReq ? `· <span style="color:var(--amber);font-weight:700">${noReq} sem pedido !</span>` : ''}
-  </div>`;
+  // Section header — no need to repeat placed/sinalizados, already in summary bar
+  let html = `<div class="sec" style="margin-top:4px">Turmas propostas</div>`;
 
   /* ── GROUP CARDS ── */
   html += `<div class="groups-master">`;
@@ -725,7 +722,7 @@ function renderGroupProposals(lk, branch, meta) {
   });
   html += `</div>`;
 
-  /* ── SINALIZADO BLOCK — compact, secondary ── */
+  /* ── SINALIZADO BLOCK ── */
   if (sinalizados.length) {
     const { sameDayCt, invalidWinCt, noGroupCt } = result;
     html += `
@@ -748,20 +745,18 @@ function renderGroupProposals(lk, branch, meta) {
           <button class="gbtn gbtn-csv" onclick="exportSinalizados()">↓ CSV Sinalizados</button>
         </div>`;
 
-    // Group sinalizados by reason
     [
-      { key:'same-day',       label:'Mesmo dia (submeteram dois slots no mesmo dia)', ct: sameDayCt },
+      { key:'same-day',       label:'Mesmo dia (submeteram dois slots no mesmo dia)',              ct: sameDayCt    },
       { key:'invalid-window', label:'Fora do horário escolar (não é manhã 8–11h nem tarde 14–20h)', ct: invalidWinCt },
-      { key:'no-group',       label:'Sem grupo compatível (mínimo 5 alunos não atingido)', ct: noGroupCt },
+      { key:'no-group',       label:'Sem grupo compatível (mínimo 5 alunos não atingido)',          ct: noGroupCt    },
     ].forEach(({ key, label, ct }) => {
       if (!ct) return;
       const subset = sinalizados.filter(s => s.reason === key);
-      const dept   = (LEVEL_MAP[lk] || {}).dept || 'adults';
       html += `<div class="sinal-sub">${label}</div>`;
       html += subset.map(({ e }) => {
         const a = analysePrefs(e.ref);
         const slots = (a?.prefs || []).map(s => {
-          const dayLbl = s.dayIdx !== null ? DAYS_PT[s.dayIdx] : '?';
+          const dayLbl  = s.dayIdx !== null ? DAYS_PT[s.dayIdx] : '?';
           const timeStr = s.raw?.session_start || '—';
           let cls = 'slot-invalid';
           if (key === 'same-day') cls = 'slot-sameday';
@@ -1137,22 +1132,37 @@ function renderOvLevel() {
 
   let html = `<div class="sec">${meta.label} · <span style="color:${meta.color}">${dc.label||''}</span></div>`;
 
-  // ── SUMMARY STATS — green number is clickable ──
+  // Run proposals now so we can show "placed" in the summary bar
+  const proposalResult = com > 0 ? buildGroupProposals(activeLevel, activeLoc) : null;
+  _lastProposals = proposalResult;
+  const placed      = proposalResult ? proposalResult.placed : 0;
+  const sinalizados = proposalResult ? proposalResult.sinalizados.length : 0;
+
+  // ── SUMMARY STATS ──
   html += `<div class="level-summary">
     <div class="ls-stat">
-   <div class="ls-v" style="color:var(--amber)">${sem}</div>
-<div class="ls-l" style="color:var(--amber)">Sem pedido !</div>
+      <div class="ls-v" style="color:var(--gold2)">${students.length}</div>
+      <div class="ls-l">Inscritos</div>
     </div>
     <div class="ls-stat">
-      <div class="ls-v clickable" style="color:var(--green)"
-        title="Clique para saltar às turmas propostas"
-        onclick="document.getElementById('group-anchor').scrollIntoView({behavior:'smooth'})">${com}</div>
-      <div class="ls-l">Com pedido ↓</div>
+      <div class="ls-v" style="color:var(--green)">${com}</div>
+      <div class="ls-l">Com pedido</div>
     </div>
     <div class="ls-stat">
       <div class="ls-v" style="color:var(--red)">${sem}</div>
       <div class="ls-l">Sem pedido</div>
     </div>
+    ${com > 0 ? `
+    <div class="ls-stat">
+      <div class="ls-v clickable" style="color:var(--teal)"
+        title="Clique para ver turmas"
+        onclick="document.getElementById('group-anchor').scrollIntoView({behavior:'smooth'})">${placed}</div>
+      <div class="ls-l">Em turma ↓</div>
+    </div>
+    <div class="ls-stat">
+      <div class="ls-v" style="color:var(--amber)">${sinalizados}</div>
+      <div class="ls-l">Sinalizados</div>
+    </div>` : ''}
     <div style="flex:1">
       <div style="font-size:6.5px;color:var(--t3);margin-bottom:4px">${capPct}% capacidade (max ${meta.max})</div>
       <div class="cap-bar"><div class="cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div>
@@ -1161,9 +1171,8 @@ function renderOvLevel() {
 
   // ── PAIR AVAILABILITY CARDS ──
   if (com > 0) {
-    const dept2   = (LEVEL_MAP[activeLevel]||{}).dept || 'adults';
+    const dept2 = (LEVEL_MAP[activeLevel]||{}).dept || 'adults';
     const studentsWithReq = students.filter(e => reqByRef[e.ref]);
-
     const pairBlockCounts = [];
     ALM_PAIRS.forEach(pair => {
       if (pair.examOnly && dept2 !== 'exam') return;
@@ -1193,7 +1202,7 @@ function renderOvLevel() {
     }
   }
 
-  // ── GROUP PROPOSALS — anchor here ──
+  // ── GROUP PROPOSALS ──
   html += `<div id="group-anchor"></div>`;
   if (com > 0) {
     html += renderGroupProposals(activeLevel, activeLoc, meta);
@@ -1206,9 +1215,9 @@ function renderOvLevel() {
   <div class="student-hdr"><span>Nome</span><span>Disponibilidade</span><span>Status</span></div>`;
 
   students.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(e => {
-    const a     = analysePrefs(e.ref);
+    const a       = analysePrefs(e.ref);
     const dayIdxs = a ? a.dayIdxs : [];
-    const cells = DAYS_PT.map((_,di) =>
+    const cells   = DAYS_PT.map((_,di) =>
       `<div class="hcell${dayIdxs.includes(di)?' on':''}"></div>`).join('');
     const status  = reqByRef[e.ref] ? normStatus(reqByRef[e.ref].status) : 'sem_pedido';
     const bCls    = status==='atribuido'?'badge-ok':status==='sem_pedido'?'badge-err':'badge-warn';
