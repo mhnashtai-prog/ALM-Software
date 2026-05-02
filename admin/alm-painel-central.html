@@ -1115,10 +1115,11 @@ function renderOvSummary() {
 }
 
 /* ══ OVERVIEW LEVEL ══ */
+const ASSIGN_MIN = 8;
+
 function renderOvLevel() {
   const el = document.getElementById('ov-right');
   const students = getLocStudents().filter(e => levelKey(e) === activeLevel);
-
   if (!students.length) {
     el.innerHTML = '<div class="empty-msg">Nenhum aluno neste nível para a filial seleccionada.</div>';
     return;
@@ -1132,7 +1133,7 @@ function renderOvLevel() {
 
   let html = `<div class="sec">${meta.label} · <span style="color:${meta.color}">${dc.label||''}</span></div>`;
 
-  // Run proposals now so we can show "placed" in the summary bar
+  // Run proposals once — reused by renderGroupProposals below
   const proposalResult = com > 0 ? buildGroupProposals(activeLevel, activeLoc) : null;
   _lastProposals = proposalResult;
   const placed      = proposalResult ? proposalResult.placed : 0;
@@ -1184,18 +1185,26 @@ function renderOvLevel() {
     pairBlockCounts.sort((a,b) => b.count - a.count);
 
     if (pairBlockCounts.length) {
-      html += `<div class="sec" style="margin-top:8px">Disponibilidade por par + bloco · total com pedido: ${com}</div>
+      html += `<div class="sec" style="margin-top:8px">Disponibilidade por par + bloco</div>
       <div class="pair-grid">`;
       pairBlockCounts.forEach(({ pair, block, count }) => {
-        const pct    = com > 0 ? Math.round(count/com*100) : 0;
-        const col    = pct>=50?'var(--green)':pct>=25?'var(--amber)':'var(--red)';
-        const pctCls = pct>=50?'pct-hi':pct>=25?'pct-mid':'pct-lo';
-        const blkLbl = block==='manha'?'Manhã':'Tarde';
-        html += `<div class="pair-card">
-          <div class="pair-pct ${pctCls}">${pct}%</div>
-          <div class="pair-count" style="color:${col}">${count}</div>
-          <div class="pair-label">${pair.label}</div>
-          <div class="pair-sub">${blkLbl} · ambos os dias</div>
+        const isReady = count >= ASSIGN_MIN;
+        const isWait  = count >= MIN_GROUP && count < ASSIGN_MIN;
+        const blkLbl  = block === 'manha' ? 'Manhã · 08–11h' : 'Tarde · 14–20h';
+        const bg      = isReady ? 'var(--green-a)'         : isWait ? 'var(--amber-a)'         : 'rgba(255,255,255,.02)';
+        const border  = isReady ? 'var(--green-b)'         : isWait ? 'var(--amber-b)'         : 'var(--b)';
+        const col     = isReady ? 'var(--green)'           : isWait ? 'var(--amber)'           : 'var(--t3)';
+        const icon    = isReady ? '✓' : isWait ? '!' : '✕';
+        const label   = isReady ? 'atribuir agora'         : isWait ? 'aguardar'               : 'não abre';
+        const opacity = (!isReady && !isWait) ? 'opacity:.45;' : '';
+        html += `<div class="pair-card" style="background:${bg};border-color:${border};${opacity}cursor:default">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:9px;font-weight:700;color:${col}">${pair.aLbl} + ${pair.bLbl}</div>
+            <span style="font-size:11px;color:${col}">${icon}</span>
+          </div>
+          <div style="font-size:8px;color:${col};opacity:.8;margin-bottom:6px">${blkLbl}</div>
+          <div style="font-size:26px;font-weight:700;color:${col};line-height:1">${count}</div>
+          <div style="font-size:8px;color:${col};opacity:.8;margin-top:4px">${label}</div>
         </div>`;
       });
       html += `</div>`;
@@ -1207,7 +1216,7 @@ function renderOvLevel() {
   if (com > 0) {
     html += renderGroupProposals(activeLevel, activeLoc, meta);
   } else {
-    html += `<div class="empty-msg" style="padding:16px 0;text-align:left">Nenhum pedido de horário submetido neste nível.</div>`;
+    html += `<div class="empty-msg" style="padding:16px 0;text-align:left">Nenhum pedido submetido neste nível.</div>`;
   }
 
   // ── STUDENT LIST ──
@@ -1222,20 +1231,48 @@ function renderOvLevel() {
     const status  = reqByRef[e.ref] ? normStatus(reqByRef[e.ref].status) : 'sem_pedido';
     const bCls    = status==='atribuido'?'badge-ok':status==='sem_pedido'?'badge-err':'badge-warn';
     const bTxt    = status==='atribuido'?'atribuído':status==='sem_pedido'?'sem pedido':'pendente';
+    const isFlagged = status === 'sem_pedido';
     html += `<div class="student-row">
       <div class="sr-cell">
-        <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
+        <div style="font-size:9px;color:var(--t);cursor:pointer;text-decoration:underline dotted var(--t3)"
+          onclick="openDossier('${e.ref}','director')">${e.name||'—'}</div>
         <div style="font-size:7px;color:var(--t3)">${e.ref||'—'}</div>
       </div>
       <div class="sr-cell">
         <div class="heatstrip">${cells}</div>
         <div style="font-size:6px;color:var(--t4);margin-top:2px;letter-spacing:.04em">S T Q Q S S</div>
       </div>
-      <div class="sr-cell"><span class="badge ${bCls}">${bTxt}</span></div>
+      <div class="sr-cell" style="display:flex;align-items:center;gap:6px">
+        <span class="badge ${bCls}">${bTxt}</span>
+        ${isFlagged ? `<span style="font-size:8px;cursor:pointer;color:var(--t3);transition:color .12s"
+          title="Adicionar à lista de acompanhamento"
+          onmouseenter="this.style.color='var(--amber)'"
+          onmouseleave="this.style.color='var(--t3)'"
+          onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>` : ''}
+      </div>
     </div>`;
   });
 
   el.innerHTML = html;
+}
+
+/* ── WATCHLIST ── */
+function pinStudent(ref, name) {
+  const list = JSON.parse(localStorage.getItem('alm-watchlist') || '[]');
+  if (list.find(s => s.ref === ref)) {
+    showToast(`${name} já está na lista`, 'warn'); return;
+  }
+  const meta = activeLevel ? (LEVEL_MAP[activeLevel] || {}) : {};
+  list.push({ ref, name, level: meta.label || '—', pinned: new Date().toISOString() });
+  localStorage.setItem('alm-watchlist', JSON.stringify(list));
+  updateWatchBadge();
+  showToast(`${name} → lista de acompanhamento`, 'ok');
+}
+
+function updateWatchBadge() {
+  const list = JSON.parse(localStorage.getItem('alm-watchlist') || '[]');
+  const badge = document.getElementById('badge-watch');
+  if (badge) badge.textContent = list.length || '—';
 }
 
 /* ══════════════════════════════════════════════════════
