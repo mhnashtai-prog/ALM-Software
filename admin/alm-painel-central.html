@@ -587,7 +587,8 @@ function buildGroupProposals(lk, branch) {
   const dept = lvMeta.dept || 'adults';
 
   const students  = allLevelStudents.filter(e => studentHasValidSlot(e.ref, dept));
-  const callbacks = allLevelStudents.filter(e => !studentHasValidSlot(e.ref, dept));
+  // callbacks = invalid hours + valid hours but no pair overlap (both get flagged)
+  const invalidHour = allLevelStudents.filter(e => !studentHasValidSlot(e.ref, dept));
 
   const MAX = 17, MIN = 5;
   const placed = new Set();
@@ -694,25 +695,28 @@ function buildGroupProposals(lk, branch) {
     }
   });
 
-  const basket = students.filter(e => !placed.has(e.ref));
-  return { groups, basket, callbacks, total: allLevelStudents.length,
-           slottable: students.length };
+  // Anyone not placed — valid hours but no viable group — also gets flagged
+  const unplaced  = students.filter(e => !placed.has(e.ref));
+  const callbacks = [...invalidHour, ...unplaced];
+  return { groups, callbacks, total: allLevelStudents.length,
+           placed: placed.size };
 }
 
 function renderGroupProposals(lk, branch, meta) {
   const result = buildGroupProposals(lk, branch);
   _lastProposals = result;
-  const { groups, basket, callbacks, total } = result;
+  const { groups, callbacks, total, placed } = result;
   const dept = (LEVEL_MAP[lk] || {}).dept || 'adults';
-  if (!groups.length && !basket.length) return '';
+  if (!groups.length && !callbacks.length) return '';
 
+  const flagged = callbacks.length;
   let html = `<div class="sec" style="margin-top:4px">
-    Turmas propostas · ${total} alunos · ${groups.length} grupo${groups.length!==1?'s':''} · max 17 · min 5
+    Turmas propostas · ${total} alunos · <span style="color:var(--green)">${groups.length} grupo${groups.length!==1?'s':''} viável${groups.length!==1?'is':''}</span> · <span style="color:var(--red)">${flagged} sinalizado${flagged!==1?'s':''}</span>
   </div>`;
 
   groups.forEach((g, i) => {
     const n = g.students.length;
-    const col = n >= 8 ? 'var(--green)' : n >= 5 ? 'var(--amber)' : 'var(--red)';
+    const col = n >= 5 ? 'var(--green)' : 'var(--red)';
     const letter = String.fromCharCode(65 + i);
     html += `<div style="background:var(--bg2);border:1px solid var(--b2);
       border-left:3px solid ${col};padding:10px 14px;margin-bottom:5px;cursor:pointer"
@@ -760,63 +764,22 @@ function renderGroupProposals(lk, branch, meta) {
     </div>`;
   });
 
-  // AMBER — basket: slottable but no valid pair found
-  if (basket.length) {
-    html += `<div style="background:var(--bg2);border:1px solid rgba(232,160,32,.3);
-      border-left:3px solid var(--amber);padding:10px 14px;margin-bottom:5px;cursor:pointer"
-      onclick="toggleGroupDrill('basket-drill',this)">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-size:10px;font-weight:600;color:var(--amber)">🧺 Cesto · sem par válido</div>
-        <div style="font-size:7.5px;color:var(--t3)">horário válido mas sem grupo compatível</div>
-        <div style="margin-left:auto;font-size:22px;font-weight:700;color:var(--amber);line-height:1">${basket.length}</div>
-        <div style="font-size:7px;color:var(--t3)">alunos</div>
-        <div style="font-size:8px;color:var(--t3);margin-left:8px">▼</div>
-      </div>
-      <div id="basket-drill" style="display:none;margin-top:10px;border-top:1px solid var(--b);padding-top:8px">
-        <div style="font-size:8px;color:var(--t3);margin-bottom:8px">
-          Horário válido mas sem par compatível com outros alunos. Aguardar mais pedidos ou contactar.
-        </div>
-        ${basket.map(e => {
-          const req = reqByRef[e.ref];
-          const prefs = parseDayPrefs(req?.day_preferences);
-          const slots = prefs.map(p => {
-            const di = dayIdx(p.day||'');
-            const h = parseHour(p.session_start||'');
-            return (di!==undefined&&!isNaN(di)&&h!==null)?`${DAYS_PT[di]} ${h}h`:'';
-          }).filter(Boolean).join(' + ');
-          const st = req ? normStatus(req.status) : 'sem_pedido';
-          const bCls = st==='atribuido'?'badge-ok':st==='sem_pedido'?'badge-err':'badge-warn';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;
-            border-bottom:.5px solid rgba(201,168,76,.04)">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
-              <div style="font-size:7px;color:var(--t3)">${e.ref}</div>
-            </div>
-            <div style="font-size:7.5px;color:var(--t2);font-family:var(--mono)">${slots||'—'}</div>
-            <span class="badge ${bCls}">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }
-
-  // RED — callbacks: requested outside valid windows
+  // RED — all flagged: invalid hours + valid hours but no viable group
   if (callbacks.length) {
     html += `<div style="background:var(--bg2);border:1px solid var(--red-b);
       border-left:3px solid var(--red);padding:10px 14px;margin-bottom:14px;cursor:pointer"
       onclick="toggleGroupDrill('callback-drill',this)">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-size:10px;font-weight:600;color:var(--red)">⚠ Fora do horário escolar</div>
-        <div style="font-size:7.5px;color:var(--t3)">pediram horas fora dos blocos válidos · necessitam contacto</div>
+        <div style="font-size:10px;font-weight:600;color:var(--red)">⚠ Sinalizados · não podem ser alocados</div>
+        <div style="font-size:7.5px;color:var(--t3)">fora do horário escolar ou sem grupo compatível · necessitam contacto</div>
         <div style="margin-left:auto;font-size:22px;font-weight:700;color:var(--red);line-height:1">${callbacks.length}</div>
         <div style="font-size:7px;color:var(--t3)">alunos</div>
         <div style="font-size:8px;color:var(--t3);margin-left:8px">▼</div>
       </div>
       <div id="callback-drill" style="display:none;margin-top:10px;border-top:1px solid var(--b);padding-top:8px">
         <div style="padding:6px 0 10px;font-size:8px;color:var(--red);border-bottom:1px solid var(--b);margin-bottom:8px">
-          Blocos válidos para este nível:
-          8h00–9h00 (manhã) · 14h00–19h00 (tarde)
-          <br>Estes alunos pediram fora destes blocos e precisam de novo contacto.
+          Motivo: horas fora dos blocos válidos do nível, ou disponibilidade insuficiente para formar turma (mín. 5).
+          <br>Necessitam de novo contacto para submeter disponibilidade compatível.
         </div>
         ${callbacks.map(e => {
           const req = reqByRef[e.ref];
