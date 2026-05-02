@@ -577,15 +577,17 @@ function countPairStudents(students, pair, dept) {
 let _lastProposals = null;
 
 function buildGroupProposals(lk, branch) {
-  const students = allEnrolments.filter(e => {
+  const allLevelStudents = allEnrolments.filter(e => {
     if (levelKey(e) !== lk) return false;
     if (branch !== 'all' && normBranch(e.branch) !== branch) return false;
     return !!reqByRef[e.ref];
   });
 
-  // Determine dept from level key for constraint checks
   const lvMeta = LEVEL_MAP[lk] || {};
   const dept = lvMeta.dept || 'adults';
+
+  const students  = allLevelStudents.filter(e => studentHasValidSlot(e.ref, dept));
+  const callbacks = allLevelStudents.filter(e => !studentHasValidSlot(e.ref, dept));
 
   const MAX = 17, MIN = 5;
   const placed = new Set();
