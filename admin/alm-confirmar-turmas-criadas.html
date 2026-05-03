@@ -510,7 +510,20 @@ const SB='https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
 const AY='2026/2027';
-async function sbGet(t,q){const r=await fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H});if(!r.ok)throw new Error(`${t}: HTTP ${r.status}`);return r.json()}
+async function sbGet(table, qs) {
+  let all=[], page=0, pageSize=1000;
+  while(true){
+    const start=page*pageSize, end=start+pageSize-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,'Range':`${start}-${end}`}});
+    if(!r.ok) throw new Error(`${table}: HTTP ${r.status}`);
+    const data=await r.json();
+    all=all.concat(data);
+    if(data.length<pageSize) break;
+    page++;
+    if(page>4) break;
+  }
+  return all;
+}
 
 const BL={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
 const BO=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
