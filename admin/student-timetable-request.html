@@ -341,8 +341,8 @@ const sbGet =(t,q='')=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{headers:SH}).then(r=
 const sbPost=(t,b)   =>fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 const sbPatch=(t,q,b)=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{method:'PATCH',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
-// ── FIX: use `level` (not `level_cefr`) — matches enrolments table column name ──
-const ENROL_SELECT='ref,name,lang,level,branch,family,phone';
+// actual Supabase column is level_cefr
+const ENROL_SELECT='ref,name,lang,level_cefr,branch,family,phone';
 
 const DAYS_PT  =['Seg','Ter','Qua','Qui','Sex','Sáb'];
 const DAYS_FULL=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
@@ -567,10 +567,10 @@ async function loadProfile(s){
   document.getElementById('p-ref').textContent=s.ref||'—';
   const cL={kids:'Kids',adults:'Adultos',exam:'Exame'};
   // FIX: use s.level (not s.level_cefr); use s.family for course normalization
-  const course=normCourse(s.family||s.level||'');
+  const course=normCourse(s.family||s.level_cefr||'');
   document.getElementById('p-badges').innerHTML=`
     <span class="pbadge pb-lang">${s.lang||'EN'}</span>
-    <span class="pbadge pb-lvl">${s.level||'?'}</span>
+    <span class="pbadge pb-lvl">${s.level_cefr||'?'}</span>
     <span class="pbadge pb-course">${cL[course]||course||'?'}</span>
     <span class="pbadge pb-branch">${(s.branch||'').replace(/_/g,' ')}</span>`;
   const oldMeta=document.getElementById('p-meta');
@@ -673,9 +673,8 @@ async function submitRequest(){
   const payload={
     ref:student.ref,student_name:student.name,
     branch:student.branch||'',lang:student.lang||'EN',
-    family:normCourse(student.family||student.level||''),
-    // FIX: store as `level` not `level_cefr`
-    level:student.level||'',
+    family:normCourse(student.family||student.level_cefr||''),
+    level_cefr:student.level_cefr||'',
     sessions_per_week:sessions.length,
     day_preferences:dayPreferences,availability:availability,
     mode_used:'preference',
