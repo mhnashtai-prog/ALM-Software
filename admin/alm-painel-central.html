@@ -577,9 +577,18 @@ const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const AY  = '2026/2027';
 
 async function sbGet(table, qs) {
-  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, { headers: H });
-  if (!r.ok) throw new Error(`${table}: HTTP ${r.status}`);
-  return r.json();
+  let all=[], page=0, pageSize=1000;
+  while(true){
+    const start=page*pageSize, end=start+pageSize-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,'Range':`${start}-${end}`}});
+    if(!r.ok) throw new Error(`${table}: HTTP ${r.status}`);
+    const data=await r.json();
+    all=all.concat(data);
+    if(data.length<pageSize) break;
+    page++;
+    if(page>4) break;
+  }
+  return all;
 }
 
 /* ══ CONSTANTS ══ */
