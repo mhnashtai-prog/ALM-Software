@@ -1234,6 +1234,33 @@ async function quickConfirm(boxId){
   const conf=getConf();
   if(conf[boxId]||box.confirmed){showToast(`${box.code} já confirmado`,'warn');return}
   conf[boxId]=new Date().toISOString();
+   saveConf(conf);
+box.confirmed = true;
+
+const safeId = boxId.replace(/[|]/g, '_');
+const card = document.getElementById('gcard-' + safeId);
+if (card) {
+  const criarBtn = card.querySelector('.criar-btn');
+  if (criarBtn) {
+    criarBtn.outerHTML = `<div class="criada-bar">
+      <div class="criada-check">
+        <svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="2,6 5,9 10,3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="criada-text">TURMA CRIADA</div>
+        <div class="criada-date">${new Date().toLocaleString('pt-PT')}</div>
+      </div>
+    </div>`;
+  }
+  card.querySelectorAll('.gc-ico:not(:first-child)').forEach(ico => {
+    ico.style.opacity = '.2';
+    ico.style.pointerEvents = 'none';
+  });
+  card.style.borderColor = 'rgba(29,184,122,.4)';
+  card.querySelector('.gc-count').style.color = '#1DB87A';
+}
   saveConf(conf);box.confirmed=true;
 
   // Animate then swap HTML
