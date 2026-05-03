@@ -341,14 +341,14 @@ const sbGet =(t,q='')=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{headers:SH}).then(r=
 const sbPost=(t,b)   =>fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 const sbPatch=(t,q,b)=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{method:'PATCH',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
-// ── SELECT columns that actually exist in enrolments ──
-const ENROL_SELECT='ref,name,lang,level_cefr,branch,family,phone';
+// ── FIX: use `level` (not `level_cefr`) — matches enrolments table column name ──
+const ENROL_SELECT='ref,name,lang,level,branch,family,phone';
 
 const DAYS_PT  =['Seg','Ter','Qua','Qui','Sex','Sáb'];
 const DAYS_FULL=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 const DCODES   =['SEG','TER','QUA','QUI','SEX','SAB'];
 const ALL_HRS  =[8,9,10,11,null,14,15,16,17,18,19,20];
-const CELL_W=56,GAP_W=16,DEFAULT_DUR=90;
+const DEFAULT_DUR=90;
 
 let student=null,sessions=[],popState=null;
 
@@ -387,7 +387,6 @@ function buildGrid(){
   });
   redrawBands();
 
-  // Delegated click — attached here so grid-rows is guaranteed to exist
   gridRows.addEventListener('click',e=>{
     if(!student) return;
     if(e.target.closest('.sband')) return;
@@ -464,7 +463,7 @@ function minsToX(m){
   const firstRow=document.getElementById('row-0');
   if(!firstRow) return 0;
   const cells=Array.from(firstRow.children);
-  const GAP=3; // matches CSS gap:3px on .grid-row
+  const GAP=3;
   let x=0;
   for(let i=0;i<ALL_HRS.length;i++){
     const h=ALL_HRS[i];
@@ -524,7 +523,7 @@ async function onNameInput(){
   clearTimeout(acTimer);
   acTimer=setTimeout(async()=>{
     try{
-      // FIX: removed tipo_inscricao — column does not exist in enrolments
+      // FIX: select `level` not `level_cefr`
       const rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=${ENROL_SELECT}&limit=6`);
       if(!rows.length){drop.classList.remove('open');return;}
       drop.innerHTML=rows.map(s=>{
@@ -551,7 +550,7 @@ async function doLookup(){
   btn.textContent='A procurar…';btn.disabled=true;
   try{
     let rows=[];
-    // FIX: removed tipo_inscricao; FIX: use nameQ (not undefined q) in name search
+    // FIX: use ENROL_SELECT (with `level`) for both queries
     if(num) rows=await sbGet('enrolments',`ref=eq.${encodeURIComponent(num)}&select=${ENROL_SELECT}&limit=1`);
     if(!rows.length&&nameQ.length>1) rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(nameQ)}*&select=${ENROL_SELECT}&limit=1`);
     if(!rows.length){nf.classList.add('show');document.getElementById('profile').classList.remove('show');student=null;updateSubmitState();}
@@ -567,12 +566,12 @@ async function loadProfile(s){
   document.getElementById('p-name').textContent=s.name||'—';
   document.getElementById('p-ref').textContent=s.ref||'—';
   const cL={kids:'Kids',adults:'Adultos',exam:'Exame'};
-  const course=normCourse(s.family||s.level_cefr||'');
-  // FIX: removed tipo_inscricao badge — column does not exist
+  // FIX: use s.level (not s.level_cefr); use s.family for course normalization
+  const course=normCourse(s.family||s.level||'');
   document.getElementById('p-badges').innerHTML=`
     <span class="pbadge pb-lang">${s.lang||'EN'}</span>
-    <span class="pbadge pb-lvl">${s.level_cefr||'?'}</span>
-    <span class="pbadge pb-course">${cL[course]||'?'}</span>
+    <span class="pbadge pb-lvl">${s.level||'?'}</span>
+    <span class="pbadge pb-course">${cL[course]||course||'?'}</span>
     <span class="pbadge pb-branch">${(s.branch||'').replace(/_/g,' ')}</span>`;
   const oldMeta=document.getElementById('p-meta');
   if(oldMeta) oldMeta.remove();
@@ -592,7 +591,13 @@ async function loadProfile(s){
   updateSubmitState();
 }
 
-function normCourse(raw){const k=(raw||'').toLowerCase();if(k.includes('kids')||k.includes('juvenil'))return 'kids';if(k.includes('exam'))return 'exam';return 'adults';}
+// FIX: normCourse uses `family` field primarily (infants/juvenil/geral/exam → kids/kids/adults/exam)
+function normCourse(raw){
+  const k=(raw||'').toLowerCase();
+  if(k==='infants'||k==='juvenil'||k.includes('kids')||k.includes('juvenil')) return 'kids';
+  if(k==='exam'||k.includes('exam')) return 'exam';
+  return 'adults';
+}
 
 function setStateFresh(){
   sessions=[];redrawBands();updateSummary();
@@ -668,8 +673,9 @@ async function submitRequest(){
   const payload={
     ref:student.ref,student_name:student.name,
     branch:student.branch||'',lang:student.lang||'EN',
-    family:normCourse(student.family||student.level_cefr||''),
-    level_cefr:student.level_cefr||'',
+    family:normCourse(student.family||student.level||''),
+    // FIX: store as `level` not `level_cefr`
+    level:student.level||'',
     sessions_per_week:sessions.length,
     day_preferences:dayPreferences,availability:availability,
     mode_used:'preference',
@@ -749,7 +755,6 @@ buildGrid();
     popup.style.left=x+'px';popup.style.top=y+'px';
   });
   document.addEventListener('mouseup',()=>dragging=false);
-  // Touch drag
   handle.addEventListener('touchstart',e=>{
     dragging=true;
     const t=e.touches[0];
