@@ -1065,17 +1065,17 @@
     `;
 
     /* Footer */
-    document.getElementById('alm-d-foot').innerHTML = `
-      <button class="alm-btn alm-btn-primary"
-        style="flex:1"
-        onclick="window.almCloseDossier();window.openMudarTurma('${ref}',window._boxes||{})">
-        ⇄ &nbsp;Atribuir / Mudar Turma
-      </button>
-      <button class="alm-btn alm-btn-ghost"
-        onclick="window.open('/admin/timetable-request-update?num=${ref.replace('ALM-','')}','_blank')">
-        ✎ Editar
-      </button>
-    `;
+   document.getElementById('alm-d-foot').innerHTML = `
+  <button class="alm-btn alm-btn-primary"
+    style="flex:1"
+    onclick="window.almCloseDossier();window.openMudarTurma('${ref}',window._boxes||{})">
+    ⇄ &nbsp;Mudar turma
+  </button>
+  <button class="alm-btn alm-btn-ghost"
+    onclick="window.open('/admin/alm-dossier?ref=${ref}','_blank')">
+    ↗ &nbsp;Dossier
+  </button>
+`;
 
     /* Accordion toggle */
     document.querySelectorAll('#alm-d-body .alm-acc-hdr').forEach(hdr => {
