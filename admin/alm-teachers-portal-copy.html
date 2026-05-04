@@ -327,14 +327,12 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
 
 <div class="shell">
 
-  <!-- STATUS -->
   <div class="status-banner">
     <div class="sb-dot-live loading" id="sb-dot"></div>
     <span class="sb-txt loading" id="sb-txt">A carregar dados do Supabase…</span>
     <button class="sb-reload-btn" onclick="boot()">↻ Recarregar</button>
   </div>
 
-  <!-- TEACHER PICKER (shown when no URL param) -->
   <div class="teacher-picker" id="teacher-picker" style="display:none">
     <span class="tp-label">Professor</span>
     <select class="tp-select" id="tp-select" onchange="switchTeacher(this.value)">
@@ -342,7 +340,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
     </select>
   </div>
 
-  <!-- NO SCHEDULE -->
   <div class="no-schedule" id="no-schedule">
     <div style="font-size:22px">⚠️</div>
     <div class="ns-text">
@@ -351,13 +348,11 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
     </div>
   </div>
 
-  <!-- CLASS SELECTOR -->
   <div class="class-selector" id="class-selector" style="display:none">
     <span class="cs-label">As suas turmas</span>
     <div id="class-pills"></div>
   </div>
 
-  <!-- HERO -->
   <div class="hero">
     <div class="hero-av" id="hero-av">—</div>
     <div class="hero-info">
@@ -373,13 +368,11 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
     </div>
   </div>
 
-  <!-- TODAY STRIP -->
   <div class="today-strip">
     <span class="ts-label">Hoje · <span id="today-label">—</span></span>
     <div id="today-slots"></div>
   </div>
 
-  <!-- GRID -->
   <div class="grid-wrap">
     <div class="grid-head">
       <span class="gh-title">Grelha Semanal · Clique numa sessão para aceder às ações</span>
@@ -393,7 +386,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
 
 </div>
 
-<!-- QUICK ACTIONS BAR -->
 <div class="save-bar">
   <span class="qa-label">Ações rápidas</span>
   <div class="qa-btns">
@@ -406,7 +398,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   <div class="sb-status" id="sb-status">Pronto · <span id="current-date">—</span></div>
 </div>
 
-<!-- ACTION MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
   <div class="action-modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -499,7 +490,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
   </div>
 </div>
 
-<!-- STUDENT DETAIL MODAL -->
 <div class="stu-modal-overlay" id="stu-modal-overlay" onclick="closeStuModal()">
   <div class="stu-modal" onclick="event.stopPropagation()">
     <div class="sm-header">
@@ -518,9 +508,6 @@ select.sf-inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.
 <div class="toast" id="toast"></div>
 
 <script>
-/* ═══════════════════════════════════════
-   SUPABASE
-═══════════════════════════════════════ */
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H   = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
@@ -529,9 +516,6 @@ const sbGet   = (t,q='')  => fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r
 const sbPost  = (t,b)     => fetch(`${SB}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=minimal'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error(r.status);});
 const sbPatch = (t,q,b)   => fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:{...H,'Prefer':'return=minimal'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error(r.status);});
 
-/* ═══════════════════════════════════════
-   CONSTANTS
-═══════════════════════════════════════ */
 const DAYS       = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const MORNING    = [8,9,10,11];
 const AFTERNOON  = [14,15,16,17,18,19,20];
@@ -541,36 +525,23 @@ const DAY_PT     = {SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QU
 const LANG_BADGE = {EN:'hb-en',FR:'hb-fr',PT:'hb-pt',ES:'hb-es',DE:'hb-de'};
 const LANG_LABEL = {EN:'English',FR:'Français',PT:'Português',ES:'Español',DE:'Deutsch'};
 
-/* ═══════════════════════════════════════
-   STATE
-═══════════════════════════════════════ */
-let ALL_TEACHERS = [];   // from Supabase teachers table
-let ME           = null; // current teacher object
-let MY_CLASSES   = [];   // classes for this teacher
-let SCHEDULE     = {};   // day → hour → slot
+let ALL_TEACHERS = [];
+let ME           = null;
+let MY_CLASSES   = [];
+let SCHEDULE     = {};
 let activeClass  = null;
 let currentSlot  = null;
 let currentStuIdx= null;
 let stuModalMode = null;
 
-/* ═══════════════════════════════════════
-   BOOT
-═══════════════════════════════════════ */
 async function boot() {
   setSb('loading','A carregar dados do Supabase…');
-
-  // Step 1 — load all teachers from Supabase
   try {
     const raw = await sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=100');
     ALL_TEACHERS = raw.map(r => ({
-      id:        r.id,
-      code:      r.code,
-      name:      r.name,
-      lang:      r.lang || 'EN',
-      native:    r.native || false,
-      branch:    r.branch_primary || 'Funchal',
-      branches:  r.branches || [r.branch_primary || 'Funchal'],
-      contractH: r.contract_hours_week || 22,
+      id:r.id, code:r.code, name:r.name, lang:r.lang||'EN',
+      native:r.native||false, branch:r.branch_primary||'Funchal',
+      branches:r.branches||[r.branch_primary||'Funchal'], contractH:r.contract_hours_week||22,
     }));
   } catch(e) {
     setSb('err','Não foi possível carregar professores do Supabase');
@@ -578,26 +549,21 @@ async function boot() {
     return;
   }
 
-  // Step 2 — identify teacher from URL param or show picker
   const params = new URLSearchParams(window.location.search);
-  const teacherParam = params.get('teacher'); // can be id like "P-01" or index
-
+  const teacherParam = params.get('teacher');
   if (teacherParam) {
-    // Try matching by id first, then by index
     ME = ALL_TEACHERS.find(t => t.id === teacherParam)
       || ALL_TEACHERS[parseInt(teacherParam)]
       || ALL_TEACHERS[0];
   }
 
   if (!ME) {
-    // Show teacher picker
     populatePicker();
     document.getElementById('teacher-picker').style.display = 'flex';
     setSb('warn','Seleccione um professor para continuar');
-    renderHero(); // render placeholder
+    renderHero();
     return;
   }
-
   await loadTeacherData();
 }
 
@@ -615,17 +581,12 @@ async function switchTeacher(id) {
   await loadTeacherData();
 }
 
-/* ═══════════════════════════════════════
-   LOAD TEACHER DATA
-═══════════════════════════════════════ */
 async function loadTeacherData() {
   setSb('loading',`A carregar turmas de ${ME.name}…`);
   renderHero();
-
   MY_CLASSES = [];
   SCHEDULE   = {};
 
-  // Step 3 — load classes for this teacher
   try {
     const classes = await sbGet('classes',
       `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.2026%2F2027&status=eq.active&select=*`);
@@ -633,53 +594,35 @@ async function loadTeacherData() {
     if (classes.length === 0) throw new Error('no_classes');
 
     for (const cls of classes) {
-      // Step 4 — load students for each class
       let students = [];
       try {
         students = await sbGet('class_students',
           `turma_code=eq.${encodeURIComponent(cls.turma_code)}&select=*&order=student_name.asc`);
-      } catch(e) { /* non-fatal */ }
+      } catch(e) {}
 
       const mappedStudents = students.map((s,i) => ({
-        id:       s.id || i+1,
-        name:     s.student_name || '—',
-        initials: (s.student_name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(),
-        ref:      s.student_ref || '—',
-        present:  null,
-        absences: s.absences || 0,
-        grade:    s.grade    || 0,
-        flagged:  s.flagged  || false,
-        note:     s.note     || '',
+        id:s.id||i+1, name:s.student_name||'—',
+        initials:(s.student_name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(),
+        ref:s.student_ref||'—', present:null,
+        absences:s.absences||0, grade:s.grade||0,
+        flagged:s.flagged||false, note:s.note||'',
       }));
 
       const classObj = {
-        turmaCode:   cls.turma_code,
-        lang:        cls.lang,
-        level:       cls.level_display || cls.level_code,
-        levelCode:   cls.level_code,
-        branch:      cls.branch,
-        course:      cls.department || 'adults',
-        day:         cls.day_of_week,
-        h:           cls.hour,
-        start:       cls.start_time,
-        end:         cls.end_time,
-        durationMin: cls.duration_min,
-        sala:        cls.sala,
-        students:    mappedStudents,
+        turmaCode:cls.turma_code, lang:cls.lang,
+        level:cls.level_display||cls.level_code, levelCode:cls.level_code,
+        branch:cls.branch, course:cls.department||'adults',
+        day:cls.day_of_week, h:cls.hour,
+        start:cls.start_time, end:cls.end_time, durationMin:cls.duration_min,
+        sala:cls.sala, students:mappedStudents,
       };
       MY_CLASSES.push(classObj);
 
       if (!SCHEDULE[cls.day_of_week]) SCHEDULE[cls.day_of_week] = {};
       SCHEDULE[cls.day_of_week][cls.hour] = {
-        start:       cls.start_time,
-        end:         cls.end_time,
-        durationMin: cls.duration_min,
-        turmaCode:   cls.turma_code,
-        level:       cls.level_display || cls.level_code,
-        lang:        cls.lang,
-        branch:      cls.branch,
-        sala:        cls.sala,
-        students:    mappedStudents,
+        start:cls.start_time, end:cls.end_time, durationMin:cls.duration_min,
+        turmaCode:cls.turma_code, level:cls.level_display||cls.level_code,
+        lang:cls.lang, branch:cls.branch, sala:cls.sala, students:mappedStudents,
       };
     }
 
@@ -689,7 +632,6 @@ async function loadTeacherData() {
 
   } catch(e) {
     if (e.message === 'no_classes') {
-      // Try localStorage fallback
       const saved = localStorage.getItem('alm-tbl-'+ME.id);
       if (saved) {
         const grid = JSON.parse(saved);
@@ -697,7 +639,6 @@ async function loadTeacherData() {
           ALL_HOURS.forEach(h => {
             const s = grid[day]?.[h];
             if (!s || !s.start) return;
-            // Try to enrich from turma cache
             if (s.turmaCode) {
               const td = localStorage.getItem('alm-turma-'+s.turmaCode);
               if (td) {
@@ -745,9 +686,6 @@ async function loadTeacherData() {
   updateDate();
 }
 
-/* ═══════════════════════════════════════
-   CLASS SELECTOR
-═══════════════════════════════════════ */
 function renderClassSelector() {
   const el = document.getElementById('class-selector');
   if (MY_CLASSES.length <= 1) { el.style.display='none'; return; }
@@ -765,9 +703,6 @@ function selectClass(code) {
   renderClassSelector(); renderHeroStats();
 }
 
-/* ═══════════════════════════════════════
-   HERO
-═══════════════════════════════════════ */
 function renderHero() {
   if (!ME) return;
   document.getElementById('hero-av').textContent   = ME.code || '—';
@@ -791,9 +726,6 @@ function renderHeroStats() {
   document.getElementById('stat-students').textContent = total;
 }
 
-/* ═══════════════════════════════════════
-   TODAY STRIP
-═══════════════════════════════════════ */
 function buildTodayStrip() {
   const todayKey = DAY_JS_MAP[new Date().getDay()];
   const container = document.getElementById('today-slots');
@@ -814,9 +746,6 @@ function buildTodayStrip() {
   }).join('');
 }
 
-/* ═══════════════════════════════════════
-   GRID
-═══════════════════════════════════════ */
 function buildGrid() {
   const todayKey = DAY_JS_MAP[new Date().getDay()];
   const nowMin   = new Date().getHours()*60 + new Date().getMinutes();
@@ -861,9 +790,6 @@ function slotCell(day,h,nowMin,isToday) {
   return `<td class="slot-cell"><div class="slot-inner empty"></div></td>`;
 }
 
-/* ═══════════════════════════════════════
-   MODAL
-═══════════════════════════════════════ */
 function openSlot(day, h, tab) {
   const s = SCHEDULE[day]?.[h];
   if (!s || !s.start) return;
@@ -915,9 +841,6 @@ function switchTab(id, btn) {
   btn.classList.add('active');
 }
 
-/* ═══════════════════════════════════════
-   STUDENT LIST
-═══════════════════════════════════════ */
 function buildStudentList() {
   const list = document.getElementById('student-list');
   const state = currentSlot?.studentState || [];
@@ -985,37 +908,26 @@ function updateAttCount() {
   document.getElementById('att-count').textContent = txt;
 }
 
-/* ═══════════════════════════════════════
-   SAVE ATTENDANCE TO SUPABASE
-═══════════════════════════════════════ */
 async function saveAttendance() {
   if (!currentSlot?.studentState) return;
   const today = new Date().toISOString().slice(0,10);
   const records = currentSlot.studentState
     .filter(s => s.present !== null && s.present !== undefined)
     .map(s => ({
-      turma_code:   currentSlot.turmaCode,
-      student_ref:  s.ref,
-      student_name: s.name,
-      date:         today,
-      status:       s.present===true?'present':s.present==='late'?'late':'absent',
-      recorded_by:  ME?.id,
-      recorded_at:  new Date().toISOString(),
+      turma_code:currentSlot.turmaCode, student_ref:s.ref, student_name:s.name,
+      date:today, status:s.present===true?'present':s.present==='late'?'late':'absent',
+      recorded_by:ME?.id, recorded_at:new Date().toISOString(),
     }));
   try {
     if (records.length) await sbPost('attendance', records);
     showToast(`Presenças guardadas · ${records.length} registos ✓`,'ok');
   } catch(e) {
-    // attendance table may not exist yet — save locally
     const key = `alm-att-${currentSlot.turmaCode}-${today}`;
     localStorage.setItem(key, JSON.stringify(records));
-    showToast('Presenças guardadas localmente (tabela attendance não existe)','warn');
+    showToast('Presenças guardadas localmente','warn');
   }
 }
 
-/* ═══════════════════════════════════════
-   STUDENT ACTION MODAL
-═══════════════════════════════════════ */
 function stuAction(event, idx, mode) {
   event.stopPropagation();
   if (!currentSlot?.studentState) return;
@@ -1087,7 +999,7 @@ async function saveStuNote() {
       await sbPatch('class_students',
         `turma_code=eq.${currentSlot.turmaCode}&student_ref=eq.${stu.ref}`,
         {note: stu.note});
-    } catch(e) { /* non-fatal */ }
+    } catch(e) {}
   }
   showToast('Guardado ✓','ok');
   closeStuModal();
@@ -1101,31 +1013,27 @@ async function toggleFlag(idx) {
     await sbPatch('class_students',
       `turma_code=eq.${currentSlot.turmaCode}&student_ref=eq.${stu.ref}`,
       {flagged: stu.flagged});
-  } catch(e) { /* non-fatal */ }
+  } catch(e) {}
   const btn = document.getElementById('sflag-'+idx);
   if (btn) btn.innerHTML = (stu.flagged?'🚩':'⚑')+`<span class="sab-tip">${stu.flagged?'Alerta activo':'Marcar alerta'}</span>`;
   showToast(stu.flagged?'Alerta activado 🚩':'Alerta removido ✓', stu.flagged?'err':'ok');
   closeStuModal();
 }
 
-/* ═══════════════════════════════════════
-   CONFIRM ACTION
-═══════════════════════════════════════ */
 async function confirmAction() {
   const id = document.querySelector('.tab-pane.active')?.id?.replace('tab-','');
   if (id==='presencas') { await saveAttendance(); return; }
   if (id==='sumario' && currentSlot?.turmaCode) {
     try {
       await sbPost('lesson_summaries', {
-        turma_code:    currentSlot.turmaCode,
-        teacher_id:    ME?.id,
-        date:          new Date().toISOString().slice(0,10),
-        summary:       document.getElementById('sum-text')?.value,
-        book_page:     document.getElementById('sum-book')?.value,
-        skill:         document.getElementById('sum-skill')?.value,
-        participation: document.getElementById('sum-part')?.value,
-        notes:         document.getElementById('sum-obs')?.value,
-        created_at:    new Date().toISOString(),
+        turma_code:currentSlot.turmaCode, teacher_id:ME?.id,
+        date:new Date().toISOString().slice(0,10),
+        summary:document.getElementById('sum-text')?.value,
+        book_page:document.getElementById('sum-book')?.value,
+        skill:document.getElementById('sum-skill')?.value,
+        participation:document.getElementById('sum-part')?.value,
+        notes:document.getElementById('sum-obs')?.value,
+        created_at:new Date().toISOString(),
       });
       showToast('Sumário guardado no Supabase ✓','ok');
     } catch(e) {
@@ -1144,9 +1052,6 @@ function flash() {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-/* ═══════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════ */
 function avatarColor(name) {
   let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffffffff;
   const hues=[8,22,195,215,230,255,270,285,300,160,175,340,355];
