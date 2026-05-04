@@ -748,8 +748,7 @@ function buildCardHTML(boxId,box,isConf){
     return`<div class="gcard is-signal" id="gcard-${safeId}">
       <div class="gc-z1"><div class="gc-pill" style="border-color:rgba(232,160,32,.35)"><span class="gc-pill-code" style="color:var(--amber)">SINAL</span><div class="gc-pill-div"></div><div class="gc-pill-status s-warn">!</div></div><span style="font-size:24px;font-weight:700;color:var(--amber)">${box.sinal.length}</span></div>
       <div class="gc-signal-body">horários incompatíveis ou sem grupo — atenção manual</div>
-      <div class="gc-z3"><button class="criar-btn" style="background:rgba(232,160,32,.15);color:var(--amber)" onclick="openGroupListSinal('${boxId}')"><div class="criar-dot" style="border-color:rgba(232,160,32,.4)"></div>VER ${box.sinal.length} ALUNOS</button></div>
-      <div class="gc-list-row"><button class="gc-ico ico-list" onclick="openGroupListSinal('${boxId}')">${ICO_LIST}<span>Ver lista</span></button></div>
+      <div class="gc-z3"><button class="criar-btn" style="background:rgba(232,160,32,.15);color:var(--amber);height:34px" onclick="openGroupListSinal('${boxId}')"><div class="criar-dot" style="border-color:rgba(232,160,32,.4)"></div>VER ${box.sinal.length} ALUNOS</button></div>
     </div>`;
   }
   const n=box.students.length,isLow=box.isLow;
@@ -758,8 +757,6 @@ function buildCardHTML(boxId,box,isConf){
   const pl=isConf?'OK':isLow?'✕':'–';
   const codeCol=isLow?'style="color:var(--red)"':'';
   const bl=box.block==='manha'?'Manhã':'Tarde',bc2=box.block==='manha'?'bk-manha':'bk-tarde';
-
-  // Capacity fraction
   const capPct=Math.round(n/MAX_G*100);
   const capCol=isConf?'var(--green)':isLow?'var(--red)':capPct>=80?'var(--amber)':'var(--t)';
   const fillCol=isConf?'var(--green)':isLow?'var(--red)':capPct>=80?'var(--amber)':'var(--teal)';
@@ -767,29 +764,31 @@ function buildCardHTML(boxId,box,isConf){
     <div class="gc-cap-frac"><span class="gc-n" style="color:${capCol}">${n}</span><span class="gc-max">/${MAX_G}</span></div>
     <div class="gc-cap-bar"><div class="gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div>
   </div>`;
-
-  // Two-stage confirm
   const isArmed=_armedBox===boxId;
   let z3;
   if(isConf){
-    z3=`<div class="gc-z3"><div class="criada-bar"><div class="criada-check"><svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div><div class="criada-text">TURMA CRIADA</div></div></div>`;
+    z3=`<div class="gc-z3"><button style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 12px;height:34px;background:#0D3D24;border:none;width:100%;cursor:pointer;font-family:var(--mono)" onclick="openGroupList('${boxId}')">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:14px;height:14px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px rgba(29,184,122,.25);flex-shrink:0"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div>
+        <span style="font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--green)">TURMA CRIADA</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;background:rgba(29,184,122,.2);border-radius:99px;padding:2px 8px;border:0.5px solid rgba(29,184,122,.4)">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="var(--green)" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="var(--green)" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="var(--green)" stroke="none"/></svg>
+        <span style="font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--green)">VER</span>
+      </div>
+    </button></div>`;
   } else if(isLow){
-    z3=`<div class="gc-z3"><button class="criar-btn" style="background:rgba(232,69,90,.12);color:var(--red)" onclick="cancelGroup('${boxId}')"><div class="criar-dot" style="border-color:rgba(232,69,90,.35)"></div>INVIÁVEL</button></div>`;
+    z3=`<div class="gc-z3"><button class="criar-btn" style="background:rgba(232,69,90,.12);color:var(--red);height:34px" onclick="cancelGroup('${boxId}')"><div class="criar-dot" style="border-color:rgba(232,69,90,.35)"></div>INVIÁVEL</button></div>`;
   } else if(isArmed){
-    z3=`<div class="gc-z3"><button class="criar-btn armed" onclick="quickConfirm('${boxId}')"><div class="criar-dot" style="border-color:rgba(255,255,255,.3)"></div>✓ CONFIRMAR?</button></div>`;
+    z3=`<div class="gc-z3"><button class="criar-btn armed" style="height:34px" onclick="quickConfirm('${boxId}')"><div class="criar-dot" style="border-color:rgba(255,255,255,.3)"></div>✓ CONFIRMAR?</button></div>`;
   } else {
-    z3=`<div class="gc-z3"><button class="criar-btn" onclick="armConfirm('${boxId}')"><div class="criar-dot"></div>CRIAR TURMA</button></div>`;
+    z3=`<div class="gc-z3"><button class="criar-btn" style="background:#C9A84C;color:#07060E;height:34px" onclick="armConfirm('${boxId}')"><div class="criar-dot"></div>CRIAR TURMA</button></div>`;
   }
-
-  const listRow=`<div class="gc-list-row">
-    <button class="gc-ico ico-list" onclick="openGroupList('${boxId}')">${ICO_LIST}<span>Ver alunos</span></button>
-    <button class="gc-ico" onclick="openSearchModal()">${ICO_ADD}<span>Adicionar</span></button>
-  </div>`;
 
   return`<div class="gcard ${sc}" id="gcard-${safeId}">
     <div class="gc-z1"><div class="gc-pill"><span class="gc-pill-code" ${codeCol}>${box.code}</span><div class="gc-pill-div"></div><div class="gc-pill-status ${ps}">${pl}</div></div>${capHTML}</div>
-    <div class="gc-z2"><div class="gc-teacher-av av-empty">–</div><div class="gc-class-info"><div class="gc-days">${box.pair.aL} + ${box.pair.bL}</div><span class="gc-block ${bc2}">${bl}</span><div class="gc-teacher-name">— ver Step 5</div></div></div>
-    ${z3}${listRow}
+    <div class="gc-z2" style="padding:14px 12px;gap:11px"><div class="gc-teacher-av av-empty" style="width:44px;height:44px;font-size:18px;box-shadow:inset 3px 3px 7px rgba(0,0,0,.15),inset -3px -3px 7px rgba(255,255,255,.07)">–</div><div class="gc-class-info"><div class="gc-days">${box.pair.aL} + ${box.pair.bL}</div><span class="gc-block ${bc2}">${bl}</span><div class="gc-teacher-name">— ver Step 5</div></div></div>
+    ${z3}
   </div>`;
 }
 
@@ -1016,8 +1015,17 @@ async function quickConfirm(boxId){
   const safeId=boxId.replace(/[|]/g,'_');
   const card=document.getElementById('gcard-'+safeId);
   if(card){
-    const z3=card.querySelector('.gc-z3');
-    if(z3)z3.innerHTML=`<div class="criada-bar"><div class="criada-check"><svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div><div class="criada-text">TURMA CRIADA</div></div>`;
+  const z3=card.querySelector('.gc-z3');
+  if(z3)z3.innerHTML=`<button style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 12px;height:34px;background:#0D3D24;border:none;width:100%;cursor:pointer;font-family:var(--mono)" onclick="openGroupList('${boxId}')">
+  <div style="display:flex;align-items:center;gap:7px">
+    <div style="width:14px;height:14px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px rgba(29,184,122,.25);flex-shrink:0"><svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div>
+    <span style="font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--green)">TURMA CRIADA</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;background:rgba(29,184,122,.2);border-radius:99px;padding:2px 8px;border:0.5px solid rgba(29,184,122,.4)">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="var(--green)" stroke="none"/><circle cx="3" cy="12" r="1.5" fill="var(--green)" stroke="none"/><circle cx="3" cy="18" r="1.5" fill="var(--green)" stroke="none"/></svg>
+    <span style="font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--green)">VER</span>
+  </div>
+</button>`;
     card.style.borderColor='rgba(29,184,122,.4)';card.classList.add('is-confirmed','just-confirmed');
     const ce=card.querySelector('.gc-cap-frac .gc-n');if(ce)ce.style.color='var(--green)';
     const ps2=card.querySelector('.gc-pill-status');if(ps2){ps2.className='gc-pill-status s-ok';ps2.textContent='OK';}
