@@ -507,7 +507,7 @@ function deptKey(course){
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
 function avInit(name){return(name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
-function normB(b){return(b||'').replace(/\s*-\s*sede/i,'').trim().toLowerCase();}
+function normB(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
 
 /* ══ STATE ══ */
 let TEACHERS=[];
@@ -550,10 +550,11 @@ function saveLocal(){
 /* ══ BOOT ══ */
 async function boot(){
   try{
-    const[enrol,teachers,classes]=await Promise.all([
+    const[enrol,teachers,classes,requests]=await Promise.all([
       sbGet('enrolments',`select=ref,name,lang,level_cefr,branch,family&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
-      sbGet('classes',`select=turma_code,teacher_id,teacher_code,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,group_key,academic_year&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`)
+      sbGet('classes',`select=turma_code,teacher_id,teacher_code,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,group_key,academic_year&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`),
+      sbGet('timetable_requests',`select=ref,assigned_turma,status,branch,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
     ]);
     ENROLMENTS=enrol||[];
     TEACHERS=(teachers||[]).map(r=>({
@@ -564,11 +565,40 @@ async function boot(){
     }));
     if(!TEACHERS.length) TEACHERS=FALLBACK;
     const local=getLocal();
-    CLASSES=(classes||[]).map(c=>({...c,
+
+    /* Build CLASSES from classes table first */
+    let classesFromDB=(classes||[]).map(c=>({...c,
       teacher_id:(local[c.turma_code] ? local[c.turma_code].teacher_id : undefined) !== undefined ? (local[c.turma_code] ? local[c.turma_code].teacher_id : undefined) : c.teacher_id,
       teacher_code:(local[c.turma_code] ? local[c.turma_code].teacher_code : undefined) !== undefined ? (local[c.turma_code] ? local[c.turma_code].teacher_code : undefined) : c.teacher_code,
       student_refs:c.student_refs||[]
     }));
+
+    /* If classes table is empty, reconstruct from timetable_requests confirmed turmas */
+    if(!classesFromDB.length && requests && requests.length){
+      const turmaMap={};
+      (requests||[]).forEach(r=>{
+        if(!r.assigned_turma)return;
+        if(!turmaMap[r.assigned_turma])turmaMap[r.assigned_turma]={
+          turma_code:r.assigned_turma,
+          teacher_id:(local[r.assigned_turma]?local[r.assigned_turma].teacher_id:null)||null,
+          teacher_code:(local[r.assigned_turma]?local[r.assigned_turma].teacher_code:null)||null,
+          lang:'EN',
+          level_code:r.level_cefr||'A1',
+          level_display:r.level_cefr||'A1',
+          department:r.family||'adults',
+          branch:r.branch||'Funchal',
+          day_of_week:'SEG',hour:9,
+          start_time:'09:00',end_time:'10:30',duration_min:90,
+          student_refs:[],academic_year:AY
+        };
+        turmaMap[r.assigned_turma].student_refs.push(r.ref);
+        /* Use enrolment data to fill lang */
+        const enrolData=ENROLMENTS.find(e=>e.ref===r.ref);
+        if(enrolData)turmaMap[r.assigned_turma].lang=enrolData.lang||'EN';
+      });
+      classesFromDB=Object.values(turmaMap);
+    }
+    CLASSES=classesFromDB;
     document.getElementById('bot-src').textContent='Supabase ao vivo';
   }catch(e){
     TEACHERS=FALLBACK;
@@ -576,18 +606,19 @@ async function boot(){
     document.getElementById('bot-src').textContent='Modo local';
   }
 
-  const branches=[...new Set(CLASSES.map(c=>(c.branch||'').replace(/\s*-\s*sede/i,'').trim()).filter(Boolean))].sort();
-  const ordered=['Funchal',...branches.filter(b=>b!=='Funchal')];
-  SEL_BRANCH=ordered[0]||'Funchal';
+  /* Build branches from enrolments — same as Decision file */
+  const BL_ASSIGN={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
+  const BO_ASSIGN=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+  const enrolBranches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
+  const ordered=BO_ASSIGN.filter(b=>enrolBranches.includes(b));
+  SEL_BRANCH=ordered[0]||'FUNCHAL';
   const strip=document.getElementById('branch-strip');
-  strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${b}</button>`).join('');
+  strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${BL_ASSIGN[b]||b}</button>`).join('');
 
   /* Auto-select first available level from enrolments so panel is always populated */
   if(!SEL_LEVEL&&!SEL_TEACHER){
     const nb=normB(SEL_BRANCH);
-    const branchEnrol=nb
-      ? ENROLMENTS.filter(e=>{const eb=normB(e.branch);return eb===nb||eb.includes(nb)||nb.includes(eb)||!eb;})
-      : ENROLMENTS;
+    const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
     const DEPT_COURSE_ORDER=['kids','adults','exam'];
     let found=null;
     for(const course of DEPT_COURSE_ORDER){
@@ -700,8 +731,8 @@ function branchClasses(){
   return SEL_BRANCH?CLASSES.filter(c=>normB(c.branch)===normB(SEL_BRANCH)):CLASSES;
 }
 function branchTeachers(){
-  const nb=normB(SEL_BRANCH);
-  const f=TEACHERS.filter(t=>(t.branches||[]).some(b=>normB(b)===nb)||normB(t.branch)===nb);
+  const nb2=normB(SEL_BRANCH);
+  const f=TEACHERS.filter(t=>(t.branches||[]).some(b=>normB(b)===nb2)||normB(t.branch)===nb2);
   return f.length?f:TEACHERS;
 }
 
@@ -724,9 +755,7 @@ function updateKPIs(){
   document.getElementById('bot-pending').textContent=pend;
   /* Stats bar — from enrolments, same as decision file */
   const nb=normB(SEL_BRANCH);
-  const branchEnrol=nb
-    ? ENROLMENTS.filter(e=>{const eb=normB(e.branch);return eb===nb||eb.includes(nb)||nb.includes(eb)||!eb;})
-    : ENROLMENTS;
+  const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
   /* count students who have at least one class assigned */
   const assignedRefs=new Set(cls.filter(c=>(c.student_refs?c.student_refs.length:0)).flatMap(c=>c.student_refs));
   const withTurma=branchEnrol.filter(e=>assignedRefs.has(e.ref)).length;
@@ -748,10 +777,7 @@ function renderLevelList(){
   const cls=branchClasses();
   /* Build level map from ENROLMENTS — use same normB logic as branchClasses */
   const nb=normB(SEL_BRANCH);
-  const branchEnrol=SEL_BRANCH
-    ? ENROLMENTS.filter(e=>normB(e.branch)===nb)
-    : ENROLMENTS;
-  /* If no match, fall back to all enrolments (branch name mismatch between tables) */
+  const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
   const effectiveEnrol=branchEnrol.length>0?branchEnrol:ENROLMENTS;
   const levelMap={};
 
