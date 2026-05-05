@@ -570,6 +570,16 @@ async function boot(){
   const strip=document.getElementById('branch-strip');
   strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${b}</button>`).join('');
 
+  /* Auto-select first available level so grid is never empty on load */
+  const cls0=branchClasses();
+  if(cls0.length&&!SEL_LEVEL&&!SEL_TEACHER){
+    const DEPT_COURSE_ORDER=['kids','adults','exam'];
+    let found=null;
+    for(const course of DEPT_COURSE_ORDER){found=cls0.find(c=>c.department===course);if(found)break;}
+    if(!found)found=cls0[0];
+    if(found)SEL_LEVEL={course:found.department,cefr:found.level_code,label:found.level_display||dispLvl(found.level_code,found.department),color:lvlColor(found.department)};
+  }
+
   renderAll();
   updateKPIs();
   showToast(`${TEACHERS.length} professores · ${CLASSES.length} turmas`,'ok');
