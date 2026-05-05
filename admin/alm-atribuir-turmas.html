@@ -508,12 +508,16 @@ function heatClass(n){
 }
 
 /* ══ BOOT ══ */
+function loadLocal(){
+  // merge any locally-saved teacher assignments into CLASSES on first load
+  // called before Supabase fetch so local overrides are ready to merge
+}
+
 async function boot(){
-  loadLocal();
   try{
     const [enrol,reqs,teachers,classes] = await Promise.all([
       sbGet('enrolments',`select=ref,name,lang,level_cefr,branch,family&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-      sbGet('timetable_requests',`select=ref,day_preferences,status&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('student_requests',`select=ref,day_preferences,status&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`).catch(()=>sbGet('timetable_requests',`select=ref,day_preferences,status&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)),
       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
       sbGet('classes',`select=turma_code,teacher_id,teacher_code,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,group_key,academic_year&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`)
     ]);
@@ -533,6 +537,14 @@ async function boot(){
       teacher_code:local[c.turma_code]?.teacher_code??c.teacher_code
     }));
     if(!CLASSES.length) CLASSES=buildFromLocal();
+
+    console.group('ALM Tab 5 · Boot');
+    console.log('EMAP (enrolments):', Object.keys(EMAP).length);
+    console.log('RMAP (requests):', Object.keys(RMAP).length);
+    console.log('TEACHERS:', TEACHERS.length);
+    console.log('CLASSES:', CLASSES.length);
+    if(CLASSES.length) console.log('Sample class:', CLASSES[0]);
+    console.groupEnd();
     document.getElementById('bot-src').textContent='⬆ Supabase ao vivo';
   }catch(e){
     TEACHERS=FALLBACK;
