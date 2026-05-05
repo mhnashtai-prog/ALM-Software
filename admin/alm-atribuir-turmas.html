@@ -585,7 +585,9 @@ async function boot(){
   /* Auto-select first available level from enrolments so panel is always populated */
   if(!SEL_LEVEL&&!SEL_TEACHER){
     const nb=normB(SEL_BRANCH);
-    const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
+    const branchEnrol=nb
+      ? ENROLMENTS.filter(e=>{const eb=normB(e.branch);return eb===nb||eb.includes(nb)||nb.includes(eb)||!eb;})
+      : ENROLMENTS;
     const DEPT_COURSE_ORDER=['kids','adults','exam'];
     let found=null;
     for(const course of DEPT_COURSE_ORDER){
@@ -722,7 +724,9 @@ function updateKPIs(){
   document.getElementById('bot-pending').textContent=pend;
   /* Stats bar — from enrolments, same as decision file */
   const nb=normB(SEL_BRANCH);
-  const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
+  const branchEnrol=nb
+    ? ENROLMENTS.filter(e=>{const eb=normB(e.branch);return eb===nb||eb.includes(nb)||nb.includes(eb)||!eb;})
+    : ENROLMENTS;
   /* count students who have at least one class assigned */
   const assignedRefs=new Set(cls.filter(c=>(c.student_refs?c.student_refs.length:0)).flatMap(c=>c.student_refs));
   const withTurma=branchEnrol.filter(e=>assignedRefs.has(e.ref)).length;
@@ -742,13 +746,17 @@ function renderPanelList(){
 
 function renderLevelList(){
   const cls=branchClasses();
-  /* Build level map from ENROLMENTS (always populated) overlaid with CLASSES data */
+  /* Build level map from ENROLMENTS — use same normB logic as branchClasses */
   const nb=normB(SEL_BRANCH);
-  const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
+  const branchEnrol=SEL_BRANCH
+    ? ENROLMENTS.filter(e=>normB(e.branch)===nb)
+    : ENROLMENTS;
+  /* If no match, fall back to all enrolments (branch name mismatch between tables) */
+  const effectiveEnrol=branchEnrol.length>0?branchEnrol:ENROLMENTS;
   const levelMap={};
 
   /* First pass: seed every level from enrolments so panel is always full */
-  branchEnrol.forEach(e=>{
+  effectiveEnrol.forEach(e=>{
     const course=e.family||'adults';
     const cefr=(e.level_cefr||'A1').toUpperCase();
     const k=course+'|'+cefr;
