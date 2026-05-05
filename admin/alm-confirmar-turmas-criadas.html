@@ -196,7 +196,6 @@ body{display:flex;flex-direction:column}
 .sm-ri-name{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sm-ri-sub{font-size:10px;color:var(--t3);margin-top:2px;font-family:var(--mono)}
 .sm-ri-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-/* Group pill — clickable for placed students */
 .sm-group-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;border:1px solid;transition:all .16s}
 .sm-group-pill.has-group{background:rgba(29,184,122,.1);border-color:rgba(29,184,122,.3);color:var(--green);cursor:pointer}
 .sm-group-pill.has-group:hover{background:rgba(29,184,122,.2);border-color:var(--green-b);transform:scale(1.04)}
@@ -204,7 +203,6 @@ body{display:flex;flex-direction:column}
 .sm-group-pill.no-request{background:rgba(232,160,32,.08);border-color:rgba(232,160,32,.25);color:var(--amber);cursor:default}
 .sm-pill-arrow{font-size:9px;opacity:.6}
 .sm-ri-status{font-size:8px;color:var(--t3);letter-spacing:.04em}
-/* Inline swap panel */
 .sm-swap-panel{background:rgba(7,6,14,.85);border:.5px solid var(--b2);border-radius:10px;margin:0 20px 8px;padding:13px 15px;animation:swapIn .15s ease}
 @keyframes swapIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .sm-swap-label{font-size:7.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:9px;display:flex;align-items:center;gap:8px}
@@ -218,7 +216,6 @@ body{display:flex;flex-direction:column}
 .sm-swap-confirm:disabled{background:rgba(255,255,255,.08);color:var(--t3);cursor:default}
 .sm-swap-cancel{padding:9px 14px;background:transparent;border:.5px solid var(--b2);border-radius:8px;font-family:var(--sans);font-size:12px;color:var(--t3);cursor:pointer;transition:all .12s}
 .sm-swap-cancel:hover{border-color:var(--red-b);color:var(--red)}
-/* Mudar button in search */
 .sm-mudar-btn{padding:2px 9px;background:rgba(201,168,76,.1);border:.5px solid rgba(201,168,76,.3);border-radius:99px;font-size:8px;font-weight:700;letter-spacing:.06em;color:#C9A84C;cursor:pointer;font-family:var(--mono);transition:all .15s}
 .sm-mudar-btn:hover{background:rgba(201,168,76,.22);border-color:var(--gold);transform:scale(1.04)}
 .sm-footer-hint{display:flex;align-items:center;gap:14px;padding:9px 20px;background:rgba(0,0,0,.3)}
@@ -533,7 +530,7 @@ body{display:flex;flex-direction:column}
       <div class="sm-fh-item"><span class="sm-fh-kbd">↑↓</span> Navegar</div>
       <div class="sm-fh-item"><span class="sm-fh-kbd">Enter</span> Abrir</div>
       <div class="sm-fh-item"><span class="sm-fh-kbd">Esc</span> Fechar</div>
-      <div style="margin-left:auto;font-size:8px;color:var(--t3);font-family:var(--mono)">Clique no código da turma para trocar inline · ⇄ Mudar para todos</div>
+      <div style="margin-left:auto;font-size:8px;color:var(--t3);font-family:var(--mono)">⇄ Mudar → modal · seleciona turma → confirma → guardado no Supabase</div>
     </div>
   </div>
 </div>
@@ -679,21 +676,35 @@ async function sbGet(table,qs){
 /**
  * Universal upsert — PATCH if row exists, POST with merge-duplicates if not.
  * Works for ALL students including sem-pedido.
+ * FIX: Also handles the case where Supabase needs a full row for sem-pedido students.
  */
 async function sbUpsertRequest(ref,payload){
   if(rByRef[ref]){
-    return fetch(
+    const r=await fetch(
       `${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}`,
       {method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(payload)}
-    ).then(r=>r.ok).catch(()=>false);
+    );
+    return r.ok;
   }
+  // No existing row — create one via POST with merge-duplicates (handles sem-pedido)
   const enrol=allE.find(e=>e.ref===ref);
-  const body={ref,academic_year:AY,student_name:enrol?.name||ref,branch:enrol?.branch||'',family:enrol?.family||'',level_cefr:enrol?.level_cefr||'',day_preferences:'[]',status:'atribuido',...payload};
-  return fetch(`${SB}/rest/v1/timetable_requests`,{
+  const body={
+    ref,
+    academic_year:AY,
+    student_name:enrol?.name||ref,
+    branch:enrol?.branch||'',
+    family:enrol?.family||'',
+    level_cefr:enrol?.level_cefr||'',
+    day_preferences:'[]',
+    status:'atribuido',
+    ...payload
+  };
+  const r=await fetch(`${SB}/rest/v1/timetable_requests`,{
     method:'POST',
     headers:{...H,Prefer:'resolution=merge-duplicates,return=minimal'},
     body:JSON.stringify(body)
-  }).then(r=>r.ok||r.status===201||r.status===200).catch(()=>false);
+  });
+  return r.ok||r.status===201||r.status===200;
 }
 
 const BL={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
@@ -761,10 +772,87 @@ function nextSeq(b){if(!_brSeq[b])_brSeq[b]=0;_brSeq[b]++;return String(_brSeq[b
 function resetSeq(){_brSeq={}}
 function elv(id,v){const n=document.getElementById(id);if(n&&v!==undefined)n.textContent=v;return n}
 
-/* ══════════════════════════════════════
-   MUDAR TURMA MODAL — universal, 2-click
-   Works for ALL students (upsert path)
-══════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════
+   SHARED DOM SYNC HELPERS
+   updateGlHeader  — live-updates the open group-list panel count/bar
+   moveStudentBetweenBoxes — single source of truth for all 3 transfer paths
+══════════════════════════════════════════════════════════ */
+
+/**
+ * Refreshes the group-list panel header count + capacity bar
+ * if the given boxId is currently open in the panel.
+ * Also rebuilds the student list body so row count stays accurate.
+ */
+function updateGlHeader(boxId){
+  if(!_glBoxId||_glBoxId!==boxId)return;
+  const box=_boxes[boxId];
+  if(!box||box.type!=='group')return;
+  const n=box.students.length;
+  elv('gl-hdr-n',n);
+  const capPct=Math.round(n/MAX_G*100);
+  const accent=DEPT_ACCENTS[box.dk]||DEPT_ACCENTS.adults;
+  const fillEl=document.getElementById('gl-cap-fill-hdr');
+  if(fillEl){fillEl.style.width=capPct+'%';fillEl.style.background=capPct>=80?'var(--amber)':accent;}
+  // Rebuild body rows to reflect updated list
+  const conf=getConf();
+  buildGroupListBody(box,box.confirmed||!!conf[boxId]);
+}
+
+/**
+ * Core student-move helper shared by confirmMudar, smSwapConfirm, scConfirmMove.
+ * After Supabase write succeeds, call this to keep _boxes + DOM in sync.
+ */
+function moveStudentBetweenBoxes(ref,targetBoxId){
+  const enrol=allE.find(e=>e.ref===ref);
+  if(!enrol)return;
+  const targetBox=_boxes[targetBoxId];
+  if(!targetBox)return;
+
+  // 1. Remove from any existing group box
+  for(const[id,b]of Object.entries(_boxes)){
+    if(b.type==='group'&&id!==targetBoxId){
+      const idx=b.students.findIndex(s=>s.ref===ref);
+      if(idx>=0){
+        b.students.splice(idx,1);
+        updateCardInDOM(id);
+        updateGlHeader(id); // refresh header if THIS box is open
+        break;
+      }
+    }
+  }
+
+  // 2. Remove from any sinal box
+  for(const[id,b]of Object.entries(_boxes)){
+    if(b.type==='sinal'){
+      const idx=b.sinal.findIndex(s=>s.e&&s.e.ref===ref);
+      if(idx>=0){b.sinal.splice(idx,1);updateCardInDOM(id);}
+    }
+  }
+
+  // 3. Add to target box (avoid duplicates)
+  if(!targetBox.students.find(s=>s.ref===ref)){
+    targetBox.students.push(enrol);
+  }
+  updateCardInDOM(targetBoxId);
+  updateGlHeader(targetBoxId); // refresh header if TARGET is open
+
+  // 4. Stats bar
+  const sem=allE.filter(e=>!rByRef[e.ref]).length;
+  elv('st-com',allE.length-sem);
+  elv('st-sem',sem);
+
+  // 5. Triage sidebar
+  const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
+  renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
+
+  // 6. Refresh open search results
+  if(_smItems.length)renderSmResults(_smItems);
+
+  // 7. Top-bar counts
+  updateTopConf();
+}
+
+/* ══ MUDAR TURMA MODAL ══ */
 function openMudarModal(ref){
   const enrol=allE.find(e=>e.ref===ref);
   if(!enrol){showToast('Aluno não encontrado','warn');return}
@@ -830,42 +918,52 @@ function mtSelectTile(el,boxId,code,isFull){
   btn.style.display='block';btn.className='mt-confirm visible';btn.disabled=false;
 }
 
+/**
+ * FIX: confirmMudar now uses the shared moveStudentBetweenBoxes helper
+ * so group counts, header, and triage ALL update instantly after Supabase write.
+ */
 async function confirmMudar(){
   if(!_mtRef||!_mtSelectedCode)return;
   const btn=document.getElementById('mt-confirm');
   btn.disabled=true;btn.textContent='A guardar…';
+
+  // Write to Supabase first
   const ok=await sbUpsertRequest(_mtRef,{assigned_turma:_mtSelectedCode,status:'atribuido'});
+
   if(ok){
-    if(rByRef[_mtRef]){rByRef[_mtRef].assigned_turma=_mtSelectedCode;rByRef[_mtRef].status='atribuido';}
-    else{const row={ref:_mtRef,assigned_turma:_mtSelectedCode,status:'atribuido',academic_year:AY};rByRef[_mtRef]=row;allR.push(row);}
+    // Update in-memory request
+    if(rByRef[_mtRef]){
+      rByRef[_mtRef].assigned_turma=_mtSelectedCode;
+      rByRef[_mtRef].status='atribuido';
+    } else {
+      const row={ref:_mtRef,assigned_turma:_mtSelectedCode,status:'atribuido',academic_year:AY};
+      rByRef[_mtRef]=row;
+      allR.push(row);
+    }
+
+    // Sync _boxes + DOM via shared helper
+    moveStudentBetweenBoxes(_mtRef,_mtSelectedBoxId);
+
+    // Success screen
     const enrol=allE.find(e=>e.ref===_mtRef);
-    const targetBox=_boxes[_mtSelectedBoxId];
-    for(const[id,b]of Object.entries(_boxes)){
-      if(b.type==='group'&&id!==_mtSelectedBoxId){const idx=b.students.findIndex(s=>s.ref===_mtRef);if(idx>=0){b.students.splice(idx,1);updateCardInDOM(id);break}}
-    }
-    for(const[id,b]of Object.entries(_boxes)){
-      if(b.type==='sinal'){const idx=b.sinal.findIndex(s=>s.e&&s.e.ref===_mtRef);if(idx>=0){b.sinal.splice(idx,1);updateCardInDOM(id);}}
-    }
-    if(enrol&&targetBox&&!targetBox.students.find(s=>s.ref===_mtRef)){targetBox.students.push(enrol);updateCardInDOM(_mtSelectedBoxId);}
-    const sem=allE.filter(e=>!rByRef[e.ref]).length;
-    elv('st-com',allE.length-sem);elv('st-sem',sem);
     const enrolName=(enrol?.name||_mtRef).split(' ')[0];
     elv('mt-success-title','MUDANÇA OK');
-    elv('mt-success-sub',`${enrolName} → ${_mtSelectedCode} ✓`);
+    elv('mt-success-sub',`${enrolName} → ${_mtSelectedCode} · guardado ✓`);
     const succ=document.getElementById('mt-success');
     succ.style.display='flex';succ.className='mt-success show';
-    const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-    renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
-    if(_glBoxId&&_boxes[_glBoxId]?.type==='group'){const conf=getConf();buildGroupListBody(_boxes[_glBoxId],_boxes[_glBoxId].confirmed||!!conf[_glBoxId]);}
-    if(_smItems.length)renderSmResults(_smItems);
-    setTimeout(()=>closeMudarModal(),1500);
+    showToast(`${enrolName} → ${_mtSelectedCode} ✓`,'ok');
+    setTimeout(()=>closeMudarModal(),1600);
   } else {
-    showToast('Erro ao guardar','err');
-    btn.disabled=false;btn.textContent=_mtSelectedFull?`⚠ FORÇAR → ${_mtSelectedCode}`:`✓ MOVER PARA ${_mtSelectedCode}`;
+    showToast('Erro ao guardar no Supabase','err');
+    btn.disabled=false;
+    btn.textContent=_mtSelectedFull?`⚠ FORÇAR → ${_mtSelectedCode}`:`✓ MOVER PARA ${_mtSelectedCode}`;
   }
 }
 
-function closeMudarModal(){document.getElementById('mt-overlay').classList.remove('open');_mtRef=null;_mtSelectedBoxId=null;_mtSelectedCode=null;_mtSelectedFull=false;}
+function closeMudarModal(){
+  document.getElementById('mt-overlay').classList.remove('open');
+  _mtRef=null;_mtSelectedBoxId=null;_mtSelectedCode=null;_mtSelectedFull=false;
+}
 
 /* ══ CARD BUILDER ══ */
 function buildCardHTML(boxId,box,isConf){
@@ -1088,13 +1186,16 @@ async function quickConfirm(boxId){
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
   renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
   showToast(`${box.code} ✓ turma criada!`,'ok');
+  // Write all students to Supabase
   const refs=box.students.map(e=>e.ref).filter(Boolean);
   if(refs.length){
     try{
-      const inList=refs.map(r=>`"${r}"`).join(',');
-      const r=await fetch(`${SB}/rest/v1/timetable_requests?ref=in.(${inList})&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify({assigned_turma:box.code,status:'atribuido'})});
-      if(r.ok){refs.forEach(ref=>{if(rByRef[ref]){rByRef[ref].assigned_turma=box.code;rByRef[ref].status='atribuido'}})}
-      else showToast(`SB erro ${r.status} — local OK`,'warn');
+      // Use individual upserts to handle sem-pedido students correctly
+      await Promise.all(refs.map(ref=>sbUpsertRequest(ref,{assigned_turma:box.code,status:'atribuido'})));
+      refs.forEach(ref=>{
+        if(rByRef[ref]){rByRef[ref].assigned_turma=box.code;rByRef[ref].status='atribuido';}
+        else{rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY};allR.push(rByRef[ref]);}
+      });
     }catch{showToast('Sem ligação — local OK','warn')}
   }
 }
@@ -1219,9 +1320,11 @@ function closeGroupList(){document.getElementById('gl-overlay').classList.remove
 
 /* ══════════════════════════════════════════════
    SEARCH MODAL
-   — Placed students: clickable group pill → inline swap dropdown
-   — All students: ⇄ Mudar button → universal modal (upsert)
-   — sem-pedido / waiting: pill is display-only, modal handles
+   ⇄ Mudar button → openMudarModal() → EXACT SAME 3-click flow as group list
+   1. Type student name  →  results appear
+   2. Click ⇄ Mudar      →  openMudarModal() shows all groups for that level
+   3. Click group tile   →  mtSelectTile() arms confirm button
+   4. Click ✓ CONFIRMAR  →  confirmMudar() writes Supabase + updates all DOM
 ══════════════════════════════════════════════ */
 function openSearchModal(){
   document.getElementById('search-modal-overlay').classList.add('open');
@@ -1262,7 +1365,7 @@ function renderSmResults(matches){
     const placed=req?.assigned_turma;
     const br=BL[normB(e.branch)]||e.branch||'—';
 
-    // Group pill — clickable (inline swap) only when placed
+    // Group pill — clickable only when placed (inline swap dropdown)
     let pillHtml;
     if(placed){
       pillHtml=`<span class="sm-group-pill has-group" onclick="event.stopPropagation();smOpenSwap('${e.ref}')" title="Clique para trocar de turma inline">${placed}<span class="sm-pill-arrow">↕</span></span>`;
@@ -1287,13 +1390,12 @@ function renderSmResults(matches){
 }
 
 /**
- * Inline swap dropdown — only triggered from the clickable group pill.
- * Uses sbUpsertRequest so it works even if row doesn't exist yet.
+ * Inline swap — quick dropdown for placed students.
+ * Uses sbUpsertRequest + moveStudentBetweenBoxes.
  */
 function smOpenSwap(ref){
-  // Close any existing swap panel
   document.querySelectorAll('.sm-swap-panel').forEach(el=>el.remove());
-  if(_smOpenSwap===ref){_smOpenSwap=null;return;} // toggle off
+  if(_smOpenSwap===ref){_smOpenSwap=null;return;}
   const enrol=allE.find(e=>e.ref===ref);if(!enrol)return;
   _smOpenSwap=ref;
   const idx=_smItems.findIndex(e=>e.ref===ref);
@@ -1320,6 +1422,10 @@ function smSwapCancel(){
   _smOpenSwap=null;
 }
 
+/**
+ * FIX: smSwapConfirm now uses shared moveStudentBetweenBoxes helper
+ * so group counts update in both the card grid AND the group-list header.
+ */
 async function smSwapConfirm(ref){
   const safeRef=ref.replace(/[^a-z0-9]/gi,'_');
   const sel=document.getElementById('sm-swap-sel-'+safeRef);if(!sel)return;
@@ -1329,27 +1435,20 @@ async function smSwapConfirm(ref){
   const enrol=allE.find(e=>e.ref===ref);
   const btn=document.getElementById('sm-swap-btn-'+safeRef);
   if(btn){btn.disabled=true;btn.textContent='A guardar…';}
-  // Use universal upsert — works for sem-pedido too
+
   const ok=await sbUpsertRequest(ref,{assigned_turma:code,status:'atribuido'});
   if(ok){
+    // Update in-memory
     if(rByRef[ref]){rByRef[ref].assigned_turma=code;rByRef[ref].status='atribuido';}
     else{const row={ref,assigned_turma:code,status:'atribuido',academic_year:AY};rByRef[ref]=row;allR.push(row);}
-    // Move student in boxes
-    for(const[id,b]of Object.entries(_boxes)){
-      if(b.type==='group'&&id!==targetBoxId){const idx=b.students.findIndex(s=>s.ref===ref);if(idx>=0){b.students.splice(idx,1);updateCardInDOM(id);break}}
-    }
-    if(enrol&&!targetBox.students.find(s=>s.ref===ref)){targetBox.students.push(enrol);updateCardInDOM(targetBoxId);}
-    // Update sem stats
-    const sem=allE.filter(e=>!rByRef[e.ref]).length;
-    elv('st-com',allE.length-sem);elv('st-sem',sem);
+
+    // Sync _boxes + DOM via shared helper
+    moveStudentBetweenBoxes(ref,targetBoxId);
+
     showToast(`${(enrol?.name||ref).split(' ')[0]} → ${code} ✓`,'ok');
     document.querySelectorAll('.sm-swap-panel').forEach(el=>el.remove());
     _smOpenSwap=null;
     renderSmResults(_smItems);
-    updateTopConf();
-    const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-    renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
-    if(_glBoxId&&_boxes[_glBoxId]?.type==='group'){const conf=getConf();buildGroupListBody(_boxes[_glBoxId],_boxes[_glBoxId].confirmed||!!conf[_glBoxId]);}
   } else {
     showToast('Erro ao guardar','err');
     if(btn){btn.disabled=false;btn.textContent='✓ Confirmar mudança';}
@@ -1455,6 +1554,10 @@ function openStudentCard(ref,presetBoxId){
 }
 function scRow(k,v,c=''){return`<div class="sc-row"><span class="sc-rk">${k}</span><span class="sc-rv ${c}">${v}</span></div>`}
 function scSelectGroup(el,boxId,code){el.closest('.sc-sec-body').querySelectorAll('.sc-group-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');_scSelectedGroup={boxId,code};document.getElementById('sc-btn-move').disabled=false;}
+
+/**
+ * FIX: scConfirmMove also uses shared moveStudentBetweenBoxes helper.
+ */
 async function scConfirmMove(){
   if(!_scRef||!_scSelectedGroup)return;
   const{boxId,code}=_scSelectedGroup;
@@ -1465,12 +1568,13 @@ async function scConfirmMove(){
   if(ok){
     if(rByRef[_scRef]){rByRef[_scRef].assigned_turma=code;rByRef[_scRef].status='atribuido';}
     else{rByRef[_scRef]={ref:_scRef,assigned_turma:code,status:'atribuido'};allR.push(rByRef[_scRef]);}
-    const box=_boxes[boxId],enrol=allE.find(e=>e.ref===_scRef);
-    if(box&&enrol&&!box.students.find(s=>s.ref===_scRef)){
-      for(const[id,b]of Object.entries(_boxes)){if(id!==boxId&&b.type==='group'){const idx=b.students.findIndex(s=>s.ref===_scRef);if(idx>=0){b.students.splice(idx,1);updateCardInDOM(id);break}}}
-      box.students.push(enrol);updateCardInDOM(boxId);
-    }
-    showToast(`${enrol?.name||_scRef} → ${code} ✓`,'ok');openStudentCard(_scRef,null);
+
+    // Sync _boxes + DOM via shared helper
+    moveStudentBetweenBoxes(_scRef,boxId);
+
+    const enrol=allE.find(e=>e.ref===_scRef);
+    showToast(`${enrol?.name||_scRef} → ${code} ✓`,'ok');
+    openStudentCard(_scRef,null); // re-open to show new placement
   } else{showToast('Erro ao guardar','err');btn.disabled=false;btn.textContent='✓ Confirmar';}
 }
 function scOpenRequest(){if(!_scRef)return;const num=_scRef.replace('ALM-','');const enrol=allE.find(e=>e.ref===_scRef);window.open(`/admin/timetable-request-update?num=${num}&nome=${encodeURIComponent(enrol?.name||'')}`,`_blank`);}
