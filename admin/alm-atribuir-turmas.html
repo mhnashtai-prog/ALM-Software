@@ -83,6 +83,13 @@ body{display:flex;flex-direction:column}
 /* ══ LAYOUT ══ */
 .layout{flex:1;display:flex;overflow:hidden}
 
+/* ══ LEFT STATS ══ */
+.left-stats{display:grid;grid-template-columns:repeat(3,1fr);flex-shrink:0;border-bottom:1px solid var(--b2)}
+.ls-cell{padding:9px 8px 7px;background:var(--bg2)}
+.ls-cell+.ls-cell{border-left:1px solid var(--b)}
+.ls-v{font-size:18px;font-weight:700;line-height:1}
+.ls-l{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-top:3px}
+
 /* ══ LEFT PANEL ══ */
 .left{width:240px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--b2);display:flex;flex-direction:column;overflow:hidden}
 .branch-strip{flex-shrink:0;padding:7px 8px;border-bottom:1px solid var(--b);display:flex;flex-wrap:wrap;gap:3px;background:rgba(0,0,0,.15)}
@@ -364,6 +371,11 @@ body{display:flex;flex-direction:column}
 <!-- LAYOUT -->
 <div class="layout">
   <div class="left">
+    <div class="left-stats">
+      <div class="ls-cell"><div class="ls-v" style="color:var(--gold2)" id="st-total">—</div><div class="ls-l">Inscritos</div></div>
+      <div class="ls-cell"><div class="ls-v" style="color:var(--green)" id="st-assigned">—</div><div class="ls-l">C/ turma</div></div>
+      <div class="ls-cell"><div class="ls-v" style="color:var(--red)" id="st-pending">—</div><div class="ls-l">S/ turma</div></div>
+    </div>
     <div class="branch-strip" id="branch-strip"><div class="spinner"></div></div>
     <!-- Quick-assign banner -->
     <div class="qa-banner" id="qa-banner">
@@ -477,7 +489,7 @@ const LEVEL_DISPLAY={
   adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},
   exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}
 };
-function dispLvl(cefr,course){return LEVEL_DISPLAY[course]?.[cefr?.toUpperCase()]||cefr||'—';}
+function dispLvl(cefr,course){return (LEVEL_DISPLAY[course] && cefr ? LEVEL_DISPLAY[course][cefr.toUpperCase()] : null)||cefr||'—';}
 function lvlColor(course){
   if(course==='kids')return 'var(--c-inf)';
   if(course==='adults')return 'var(--c-ger)';
@@ -553,8 +565,8 @@ async function boot(){
     if(!TEACHERS.length) TEACHERS=FALLBACK;
     const local=getLocal();
     CLASSES=(classes||[]).map(c=>({...c,
-      teacher_id:local[c.turma_code]?.teacher_id??c.teacher_id,
-      teacher_code:local[c.turma_code]?.teacher_code??c.teacher_code,
+      teacher_id:(local[c.turma_code] ? local[c.turma_code].teacher_id : undefined) !== undefined ? (local[c.turma_code] ? local[c.turma_code].teacher_id : undefined) : c.teacher_id,
+      teacher_code:(local[c.turma_code] ? local[c.turma_code].teacher_code : undefined) !== undefined ? (local[c.turma_code] ? local[c.turma_code].teacher_code : undefined) : c.teacher_code,
       student_refs:c.student_refs||[]
     }));
     document.getElementById('bot-src').textContent='Supabase ao vivo';
@@ -570,14 +582,22 @@ async function boot(){
   const strip=document.getElementById('branch-strip');
   strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${b}</button>`).join('');
 
-  /* Auto-select first available level so grid is never empty on load */
-  const cls0=branchClasses();
-  if(cls0.length&&!SEL_LEVEL&&!SEL_TEACHER){
+  /* Auto-select first available level from enrolments so panel is always populated */
+  if(!SEL_LEVEL&&!SEL_TEACHER){
+    const nb=normB(SEL_BRANCH);
+    const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
     const DEPT_COURSE_ORDER=['kids','adults','exam'];
     let found=null;
-    for(const course of DEPT_COURSE_ORDER){found=cls0.find(c=>c.department===course);if(found)break;}
-    if(!found)found=cls0[0];
-    if(found)SEL_LEVEL={course:found.department,cefr:found.level_code,label:found.level_display||dispLvl(found.level_code,found.department),color:lvlColor(found.department)};
+    for(const course of DEPT_COURSE_ORDER){
+      found=branchEnrol.find(e=>e.family===course);
+      if(found)break;
+    }
+    if(!found)found=branchEnrol[0];
+    if(found){
+      const course=found.family||'adults';
+      const cefr=(found.level_cefr||'A1').toUpperCase();
+      SEL_LEVEL={course,cefr,label:dispLvl(cefr,course),color:lvlColor(course)};
+    }
   }
 
   renderAll();
@@ -659,7 +679,7 @@ function undoLast(){
   if(c){
     c.teacher_id=op.prevTeacherId;c.teacher_code=op.prevTeacherCode;
     saveLocal();
-    sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:op.prevTeacherId,teacher_name:op.prevTeacherId?TEACHERS.find(t=>t.id===op.prevTeacherId)?.name||null:null,teacher_code:op.prevTeacherCode}).catch(()=>{});
+    sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:op.prevTeacherId,teacher_name:op.prevTeacherId?(TEACHERS.find(t=>t.id===op.prevTeacherId)||{name:null}).name||null:null,teacher_code:op.prevTeacherCode}).catch(()=>{});
   }
   document.getElementById('undo-btn').disabled=!UNDO_STACK.length;
   document.getElementById('undo-bar').classList.remove('show');
@@ -700,7 +720,26 @@ function updateKPIs(){
   document.getElementById('kpi-pending').textContent=pend+' sem prof';
   document.getElementById('bot-assigned').textContent=asgn;
   document.getElementById('bot-pending').textContent=pend;
+  /* Stats bar — from enrolments, same as decision file */
+  const nb=normB(SEL_BRANCH);
+  const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
+  /* count students who have at least one class assigned */
+  const assignedRefs=new Set(cls.filter(c=>(c.student_refs?c.student_refs.length:0)).flatMap(c=>c.student_refs));
+  const withTurma=branchEnrol.filter(e=>assignedRefs.has(e.ref)).length;
+  const el_tot=document.getElementById('st-total');
+  const el_asgn=document.getElementById('st-assigned');
+  const el_pend=document.getElementById('st-pending');
+  if(el_tot)el_tot.textContent=branchEnrol.length;
+  if(el_asgn)el_asgn.textContent=withTurma;
+  if(el_pend)el_pend.textContent=branchEnrol.length-withTurma;
 }
+
+/* ══ LEFT STATS ══ */
+.left-stats{display:grid;grid-template-columns:repeat(3,1fr);flex-shrink:0;border-bottom:1px solid var(--b2)}
+.ls-cell{padding:9px 8px 7px;background:var(--bg2)}
+.ls-cell+.ls-cell{border-left:1px solid var(--b)}
+.ls-v{font-size:18px;font-weight:700;line-height:1}
+.ls-l{font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-top:3px}
 
 /* ══ LEFT PANEL ══ */
 function renderPanelList(){
@@ -710,39 +749,60 @@ function renderPanelList(){
 
 function renderLevelList(){
   const cls=branchClasses();
+  /* Build level map from ENROLMENTS (always populated) overlaid with CLASSES data */
+  const nb=normB(SEL_BRANCH);
+  const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb||!nb);
   const levelMap={};
+
+  /* First pass: seed every level from enrolments so panel is always full */
+  branchEnrol.forEach(e=>{
+    const course=e.family||'adults';
+    const cefr=(e.level_cefr||'A1').toUpperCase();
+    const k=course+'|'+cefr;
+    if(!levelMap[k])levelMap[k]={course,cefr,label:dispLvl(cefr,course),dept:deptKey(course),turmas:0,assigned:0,studentCount:0};
+    levelMap[k].studentCount++;
+  });
+
+  /* Second pass: overlay turma counts from CLASSES */
   cls.forEach(c=>{
     const k=c.department+'|'+c.level_code;
-    if(!levelMap[k])levelMap[k]={course:c.department,cefr:c.level_code,label:c.level_display||dispLvl(c.level_code,c.department),dept:deptKey(c.department),total:0,assigned:0};
-    levelMap[k].total++;
+    if(!levelMap[k])levelMap[k]={course:c.department,cefr:c.level_code,label:c.level_display||dispLvl(c.level_code,c.department),dept:deptKey(c.department),turmas:0,assigned:0,studentCount:0};
+    else if(c.level_display)levelMap[k].label=c.level_display;
+    levelMap[k].turmas++;
     if(c.teacher_id)levelMap[k].assigned++;
   });
+
   const byDept={};
   Object.values(levelMap).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
   let html='';
   DEPT_ORDER.forEach(dept=>{
-    const items=byDept[dept];if(!items?.length)return;
+    const items=byDept[dept];if(!items&&items.length)return;
     const col=DEPT_COLOR[dept];
-    items.sort((a,b)=>a.cefr.localeCompare(b.cefr));
+    const CEFR_ORDER={A1:1,A2:2,B1:3,B2:4,C1:5,C2:6};
+    items.sort((a,b)=>(CEFR_ORDER[a.cefr]||9)-(CEFR_ORDER[b.cefr]||9));
     html+=`<div class="dept-hdr"><div class="dept-bar" style="background:${col}"></div><div class="dept-name" style="color:${col};font-family:var(--display)">${DEPT_LABEL[dept]}</div><div class="dept-n">${items.length}</div></div>`;
     items.forEach(lv=>{
-      const isActive=SEL_LEVEL?.course===lv.course&&SEL_LEVEL?.cefr===lv.cefr;
-      const dotCol=lv.assigned===lv.total&&lv.total>0?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(255,255,255,.1)';
-      const fillPct=lv.total?Math.round(lv.assigned/lv.total*100):0;
-      const fillCol=lv.assigned===lv.total&&lv.total>0?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
-      const fracCol=lv.assigned===lv.total&&lv.total>0?'var(--green)':lv.assigned>0?'var(--amber)':'var(--t3)';
-      const studentCount=cls.filter(c=>c.department===lv.course&&c.level_code===lv.cefr).reduce((a,c)=>a+(c.student_refs?.length||0),0);
+      const isActive=SEL_LEVEL&&SEL_LEVEL.course===lv.course&&SEL_LEVEL.cefr===lv.cefr;
+      const hasTurmas=lv.turmas>0;
+      const allAssigned=hasTurmas&&lv.assigned===lv.turmas;
+      const dotCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':hasTurmas?'rgba(201,168,76,.4)':'rgba(255,255,255,.08)';
+      const fillPct=lv.turmas?Math.round(lv.assigned/lv.turmas*100):0;
+      const fillCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
+      const fracCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':hasTurmas?'var(--gold2)':'var(--t3)';
+      const subText=hasTurmas
+        ?`${lv.turmas} turma${lv.turmas!==1?'s':''} · ${lv.studentCount} al`
+        :`${lv.studentCount} al · sem turmas`;
       html+=`<div class="panel-row${isActive?' active':''}" onclick="selectLevel('${lv.course}','${lv.cefr}','${lv.label}')">
         <div class="pr-dot" style="background:${dotCol}"></div>
-        <div class="pr-info"><div class="pr-name">${lv.label}</div><div class="pr-sub">${lv.total} turma${lv.total!==1?'s':''} · ${studentCount} al</div></div>
+        <div class="pr-info"><div class="pr-name">${lv.label}</div><div class="pr-sub">${subText}</div></div>
         <div class="pr-right">
-          <div class="pr-frac" style="color:${fracCol}">${lv.assigned}<span style="color:var(--t3);font-size:8px">/${lv.total}</span></div>
+          <div class="pr-frac" style="color:${fracCol}">${lv.assigned}<span style="color:var(--t3);font-size:8px">/${lv.turmas||'—'}</span></div>
           <div class="pr-mini-bar"><div class="pr-mini-fill" style="width:${fillPct}%;background:${fillCol}"></div></div>
         </div>
       </div>`;
     });
   });
-  if(!html)html='<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px">Sem turmas</div>';
+  if(!html)html='<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px">Sem dados</div>';
   document.getElementById('panel-list').innerHTML=html;
 }
 
@@ -827,7 +887,7 @@ function renderCtxStrip(){
     strip.style.setProperty('--ctx-col',lv.color);
     const cls=branchClasses().filter(c=>c.department===lv.course&&c.level_code===lv.cefr);
     const asgn=cls.filter(c=>c.teacher_id).length;
-    const students=cls.reduce((a,c)=>a+(c.student_refs?.length||0),0);
+    const students=cls.reduce((a,c)=>a+((c.student_refs?c.student_refs.length:0)),0);
     strip.innerHTML=`
       <div class="ctx-identity" style="color:${lv.color}">
         <div class="ctx-main-name">${lv.label}</div>
@@ -845,7 +905,7 @@ function renderCtxStrip(){
     const col=hColor(h,t.contractH);
     const av=avCol(t.name);
     const myClasses=branchClasses().filter(c=>c.teacher_id===t.id);
-    const totalStudents=myClasses.reduce((s,c)=>s+(c.student_refs?.length||0),0);
+    const totalStudents=myClasses.reduce((s,c)=>s+((c.student_refs?c.student_refs.length:0)),0);
     strip.style.setProperty('--ctx-col',LANG_COLS[t.lang]||'var(--gold)');
     strip.innerHTML=`
       <div class="ctx-identity">
@@ -896,7 +956,7 @@ function renderGrid(){
 function renderCellLevel(day,h){
   const cls=branchClasses();
   const matchCell=SEL_LEVEL?cls.find(c=>c.day_of_week===day&&c.hour===h&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr):null;
-  const otherCell=cls.find(c=>c.day_of_week===day&&c.hour===h&&!(c.department===SEL_LEVEL?.course&&c.level_code===SEL_LEVEL?.cefr));
+  const otherCell=cls.find(c=>c.day_of_week===day&&c.hour===h&&!(SEL_LEVEL&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr));
 
   if(!matchCell&&!otherCell){
     return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
@@ -910,7 +970,7 @@ function renderCellLevel(day,h){
       <div class="slot-inner ${otherCell.teacher_id?'si-assigned':'si-empty'}">
         ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
         <div class="slot-code" style="color:${col}">${otherCell.level_display||otherCell.level_code}</div>
-        <div class="slot-n">${otherCell.student_refs?.length||0} al</div>
+        <div class="slot-n">${otherCell.(student_refs?student_refs.length:0)} al</div>
       </div>
     </td>`;
   }
@@ -918,7 +978,7 @@ function renderCellLevel(day,h){
   const c=matchCell;
   const tc=TEACHERS.find(t=>t.id===c.teacher_id);
   const av=tc?avCol(tc.name):null;
-  const n=c.student_refs?.length||0;
+  const n=(c.student_refs?c.student_refs.length:0);
   const col=lvlColor(c.department);
 
   let cellCls;
@@ -930,10 +990,10 @@ function renderCellLevel(day,h){
   }
 
   // student dots (up to 6)
-  const stuDots=c.student_refs?.slice(0,6).map(ref=>{
+  const stuDots=(c.student_refs?c.student_refs.slice(0,6):[]).map(ref=>{
     const enr=ENROLMENTS.find(e=>e.ref===ref);
-    const dotAv=avCol(enr?.name||ref);
-    return`<div class="slot-stu-dot" style="background:${dotAv.t}" title="${enr?.name||ref}"></div>`;
+    const dotAv=avCol((enr&&enr.name)||ref);
+    return`<div class="slot-stu-dot" style="background:${dotAv.t}" title="${(enr&&enr.name)||ref}"></div>`;
   }).join('')||'';
 
   return`<td class="slot-td"
@@ -962,7 +1022,7 @@ function renderCellTeacher(day,h){
       <div class="slot-inner ${cell.teacher_id?'si-assigned':'si-empty'}">
         <div class="slot-code" style="color:${col}">${cell.level_display||cell.level_code}</div>
         <div class="slot-sub">${tc?tc.code:'sem prof'}</div>
-        <div class="slot-n">${cell.student_refs?.length||0} al</div>
+        <div class="slot-n">${cell.(student_refs?student_refs.length:0)} al</div>
       </div>
     </td>`;
   }
@@ -973,10 +1033,10 @@ function renderCellTeacher(day,h){
 
   if(myCell){
     const col=lvlColor(myCell.department);
-    const n=myCell.student_refs?.length||0;
-    const stuDots=myCell.student_refs?.slice(0,5).map(ref=>{
+    const n=(myCell.student_refs?myCell.student_refs.length:0);
+    const stuDots=(myCell.student_refs?myCell.student_refs.slice(0,5):[]).map(ref=>{
       const enr=ENROLMENTS.find(e=>e.ref===ref);
-      const dotAv=avCol(enr?.name||ref);
+      const dotAv=avCol((enr&&enr.name)||ref);
       return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
     }).join('')||'';
     return`<td class="slot-td"
@@ -1045,16 +1105,16 @@ function qaAssign(e,turmaCode){
 let _stuPopTimer=null;
 function showStuPopover(e,turmaCode){
   const c=CLASSES.find(x=>x.turma_code===turmaCode);
-  if(!c||!c.student_refs?.length)return;
+  if(!c||!(c.student_refs?c.student_refs.length:0))return;
   clearTimeout(_stuPopTimer);
   const pop=document.getElementById('stu-popover');
   const stuRefs=c.student_refs.slice(0,8);
   let html=`<div class="stu-pop-title">${turmaCode} · ${c.student_refs.length} alunos</div>`;
   stuRefs.forEach(ref=>{
     const enr=ENROLMENTS.find(x=>x.ref===ref);
-    const name=enr?.name||ref;
+    const name=(enr&&enr.name)||ref;
     const av=avCol(name);
-    const lang=enr?.lang||c.lang||'EN';
+    const lang=(enr&&enr.lang)||c.lang||'EN';
     html+=`<div class="stu-pop-row">
       <div class="stu-pop-av" style="background:${av.bg};color:${av.t}">${avInit(name)}</div>
       <div class="stu-pop-name">${name}</div>
@@ -1077,7 +1137,7 @@ function hideStuPopover(){
 
 /* ══ DEMAND ══ */
 function getDemandForSlot(day,h,dept,cefr){
-  return branchClasses().filter(c=>c.department===dept&&c.level_code===cefr&&c.day_of_week===day&&c.hour===h).reduce((s,c)=>s+(c.student_refs?.length||0),0);
+  return branchClasses().filter(c=>c.department===dept&&c.level_code===cefr&&c.day_of_week===day&&c.hour===h).reduce((s,c)=>s+((c.student_refs?c.student_refs.length:0)),0);
 }
 function heatClass(n){
   if(!n||n===0)return'';
@@ -1096,7 +1156,7 @@ function showTooltipLevel(e,turmaCode,day,h){
   const tt=document.getElementById('tt');
   const tc=TEACHERS.find(t=>t.id===c.teacher_id);
   const col=lvlColor(c.department);
-  const n=c.student_refs?.length||0;
+  const n=(c.student_refs?c.student_refs.length:0);
 
   let body='';
   if(tc){
@@ -1122,7 +1182,7 @@ function showTooltipLevel(e,turmaCode,day,h){
     if(!ranked.length)body+='<div style="padding:8px 12px;font-size:8px;color:var(--t3)">Sem professores disponiveis</div>';
   }
 
-  const qaHint=QA_TEACHER?`<span class="tt-qa-hint">⚡ Clique para atribuir ${TEACHERS.find(x=>x.id===QA_TEACHER)?.code||''}</span>`:'<span class="tt-kbd">clique</span> para '+(tc?'alterar':'atribuir');
+  const qaHint=QA_TEACHER?`<span class="tt-qa-hint">⚡ Clique para atribuir ${(TEACHERS.find(x=>x.id===QA_TEACHER)||{code:''}).code||''}</span>`:'<span class="tt-kbd">clique</span> para '+(tc?'alterar':'atribuir');
 
   tt.innerHTML=`
     <div class="tt-hdr">
@@ -1154,7 +1214,7 @@ function showTooltipTeacher(e,day,h){
       <div class="tt-av-lvl" style="background:rgba(80,100,180,.15);border-color:${col};color:${col}">${(c.level_display||c.level_code||'').slice(0,4)}</div>
       <div class="tt-info">
         <div class="tt-name">${c.turma_code} · ${c.level_display||c.level_code}</div>
-        <div class="tt-meta">${c.student_refs?.length||0} al · ${tc?tc.code:'sem prof'}${isMine?' ← voce':''}</div>
+        <div class="tt-meta">${(c.student_refs?c.student_refs.length:0)} al · ${tc?tc.code:'sem prof'}${isMine?' ← voce':''}</div>
       </div>
       ${!c.teacher_id&&isMatch?`<div class="tt-tag tag-best">match</div>`:''}
       ${!c.teacher_id&&!isMatch&&t?`<div class="tt-tag tag-lvl">disponivel</div>`:''}
@@ -1204,7 +1264,7 @@ function openPopupLevel(e,turmaCode){
   const c=CLASSES.find(x=>x.turma_code===turmaCode);if(!c)return;
   POP_TURMA=turmaCode;POP_SEL=c.teacher_id||null;
   const col=lvlColor(c.department);
-  const n=c.student_refs?.length||0;
+  const n=(c.student_refs?c.student_refs.length:0);
 
   document.getElementById('pop-code').textContent=turmaCode;
   document.getElementById('pop-code').style.color=col;
@@ -1289,10 +1349,10 @@ function openPopupTeacher(e,day,h){
     ${t?`<div class="pop-meta-row"><span class="pop-mk">Horas livres</span><span class="pop-mv ${hClass(teacherHours(t.id),t.contractH)}">${(t.contractH-teacherHours(t.id)).toFixed(1)}h</span></div>`:''}`;
 
   const firstCls=cls.find(c=>!c.teacher_id)||cls[0];
-  const stuRefs=firstCls?.student_refs||[];
+  const stuRefs=(firstCls&&firstCls.student_refs)||[];
   const stuData=stuRefs.slice(0,6).map(ref=>{
     const enr=ENROLMENTS.find(x=>x.ref===ref);
-    return enr||{ref,name:ref,lang:firstCls?.lang};
+    return enr||{ref,name:ref,lang:firstCls&&firstCls.lang};
   });
   let stuHtml='';
   if(firstCls){
@@ -1319,7 +1379,7 @@ function openPopupTeacher(e,day,h){
       <div class="pop-opt-av-lvl" style="background:rgba(80,100,180,.2);border-color:${col};color:${col}">${(c.level_display||c.level_code||'').slice(0,4)}</div>
       <div class="pop-opt-info">
         <div class="pop-opt-name">${c.turma_code} · ${c.level_display||c.level_code}</div>
-        <div class="pop-opt-meta">${FLAGS[c.lang]||''} ${c.lang} · ${c.student_refs?.length||0} al</div>
+        <div class="pop-opt-meta">${FLAGS[c.lang]||''} ${c.lang} · ${(c.student_refs?c.student_refs.length:0)} al</div>
       </div>
       <div class="pop-badges">
         ${isMine?`<span class="pop-badge pb-match">atual</span>`:''}
@@ -1363,11 +1423,11 @@ async function popConfirm(){
     const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
     const t=POP_SEL?TEACHERS.find(x=>x.id===POP_SEL):null;
     const prev={id:c.teacher_id,code:c.teacher_code};
-    c.teacher_id=POP_SEL||null;c.teacher_code=t?.code||null;
+    c.teacher_id=POP_SEL||null;c.teacher_code=(t&&t.code)||null;
     saveLocal();
-    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:POP_SEL||null,teacher_name:t?.name||null,teacher_code:t?.code||null});document.getElementById('bot-src').textContent='Guardado';}
+    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});document.getElementById('bot-src').textContent='Guardado';}
     catch{document.getElementById('bot-src').textContent='Local';}
-    if(POP_SEL)pushUndo(c.turma_code,prev.id,prev.code,POP_SEL,t?.code||null);
+    if(POP_SEL)pushUndo(c.turma_code,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
     showToast(t?`${c.turma_code} atribuido a ${t.code}`:'Professor removido','ok');
   } else {
     const turmaCode=POP_SEL;const c=CLASSES.find(x=>x.turma_code===turmaCode);
@@ -1410,7 +1470,7 @@ async function saveAll(){
   const toSave=CLASSES.filter(c=>c.teacher_id);
   let ok=0;
   for(const c of toSave){
-    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:c.teacher_id,teacher_name:TEACHERS.find(t=>t.id===c.teacher_id)?.name||null,teacher_code:c.teacher_code});ok++;}catch{}
+    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:c.teacher_id,teacher_name:(TEACHERS.find(t=>t.id===c.teacher_id)||{name:null}).name||null,teacher_code:c.teacher_code});ok++;}catch{}
   }
   showToast(`${ok}/${toSave.length} turmas gravadas`,'ok');renderAll();
 }
