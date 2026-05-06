@@ -1098,6 +1098,28 @@ async function quickConfirm(boxId){
   if(conf[boxId]||box.confirmed){showToast(`${box.code} já criado`,'warn');return}
   _armedBox=null;clearTimeout(_armTimer);
   conf[boxId]=new Date().toISOString();saveConf(conf);box.confirmed=true;
+  try{
+  const _stored=JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');
+  _stored[box.code]={
+    turma_code:box.code,
+    lk:box.lk,
+    dk:box.dk,
+    department:box.dk,
+    level_code:(box.lk||'|').split('|')[1]||'A1',
+    level_display:box.meta?.label||'—',
+    branch:activeLoc,
+    day_of_week:box.pair?.aL||'SEG',
+    hour:box.block==='manha'?9:14,
+    start_time:box.block==='manha'?'09:00':'14:00',
+    end_time:box.block==='manha'?'10:30':'15:30',
+    duration_min:90,
+    lang:(box.students||[]).find(e=>e.lang)?.lang||'EN',
+    student_refs:(box.students||[]).map(e=>e.ref).filter(Boolean),
+    teacher_id:null,
+    teacher_code:null,
+  };
+  localStorage.setItem('alm-boxes-confirmed-2627',JSON.stringify(_stored));
+}catch(_){}
   const safeId=boxId.replace(/[|.\-]/g,'_');
   updateCardInDOM(boxId);
   if(_glBoxId===boxId)openGroupListDS(boxId);
