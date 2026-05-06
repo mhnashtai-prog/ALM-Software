@@ -996,30 +996,31 @@ function renderCellLevel(day,h){
   let out='';
 
   /* Render each matching class (there may be multiple groups at the same day+hour) */
-  matchCells.forEach(c=>{
-    const tc=TEACHERS.find(t=>t.id===c.teacher_id);
-    const av=tc?avCol(tc.name):null;
-    const n=(c.student_refs||[]).length;
-    const col=lvlColor(c.department);
-    let cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-empty');
-
-    const stuDots=(c.student_refs||[]).slice(0,6).map(ref=>{
-      const enr=ENROLMENTS.find(e=>e.ref===ref);
-      const dotAv=avCol((enr&&enr.name)||ref);
-      return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
-    }).join('');
-
-    out+=`<td class="slot-td"
-      onclick="${QA_TEACHER?`qaAssign(event,'${c.turma_code}')`:`openPopupLevel(event,'${c.turma_code}')`}"
-      onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h});showStuPopover(event,'${c.turma_code}')"
-      onmouseleave="hideTooltip();hideStuPopover()">
-      <div class="slot-inner ${cellCls}${!c.teacher_id&&QA_TEACHER?' qa-match':''}">
+if(matchCells.length>0){
+    out='<td class="slot-td">';
+    matchCells.forEach(c=>{
+      const tc=TEACHERS.find(t=>t.id===c.teacher_id);
+      const av=tc?avCol(tc.name):null;
+      const n=(c.student_refs||[]).length;
+      const col=lvlColor(c.department);
+      let cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-empty');
+      const stuDots=(c.student_refs||[]).slice(0,6).map(ref=>{
+        const enr=ENROLMENTS.find(e=>e.ref===ref);
+        const dotAv=avCol((enr&&enr.name)||ref);
+        return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
+      }).join('');
+      out+=`<div class="slot-inner ${cellCls}${!c.teacher_id&&QA_TEACHER?' qa-match':''}" style="margin-bottom:2px;cursor:pointer"
+        onclick="${QA_TEACHER?`qaAssign(event,'${c.turma_code}')`:`openPopupLevel(event,'${c.turma_code}')`}"
+        onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h});showStuPopover(event,'${c.turma_code}')"
+        onmouseleave="hideTooltip();hideStuPopover()">
         ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
         <div class="slot-code" style="color:${tc?'rgba(60,220,150,.9)':col}">${c.turma_code}</div>
         <div class="slot-sub">${tc?tc.code:'—'}</div>
         ${n>0?`<div class="slot-students">${stuDots}${n>6?`<div style="font-size:5px;color:var(--t3)">+${n-6}</div>`:''}</div>`:''}
-      </div></td>`;
-  });
+      </div>`;
+    });
+    out+='</td>';
+  }
 
   /* Render other-level classes at same slot (dimmed) */
   if(matchCells.length===0&&otherCells.length>0){
