@@ -18,12 +18,7 @@
   --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.60);--t3:rgba(215,193,145,.32);--t4:rgba(215,193,145,.12);
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
   --c-inf:#5A9EFF;--c-juv:#28C8B0;--c-ger:#E8A030;--c-exa:#B06AE8;
-  /* Timeline geometry */
-  --tl-start:8;    /* first hour shown */
-  --tl-end:21;     /* last hour shown (exclusive) */
-  --tl-col-w:72px; /* pixels per hour */
-  --tl-row-h:52px; /* height of each day row */
-  --tl-label:52px; /* width of day-label column */
+  --tl-start:8;--tl-end:21;--tl-col-w:72px;--tl-row-h:52px;--tl-label:52px;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
 body{display:flex;flex-direction:column}
@@ -144,7 +139,7 @@ body{display:flex;flex-direction:column}
 .qa-mode-bar.show{display:flex}
 
 /* ══════════════════════════════════════════
-   TIMELINE GRID — proportional Gantt layout
+   TIMELINE GRID
    ══════════════════════════════════════════ */
 .grid-area{flex:1;overflow:auto;padding:12px 0 80px}
 .grid-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 16px}
@@ -161,7 +156,8 @@ body{display:flex;flex-direction:column}
 .tl-ruler-label{width:var(--tl-label);flex-shrink:0;border-right:1px solid var(--b2)}
 .tl-ruler-hours{position:relative;flex:1}
 .tl-ruler-hour{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:4px;font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3);border-left:.5px solid var(--b);white-space:nowrap}
-.tl-ruler-hour.brk{border-left:1px solid rgba(201,168,76,.12)}
+/* Lunch break separator — stronger tick in the ruler */
+.tl-ruler-hour.brk{border-left:1.5px solid rgba(201,168,76,.35)}
 
 /* Day rows */
 .tl-row{display:flex;align-items:stretch;border-bottom:.5px solid rgba(201,168,76,.04);position:relative}
@@ -188,29 +184,28 @@ body{display:flex;flex-direction:column}
   pointer-events:none;
   z-index:0;
 }
-/* Lunch break highlight */
+/* Lunch break: slim twin separator lines only — no dark fill */
 .tl-lane::after{
   content:'';
   position:absolute;
   top:0;bottom:0;
-  /* 12h–14h = hours 4 and 5 from start (8h) */
   left:calc((12 - var(--tl-start)) * var(--tl-col-w));
   width:calc(2 * var(--tl-col-w));
-  background:rgba(0,0,0,.25);
-  border-left:.5px solid rgba(201,168,76,.08);
-  border-right:.5px solid rgba(201,168,76,.08);
+  background:transparent;
+  border-left:1px solid rgba(201,168,76,.22);
+  border-right:1px solid rgba(201,168,76,.22);
   pointer-events:none;
   z-index:0;
 }
 
 /* ══════════════════════════════════════════
-   LIVING CELLS — positioned proportionally
+   SLOT CELLS — rectangular, sharp corners
    ══════════════════════════════════════════ */
 .slot-cell{
   position:absolute;
   top:3px;bottom:3px;
   z-index:1;
-  border-radius:6px;
+  border-radius:2px;
   border:.5px solid transparent;
   display:flex;flex-direction:column;
   transition:all .16s cubic-bezier(.2,.8,.3,1);
@@ -223,7 +218,7 @@ body{display:flex;flex-direction:column}
 .slot-cell::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:var(--cell-dept-col,rgba(201,168,76,.3));
-  border-radius:6px 6px 0 0;
+  border-radius:2px 2px 0 0;
   transition:opacity .2s;
 }
 .slot-cell:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.6);z-index:5}
@@ -254,7 +249,7 @@ body{display:flex;flex-direction:column}
 .cell-pair-chips{display:flex;gap:2px;flex-shrink:0}
 .cell-day-chip{font-size:5.5px;font-weight:700;letter-spacing:.04em;padding:1px 3px;border-radius:2px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--t2);line-height:1.4}
 .cell-day-chip.chip-today{background:rgba(29,184,122,.25);border-color:rgba(29,184,122,.5);color:var(--green)}
-.cell-level-pill{font-size:6px;font-weight:700;padding:1px 4px;border-radius:3px;border:.5px solid;line-height:1.4;white-space:nowrap;flex-shrink:0}
+.cell-level-pill{font-size:6px;font-weight:700;padding:1px 4px;border-radius:2px;border:.5px solid;line-height:1.4;white-space:nowrap;flex-shrink:0}
 .cell-mid{display:flex;align-items:center;gap:5px;padding:1px 5px;flex:1;min-height:0;overflow:hidden}
 .cell-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;border:1.5px solid;flex-shrink:0;transition:transform .15s;position:relative}
 .cell-av:hover{transform:scale(1.1)}
@@ -270,10 +265,10 @@ body{display:flex;flex-direction:column}
 .cell-code{font-size:8px;font-weight:700;letter-spacing:.03em;line-height:1;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell-teacher-name{font-size:6.5px;opacity:.7;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell-bottom{padding:1px 5px 3px;display:flex;align-items:center;gap:4px;flex-shrink:0}
-.cell-cap-bar{flex:1;height:2.5px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
-.cell-cap-fill{height:100%;border-radius:2px;transition:width .4s cubic-bezier(.2,.8,.3,1)}
+.cell-cap-bar{flex:1;height:2.5px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden}
+.cell-cap-fill{height:100%;border-radius:1px;transition:width .4s cubic-bezier(.2,.8,.3,1)}
 .cell-cap-n{font-size:6px;font-weight:700;flex-shrink:0;opacity:.7}
-.now-badge{position:absolute;top:3px;right:4px;font-size:5px;font-weight:700;padding:1px 3px;background:var(--green);color:#fff;border-radius:2px;letter-spacing:.06em;z-index:2}
+.now-badge{position:absolute;top:3px;right:4px;font-size:5px;font-weight:700;padding:1px 3px;background:var(--green);color:#fff;border-radius:1px;letter-spacing:.06em;z-index:2}
 
 /* Now-line */
 .tl-now-line{position:absolute;top:0;bottom:0;width:1.5px;background:var(--green);z-index:8;pointer-events:none;opacity:.7}
@@ -313,15 +308,15 @@ body{display:flex;flex-direction:column}
 .tt-qa-hint{color:var(--green);font-weight:700}
 
 /* ── ASSIGN POPUP ── */
-.popup{position:fixed;z-index:800;background:var(--bg2);border:.5px solid var(--b2);border-radius:12px;width:320px;box-shadow:0 20px 60px rgba(0,0,0,.9);display:none;flex-direction:column;overflow:hidden}
+.popup{position:fixed;z-index:800;background:var(--bg2);border:.5px solid var(--b2);border-radius:8px;width:320px;box-shadow:0 20px 60px rgba(0,0,0,.9);display:none;flex-direction:column;overflow:hidden}
 .popup.open{display:flex;animation:popIn .14s ease}
 @keyframes popIn{from{opacity:0;transform:scale(.95) translateY(-6px)}to{opacity:1;transform:none}}
 .pop-hdr{padding:11px 13px 9px;background:rgba(0,0,0,.25);border-bottom:.5px solid var(--b);display:flex;align-items:flex-start;gap:8px}
-.pop-hero-strip{height:3px;background:var(--pop-dept-col,var(--gold));position:absolute;top:0;left:0;right:0;border-radius:12px 12px 0 0}
+.pop-hero-strip{height:3px;background:var(--pop-dept-col,var(--gold));position:absolute;top:0;left:0;right:0;border-radius:8px 8px 0 0}
 .pop-title{flex:1}
 .pop-code{font-size:14px;font-weight:700;color:var(--gold2)}
 .pop-slot-info{font-size:8px;color:var(--t3);margin-top:2px}
-.pop-close{width:22px;height:22px;background:rgba(0,0,0,.4);border:.5px solid var(--b);color:var(--t3);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:4px;transition:all .1s}
+.pop-close{width:22px;height:22px;background:rgba(0,0,0,.4);border:.5px solid var(--b);color:var(--t3);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:3px;transition:all .1s}
 .pop-close:hover{background:var(--red-a);color:var(--red)}
 .pop-meta{padding:7px 13px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.1);font-size:8px;display:flex;flex-wrap:wrap;gap:6px}
 .pop-meta-chip{display:flex;align-items:center;gap:3px;padding:2px 7px;border:.5px solid var(--b2);border-radius:99px;font-size:7.5px;color:var(--t2)}
@@ -338,7 +333,7 @@ body{display:flex;flex-direction:column}
 .pop-stu-ref{font-size:7px;color:var(--t3);flex-shrink:0}
 .pop-stu-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .1s}
 .pop-stu-row:hover .pop-stu-actions{opacity:1}
-.pop-stu-btn{width:18px;height:18px;border-radius:3px;border:.5px solid var(--b2);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:8px;cursor:pointer;transition:all .1s;color:var(--t3)}
+.pop-stu-btn{width:18px;height:18px;border-radius:2px;border:.5px solid var(--b2);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:8px;cursor:pointer;transition:all .1s;color:var(--t3)}
 .pop-stu-btn:hover{background:rgba(74,143,245,.15);border-color:rgba(74,143,245,.3);color:var(--blue)}
 .pop-options-hdr{padding:5px 13px 3px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);background:rgba(0,0,0,.1)}
 .pop-options{max-height:200px;overflow-y:auto}
@@ -363,7 +358,7 @@ body{display:flex;flex-direction:column}
 .pop-conflict-warn{margin:5px 13px;padding:4px 9px;background:var(--red-a);border:.5px solid var(--red-b);font-size:7.5px;color:var(--red);display:none;border-radius:2px}
 .pop-conflict-warn.show{display:block}
 .pop-actions{padding:8px 13px;display:flex;gap:6px;border-top:.5px solid var(--b)}
-.pop-btn{flex:1;padding:7px;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;border:.5px solid;transition:all .12s;letter-spacing:.04em;text-align:center;border-radius:3px}
+.pop-btn{flex:1;padding:7px;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;border:.5px solid;transition:all .12s;letter-spacing:.04em;text-align:center;border-radius:2px}
 .pop-btn-confirm{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
 .pop-btn-confirm:hover{background:rgba(29,184,122,.28)}
 .pop-btn-confirm:disabled{opacity:.4;cursor:default}
@@ -452,7 +447,7 @@ body{display:flex;flex-direction:column}
 .dos-btn-ghost:hover{background:rgba(255,255,255,.05);color:var(--t)}
 
 /* ── UNDO BAR ── */
-.undo-bar{position:fixed;bottom:34px;left:50%;transform:translateX(-50%) translateY(12px);display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--bg3);border:.5px solid var(--b2);border-radius:4px;font-size:8px;color:var(--t2);opacity:0;transition:all .2s;z-index:9000;pointer-events:none;white-space:nowrap}
+.undo-bar{position:fixed;bottom:34px;left:50%;transform:translateX(-50%) translateY(12px);display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--bg3);border:.5px solid var(--b2);border-radius:3px;font-size:8px;color:var(--t2);opacity:0;transition:all .2s;z-index:9000;pointer-events:none;white-space:nowrap}
 .undo-bar.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:all}
 .undo-btn{font-size:8px;font-weight:700;padding:2px 9px;border:.5px solid var(--amber-b);color:var(--amber);background:var(--amber-a);cursor:pointer;font-family:var(--mono);border-radius:2px}
 .undo-progress{position:absolute;bottom:0;left:0;height:2px;background:var(--amber);border-radius:0 0 2px 2px;transition:width linear}
@@ -548,7 +543,7 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="botbar">
-  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v13 · Timeline Grid</span></span>
+  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v14 · Timeline Grid</span></span>
   <div class="bot-right">
     <span class="bot-stat">Atribuídas: <span id="bot-assigned">0</span></span>
     <span class="bot-stat">Pendentes: <span id="bot-pending">—</span></span>
@@ -672,10 +667,10 @@ const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H
 /* ════════════════════════════════════════════════
    TIMELINE CONSTANTS
    ════════════════════════════════════════════════ */
-const TL_START=8;   // first hour
-const TL_END=21;    // last hour (exclusive)
-const TL_COL_W=72;  // px per hour
-const TL_ROW_H=52;  // px per day row
+const TL_START=8;
+const TL_END=21;
+const TL_COL_W=72;
+const TL_ROW_H=52;
 const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL={SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
 const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
@@ -725,14 +720,7 @@ function primaryCode(code){return(code||'').replace(/_B$/,'');}
 function todayKey(){const m=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];return m[new Date().getDay()]||null;}
 function nowHour(){return new Date().getHours();}
 function nowMinutes(){return new Date().getMinutes();}
-
-/* ── TIMELINE GEOMETRY ── */
-// Convert HH:MM string or integer hour to pixel offset from TL_START
-function timeToX(timeStr){
-  if(typeof timeStr==='number')return(timeStr-TL_START)*TL_COL_W;
-  const[h,m]=(timeStr||'').split(':').map(Number);
-  return((h-TL_START)+m/60)*TL_COL_W;
-}
+function timeToX(timeStr){if(typeof timeStr==='number')return(timeStr-TL_START)*TL_COL_W;const[h,m]=(timeStr||'').split(':').map(Number);return((h-TL_START)+m/60)*TL_COL_W;}
 function durationToPx(minutes){return(minutes/60)*TL_COL_W;}
 
 /* ════════════════════════════════════════════════
@@ -759,7 +747,7 @@ function branchTeachers(){const nb=normB(SEL_BRANCH);const f=TEACHERS.filter(t=>
 function heatClass(n){if(!n)return'';if(n<5)return'si-h1';if(n<=8)return'si-h2';if(n<=12)return'si-h3';if(n<=17)return'si-h4';return'si-h5';}
 
 /* ════════════════════════════════════════════════
-   BOOT
+   FALLBACK / DEMO DATA
    ════════════════════════════════════════════════ */
 const FALLBACK=[
   {id:'P-01',code:'NB',name:'Nelia Baptista',lang:'EN',contractH:22,branch:'Funchal',branches:['Funchal'],native:false},
@@ -938,9 +926,6 @@ function buildBranchTabs(){
   document.getElementById('branch-strip').innerHTML=ordered.map(b=>`<button class="btab${normB(SEL_BRANCH)===b?' active':''}" onclick="selectBranch('${b}',this)">${BL[b]||b}</button>`).join('');
 }
 
-/* ════════════════════════════════════════════════
-   MODE / SELECTION
-   ════════════════════════════════════════════════ */
 function setMode(mode){VIEW_MODE=mode;SEL_LEVEL=null;SEL_TEACHER=null;cancelQA();document.getElementById('btn-mode-level').classList.toggle('active',mode==='level');document.getElementById('btn-mode-teacher').classList.toggle('active',mode==='teacher');renderAll();}
 function selectBranch(b,btn){SEL_BRANCH=b;SEL_LEVEL=null;SEL_TEACHER=null;cancelQA();document.querySelectorAll('.btab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderAll();}
 function selectLevel(course,cefr,label,color){SEL_LEVEL={course,cefr,label,color};SEL_TEACHER=null;renderAll();}
@@ -989,9 +974,6 @@ function undoLast(){
   renderAll();showToast('Desfeito','info');
 }
 
-/* ════════════════════════════════════════════════
-   RENDER ALL
-   ════════════════════════════════════════════════ */
 function renderAll(){renderPanelList();renderCtxStrip();renderGrid();updateKPIs();}
 
 function updateKPIs(){
@@ -1010,9 +992,6 @@ function updateKPIs(){
   if(e1)e1.textContent=be.length;if(e2)e2.textContent=wt;if(e3)e3.textContent=be.length-wt;
 }
 
-/* ════════════════════════════════════════════════
-   LEFT PANEL
-   ════════════════════════════════════════════════ */
 function renderPanelList(){if(VIEW_MODE==='level')renderLevelList();else renderTeacherList();}
 
 function renderLevelList(){
@@ -1077,9 +1056,6 @@ function renderTeacherList(){
   document.getElementById('panel-list').innerHTML=html;
 }
 
-/* ════════════════════════════════════════════════
-   CONTEXT STRIP
-   ════════════════════════════════════════════════ */
 function renderCtxStrip(){
   const strip=document.getElementById('ctx-strip');
   if(VIEW_MODE==='level'){
@@ -1104,26 +1080,22 @@ function renderCtxStrip(){
     <div class="ctx-stat"><div class="ctx-stat-v" style="color:var(--gold2)">${myCls.length}</div><div class="ctx-stat-l">turmas</div></div>
     <div class="ctx-stat"><div class="ctx-stat-v" style="color:var(--t2)">${totalStu}</div><div class="ctx-stat-l">alunos</div></div>
     <div class="ctx-stat"><div class="ctx-stat-v" style="color:var(--teal)">${(t.contractH-h).toFixed(1)}</div><div class="ctx-stat-l">livres</div></div>
-    <div class="ctx-stat" style="cursor:pointer;padding:0 16px" onclick="enterQA('${t.id}')"><div style="width:28px;height:28px;border:1px solid var(--green-b);background:var(--green-c);display:flex;align-items:center;justify-content:center;border-radius:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><div class="ctx-stat-l" style="color:var(--green)">rápido</div></div>`;
+    <div class="ctx-stat" style="cursor:pointer;padding:0 16px" onclick="enterQA('${t.id}')"><div style="width:28px;height:28px;border:1px solid var(--green-b);background:var(--green-c);display:flex;align-items:center;justify-content:center;border-radius:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><div class="ctx-stat-l" style="color:var(--green)">rápido</div></div>`;
   }
 }
 
-/* ════════════════════════════════════════════════
-   TIMELINE GRID — proportional Gantt
-   ════════════════════════════════════════════════ */
 function renderGrid(){
   const wrap=document.getElementById('tl-wrap');
   const totalW=(TL_END-TL_START)*TL_COL_W;
   const today=todayKey();
   const nowH=nowHour(), nowM=nowMinutes();
-
   let html='';
 
   // Ruler
   html+=`<div class="tl-ruler"><div class="tl-ruler-label"></div><div class="tl-ruler-hours" style="width:${totalW}px;position:relative;height:100%">`;
   for(let h=TL_START;h<TL_END;h++){
     const x=(h-TL_START)*TL_COL_W;
-    const isBrk=(h===12||h===13);
+    const isBrk=(h===12||h===14);
     html+=`<div class="tl-ruler-hour${isBrk?' brk':''}" style="left:${x}px;width:${TL_COL_W}px">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
   }
   html+=`</div></div>`;
@@ -1132,7 +1104,6 @@ function renderGrid(){
   DAYS.forEach(day=>{
     const isToday=day===today;
     const dayCls=branchClasses().filter(c=>c.day_of_week===day);
-
     html+=`<div class="tl-row">
       <div class="tl-day-label">
         <div class="tl-day-name" style="color:${isToday?'var(--green)':'var(--t2)'}">${day}</div>
@@ -1141,18 +1112,13 @@ function renderGrid(){
       </div>
       <div class="tl-lane" style="width:${totalW}px;height:${TL_ROW_H}px">`;
 
-    // Now line
     if(isToday&&nowH>=TL_START&&nowH<TL_END){
       const nowX=((nowH-TL_START)+nowM/60)*TL_COL_W;
       html+=`<div class="tl-now-line" style="left:${nowX}px"></div>`;
     }
 
-    // Cells — sorted by start time so overlaps stack predictably
     const sorted=[...dayCls].sort((a,b)=>a.hour-b.hour);
-    sorted.forEach(c=>{
-      html+=renderTimelineCell(c,day,isToday,nowH,nowM);
-    });
-
+    sorted.forEach(c=>{html+=renderTimelineCell(c,day,isToday,nowH,nowM);});
     html+=`</div></div>`;
   });
 
@@ -1174,16 +1140,13 @@ function renderTimelineCell(c,day,isToday,nowH,nowM){
   const capPct=MAX_G>0?Math.round(n/MAX_G*100):0;
   const capCol=n<5?'var(--red)':n<=8?'var(--amber)':n<=12?'var(--teal)':'var(--green)';
 
-  // Geometry
   const startH=c.hour||TL_START;
   const durMin=c.duration_min||90;
   const leftPx=timeToX(startH);
-  const widthPx=durationToPx(durMin)-4; // 4px gap between cells
+  const widthPx=durationToPx(durMin)-4;
   const isNow=isToday&&nowH===startH;
 
-  // Cell class
-  let cellCls='';
-  let dimmed=false;
+  let cellCls='';let dimmed=false;
   if(VIEW_MODE==='level'){
     if(SEL_LEVEL){
       const isMatch=c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr;
@@ -1196,15 +1159,12 @@ function renderTimelineCell(c,day,isToday,nowH,nowM){
     else cellCls=heatClass(n)||'si-h2';
   }
 
-  // QA
   let qaClass='';
   if(QA_TEACHER&&!c.teacher_id){
-    const qt=TEACHERS.find(x=>x.id===QA_TEACHER);
     const hasConflict=CLASSES.some(x=>x.teacher_id===QA_TEACHER&&x.day_of_week===day&&x.hour===c.hour&&primaryCode(x.turma_code)!==pc);
     qaClass=(!hasConflict)?'qa-compatible':'qa-incompatible';
   }else if(QA_TEACHER&&c.teacher_id){qaClass='qa-incompatible';}
 
-  // Avatar HTML
   let ghostHTML='';
   if(!c.teacher_id&&!QA_TEACHER){
     const ranked=getRankedTeachers(pc,day,c.hour,c.lang||'EN');
@@ -1218,13 +1178,8 @@ function renderTimelineCell(c,day,isToday,nowH,nowM){
 
   const codeCol=tc?'rgba(60,220,150,.9)':deptAccent;
   const teacherLabel=tc?tc.code:(()=>{const r=getRankedTeachers(pc,day,c.hour,c.lang||'EN');return r.length?`? ${r[0].t.code}`:'—';})();
-
-  // Pair chips (only show for cells wide enough)
   const showChips=widthPx>60;
   const chipHTML=showChips?pairDays.map(d=>`<div class="cell-day-chip${d===todayKey()?' chip-today':''}">${d}</div>`).join(''):'';
-
-  // Duration label
-  const durLabel=`${c.start_time||c.hour+'h'}–${c.end_time||(c.hour+Math.floor(durMin/60))+'h'}`;
 
   return `<div class="slot-cell ${cellCls} ${qaClass}${isNow?' is-now':''}"
     style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.2':''};"
@@ -1250,9 +1205,6 @@ function renderTimelineCell(c,day,isToday,nowH,nowM){
   </div>`;
 }
 
-/* ════════════════════════════════════════════════
-   QA ASSIGN
-   ════════════════════════════════════════════════ */
 function qaAssign(e,pc){
   e.stopPropagation();if(!QA_TEACHER)return;
   const c=CLASSES.find(x=>x.turma_code===pc&&!x._secondary);if(!c)return;
@@ -1266,9 +1218,6 @@ function qaAssign(e,pc){
   renderAll();showToast(`${pc} → ${t.code} ✓`,'ok');
 }
 
-/* ════════════════════════════════════════════════
-   RANKED TEACHERS
-   ════════════════════════════════════════════════ */
 function getRankedTeachers(pc,day,h,lang){
   return branchTeachers().map(t=>{
     const hv=teacherHours(t.id);
@@ -1284,9 +1233,6 @@ function getRankedTeachers(pc,day,h,lang){
   }).sort((a,b)=>b.score-a.score);
 }
 
-/* ════════════════════════════════════════════════
-   RICH TOOLTIP
-   ════════════════════════════════════════════════ */
 let _ttTimer=null;
 function showTT(e,pc,day,h){
   clearTimeout(_ttTimer);
@@ -1320,9 +1266,7 @@ function showTT(e,pc,day,h){
     </div>
   </div>`;
 
-  if(stuRefs.length){
-    body+=`<div class="tt-students-row">${stuAvsHTML}${moreN>0?`<span class="tt-stu-more">+${moreN}</span>`:''}<span style="font-size:7px;color:var(--t3);margin-left:auto">clique → dossier</span></div>`;
-  }
+  if(stuRefs.length){body+=`<div class="tt-students-row">${stuAvsHTML}${moreN>0?`<span class="tt-stu-more">+${moreN}</span>`:''}<span style="font-size:7px;color:var(--t3);margin-left:auto">clique → dossier</span></div>`;}
 
   if(tc){
     const hv=teacherHours(tc.id);const av=avCol(tc.name);const pct=Math.min(100,Math.round(hv/tc.contractH*100));
@@ -1357,9 +1301,6 @@ function showTT(e,pc,day,h){
 function hideTT(){clearTimeout(_ttTimer);document.getElementById('tt').classList.remove('show');}
 function posTT(e,tt){const W=window.innerWidth,H=window.innerHeight;let x=e.clientX+16,y=e.clientY-10;if(x+310>W)x=e.clientX-314;if(y+440>H)y=H-450;if(y<10)y=10;tt.style.left=x+'px';tt.style.top=y+'px';}
 
-/* ════════════════════════════════════════════════
-   ASSIGN POPUP
-   ════════════════════════════════════════════════ */
 function openPopup(e,pc){
   if(QA_TEACHER){qaAssign(e,pc);return;}
   e.stopPropagation();hideTT();
@@ -1469,9 +1410,6 @@ function openDossierFromPopup(){const c=CLASSES.find(x=>x.turma_code===POP_TURMA
 function closePopup(){document.getElementById('popup').classList.remove('open');POP_TURMA=null;POP_SEL=null;}
 function posPopup(e){const pop=document.getElementById('popup');let x=e.clientX+12,y=e.clientY-20;if(x+330>window.innerWidth)x=e.clientX-334;if(y+560>window.innerHeight)y=window.innerHeight-565;if(y<10)y=10;pop.style.left=x+'px';pop.style.top=y+'px';}
 
-/* ════════════════════════════════════════════════
-   STUDENT DOSSIER
-   ════════════════════════════════════════════════ */
 let _dosNoteKey='';
 function openDossier(ref){
   DOS_REF=ref;DOS_TAB='turma';_dosFlags=[];
@@ -1592,9 +1530,6 @@ function dosAction(){
 }
 function flashSaved(){const el=document.getElementById('dos-footer-saved');el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
 
-/* ════════════════════════════════════════════════
-   SAVE / EXPORT
-   ════════════════════════════════════════════════ */
 async function saveAll(){
   saveLocal();
   const toSave=CLASSES.filter(c=>c.teacher_id&&!c._secondary);
@@ -1608,9 +1543,6 @@ function exportCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'}));a.download=`ALM-Assign-${AY.replace('/','')}-${new Date().toISOString().slice(0,10)}.csv`;a.click();showToast('CSV exportado','ok');
 }
 
-/* ════════════════════════════════════════════════
-   KEYBOARD + CLOCK
-   ════════════════════════════════════════════════ */
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(document.getElementById('dossier-overlay').classList.contains('open')){closeDossier();return;}closePopup();hideTT();cancelQA();}
   if((e.key==='z'||e.key==='Z')&&!e.ctrlKey&&!e.metaKey)undoLast();
