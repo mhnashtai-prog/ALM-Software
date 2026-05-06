@@ -387,7 +387,7 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="botbar">
-  <span>Tab 5 · Atribuição de Professores · <span style="color:var(--green);font-weight:700">v9</span></span>
+  <span>Tab 5 · Atribuição de Professores · <span style="color:var(--green);font-weight:700">v10</span></span>
   <div class="bot-right">
     <span class="bot-stat">Atribuídas: <span id="bot-assigned">0</span></span>
     <span class="bot-stat">Pendentes: <span id="bot-pending">—</span></span>
@@ -450,7 +450,6 @@ const DEPT_ORDER=['infantil','juvenil','geral','exames'];
 const DEPT_LABEL={infantil:'Infantil',juvenil:'Juvenil',geral:'Geral',exames:'Exames'};
 const DEPT_COLOR={infantil:'var(--c-inf)',juvenil:'var(--c-juv)',geral:'var(--c-ger)',exames:'var(--c-exa)'};
 
-/* Same level display as Decision page */
 const LEVEL_MAP={
   'kids|A1':{dept:'kids',label:'PI-a1',color:'var(--c-inf)',deptKey:'infantil'},
   'kids|A2':{dept:'kids',label:'PI-a2',color:'var(--c-inf)',deptKey:'infantil'},
@@ -490,20 +489,6 @@ function dispLvl(cefr,dept){
   return(LEVEL_MAP[k]&&LEVEL_MAP[k].label)||cefr||'—';
 }
 
-/* ══ SLOT ASSIGNMENT HELPERS ══ */
-/* Map a turma code's pair label to day+hour for grid placement */
-const PAIR_DAY_MAP={
-  'SEG':0,'TER':1,'QUA':2,'QUI':3,'SEX':4,'SAB':5,'SÁB':5
-};
-/* Default slot sequence for groups that have no day info */
-const DEFAULT_SLOTS=[
-  {day:'SEG',hour:9},{day:'TER',hour:9},{day:'QUA',hour:9},{day:'QUI',hour:9},
-  {day:'SEG',hour:14},{day:'TER',hour:14},{day:'QUA',hour:14},{day:'QUI',hour:14},
-  {day:'SEX',hour:9},{day:'SEX',hour:14},{day:'SÁB',hour:9},{day:'SÁB',hour:14},
-  {day:'SEG',hour:10},{day:'TER',hour:10},{day:'QUA',hour:10},{day:'QUI',hour:10},
-  {day:'SEG',hour:15},{day:'TER',hour:15},{day:'QUA',hour:15},{day:'QUI',hour:15},
-];
-
 /* avatar colours */
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
@@ -512,9 +497,8 @@ function normB(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
 
 /* ══ STATE ══ */
 let TEACHERS=[];
-let CLASSES=[];      // rebuilt from timetable_requests grouped by assigned_turma
+let CLASSES=[];
 let ENROLMENTS=[];
-let REQ_BY_REF={};   // ref -> timetable_request row
 
 let VIEW_MODE='level';
 let SEL_BRANCH='';
@@ -545,24 +529,21 @@ function saveLocal(){
   localStorage.setItem(LS_KEY,JSON.stringify(m));
 }
 
-/* ══ BOOT — fixed to read from timetable_requests like Decision does ══ */
+/* ══════════════════════════════════════════════════════════════════
+   BOOT — reads classes table directly (Tab 4 writes it, Tab 5 reads it)
+   No reconstruction from timetable_requests.
+   ══════════════════════════════════════════════════════════════════ */
 async function boot(){
   try{
-    /* Fetch same sources as Decision page */
-    const[enrol,teachers,requests,classesDB]=await Promise.all([
+    const[enrol,teachers,classesDB]=await Promise.all([
       sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
-      sbGet('timetable_requests',`select=ref,student_name,branch,family,level_cefr,day_preferences,status,assigned_turma&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('classes',`select=turma_code,teacher_id,teacher_code,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`)
     ]);
 
     ENROLMENTS=enrol||[];
 
-    /* Build ref lookup */
-    REQ_BY_REF={};
-    (requests||[]).forEach(r=>{REQ_BY_REF[r.ref]=r;});
-
-    /* Build enrolment lookup */
+    /* Build enrolment lookup for branch/lang inference */
     const enrolByRef={};
     ENROLMENTS.forEach(e=>{enrolByRef[e.ref]=e;});
 
@@ -574,89 +555,60 @@ async function boot(){
     }));
     if(!TEACHERS.length)TEACHERS=FALLBACK;
 
-    /* Load teacher assignments from localStorage */
+    /* Local storage: optimistic teacher overrides */
     const local=getLocal();
 
-    /* Build classes DB lookup by turma_code for enrichment */
-    const dbByCode={};
-    (classesDB||[]).forEach(c=>{dbByCode[c.turma_code]=c;});
+    /* ══ READ classes TABLE DIRECTLY — this is the single source of truth ══
+       Tab 4 (Decision) writes each confirmed group here via sbInsertClass.
+       We trust it completely; no reconstruction needed. */
+    CLASSES=(classesDB||[]).map(c=>{
+      /* Local override for teacher assignment */
+      const localEntry=local[c.turma_code];
+      const teacher_id=localEntry?.teacher_id??c.teacher_id??null;
+      const teacher_code=localEntry?.teacher_code??c.teacher_code??null;
 
-    /* ══ CORE FIX: rebuild CLASSES from timetable_requests grouped by assigned_turma ══
-       This mirrors exactly what Decision does, so data is always consistent.
-       DB classes table is used only to enrich day/hour/teacher if available. */
-    const turmaGroups={};
-    (requests||[]).forEach(r=>{
-      if(!r.assigned_turma||normB(r.status||'')!=='ATRIBUIDO'&&(r.status||'').toLowerCase()!=='atribuido')return;
-      const code=r.assigned_turma;
-      if(!turmaGroups[code])turmaGroups[code]={
-        code,
-        refs:[],
-        family:r.family||'adults',
-        level_cefr:r.level_cefr||'A1',
-        branch:r.branch||'',
-        lang:'EN',
-      };
-      turmaGroups[code].refs.push(r.ref);
-      /* Use enrolment for lang */
-      const e=enrolByRef[r.ref];
-      if(e&&e.lang)turmaGroups[code].lang=e.lang;
-    });
-
-    /* Assign grid slots — use DB data if available, else spread across grid */
-    const usedSlots=new Set();
-    CLASSES=Object.values(turmaGroups).map((g,idx)=>{
-      const dbRow=dbByCode[g.code];
-      const dept=g.family;
-      const cefr=(g.level_cefr||'A1').toUpperCase();
-      const lmKey=`${dept}|${cefr}`;
-      const lm=LEVEL_MAP[lmKey]||{label:cefr,color:'var(--c-ger)',deptKey:'geral'};
-
-      /* Teacher from DB row or from local storage */
-      let teacher_id=(local[g.code]||{}).teacher_id||(dbRow&&dbRow.teacher_id)||null;
-      let teacher_code=(local[g.code]||{}).teacher_code||(dbRow&&dbRow.teacher_code)||null;
-
-      /* Day/hour from DB row or pick a free slot */
-      let day_of_week,hour;
-      if(dbRow&&dbRow.day_of_week&&dbRow.hour){
-        day_of_week=dbRow.day_of_week;
-        hour=dbRow.hour;
-      }else{
-        /* Find first unused slot */
-        let picked=DEFAULT_SLOTS[idx%DEFAULT_SLOTS.length];
-        for(const s of DEFAULT_SLOTS){
-          const key=`${s.day}:${s.hour}`;
-          if(!usedSlots.has(key)){picked=s;usedSlots.add(key);break;}
-        }
-        day_of_week=picked.day;
-        hour=picked.hour;
+      /* Branch: use DB value, fall back to first student's enrolment */
+      let branch=c.branch||'';
+      if(!branch&&c.student_refs&&c.student_refs.length){
+        const fe=enrolByRef[c.student_refs[0]];
+        if(fe)branch=fe.branch||'';
       }
 
-      /* student_refs: from DB if available (richer), else from our group */
-      const student_refs=(dbRow&&dbRow.student_refs&&dbRow.student_refs.length)
-        ?dbRow.student_refs
-        :g.refs;
+      /* Level display: use DB, fall back to LEVEL_MAP */
+      const cefr=(c.level_code||'A1').toUpperCase();
+      const dept=c.department||'adults';
+      const lmKey=`${dept}|${cefr}`;
+      const lm=LEVEL_MAP[lmKey]||{label:cefr,color:'var(--c-ger)',deptKey:'geral'};
+      const level_display=c.level_display||lm.label||cefr;
+
+      /* Lang: use DB, fall back to first student */
+      let lang=c.lang||'EN';
+      if(!c.lang&&c.student_refs&&c.student_refs.length){
+        const fe=enrolByRef[c.student_refs[0]];
+        if(fe&&fe.lang)lang=fe.lang;
+      }
 
       return{
-        turma_code:g.code,
+        turma_code:c.turma_code,
         teacher_id,
         teacher_code,
-        lang:g.lang,
+        lang,
         level_code:cefr,
-        level_display:lm.label,
+        level_display,
         department:dept,
-        branch:g.branch,
-        day_of_week,
-        hour,
-        start_time:dbRow?.start_time||(hour<12?`${String(hour).padStart(2,'0')}:00`:`${String(hour).padStart(2,'0')}:00`),
-        end_time:dbRow?.end_time||'',
-        duration_min:dbRow?.duration_min||90,
-        student_refs,
+        branch,
+        day_of_week:c.day_of_week||'SEG',
+        hour:typeof c.hour==='number'?c.hour:parseInt(c.hour)||9,
+        start_time:c.start_time||`${String(c.hour||9).padStart(2,'0')}:00`,
+        end_time:c.end_time||'',
+        duration_min:c.duration_min||90,
+        student_refs:c.student_refs||[],
       };
     });
 
-    document.getElementById('bot-src').textContent='Supabase ao vivo';
+    document.getElementById('bot-src').textContent=`Supabase · ${CLASSES.length} turmas`;
 
-    /* Build branches from enrolments */
+    /* Build branch tabs from enrolments (who is enrolled where) */
     const enrolBranches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
     const ordered=BO_ASSIGN.filter(b=>enrolBranches.includes(b));
     SEL_BRANCH=ordered[0]||'FUNCHAL';
@@ -664,14 +616,23 @@ async function boot(){
     const strip=document.getElementById('branch-strip');
     strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${BL_ASSIGN[b]||b}</button>`).join('');
 
-    /* Auto-select first level */
+    /* Auto-select first level that has classes in this branch */
     if(!SEL_LEVEL&&!SEL_TEACHER){
       const nb=normB(SEL_BRANCH);
-      const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb);
-      const found=branchEnrol[0];
-      if(found){
-        const meta=getLM(found);
-        SEL_LEVEL={course:found.family||'adults',cefr:(found.level_cefr||'A1').toUpperCase(),label:meta.label,color:meta.color};
+      const firstClass=CLASSES.find(c=>normB(c.branch)===nb);
+      if(firstClass){
+        const dept=firstClass.department||'adults';
+        const cefr=firstClass.level_code||'A1';
+        const lmKey=`${dept}|${cefr}`;
+        const lm=LEVEL_MAP[lmKey]||{label:cefr,color:'var(--c-ger)'};
+        SEL_LEVEL={course:dept,cefr,label:lm.label,color:lm.color};
+      } else {
+        /* fallback: pick from enrolments if no classes yet for this branch */
+        const branchEnrol=ENROLMENTS.filter(e=>normB(e.branch)===nb);
+        if(branchEnrol.length){
+          const meta=getLM(branchEnrol[0]);
+          SEL_LEVEL={course:branchEnrol[0].family||'adults',cefr:(branchEnrol[0].level_cefr||'A1').toUpperCase(),label:meta.label,color:meta.color};
+        }
       }
     }
 
@@ -760,20 +721,23 @@ function selectBranch(b,btn){
   btn.classList.add('active');
   renderAll();
 }
+
+/* ══ BRANCH FILTERS — use normB() consistently ══ */
 function branchClasses(){
   if(!SEL_BRANCH)return CLASSES;
   const nb=normB(SEL_BRANCH);
-  /* Match by branch field in class, or by enrolment branch */
   return CLASSES.filter(c=>{
+    /* Primary: match branch field on the class row */
     if(c.branch&&normB(c.branch)===nb)return true;
-    /* fallback: check if any student ref is from this branch */
+    /* Fallback: check first student's branch from enrolments */
     if(c.student_refs&&c.student_refs.length){
-      const e=ENROLMENTS.find(e=>c.student_refs.includes(e.ref));
-      if(e)return normB(e.branch)===nb;
+      const enr=ENROLMENTS.find(e=>c.student_refs.includes(e.ref));
+      if(enr&&normB(enr.branch)===nb)return true;
     }
     return false;
   });
 }
+
 function branchTeachers(){
   const nb2=normB(SEL_BRANCH);
   const f=TEACHERS.filter(t=>(t.branches||[]).some(b=>normB(b)===nb2)||normB(t.branch)===nb2);
@@ -800,7 +764,7 @@ function updateKPIs(){
 
   const nb=normB(SEL_BRANCH);
   const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
-  const assignedRefs=new Set(cls.flatMap(c=>c.student_refs||[]));
+  const assignedRefs=new Set(branchClasses().flatMap(c=>c.student_refs||[]));
   const withTurma=branchEnrol.filter(e=>assignedRefs.has(e.ref)).length;
   const el_tot=document.getElementById('st-total');
   const el_asgn=document.getElementById('st-assigned');
@@ -818,25 +782,29 @@ function renderPanelList(){
 
 function renderLevelList(){
   const cls=branchClasses();
-  const nb=normB(SEL_BRANCH);
-  const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
 
-  /* Build level map from enrolments (source of truth) */
+  /* ══ Build level map from CLASSES (source of truth) ══
+     Only show levels that actually have confirmed groups. */
   const levelMap={};
-  branchEnrol.forEach(e=>{
-    const meta=getLM(e);
-    const k=`${e.family||'adults'}|${(e.level_cefr||'A1').toUpperCase()}`;
-    if(!levelMap[k])levelMap[k]={course:e.family||'adults',cefr:(e.level_cefr||'A1').toUpperCase(),label:meta.label,dept:meta.deptKey,turmas:0,assigned:0,studentCount:0,color:meta.color};
-    levelMap[k].studentCount++;
-  });
-
-  /* Overlay turma counts */
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
-    if(levelMap[k]){
-      levelMap[k].turmas++;
-      if(c.teacher_id)levelMap[k].assigned++;
+    if(!levelMap[k]){
+      const lmKey=`${c.department}|${c.level_code}`;
+      const lm=LEVEL_MAP[lmKey]||{label:c.level_display||c.level_code,deptKey:deptKeyFromDept(c.department),color:lvlColor(c.department)};
+      levelMap[k]={
+        course:c.department,
+        cefr:c.level_code,
+        label:c.level_display||lm.label,
+        dept:lm.deptKey||deptKeyFromDept(c.department),
+        turmas:0,
+        assigned:0,
+        studentCount:0,
+        color:lm.color||lvlColor(c.department)
+      };
     }
+    levelMap[k].turmas++;
+    if(c.teacher_id)levelMap[k].assigned++;
+    levelMap[k].studentCount+=(c.student_refs||[]).length;
   });
 
   const byDept={};
@@ -851,24 +819,23 @@ function renderLevelList(){
     html+=`<div class="dept-hdr"><div class="dept-bar" style="background:${col}"></div><div class="dept-name" style="color:${col}">${DEPT_LABEL[dept]}</div><div class="dept-n">${items.length}</div></div>`;
     items.forEach(lv=>{
       const isActive=SEL_LEVEL&&SEL_LEVEL.course===lv.course&&SEL_LEVEL.cefr===lv.cefr;
-      const hasTurmas=lv.turmas>0;
-      const allAssigned=hasTurmas&&lv.assigned===lv.turmas;
-      const dotCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':hasTurmas?'rgba(201,168,76,.4)':'rgba(255,255,255,.08)';
+      const allAssigned=lv.turmas>0&&lv.assigned===lv.turmas;
+      const dotCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(201,168,76,.4)';
       const fillPct=lv.turmas?Math.round(lv.assigned/lv.turmas*100):0;
       const fillCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
-      const fracCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':hasTurmas?'var(--gold2)':'var(--t3)';
-      const subText=hasTurmas?`${lv.turmas} turma${lv.turmas!==1?'s':''} · ${lv.studentCount} al`:`${lv.studentCount} al · sem turmas`;
+      const fracCol=allAssigned?'var(--green)':lv.assigned>0?'var(--amber)':'var(--gold2)';
+      const subText=`${lv.turmas} turma${lv.turmas!==1?'s':''} · ${lv.studentCount} al`;
       html+=`<div class="panel-row${isActive?' active':''}" onclick="selectLevel('${lv.course}','${lv.cefr}','${lv.label}','${lv.color}')">
         <div class="pr-dot" style="background:${dotCol}"></div>
         <div class="pr-info"><div class="pr-name">${lv.label}</div><div class="pr-sub">${subText}</div></div>
         <div class="pr-right">
-          <div class="pr-frac" style="color:${fracCol}">${lv.assigned}<span style="color:var(--t3);font-size:8px">/${lv.turmas||'—'}</span></div>
+          <div class="pr-frac" style="color:${fracCol}">${lv.assigned}<span style="color:var(--t3);font-size:8px">/${lv.turmas}</span></div>
           <div class="pr-mini-bar"><div class="pr-mini-fill" style="width:${fillPct}%;background:${fillCol}"></div></div>
         </div>
       </div>`;
     });
   });
-  if(!html)html='<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px">Sem dados para esta filial</div>';
+  if(!html)html='<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px">Sem turmas confirmadas para esta filial.<br><span style="font-size:7px;margin-top:4px;display:block">Confirme grupos no Tab 4 primeiro.</span></div>';
   document.getElementById('panel-list').innerHTML=html;
 }
 
@@ -1005,46 +972,64 @@ function renderGrid(){
 
 function renderCellLevel(day,h){
   const cls=branchClasses();
-  const matchCell=SEL_LEVEL?cls.find(c=>c.day_of_week===day&&c.hour===h&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr):null;
-  const otherCell=cls.find(c=>c.day_of_week===day&&c.hour===h&&!(SEL_LEVEL&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr));
 
-  if(!matchCell&&!otherCell)return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
+  /* Classes matching the selected level at this slot */
+  const matchCells=SEL_LEVEL
+    ?cls.filter(c=>c.day_of_week===day&&c.hour===h&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr)
+    :[];
 
-  if(!matchCell&&otherCell){
-    const tc=TEACHERS.find(t=>t.id===otherCell.teacher_id);
+  /* Other classes at this slot (different level) */
+  const otherCells=cls.filter(c=>c.day_of_week===day&&c.hour===h&&
+    !(SEL_LEVEL&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr));
+
+  /* Empty slot */
+  if(!matchCells.length&&!otherCells.length){
+    return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
+  }
+
+  let out='';
+
+  /* Render each matching class (there may be multiple groups at the same day+hour) */
+  matchCells.forEach(c=>{
+    const tc=TEACHERS.find(t=>t.id===c.teacher_id);
     const av=tc?avCol(tc.name):null;
-    const col=lvlColor(otherCell.department);
-    return`<td class="slot-td" style="opacity:.28" onclick="openPopupLevel(event,'${otherCell.turma_code}')" onmouseenter="showTooltipLevel(event,'${otherCell.turma_code}','${day}',${h})" onmouseleave="hideTooltip()">
-      <div class="slot-inner ${otherCell.teacher_id?'si-assigned':'si-empty'}">
+    const n=(c.student_refs||[]).length;
+    const col=lvlColor(c.department);
+    let cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-empty');
+
+    const stuDots=(c.student_refs||[]).slice(0,6).map(ref=>{
+      const enr=ENROLMENTS.find(e=>e.ref===ref);
+      const dotAv=avCol((enr&&enr.name)||ref);
+      return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
+    }).join('');
+
+    out+=`<td class="slot-td"
+      onclick="${QA_TEACHER?`qaAssign(event,'${c.turma_code}')`:`openPopupLevel(event,'${c.turma_code}')`}"
+      onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h});showStuPopover(event,'${c.turma_code}')"
+      onmouseleave="hideTooltip();hideStuPopover()">
+      <div class="slot-inner ${cellCls}${!c.teacher_id&&QA_TEACHER?' qa-match':''}">
         ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
-        <div class="slot-code" style="color:${col}">${otherCell.level_display||otherCell.level_code}</div>
-        <div class="slot-n">${(otherCell.student_refs||[]).length} al</div>
+        <div class="slot-code" style="color:${tc?'rgba(60,220,150,.9)':col}">${c.turma_code}</div>
+        <div class="slot-sub">${tc?tc.code:'—'}</div>
+        ${n>0?`<div class="slot-students">${stuDots}${n>6?`<div style="font-size:5px;color:var(--t3)">+${n-6}</div>`:''}</div>`:''}
+      </div></td>`;
+  });
+
+  /* Render other-level classes at same slot (dimmed) */
+  if(matchCells.length===0&&otherCells.length>0){
+    const c=otherCells[0];
+    const tc=TEACHERS.find(t=>t.id===c.teacher_id);
+    const av=tc?avCol(tc.name):null;
+    const col=lvlColor(c.department);
+    out=`<td class="slot-td" style="opacity:.28" onclick="openPopupLevel(event,'${c.turma_code}')" onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h})" onmouseleave="hideTooltip()">
+      <div class="slot-inner ${c.teacher_id?'si-assigned':'si-empty'}">
+        ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
+        <div class="slot-code" style="color:${col}">${c.level_display||c.level_code}</div>
+        <div class="slot-n">${(c.student_refs||[]).length} al</div>
       </div></td>`;
   }
 
-  const c=matchCell;
-  const tc=TEACHERS.find(t=>t.id===c.teacher_id);
-  const av=tc?avCol(tc.name):null;
-  const n=(c.student_refs||[]).length;
-  const col=lvlColor(c.department);
-  let cellCls=c.teacher_id?'si-assigned':(heatClass((c.student_refs||[]).length)||'si-empty');
-
-  const stuDots=(c.student_refs||[]).slice(0,6).map(ref=>{
-    const enr=ENROLMENTS.find(e=>e.ref===ref);
-    const dotAv=avCol((enr&&enr.name)||ref);
-    return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
-  }).join('');
-
-  return`<td class="slot-td"
-    onclick="${QA_TEACHER?`qaAssign(event,'${c.turma_code}')`:`openPopupLevel(event,'${c.turma_code}')`}"
-    onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h});showStuPopover(event,'${c.turma_code}')"
-    onmouseleave="hideTooltip();hideStuPopover()">
-    <div class="slot-inner ${cellCls}${!c.teacher_id&&QA_TEACHER?' qa-match':''}">
-      ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
-      <div class="slot-code" style="color:${tc?'rgba(60,220,150,.9)':col}">${c.turma_code}</div>
-      <div class="slot-sub">${tc?tc.code:'—'}</div>
-      ${n>0?`<div class="slot-students">${stuDots}${n>6?`<div style="font-size:5px;color:var(--t3)">+${n-6}</div>`:''}</div>`:''}
-    </div></td>`;
+  return out||`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
 }
 
 function renderCellTeacher(day,h){
