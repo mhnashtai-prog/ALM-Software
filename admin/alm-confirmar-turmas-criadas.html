@@ -742,30 +742,42 @@ async function sbGet(table,qs){
 }
 
 /* ══ NEW: write confirmed group to classes table ══ */
-async function sbInsertClass(box,refs){
-  const row={
-    turma_code:box.code,
-    academic_year:AY,
-    lang:(box.students||[]).find(e=>e.lang)?.lang||'EN',
-    level_code:(box.lk||'|').split('|')[1]||'A1',
-    level_display:box.meta?.label||'—',
-    department:box.dk||'adults',
-    branch:activeLoc,
-    day_of_week:box.pair?.aL||'SEG',
-    hour:box.block==='manha'?9:14,
-    start_time:box.block==='manha'?'09:00':'14:00',
-    end_time:box.block==='manha'?'10:30':'15:30',
-    duration_min:90,
-    student_refs:refs,
-    teacher_id:null,
-    teacher_code:null
+async function sbInsertClass(box, refs) {
+  const row = {
+    turma_code: box.code,
+    academic_year: AY,
+    lang: ((box.students || []).find(e => e.lang) || {}).lang || 'EN',
+    level_code: (box.lk || '|').split('|')[1] || 'A1',
+    level_display: (box.meta && box.meta.label) || '—',
+    department: box.dk || 'adults',
+    branch: activeLoc,
+    day_of_week: (box.pair && box.pair.aL) || 'SEG',
+    hour: box.block === 'manha' ? 9 : 14,
+    start_time: box.block === 'manha' ? '09:00' : '14:00',
+    end_time: box.block === 'manha' ? '10:30' : '15:30',
+    duration_min: 90,
+    student_refs: refs,
+    teacher_id: null,
+    teacher_code: null,
+    teacher_name: null,
+    group_key: box.lk || '',
+    status: 'confirmed'
   };
-  const r=await fetch(`${SB}/rest/v1/classes`,{
-    method:'POST',
-    headers:{...H,Prefer:'resolution=merge-duplicates,return=minimal'},
-    body:JSON.stringify(row)
+  const r = await fetch(`${SB}/rest/v1/classes`, {
+    method: 'POST',
+    headers: {
+      apikey: KEY,
+      Authorization: 'Bearer ' + KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(row)
   });
-  return r.ok||r.status===201||r.status===200;
+  if (!r.ok) {
+    const err = await r.text();
+    console.error('sbInsertClass failed:', r.status, err);
+  }
+  return r.ok || r.status === 201 || r.status === 200;
 }
 
 async function sbUpsertRequest(ref,payload){
