@@ -313,7 +313,7 @@ body{display:flex;flex-direction:column}
 <div class="topbar">
   <div class="nav-duo">
     <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
-    <a class="nav-back" href="/admin/alm-confirmar-turmas-criadas.html"><span class="nav-back-arrow">←</span><span class="nav-back-label">Voltar</span></a>
+    <a class="nav-back" href="/admin/alm-confirmar-turmas-criadas"><span class="nav-back-arrow">←</span><span class="nav-back-label">Voltar</span></a>
   </div>
   <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
   <div class="tabs">
@@ -387,7 +387,7 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="botbar">
-  <span>Tab 5 · Atribuição de Professores · <span style="color:var(--green);font-weight:700">v10</span></span>
+  <span>Tab 5 · Atribuição de Professores · <span style="color:var(--green);font-weight:700">v11</span></span>
   <div class="bot-right">
     <span class="bot-stat">Atribuídas: <span id="bot-assigned">0</span></span>
     <span class="bot-stat">Pendentes: <span id="bot-pending">—</span></span>
@@ -453,18 +453,18 @@ const DEPT_COLOR={infantil:'var(--c-inf)',juvenil:'var(--c-juv)',geral:'var(--c-
 const LEVEL_MAP={
   'kids|A1':{dept:'kids',label:'PI-a1',color:'var(--c-inf)',deptKey:'infantil'},
   'kids|A2':{dept:'kids',label:'PI-a2',color:'var(--c-inf)',deptKey:'infantil'},
-  'kids|B1':{dept:'kids',label:'Pj1',color:'var(--c-inf)',deptKey:'infantil'},
-  'kids|B2':{dept:'kids',label:'Pj2',color:'var(--c-inf)',deptKey:'infantil'},
-  'kids|C1':{dept:'kids',label:'Pj3',color:'var(--c-inf)',deptKey:'infantil'},
+  'kids|B1':{dept:'kids',label:'PI-a3',color:'var(--c-inf)',deptKey:'infantil'},
+  'kids|B2':{dept:'kids',label:'PI-a4',color:'var(--c-inf)',deptKey:'infantil'},
+  'kids|C1':{dept:'kids',label:'PI-a5',color:'var(--c-inf)',deptKey:'infantil'},
   'kids_juv|A1':{dept:'kids_juv',label:'PJ1',color:'var(--c-juv)',deptKey:'juvenil'},
   'kids_juv|A2':{dept:'kids_juv',label:'PJ2',color:'var(--c-juv)',deptKey:'juvenil'},
   'kids_juv|B1':{dept:'kids_juv',label:'PJ3',color:'var(--c-juv)',deptKey:'juvenil'},
-  'adults|A1':{dept:'adults',label:'1º Ano',color:'var(--c-ger)',deptKey:'geral'},
-  'adults|A2':{dept:'adults',label:'2º Ano',color:'var(--c-ger)',deptKey:'geral'},
-  'adults|B1':{dept:'adults',label:'3º Ano',color:'var(--c-ger)',deptKey:'geral'},
-  'adults|B2':{dept:'adults',label:'4º Ano',color:'var(--c-ger)',deptKey:'geral'},
-  'adults|C1':{dept:'adults',label:'5º Ano',color:'var(--c-ger)',deptKey:'geral'},
-  'adults|C2':{dept:'adults',label:'5º Ano+',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|A1':{dept:'adults',label:'1st',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|A2':{dept:'adults',label:'2nd',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|B1':{dept:'adults',label:'3rd',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|B2':{dept:'adults',label:'4th',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|C1':{dept:'adults',label:'5th',color:'var(--c-ger)',deptKey:'geral'},
+  'adults|C2':{dept:'adults',label:'5th+',color:'var(--c-ger)',deptKey:'geral'},
   'exam|B2':{dept:'exam',label:'6th B2',color:'var(--c-exa)',deptKey:'exames'},
   'exam|C1':{dept:'exam',label:'7th C1',color:'var(--c-exa)',deptKey:'exames'},
   'exam|C2':{dept:'exam',label:'8th C2',color:'var(--c-exa)',deptKey:'exames'},
@@ -489,6 +489,21 @@ function dispLvl(cefr,dept){
   return(LEVEL_MAP[k]&&LEVEL_MAP[k].label)||cefr||'—';
 }
 
+/* ══ KEY FIX: Expand pair days ══
+   Decision stores day_of_week = first day of pair (e.g. 'SEG' for SEG+QUA).
+   We expand each group into TWO class slots so the grid shows both cells. */
+function expandDays(dayOfWeek){
+  if(!dayOfWeek) return ['SEG'];
+  const d = (dayOfWeek+'').toUpperCase().trim();
+  // Normalize SAB variant
+  if(d==='SÁB'||d==='SAB') return ['SÁB'];
+  // Pair expansion
+  if(d==='SEG'||d==='QUA') return ['SEG','QUA'];
+  if(d==='TER'||d==='QUI') return ['TER','QUI'];
+  if(d==='QUA'&&d==='SEX') return ['QUA','SEX']; // QUA+SEX pair
+  return [d];
+}
+
 /* avatar colours */
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
@@ -497,7 +512,7 @@ function normB(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
 
 /* ══ STATE ══ */
 let TEACHERS=[];
-let CLASSES=[];
+let CLASSES=[];   // expanded — may contain _secondary:true entries for 2nd day of pair
 let ENROLMENTS=[];
 
 let VIEW_MODE='level';
@@ -507,16 +522,18 @@ let SEL_TEACHER=null;
 let QA_TEACHER=null;
 let UNDO_STACK=[];
 let _undoTimer=null;
-let POP_TURMA=null;
+let POP_TURMA=null; // always the PRIMARY turma_code (no _B suffix)
 let POP_SEL=null;
 
 const LS_KEY='alm-teacher-assign-2627';
 const BL_ASSIGN={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
 const BO_ASSIGN=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
 
-/* ══ HOURS ══ */
+/* ══ HOURS — skip secondary slots to avoid double-counting ══ */
 function teacherHours(tid){
-  return CLASSES.filter(c=>c.teacher_id===tid).reduce((s,c)=>s+(c.duration_min||90)/60,0);
+  return CLASSES
+    .filter(c=>c.teacher_id===tid && !c._secondary)
+    .reduce((s,c)=>s+(c.duration_min||90)/60,0);
 }
 function hColor(h,max){return h>=max?'var(--red)':h>=max*.8?'var(--amber)':'var(--green)';}
 function hClass(h,max){return h>=max?'over':h>=max*.8?'warn':'ok';}
@@ -525,13 +542,21 @@ function hClass(h,max){return h>=max?'over':h>=max*.8?'warn':'ok';}
 function getLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'{}')}catch{return{}}}
 function saveLocal(){
   const m={};
-  CLASSES.forEach(c=>{if(c.teacher_id)m[c.turma_code]={teacher_id:c.teacher_id,teacher_code:c.teacher_code};});
+  // Only save primary slots
+  CLASSES.filter(c=>!c._secondary).forEach(c=>{
+    if(c.teacher_id)m[c.turma_code]={teacher_id:c.teacher_id,teacher_code:c.teacher_code};
+  });
   localStorage.setItem(LS_KEY,JSON.stringify(m));
 }
 
+/* ══ PRIMARY CODE helper — strips _B suffix ══ */
+function primaryCode(code){ return (code||'').replace(/_B$/,''); }
+
 /* ══════════════════════════════════════════════════════════════════
-   BOOT — reads classes table directly (Tab 4 writes it, Tab 5 reads it)
-   No reconstruction from timetable_requests.
+   BOOT v11 — Key fixes:
+   1. expandDays() creates two CLASSES entries per SEG+QUA / TER+QUI group
+   2. branchClasses() robust matching with multiple fallbacks
+   3. teacher assignments propagate to both primary + secondary slots
    ══════════════════════════════════════════════════════════════════ */
 async function boot(){
   try{
@@ -556,19 +581,19 @@ async function boot(){
 
     const local = getLocal();
 
-    // ══ SOURCE 1: localStorage from Decision (most reliable) ══
+    /* ── SOURCE 1: Decision's localStorage (most complete — has pair info) ── */
     let fromStorage = [];
     try{
       const stored = JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');
-      fromStorage = Object.values(stored);
+      fromStorage = Object.values(stored).filter(c=>c&&c.turma_code);
     }catch{}
 
-    // ══ SOURCE 2: Supabase classes table ══
+    /* ── SOURCE 2: Supabase classes table ── */
     const fromDB = (classesDB||[]).map(c=>{
-      let branch=c.branch||'';
-      if(!branch&&c.student_refs?.length){
+      let branch = normB(c.branch||'');
+      if(!branch && c.student_refs?.length){
         const fe=enrolByRef[c.student_refs[0]];
-        if(fe) branch=fe.branch||'';
+        if(fe) branch=normB(fe.branch||'');
       }
       const cefr=(c.level_code||'A1').toUpperCase();
       const dept=c.department||'adults';
@@ -586,55 +611,75 @@ async function boot(){
       };
     });
 
-    // ══ MERGE: localStorage wins, DB fills gaps, teacher overlay last ══
+    /* ── MERGE: build primary slots map ── */
     const merged = {};
 
-    // Start with DB entries
-    fromDB.forEach(c=>{ merged[c.turma_code]=c; });
+    // 1. Start with DB entries
+    fromDB.forEach(c=>{ merged[c.turma_code] = c; });
 
-    // localStorage entries overwrite DB (they have student_refs, correct days)
-    fromStorage.forEach(c=>{ merged[c.turma_code]={...merged[c.turma_code],...c}; });
+    // 2. localStorage wins (has student_refs, correct pair days, branch)
+    fromStorage.forEach(c=>{
+      const existing = merged[c.turma_code] || {};
+      merged[c.turma_code] = {
+        ...existing, ...c,
+        branch: normB(c.branch||existing.branch||''),
+      };
+    });
 
-    // Apply teacher assignments from local storage overlay
+    // 3. Apply saved teacher assignments
     Object.values(merged).forEach(c=>{
       const localEntry = local[c.turma_code];
       if(localEntry){
         c.teacher_id = localEntry.teacher_id ?? c.teacher_id;
         c.teacher_code = localEntry.teacher_code ?? c.teacher_code;
       }
-      // Infer missing lang from first student
-      if(!c.lang && c.student_refs?.length){
+      // Infer missing lang/branch from first student
+      if((!c.lang||!c.branch) && c.student_refs?.length){
         const fe=enrolByRef[c.student_refs[0]];
-        if(fe?.lang) c.lang=fe.lang;
-      }
-      // Infer missing branch from first student
-      if(!c.branch && c.student_refs?.length){
-        const fe=enrolByRef[c.student_refs[0]];
-        if(fe?.branch) c.branch=normB(fe.branch);
+        if(fe){
+          if(!c.lang&&fe.lang) c.lang=fe.lang;
+          if(!c.branch&&fe.branch) c.branch=normB(fe.branch);
+        }
       }
     });
 
-    CLASSES = Object.values(merged);
+    /* ── EXPAND pairs: each SEG+QUA group → two CLASSES entries ── */
+    CLASSES = [];
+    Object.values(merged).forEach(c=>{
+      const days = expandDays(c.day_of_week);
+      // Primary slot (always added)
+      CLASSES.push({...c, day_of_week: days[0], _secondary: false});
+      // Secondary slot for the 2nd day of the pair
+      if(days.length > 1){
+        CLASSES.push({
+          ...c,
+          turma_code: c.turma_code + '_B',
+          _primaryCode: c.turma_code,
+          day_of_week: days[1],
+          _secondary: true,
+        });
+      }
+    });
 
     const src = fromStorage.length
-      ? `localStorage · ${fromStorage.length} turmas`
+      ? `localStorage · ${fromStorage.length} turmas · ${CLASSES.length} slots`
       : fromDB.length
-        ? `Supabase · ${fromDB.length} turmas`
+        ? `Supabase · ${fromDB.length} turmas · ${CLASSES.length} slots`
         : 'sem dados — confirme grupos no Tab 4';
-    document.getElementById('bot-src').textContent=src;
+    document.getElementById('bot-src').textContent = src;
 
     // Build branch tabs from enrolments
     const enrolBranches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
     const ordered=BO_ASSIGN.filter(b=>enrolBranches.includes(b));
-    SEL_BRANCH=ordered[0]||'FUNCHAL';
+    SEL_BRANCH = ordered[0] || 'FUNCHAL';
 
     const strip=document.getElementById('branch-strip');
     strip.innerHTML=ordered.map(b=>`<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${BL_ASSIGN[b]||b}</button>`).join('');
 
-    // Auto-select first level that has classes in this branch
-    if(!SEL_LEVEL&&!SEL_TEACHER){
+    // Auto-select first level
+    if(!SEL_LEVEL && !SEL_TEACHER){
       const nb=normB(SEL_BRANCH);
-      const firstClass=CLASSES.find(c=>normB(c.branch)===nb||normB(c.branch)===nb.toLowerCase());
+      const firstClass=CLASSES.find(c=>!c._secondary && normB(c.branch)===nb);
       if(firstClass){
         const lmKey=`${firstClass.department}|${firstClass.level_code}`;
         const lm=LEVEL_MAP[lmKey]||{label:firstClass.level_display||firstClass.level_code,color:'var(--c-ger)'};
@@ -644,7 +689,7 @@ async function boot(){
 
     renderAll();
     updateKPIs();
-    showToast(`${TEACHERS.length} professores · ${CLASSES.length} turmas`,'ok');
+    showToast(`${TEACHERS.length} professores · ${Object.keys(merged).length} turmas · ${CLASSES.length} slots`,'ok');
 
   }catch(e){
     console.error(e);
@@ -654,7 +699,7 @@ async function boot(){
     showToast('Erro: '+e,'err');
   }
 }
-  
+
 /* ══ MODE TOGGLE ══ */
 function setMode(mode){
   VIEW_MODE=mode;SEL_LEVEL=null;SEL_TEACHER=null;cancelQA();
@@ -709,15 +754,24 @@ function showUndoBar(turmaCode,teacherId){
 function undoLast(){
   if(!UNDO_STACK.length)return;
   const op=UNDO_STACK.pop();
-  const c=CLASSES.find(x=>x.turma_code===op.turmaCode);
-  if(c){
-    c.teacher_id=op.prevTeacherId;c.teacher_code=op.prevTeacherCode;
-    saveLocal();
-    sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:op.prevTeacherId,teacher_code:op.prevTeacherCode}).catch(()=>{});
-  }
+  // Update primary + secondary
+  assignTeacherToSlots(op.turmaCode, op.prevTeacherId, op.prevTeacherCode);
+  saveLocal();
+  sbPatch('classes',`turma_code=eq.${encodeURIComponent(op.turmaCode)}`,{teacher_id:op.prevTeacherId,teacher_code:op.prevTeacherCode}).catch(()=>{});
   document.getElementById('undo-btn').disabled=!UNDO_STACK.length;
   document.getElementById('undo-bar').classList.remove('show');
   renderAll();showToast('Desfeito','info');
+}
+
+/* ══ Helper: assign teacher to primary + secondary slots ══ */
+function assignTeacherToSlots(primaryTurmaCode, teacherId, teacherCode){
+  CLASSES.forEach(c=>{
+    const pc = c._secondary ? c._primaryCode : c.turma_code;
+    if(pc === primaryTurmaCode){
+      c.teacher_id = teacherId;
+      c.teacher_code = teacherCode;
+    }
+  });
 }
 
 /* ══ FILTERS ══ */
@@ -728,18 +782,20 @@ function selectBranch(b,btn){
   renderAll();
 }
 
-/* ══ BRANCH FILTERS — use normB() consistently ══ */
+/* ══ KEY FIX: branchClasses() — robust multi-fallback matching ══ */
 function branchClasses(){
-  if(!SEL_BRANCH)return CLASSES;
-  const nb=normB(SEL_BRANCH);
+  if(!SEL_BRANCH) return CLASSES;
+  const nb = normB(SEL_BRANCH);
   return CLASSES.filter(c=>{
-    /* Primary: match branch field on the class row */
-    if(c.branch&&normB(c.branch)===nb)return true;
-    /* Fallback: check first student's branch from enrolments */
-    if(c.student_refs&&c.student_refs.length){
-      const enr=ENROLMENTS.find(e=>c.student_refs.includes(e.ref));
-      if(enr&&normB(enr.branch)===nb)return true;
+    // 1. Direct branch field match
+    if(c.branch && normB(c.branch)===nb) return true;
+    // 2. Check student enrolments for branch
+    if(c.student_refs && c.student_refs.length){
+      const enr = ENROLMENTS.find(e=>c.student_refs.includes(e.ref));
+      if(enr && normB(enr.branch)===nb) return true;
     }
+    // 3. If no branch at all, show under primary branch (avoids losing data)
+    if(!c.branch && nb===normB(BO_ASSIGN[0])) return true;
     return false;
   });
 }
@@ -759,7 +815,8 @@ function renderAll(){
 }
 
 function updateKPIs(){
-  const cls=branchClasses();
+  // Count only primary (non-secondary) slots
+  const cls=branchClasses().filter(c=>!c._secondary);
   const asgn=cls.filter(c=>c.teacher_id).length;
   const pend=cls.length-asgn;
   document.getElementById('kpi-groups').textContent=cls.length+' turmas';
@@ -770,7 +827,7 @@ function updateKPIs(){
 
   const nb=normB(SEL_BRANCH);
   const branchEnrol=nb?ENROLMENTS.filter(e=>normB(e.branch)===nb):ENROLMENTS;
-  const assignedRefs=new Set(branchClasses().flatMap(c=>c.student_refs||[]));
+  const assignedRefs=new Set(branchClasses().filter(c=>!c._secondary).flatMap(c=>c.student_refs||[]));
   const withTurma=branchEnrol.filter(e=>assignedRefs.has(e.ref)).length;
   const el_tot=document.getElementById('st-total');
   const el_asgn=document.getElementById('st-assigned');
@@ -787,10 +844,8 @@ function renderPanelList(){
 }
 
 function renderLevelList(){
-  const cls=branchClasses();
+  const cls=branchClasses().filter(c=>!c._secondary); // only primaries for counting
 
-  /* ══ Build level map from CLASSES (source of truth) ══
-     Only show levels that actually have confirmed groups. */
   const levelMap={};
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
@@ -802,14 +857,12 @@ function renderLevelList(){
         cefr:c.level_code,
         label:c.level_display||lm.label,
         dept:lm.deptKey||deptKeyFromDept(c.department),
-        turmas:0,
-        assigned:0,
-        studentCount:0,
+        turmas:0, assigned:0, studentCount:0,
         color:lm.color||lvlColor(c.department)
       };
     }
     levelMap[k].turmas++;
-    if(c.teacher_id)levelMap[k].assigned++;
+    if(c.teacher_id) levelMap[k].assigned++;
     levelMap[k].studentCount+=(c.student_refs||[]).length;
   });
 
@@ -861,7 +914,7 @@ function renderTeacherList(){
     const isActive=SEL_TEACHER===t.id;
     const isQA=QA_TEACHER===t.id;
     const av=avCol(t.name);
-    const myCount=branchClasses().filter(c=>c.teacher_id===t.id).length;
+    const myCount=branchClasses().filter(c=>!c._secondary&&c.teacher_id===t.id).length;
     html+=`<div class="panel-row${isActive?' active':''}${isQA?' qa-active':''}" 
       onclick="handleTeacherClick('${t.id}')">
       <div class="pr-av-wrap">
@@ -909,7 +962,7 @@ function renderCtxStrip(){
     if(!SEL_LEVEL){strip.innerHTML='<div class="ctx-empty">Seleccione um nivel na lista</div>';strip.style.setProperty('--ctx-col','var(--gold)');return;}
     const lv=SEL_LEVEL;
     strip.style.setProperty('--ctx-col',lv.color);
-    const cls=branchClasses().filter(c=>c.department===lv.course&&c.level_code===lv.cefr);
+    const cls=branchClasses().filter(c=>!c._secondary&&c.department===lv.course&&c.level_code===lv.cefr);
     const asgn=cls.filter(c=>c.teacher_id).length;
     const students=cls.reduce((a,c)=>a+((c.student_refs||[]).length),0);
     strip.innerHTML=`
@@ -928,7 +981,7 @@ function renderCtxStrip(){
     const pct=Math.min(100,Math.round(h/t.contractH*100));
     const col=hColor(h,t.contractH);
     const av=avCol(t.name);
-    const myClasses=branchClasses().filter(c=>c.teacher_id===t.id);
+    const myClasses=branchClasses().filter(c=>!c._secondary&&c.teacher_id===t.id);
     const totalStudents=myClasses.reduce((s,c)=>s+((c.student_refs||[]).length),0);
     strip.style.setProperty('--ctx-col',LANG_COLS[t.lang]||'var(--gold)');
     strip.innerHTML=`
@@ -978,27 +1031,24 @@ function renderGrid(){
 
 function renderCellLevel(day,h){
   const cls=branchClasses();
-
-  /* Classes matching the selected level at this slot */
+  // Use PRIMARY code for matching — also match secondary slots (2nd day of pair)
   const matchCells=SEL_LEVEL
     ?cls.filter(c=>c.day_of_week===day&&c.hour===h&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr)
     :[];
-
-  /* Other classes at this slot (different level) */
   const otherCells=cls.filter(c=>c.day_of_week===day&&c.hour===h&&
     !(SEL_LEVEL&&c.department===SEL_LEVEL.course&&c.level_code===SEL_LEVEL.cefr));
 
-  /* Empty slot */
   if(!matchCells.length&&!otherCells.length){
     return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
   }
 
   let out='';
 
-  /* Render each matching class (there may be multiple groups at the same day+hour) */
-if(matchCells.length>0){
+  if(matchCells.length>0){
     out='<td class="slot-td">';
     matchCells.forEach(c=>{
+      // Use primary code for popup (strip _B)
+      const displayCode = c._secondary ? c._primaryCode : c.turma_code;
       const tc=TEACHERS.find(t=>t.id===c.teacher_id);
       const av=tc?avCol(tc.name):null;
       const n=(c.student_refs||[]).length;
@@ -1009,12 +1059,15 @@ if(matchCells.length>0){
         const dotAv=avCol((enr&&enr.name)||ref);
         return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
       }).join('');
+      // Secondary slots show "day 2" indicator
+      const dayTag = c._secondary ? `<div style="position:absolute;top:2px;left:3px;font-size:5px;color:rgba(255,255,255,.3);letter-spacing:.04em">${c.day_of_week}</div>` : '';
       out+=`<div class="slot-inner ${cellCls}${!c.teacher_id&&QA_TEACHER?' qa-match':''}" style="margin-bottom:2px;cursor:pointer"
-        onclick="${QA_TEACHER?`qaAssign(event,'${c.turma_code}')`:`openPopupLevel(event,'${c.turma_code}')`}"
-        onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h});showStuPopover(event,'${c.turma_code}')"
+        onclick="${QA_TEACHER?`qaAssign(event,'${displayCode}')`:`openPopupLevel(event,'${displayCode}')`}"
+        onmouseenter="showTooltipLevel(event,'${displayCode}','${day}',${h});showStuPopover(event,'${displayCode}')"
         onmouseleave="hideTooltip();hideStuPopover()">
+        ${dayTag}
         ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
-        <div class="slot-code" style="color:${tc?'rgba(60,220,150,.9)':col}">${c.turma_code}</div>
+        <div class="slot-code" style="color:${tc?'rgba(60,220,150,.9)':col}">${displayCode}</div>
         <div class="slot-sub">${tc?tc.code:'—'}</div>
         ${n>0?`<div class="slot-students">${stuDots}${n>6?`<div style="font-size:5px;color:var(--t3)">+${n-6}</div>`:''}</div>`:''}
       </div>`;
@@ -1022,13 +1075,13 @@ if(matchCells.length>0){
     out+='</td>';
   }
 
-  /* Render other-level classes at same slot (dimmed) */
   if(matchCells.length===0&&otherCells.length>0){
     const c=otherCells[0];
+    const displayCode = c._secondary ? c._primaryCode : c.turma_code;
     const tc=TEACHERS.find(t=>t.id===c.teacher_id);
     const av=tc?avCol(tc.name):null;
     const col=lvlColor(c.department);
-    out=`<td class="slot-td" style="opacity:.28" onclick="openPopupLevel(event,'${c.turma_code}')" onmouseenter="showTooltipLevel(event,'${c.turma_code}','${day}',${h})" onmouseleave="hideTooltip()">
+    out=`<td class="slot-td" style="opacity:.28" onclick="openPopupLevel(event,'${displayCode}')" onmouseenter="showTooltipLevel(event,'${displayCode}','${day}',${h})" onmouseleave="hideTooltip()">
       <div class="slot-inner ${c.teacher_id?'si-assigned':'si-empty'}">
         ${av?`<div class="slot-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div>`:`<div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`}
         <div class="slot-code" style="color:${col}">${c.level_display||c.level_code}</div>
@@ -1044,6 +1097,7 @@ function renderCellTeacher(day,h){
   if(!SEL_TEACHER){
     const cell=cls.find(c=>c.day_of_week===day&&c.hour===h);
     if(!cell)return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
+    const displayCode = cell._secondary ? cell._primaryCode : cell.turma_code;
     const tc=TEACHERS.find(t=>t.id===cell.teacher_id);
     const col=lvlColor(cell.department);
     return`<td class="slot-td" onclick="openPopupTeacher(event,'${day}',${h})" onmouseenter="showTooltipTeacher(event,'${day}',${h})" onmouseleave="hideTooltip()">
@@ -1057,6 +1111,7 @@ function renderCellTeacher(day,h){
   const otherTeacherCell=cls.find(c=>c.teacher_id&&c.teacher_id!==SEL_TEACHER&&c.day_of_week===day&&c.hour===h);
   const unassignedCell=cls.find(c=>!c.teacher_id&&c.day_of_week===day&&c.hour===h);
   if(myCell){
+    const displayCode = myCell._secondary ? myCell._primaryCode : myCell.turma_code;
     const col=lvlColor(myCell.department);
     const n=(myCell.student_refs||[]).length;
     const stuDots=(myCell.student_refs||[]).slice(0,5).map(ref=>{
@@ -1065,26 +1120,27 @@ function renderCellTeacher(day,h){
       return`<div class="slot-stu-dot" style="background:${dotAv.t}"></div>`;
     }).join('');
     return`<td class="slot-td"
-      onclick="${QA_TEACHER?`qaAssign(event,'${myCell.turma_code}')`:`openPopupTeacher(event,'${day}',${h})`}"
-      onmouseenter="showTooltipTeacher(event,'${day}',${h});showStuPopover(event,'${myCell.turma_code}')"
+      onclick="${QA_TEACHER?`qaAssign(event,'${displayCode}')`:`openPopupTeacher(event,'${day}',${h})`}"
+      onmouseenter="showTooltipTeacher(event,'${day}',${h});showStuPopover(event,'${displayCode}')"
       onmouseleave="hideTooltip();hideStuPopover()">
       <div class="slot-inner si-mine">
         <div class="slot-code" style="color:rgba(60,220,150,.9)">${myCell.level_display||myCell.level_code}</div>
-        <div class="slot-sub" style="color:rgba(60,220,150,.7)">${myCell.turma_code}</div>
+        <div class="slot-sub" style="color:rgba(60,220,150,.7)">${displayCode}</div>
         ${n>0?`<div class="slot-students">${stuDots}</div>`:''}
       </div></td>`;
   }
   if(unassignedCell){
+    const displayCode = unassignedCell._secondary ? unassignedCell._primaryCode : unassignedCell.turma_code;
     const col=lvlColor(unassignedCell.department);
     const t=TEACHERS.find(x=>x.id===SEL_TEACHER);
     const langMatch=t&&t.lang===unassignedCell.lang;
     return`<td class="slot-td"
-      onclick="${QA_TEACHER?`qaAssign(event,'${unassignedCell.turma_code}')`:`openPopupTeacher(event,'${day}',${h})`}"
+      onclick="${QA_TEACHER?`qaAssign(event,'${displayCode}')`:`openPopupTeacher(event,'${day}',${h})`}"
       onmouseenter="showTooltipTeacher(event,'${day}',${h})" onmouseleave="hideTooltip()">
       <div class="slot-inner ${langMatch?'si-h4':'si-h2'}${QA_TEACHER?' qa-match':''}">
         <div class="slot-av-empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
         <div class="slot-code" style="color:${col}">${unassignedCell.level_display||unassignedCell.level_code}</div>
-        <div class="slot-sub">${unassignedCell.turma_code}</div>
+        <div class="slot-sub">${displayCode}</div>
       </div></td>`;
   }
   if(otherTeacherCell){
@@ -1099,33 +1155,36 @@ function renderCellTeacher(day,h){
   return`<td class="slot-td"><div class="slot-inner si-empty"></div></td>`;
 }
 
-/* ══ QUICK-ASSIGN ══ */
+/* ══ QUICK-ASSIGN — always uses primary code ══ */
 function qaAssign(e,turmaCode){
   e.stopPropagation();
   if(!QA_TEACHER)return;
-  const c=CLASSES.find(x=>x.turma_code===turmaCode);
+  // Resolve to primary slot
+  const pc = primaryCode(turmaCode);
+  const c=CLASSES.find(x=>x.turma_code===pc && !x._secondary);
   if(!c)return;
   const t=TEACHERS.find(x=>x.id===QA_TEACHER);
   if(!t)return;
-  const hasConflict=CLASSES.some(x=>x.teacher_id===QA_TEACHER&&x.day_of_week===c.day_of_week&&x.hour===c.hour&&x.turma_code!==turmaCode);
+  const hasConflict=CLASSES.some(x=>x.teacher_id===QA_TEACHER&&x.day_of_week===c.day_of_week&&x.hour===c.hour&&primaryCode(x.turma_code)!==pc);
   if(hasConflict){showToast(`Conflito: ${t.code} já tem aula nesse slot`,'err');return;}
   const prev={id:c.teacher_id,code:c.teacher_code};
-  c.teacher_id=QA_TEACHER;c.teacher_code=t.code;
+  assignTeacherToSlots(pc, QA_TEACHER, t.code);
   saveLocal();
-  sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
-  pushUndo(turmaCode,prev.id,prev.code,t.id,t.code);
-  renderAll();showToast(`${turmaCode} atribuido a ${t.code}`,'ok');
+  sbPatch('classes',`turma_code=eq.${encodeURIComponent(pc)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
+  pushUndo(pc,prev.id,prev.code,t.id,t.code);
+  renderAll();showToast(`${pc} atribuido a ${t.code}`,'ok');
 }
 
 /* ══ STUDENT POPOVER ══ */
 let _stuPopTimer=null;
 function showStuPopover(e,turmaCode){
-  const c=CLASSES.find(x=>x.turma_code===turmaCode);
+  const pc = primaryCode(turmaCode);
+  const c=CLASSES.find(x=>x.turma_code===pc && !x._secondary);
   if(!c||(c.student_refs||[]).length===0)return;
   clearTimeout(_stuPopTimer);
   const pop=document.getElementById('stu-popover');
   const stuRefs=(c.student_refs||[]).slice(0,8);
-  let html=`<div class="stu-pop-title">${turmaCode} · ${(c.student_refs||[]).length} alunos</div>`;
+  let html=`<div class="stu-pop-title">${pc} · ${(c.student_refs||[]).length} alunos</div>`;
   stuRefs.forEach(ref=>{
     const enr=ENROLMENTS.find(x=>x.ref===ref);
     const name=(enr&&enr.name)||ref;
@@ -1153,7 +1212,8 @@ function heatClass(n){
 let _ttTimer=null;
 function showTooltipLevel(e,turmaCode,day,h){
   clearTimeout(_ttTimer);
-  const c=CLASSES.find(x=>x.turma_code===turmaCode);if(!c)return;
+  const pc = primaryCode(turmaCode);
+  const c=CLASSES.find(x=>x.turma_code===pc && !x._secondary);if(!c)return;
   const tt=document.getElementById('tt');
   const tc=TEACHERS.find(t=>t.id===c.teacher_id);
   const col=lvlColor(c.department);
@@ -1163,7 +1223,7 @@ function showTooltipLevel(e,turmaCode,day,h){
     const hv=teacherHours(tc.id);const av=avCol(tc.name);
     body=`<div class="tt-row"><div class="tt-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44">${avInit(tc.name)}</div><div class="tt-info"><div class="tt-name">${tc.name}</div><div class="tt-meta">${tc.code} · ${FLAGS[tc.lang]||''} ${tc.lang}${tc.native?' · nat':''}</div></div><div class="tt-h ${hClass(hv,tc.contractH)}">${hv.toFixed(0)}/${tc.contractH}h</div></div>`;
   }else{
-    const ranked=getRankedTeachers(turmaCode,day,h,c.lang||'EN').slice(0,3);
+    const ranked=getRankedTeachers(pc,day,h,c.lang||'EN').slice(0,3);
     body='<div class="tt-sec-label">Professores sugeridos</div>';
     ranked.forEach(r=>{
       const av=avCol(r.t.name);
@@ -1172,7 +1232,7 @@ function showTooltipLevel(e,turmaCode,day,h){
     if(!ranked.length)body+='<div style="padding:8px 12px;font-size:8px;color:var(--t3)">Sem professores disponíveis</div>';
   }
   const qaHint=QA_TEACHER?`<span class="tt-qa-hint">⚡ Clique para atribuir ${(TEACHERS.find(x=>x.id===QA_TEACHER)||{code:''}).code||''}</span>`:'<span class="tt-kbd">clique</span> para '+(tc?'alterar':'atribuir');
-  tt.innerHTML=`<div class="tt-hdr"><div class="tt-title" style="color:${col}">${c.turma_code}</div><div class="tt-slot-info">${DAYS_FULL[day]||day} · ${h}h · ${n} alunos · ${c.level_display||c.level_code}</div></div>${body}<div class="tt-footer">${qaHint}</div>`;
+  tt.innerHTML=`<div class="tt-hdr"><div class="tt-title" style="color:${col}">${pc}</div><div class="tt-slot-info">${DAYS_FULL[day]||day} · ${h}h · ${n} alunos · ${c.level_display||c.level_code}</div></div>${body}<div class="tt-footer">${qaHint}</div>`;
   positionTT(e,tt);_ttTimer=setTimeout(()=>tt.classList.add('show'),70);
 }
 
@@ -1184,11 +1244,12 @@ function showTooltipTeacher(e,day,h){
   const t=SEL_TEACHER?TEACHERS.find(x=>x.id===SEL_TEACHER):null;
   let body='<div class="tt-sec-label">Turmas neste slot</div>';
   cls.forEach(c=>{
+    const displayCode = c._secondary ? c._primaryCode : c.turma_code;
     const tc=TEACHERS.find(x=>x.id===c.teacher_id);
     const col=lvlColor(c.department);
     const isMine=c.teacher_id===SEL_TEACHER;
     const isMatch=t&&t.lang===c.lang;
-    body+=`<div class="tt-row"><div class="tt-av-lvl" style="background:rgba(80,100,180,.15);border-color:${col};color:${col}">${(c.level_display||c.level_code||'').slice(0,4)}</div><div class="tt-info"><div class="tt-name">${c.turma_code} · ${c.level_display||c.level_code}</div><div class="tt-meta">${(c.student_refs||[]).length} al · ${tc?tc.code:'sem prof'}${isMine?' ← você':''}</div></div>${!c.teacher_id&&isMatch?`<div class="tt-tag tag-best">match</div>`:''}${!c.teacher_id&&!isMatch&&t?`<div class="tt-tag tag-lvl">disponível</div>`:''}</div>`;
+    body+=`<div class="tt-row"><div class="tt-av-lvl" style="background:rgba(80,100,180,.15);border-color:${col};color:${col}">${(c.level_display||c.level_code||'').slice(0,4)}</div><div class="tt-info"><div class="tt-name">${displayCode} · ${c.level_display||c.level_code}</div><div class="tt-meta">${(c.student_refs||[]).length} al · ${tc?tc.code:'sem prof'}${isMine?' ← você':''}</div></div>${!c.teacher_id&&isMatch?`<div class="tt-tag tag-best">match</div>`:''}${!c.teacher_id&&!isMatch&&t?`<div class="tt-tag tag-lvl">disponível</div>`:''}</div>`;
   });
   tt.innerHTML=`<div class="tt-hdr"><div class="tt-title">${DAYS_FULL[day]||day} · ${h}h</div><div class="tt-slot-info">${cls.length} turma${cls.length!==1?'s':''} neste horário</div></div>${body}<div class="tt-footer"><span class="tt-kbd">clique</span> para atribuir${t?' '+t.code:''}</div>`;
   positionTT(e,tt);_ttTimer=setTimeout(()=>tt.classList.add('show'),70);
@@ -1204,9 +1265,10 @@ function hideTooltip(){clearTimeout(_ttTimer);document.getElementById('tt').clas
 
 /* ══ RANKED TEACHERS ══ */
 function getRankedTeachers(turmaCode,day,h,lang){
+  const pc=primaryCode(turmaCode);
   return branchTeachers().map(t=>{
     const hv=teacherHours(t.id);
-    const hasConflict=CLASSES.some(c=>c.teacher_id===t.id&&c.day_of_week===day&&c.hour===h&&c.turma_code!==turmaCode);
+    const hasConflict=CLASSES.some(c=>c.teacher_id===t.id&&c.day_of_week===day&&c.hour===h&&primaryCode(c.turma_code)!==pc);
     const langMatch=t.lang===lang;const over=hv>=t.contractH;
     let score=0;if(langMatch)score+=4;if(!hasConflict)score+=3;if(!over)score+=2;if(t.native)score+=1;score-=hv/t.contractH;
     let tagLabel,tagClass;
@@ -1222,17 +1284,21 @@ function getRankedTeachers(turmaCode,day,h,lang){
 function openPopupLevel(e,turmaCode){
   if(QA_TEACHER){qaAssign(e,turmaCode);return;}
   e.stopPropagation();hideTooltip();hideStuPopover();
-  const c=CLASSES.find(x=>x.turma_code===turmaCode);if(!c)return;
-  POP_TURMA=turmaCode;POP_SEL=c.teacher_id||null;
+  const pc=primaryCode(turmaCode);
+  const c=CLASSES.find(x=>x.turma_code===pc && !x._secondary);if(!c)return;
+  POP_TURMA=pc;POP_SEL=c.teacher_id||null;
   const col=lvlColor(c.department);
   const n=(c.student_refs||[]).length;
-  document.getElementById('pop-code').textContent=turmaCode;
+  // Show both days of pair
+  const pairDays=expandDays(c.day_of_week);
+  const pairLabel=pairDays.length>1?pairDays.join(' + '):pairDays[0];
+  document.getElementById('pop-code').textContent=pc;
   document.getElementById('pop-code').style.color=col;
-  document.getElementById('pop-slot-info').textContent=`${DAYS_FULL[c.day_of_week]||c.day_of_week} · ${c.hour}h · ${c.level_display||c.level_code}`;
+  document.getElementById('pop-slot-info').textContent=`${pairLabel} · ${c.hour}h · ${c.level_display||c.level_code}`;
   document.getElementById('pop-meta').innerHTML=`
     <div class="pop-meta-row"><span class="pop-mk">Alunos</span><span class="pop-mv ${n<5?'over':n<8?'warn':'ok'}">${n}</span></div>
     <div class="pop-meta-row"><span class="pop-mk">Língua</span><span class="pop-mv">${FLAGS[c.lang]||''} ${c.lang||'EN'}</span></div>
-    <div class="pop-meta-row"><span class="pop-mk">Horário</span><span class="pop-mv">${c.start_time||c.hour+'h'} – ${c.end_time||''}</span></div>`;
+    <div class="pop-meta-row"><span class="pop-mk">Horário</span><span class="pop-mv">${pairLabel} · ${c.start_time||c.hour+'h'} – ${c.end_time||''}</span></div>`;
 
   const stuRefs=c.student_refs||[];
   let stuHtml='';
@@ -1244,7 +1310,7 @@ function openPopupLevel(e,turmaCode){
   if(stuRefs.length>10)stuHtml+=`<div style="padding:4px 12px;font-size:7px;color:var(--t3)">+${stuRefs.length-10} mais alunos</div>`;
   document.getElementById('pop-students').innerHTML=stuHtml||'<div style="padding:8px 12px;font-size:7.5px;color:var(--t3)">Sem alunos registados</div>';
 
-  const ranked=getRankedTeachers(turmaCode,c.day_of_week,c.hour,c.lang||'EN');
+  const ranked=getRankedTeachers(pc,c.day_of_week,c.hour,c.lang||'EN');
   let html='';
   ranked.forEach(r=>{
     const av=avCol(r.t.name);const isSel=r.t.id===POP_SEL;
@@ -1268,7 +1334,8 @@ function openPopupTeacher(e,day,h){
   if(QA_TEACHER){
     const cls=branchClasses();
     const target=cls.find(c=>c.day_of_week===day&&c.hour===h&&!c.teacher_id);
-    if(target)qaAssign(e,target.turma_code);return;
+    if(target){const displayCode=target._secondary?target._primaryCode:target.turma_code;qaAssign(e,displayCode);}
+    return;
   }
   e.stopPropagation();hideTooltip();
   const cls=branchClasses().filter(c=>c.day_of_week===day&&c.hour===h);
@@ -1291,14 +1358,15 @@ function openPopupTeacher(e,day,h){
   document.getElementById('pop-students').innerHTML=stuHtml||'<div style="padding:8px 12px;font-size:7.5px;color:var(--t3)">Sem alunos</div>';
   let optHtml='';
   cls.forEach(c=>{
+    const displayCode=c._secondary?c._primaryCode:c.turma_code;
     const isMine=c.teacher_id===SEL_TEACHER;
     const hasOtherTeacher=!!(c.teacher_id&&c.teacher_id!==SEL_TEACHER);
     const langMatch=t&&t.lang===c.lang;
     const col=lvlColor(c.department);
-    const isSelected=POP_SEL===c.turma_code;
-    optHtml+=`<div class="pop-option${isSelected?' selected':''}${hasOtherTeacher?' has-conflict':''}" onclick="popSelectTeacherMode('${c.turma_code}')">
+    const isSelected=POP_SEL===displayCode;
+    optHtml+=`<div class="pop-option${isSelected?' selected':''}${hasOtherTeacher?' has-conflict':''}" onclick="popSelectTeacherMode('${displayCode}')">
       <div class="pop-opt-av-lvl" style="background:rgba(80,100,180,.2);border-color:${col};color:${col}">${(c.level_display||c.level_code||'').slice(0,4)}</div>
-      <div class="pop-opt-info"><div class="pop-opt-name">${c.turma_code} · ${c.level_display||c.level_code}</div><div class="pop-opt-meta">${FLAGS[c.lang]||''} ${c.lang} · ${(c.student_refs||[]).length} al</div></div>
+      <div class="pop-opt-info"><div class="pop-opt-name">${displayCode} · ${c.level_display||c.level_code}</div><div class="pop-opt-meta">${FLAGS[c.lang]||''} ${c.lang} · ${(c.student_refs||[]).length} al</div></div>
       <div class="pop-badges">${isMine?`<span class="pop-badge pb-match">atual</span>`:''}${langMatch&&!isMine&&!hasOtherTeacher?`<span class="pop-badge pb-match">match</span>`:''}${hasOtherTeacher?`<span class="pop-badge pb-conflict">ocupado</span>`:''}</div>
     </div>`;
   });
@@ -1317,8 +1385,8 @@ function popSelectLevel(tid){
   const t=TEACHERS.find(x=>x.id===tid);
   const btn=document.getElementById('pop-confirm');
   btn.disabled=false;btn.textContent=t?`Atribuir ${t.code}`:'Confirmar';
-  const c=CLASSES.find(x=>x.turma_code===POP_TURMA);
-  if(c){const hasConflict=CLASSES.some(x=>x.teacher_id===tid&&x.day_of_week===c.day_of_week&&x.hour===c.hour&&x.turma_code!==POP_TURMA);document.getElementById('pop-conflict-warn').classList.toggle('show',hasConflict);}
+  const c=CLASSES.find(x=>x.turma_code===POP_TURMA && !x._secondary);
+  if(c){const hasConflict=CLASSES.some(x=>x.teacher_id===tid&&x.day_of_week===c.day_of_week&&x.hour===c.hour&&primaryCode(x.turma_code)!==POP_TURMA);document.getElementById('pop-conflict-warn').classList.toggle('show',hasConflict);}
 }
 function popSelectTeacherMode(turmaCode){
   POP_SEL=turmaCode;
@@ -1331,23 +1399,25 @@ function popSelectTeacherMode(turmaCode){
 
 async function popConfirm(){
   if(VIEW_MODE==='level'){
-    const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
+    const c=CLASSES.find(x=>x.turma_code===POP_TURMA && !x._secondary);if(!c)return;
     const t=POP_SEL?TEACHERS.find(x=>x.id===POP_SEL):null;
     const prev={id:c.teacher_id,code:c.teacher_code};
-    c.teacher_id=POP_SEL||null;c.teacher_code=(t&&t.code)||null;
+    // Assign to PRIMARY + SECONDARY slots
+    assignTeacherToSlots(POP_TURMA, POP_SEL||null, (t&&t.code)||null);
     saveLocal();
-    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});document.getElementById('bot-src').textContent='Guardado';}
+    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});document.getElementById('bot-src').textContent='Guardado';}
     catch{document.getElementById('bot-src').textContent='Local';}
-    if(POP_SEL)pushUndo(c.turma_code,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
-    showToast(t?`${c.turma_code} atribuido a ${t.code}`:'Professor removido','ok');
+    if(POP_SEL)pushUndo(POP_TURMA,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
+    showToast(t?`${POP_TURMA} atribuido a ${t.code}`:'Professor removido','ok');
   }else{
-    const turmaCode=POP_SEL;const c=CLASSES.find(x=>x.turma_code===turmaCode);
+    const turmaCode=primaryCode(POP_SEL);
+    const c=CLASSES.find(x=>x.turma_code===turmaCode && !x._secondary);
     const t=SEL_TEACHER?TEACHERS.find(x=>x.id===SEL_TEACHER):null;
     if(!c||!t)return;
     const prev={id:c.teacher_id,code:c.teacher_code};
-    c.teacher_id=t.id;c.teacher_code=t.code;
+    assignTeacherToSlots(turmaCode, t.id, t.code);
     saveLocal();
-    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code});document.getElementById('bot-src').textContent='Guardado';}
+    try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(turmaCode)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code});document.getElementById('bot-src').textContent='Guardado';}
     catch{document.getElementById('bot-src').textContent='Local';}
     pushUndo(turmaCode,prev.id,prev.code,t.id,t.code);
     showToast(`${t.code} atribuido a ${turmaCode}`,'ok');
@@ -1356,10 +1426,11 @@ async function popConfirm(){
 }
 
 async function popRemove(){
-  const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
+  const c=CLASSES.find(x=>x.turma_code===POP_TURMA && !x._secondary);if(!c)return;
   const prev={id:c.teacher_id,code:c.teacher_code};
-  c.teacher_id=null;c.teacher_code=null;saveLocal();
-  try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
+  assignTeacherToSlots(POP_TURMA, null, null);
+  saveLocal();
+  try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
   pushUndo(POP_TURMA,prev.id,prev.code,null,null);
   closePopup();renderAll();showToast('Professor removido','info');
 }
@@ -1373,10 +1444,10 @@ function positionPopup(e){
   pop.style.left=x+'px';pop.style.top=y+'px';
 }
 
-/* ══ SAVE ALL ══ */
+/* ══ SAVE ALL — only primary slots ══ */
 async function saveAll(){
   saveLocal();
-  const toSave=CLASSES.filter(c=>c.teacher_id);
+  const toSave=CLASSES.filter(c=>c.teacher_id && !c._secondary);
   let ok=0;
   for(const c of toSave){
     try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:c.teacher_id,teacher_name:(TEACHERS.find(t=>t.id===c.teacher_id)||{name:null}).name||null,teacher_code:c.teacher_code});ok++;}catch{}
@@ -1385,8 +1456,12 @@ async function saveAll(){
 }
 
 function exportCSV(){
-  const rows=['Turma,Dia,Hora,Nivel,Lingua,Filial,Professor,Alunos'];
-  CLASSES.forEach(c=>{const t=TEACHERS.find(x=>x.id===c.teacher_id);rows.push(`${c.turma_code},${c.day_of_week},${c.hour}h,${c.level_display||c.level_code},${c.lang},${c.branch},${t?t.name:'—'},${(c.student_refs||[]).length}`);});
+  const rows=['Turma,Dia1,Dia2,Hora,Nivel,Lingua,Filial,Professor,Alunos'];
+  CLASSES.filter(c=>!c._secondary).forEach(c=>{
+    const days=expandDays(c.day_of_week);
+    const t=TEACHERS.find(x=>x.id===c.teacher_id);
+    rows.push(`${c.turma_code},${days[0]},${days[1]||''},${c.hour}h,${c.level_display||c.level_code},${c.lang},${c.branch},${t?t.name:'—'},${(c.student_refs||[]).length}`);
+  });
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'}));a.download=`ALM-Assign-${AY.replace('/','')}-${new Date().toISOString().slice(0,10)}.csv`;a.click();showToast('CSV exportado','ok');
 }
 
