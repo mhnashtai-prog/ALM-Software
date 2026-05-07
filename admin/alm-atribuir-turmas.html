@@ -1516,8 +1516,8 @@ async function popConfirm(){
   const prev={id:c.teacher_id,code:c.teacher_code};
   assignTeacherToSlots(POP_TURMA,POP_SEL||null,(t&&t.code)||null);
   saveLocal();
-  try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});document.getElementById('bot-src').textContent='Guardado';}
-  catch{document.getElementById('bot-src').textContent='Local';}
+ try{const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{method:'PATCH',headers:H,body:JSON.stringify({teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null})});console.log('PATCH status',r.status);document.getElementById('bot-src').textContent=r.ok?'Guardado':'Erro '+r.status;}
+catch(e){console.error('PATCH failed',e);document.getElementById('bot-src').textContent='Local';}
   if(POP_SEL)pushUndo(POP_TURMA,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
   showToast(t?`${POP_TURMA} → ${t.code} ✓`:'Professor removido','ok');
   closePopup();renderAll();
