@@ -742,14 +742,14 @@ const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H
    TIMELINE CONSTANTS — 11-column layout
    Visible hours: 8,9,10,11 | [lunch gap] | 14,15,16,17,18,19,20
    ════════════════════════════════════════════════ */
-const TL_COL_W = 90;   // px per visible hour column
-const TL_SEP_W = 32;   // px for lunch separator
-const HOURS_BEFORE = [8,9,10,11];           // 4 cols before lunch
-const HOURS_AFTER  = [14,15,16,17,18,19,20]; // 7 cols after lunch
+const TL_COL_W = 90;
+const TL_SEP_W = 32;
+const HOURS_BEFORE = [8,9,10,11];
+const HOURS_AFTER  = [14,15,16,17,18,19,20];
 const ALL_HOURS = [...HOURS_BEFORE, ...HOURS_AFTER];
-const TOTAL_BEFORE = HOURS_BEFORE.length * TL_COL_W; // 360
-const TOTAL_AFTER  = HOURS_AFTER.length  * TL_COL_W; // 630
-const TOTAL_W = TOTAL_BEFORE + TL_SEP_W + TOTAL_AFTER; // 1022
+const TOTAL_BEFORE = HOURS_BEFORE.length * TL_COL_W;
+const TOTAL_AFTER  = HOURS_AFTER.length  * TL_COL_W;
+const TOTAL_W = TOTAL_BEFORE + TL_SEP_W + TOTAL_AFTER;
 
 const TL_ROW_H = 58;
 const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
@@ -787,6 +787,11 @@ const LEVEL_MAP={
 };
 const LEVEL_CODE_REVERSE={'PI1B':'kids|A1','PJ1':'kids_juv|A1','G1':'adults|A1','G2':'adults|A2','G3':'adults|B1','G4':'adults|B2','G5':'adults|C1','EX6':'exam|B2','EX7':'exam|C1','EX8':'exam|C2'};
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
+
+/* pair_code → day labels · block → hour/time */
+const PAIR_DAYS={SW:{aL:'SEG',bL:'QUA'},TQ:{aL:'TER',bL:'QUI'},QX:{aL:'QUA',bL:'SEX'},SS:{aL:'SÁB',bL:'SÁB'}};
+const BLOCK_HOUR={manha:{hour:9,start:'09:00',end:'10:30'},tarde:{hour:14,start:'14:00',end:'15:30'}};
+
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
 function avInit(name){return(name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 function normB(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
@@ -802,20 +807,12 @@ function todayKey(){const m=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];return m
 function nowHour(){return new Date().getHours();}
 function nowMinutes(){return new Date().getMinutes();}
 
-/* ════════════════════════════════════════════════
-   11-COLUMN timeToX
-   Converts an hour (+ optional minutes) to pixel X offset within the lane sections.
-   Returns {section:'before'|'after', x:number} so the caller knows which div to place the cell in.
-   ════════════════════════════════════════════════ */
 function timeToX(timeStr){
   let h,m;
   if(typeof timeStr==='number'){h=timeStr;m=0;}
   else{const parts=(timeStr||'').split(':').map(Number);h=parts[0]||0;m=parts[1]||0;}
-  if(h<12){
-    return{section:'before',x:(h-8+m/60)*TL_COL_W};
-  }else{
-    return{section:'after',x:(h-14+m/60)*TL_COL_W};
-  }
+  if(h<12){return{section:'before',x:(h-8+m/60)*TL_COL_W};}
+  else{return{section:'after',x:(h-14+m/60)*TL_COL_W};}
 }
 function durationToPx(minutes){return(minutes/60)*TL_COL_W;}
 
@@ -957,24 +954,46 @@ const DEMO_STUDENTS=[
   {ref:'ALM-0117',name:'Núria Baptista',lang:'EN',branch:'Funchal',family:'kids_juv',level_cefr:'A2'},
 ];
 
+/* ════════════════════════════════════════════════
+   BOOT — reads timetable_requests as source of truth
+   ════════════════════════════════════════════════ */
 async function boot(){
   try{
-    const[enrol,teachers,classesDB]=await Promise.all([
+    const[enrol,teachers,requests,classesDB]=await Promise.all([
       sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
-      sbGet('classes',`select=turma_code,teacher_id,teacher_code,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`).catch(()=>[])
+      sbGet('timetable_requests',`select=ref,assigned_turma,status,family,level_cefr,branch,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('classes',`select=turma_code,teacher_id,teacher_code&academic_year=eq.${encodeURIComponent(AY)}&limit=1000`).catch(()=>[])
     ]);
     ENROLMENTS=enrol||[];
     TEACHERS=(teachers||[]).map(r=>({id:r.id,code:r.code||'??',name:r.name||'—',lang:r.lang||'EN',native:!!r.native,contractH:r.contract_hours_week||22,branch:r.branch_primary||'Funchal',branches:r.branches||[r.branch_primary||'Funchal']}));
     if(!TEACHERS.length)TEACHERS=FALLBACK;
     buildEnrolIndex();
-    buildClasses(classesDB||[]);
-    document.getElementById('bot-src').textContent=`Supabase · ${CLASSES.filter(c=>!c._secondary).length} turmas`;
+    // Restore teacher assignments from classes table
+    const teacherMap={};
+    (classesDB||[]).forEach(c=>{if(c.teacher_id)teacherMap[c.turma_code]={teacher_id:c.teacher_id,teacher_code:c.teacher_code};});
+    // Build groups from timetable_requests
+    const groups={};
+    (requests||[]).filter(r=>r.assigned_turma&&r.status==='atribuido').forEach(r=>{
+      if(!groups[r.assigned_turma])groups[r.assigned_turma]={refs:[],sample:r};
+      groups[r.assigned_turma].refs.push(r.ref);
+    });
+    const local=getLocal();
+    const classesFromRequests=Object.entries(groups).map(([code,{refs,sample}])=>{
+      const enr=ENROL_BY_REF[refs[0]]||{};
+      const lmk=lk(enr)||`${(sample.family||'adults').toLowerCase()}|${(sample.level_cefr||'A1').toUpperCase()}`;
+      const info=LEVEL_MAP[lmk]||{dept:'adults',label:'?',deptKey:'geral'};
+      const levelCode=Object.entries(LEVEL_CODE_REVERSE).find(([c,k])=>k===lmk)?.[0]||'G1';
+      const pair=PAIR_DAYS[sample.pair_code||'SW']||PAIR_DAYS.SW;
+      const bh=BLOCK_HOUR[sample.block||'tarde']||BLOCK_HOUR.tarde;
+      const tAssign=teacherMap[code]||local[code]||{};
+      return{turma_code:code,department:info.dept||'adults',level_code:levelCode,level_display:info.label||'—',branch:normB(enr.branch||sample.branch||'FUNCHAL'),day_of_week:pair.aL,hour:bh.hour,start_time:bh.start,end_time:bh.end,duration_min:90,lang:enr.lang||'EN',student_refs:refs,teacher_id:tAssign.teacher_id||null,teacher_code:tAssign.teacher_code||null};
+    });
+    buildClasses(classesFromRequests.length?classesFromRequests:[]);
+    document.getElementById('bot-src').textContent=`timetable_requests · ${classesFromRequests.length} turmas`;
   }catch(e){
-    TEACHERS=FALLBACK;
-    ENROLMENTS=DEMO_STUDENTS;
-    buildEnrolIndex();
-    buildClassesFromDemo();
+    console.error('boot error',e);
+    TEACHERS=FALLBACK;ENROLMENTS=DEMO_STUDENTS;buildEnrolIndex();buildClassesFromDemo();
     document.getElementById('bot-src').textContent='Demo · dados locais';
   }
   SEL_BRANCH='FUNCHAL';
@@ -982,90 +1001,6 @@ async function boot(){
   SEL_LEVEL={course:'adults',cefr:'G1',label:'1st',color:'var(--c-ger)'};
   renderAll();updateKPIs();
   showToast(`${TEACHERS.length} professores · ${CLASSES.filter(c=>!c._secondary).length} turmas`,'ok');
-}
-async function boot(){
-  const[enrol,teachers,requests]=await Promise.all([
-    sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-    sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
-    sbGet('timetable_requests',`select=ref,assigned_turma,status,family,level_cefr,branch&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
-  ]);
-  
-  ENROLMENTS=enrol||[];
-  TEACHERS=(teachers||[]).map(r=>({...})); // same as before
-  buildEnrolIndex();
-  
-  // Rebuild classes from timetable_requests — same logic as Decision
-  const groups={};
-  requests.filter(r=>r.assigned_turma&&r.status==='atribuido').forEach(r=>{
-    if(!groups[r.assigned_turma])groups[r.assigned_turma]=[];
-    groups[r.assigned_turma].push(r.ref);
-  });
-  
-  // Build class objects from groups + enrolment data
-  const classesFromRequests=Object.entries(groups).map(([code,refs])=>{
-    const sample=ENROL_BY_REF[refs[0]]||{};
-    const lmk=lk(sample);
-    const info=LEVEL_MAP[lmk]||{dept:'adults',label:'?'};
-    const levelCode=Object.entries(LEVEL_CODE_REVERSE).find(([c,k])=>k===lmk)?.[0]||'G1';
-    return{
-      turma_code:code,
-      department:info.dept||'adults',
-      level_code:levelCode,
-      level_display:info.label,
-      branch:normB(sample.branch||'FUNCHAL'),
-      day_of_week:'SEG', // default — will expand to SEG+QUA
-      hour:14,
-      start_time:'14:00',
-      end_time:'15:30',
-      duration_min:90,
-      lang:sample.lang||'EN',
-      student_refs:refs,
-      teacher_id:null,
-      teacher_code:null
-    };
-  });
-  
-  buildClasses(classesFromRequests);
-}
-function buildEnrolIndex(){ENROL_BY_REF={};ENROLMENTS.forEach(e=>{ENROL_BY_REF[e.ref]=e;});}
-
-function buildClasses(fromDB){
-  const local=getLocal();
-  const merged={};
-  fromDB.forEach(c=>{
-    if(typeof c.student_refs==='string'){try{c.student_refs=JSON.parse(c.student_refs);}catch{c.student_refs=[];}}
-    if(!Array.isArray(c.student_refs))c.student_refs=[];
-    if(typeof c.hour==='string')c.hour=parseInt(c.hour,10)||9;
-    merged[c.turma_code]={...c,branch:normB(c.branch||'')};
-  });
-  Object.values(merged).forEach(c=>{const l=local[c.turma_code];if(l){c.teacher_id=l.teacher_id??c.teacher_id;c.teacher_code=l.teacher_code??c.teacher_code;}});
-  if(!Object.keys(merged).length){buildClassesFromDemo();return;}
-  expandAndStore(Object.values(merged));
-}
-
-function buildClassesFromDemo(){
-  const local=getLocal();
-  const classes=DEMO_CLASSES.map(c=>({...c,branch:normB(c.branch)}));
-  classes.forEach(c=>{const l=local[c.turma_code];if(l){c.teacher_id=l.teacher_id??c.teacher_id;c.teacher_code=l.teacher_code??c.teacher_code;}});
-  expandAndStore(classes);
-  if(!ENROLMENTS.length)ENROLMENTS=DEMO_STUDENTS;
-  buildEnrolIndex();
-}
-
-function expandAndStore(primary){
-  CLASSES=[];
-  primary.forEach(c=>{
-    CLASSES.push({...c,day_of_week:expandDays(c.day_of_week)[0],_secondary:false});
-    const days=expandDays(c.day_of_week);
-    if(days.length>1)CLASSES.push({...c,turma_code:c.turma_code+'_B',_primaryCode:c.turma_code,day_of_week:days[1],_secondary:true});
-  });
-}
-function buildBranchTabs(){
-  const branches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
-  const ordered=BO.filter(b=>branches.includes(b));
-  if(!ordered.length)ordered.push('FUNCHAL');
-  if(!ordered.includes(normB(SEL_BRANCH)))SEL_BRANCH=ordered[0];
-  document.getElementById('branch-strip').innerHTML=ordered.map(b=>`<button class="btab${normB(SEL_BRANCH)===b?' active':''}" onclick="selectBranch('${b}',this)">${BL[b]||b}</button>`).join('');
 }
 
 function setMode(mode){VIEW_MODE=mode;SEL_LEVEL=null;SEL_TEACHER=null;cancelQA();document.getElementById('btn-mode-level').classList.toggle('active',mode==='level');document.getElementById('btn-mode-teacher').classList.toggle('active',mode==='teacher');renderAll();}
@@ -1139,8 +1074,6 @@ function renderPanelList(){if(VIEW_MODE==='level')renderLevelList();else renderT
 function renderLevelList(){
   const cls=branchClasses().filter(c=>!c._secondary);
   const lm={};
-
-  // Build from enrolments first — shows ALL levels even without classes yet
   const branchEnrols=ENROLMENTS.filter(e=>normB(e.branch)===normB(SEL_BRANCH));
   branchEnrols.forEach(e=>{
     const lmk=lk(e);
@@ -1151,14 +1084,11 @@ function renderLevelList(){
     if(!lm[classKey])lm[classKey]={course:info.dept,cefr:levelCode,label:info.label,dept:info.deptKey||deptKeyFromDept(info.dept),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(info.dept)};
     lm[classKey].studentCount++;
   });
-
-  // Overlay class data on top
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
     if(!lm[k]){const lmk=LEVEL_CODE_REVERSE[c.level_code]||`${c.department}|${c.level_code}`;const info=LEVEL_MAP[lmk]||{label:c.level_display||c.level_code,deptKey:deptKeyFromDept(c.department),color:lvlColor(c.department)};lm[k]={course:c.department,cefr:c.level_code,label:c.level_display||info.label,dept:info.deptKey||deptKeyFromDept(c.department),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(c.department)};}
     lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;
   });
-
   const byDept={};Object.values(lm).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
   const CEFR_ORDER={A1:1,A2:2,B1:3,B2:4,C1:5,C2:6};
   let html='';
@@ -1242,54 +1172,27 @@ function renderCtxStrip(){
   }
 }
 
-/* ════════════════════════════════════════════════
-   RENDER GRID — 11-column layout
-   Each row = label | before-lane | sep | after-lane
-   ════════════════════════════════════════════════ */
 function renderGrid(){
   const wrap=document.getElementById('tl-wrap');
   const today=todayKey();
   const nowH=nowHour(), nowM=nowMinutes();
   let html='';
-
-  // ── Ruler ──
-  html+=`<div class="tl-ruler">
-    <div class="tl-ruler-label"></div>
-    <div class="tl-ruler-cols">`;
-
-  HOURS_BEFORE.forEach(h=>{
-    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
-  });
-  // Lunch separator in ruler
+  html+=`<div class="tl-ruler"><div class="tl-ruler-label"></div><div class="tl-ruler-cols">`;
+  HOURS_BEFORE.forEach(h=>{html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;});
   html+=`<div class="tl-ruler-sep"></div>`;
-  HOURS_AFTER.forEach(h=>{
-    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
-  });
-
+  HOURS_AFTER.forEach(h=>{html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;});
   html+=`</div></div>`;
-
-  // ── Day rows ──
   DAYS.forEach(day=>{
     const isToday=day===today;
     const dayCls=branchClasses().filter(c=>c.day_of_week===day);
     const sorted=[...dayCls].sort((a,b)=>a.hour-b.hour);
-
-    // Partition cells into before/after lunch
     const beforeCells=sorted.filter(c=>c.hour<12);
     const afterCells =sorted.filter(c=>c.hour>=14);
-
-    // Now-line positions
     let nowBeforeHTML='', nowAfterHTML='';
     if(isToday){
-      if(nowH>=8&&nowH<12){
-        const nx=((nowH-8)+nowM/60)*TL_COL_W;
-        nowBeforeHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
-      }else if(nowH>=14&&nowH<21){
-        const nx=((nowH-14)+nowM/60)*TL_COL_W;
-        nowAfterHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
-      }
+      if(nowH>=8&&nowH<12){const nx=((nowH-8)+nowM/60)*TL_COL_W;nowBeforeHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;}
+      else if(nowH>=14&&nowH<21){const nx=((nowH-14)+nowM/60)*TL_COL_W;nowAfterHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;}
     }
-
     html+=`<div class="tl-row">
       <div class="tl-day-label">
         <div class="tl-day-name" style="color:${isToday?'var(--green)':'var(--t2)'}">${day}</div>
@@ -1309,7 +1212,6 @@ function renderGrid(){
       </div>
     </div>`;
   });
-
   wrap.innerHTML=html;
 }
 
@@ -1325,27 +1227,9 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
   const lvlLabel=lm.label||primary.level_display||primary.level_code;
   const startH=c.hour||8;
   const durMin=c.duration_min||90;
-
   let leftPx=section==='before'?(startH-8)*TL_COL_W+4:(startH-14)*TL_COL_W+4;
   const widthPx=durationToPx(durMin)-8;
   const isNow=isToday&&nowH===startH;
-
-  // time display
-  const timeStr=c.start_time||`${startH}:00`;
-  const endStr=c.end_time||`${startH+Math.floor(durMin/60)}:${String(durMin%60).padStart(2,'0')}`;
-
-  // suggested teacher for empty slots
-  let suggestedCode='';
-  if(!tc&&!QA_TEACHER){
-    const ranked=getRankedTeachers(pc,day,c.hour,c.lang||'EN');
-    if(ranked.length)suggestedCode=ranked[0].t.code;
-  }
-  let qaCode='';
-  if(!tc&&QA_TEACHER){
-    const qt=TEACHERS.find(x=>x.id===QA_TEACHER);
-    if(qt)qaCode=qt.code;
-  }
-
   let cellCls='';let dimmed=false;
   if(VIEW_MODE==='level'){
     if(SEL_LEVEL){
@@ -1353,29 +1237,22 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
       if(!isMatch){dimmed=true;cellCls=c.teacher_id?'si-assigned':'si-empty';}
       else cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-h2');
     }else{cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-h2');}
- }else{
+  }else{
     if(c.teacher_id===SEL_TEACHER)cellCls='si-mine';
     else if(c.teacher_id&&c.teacher_id!==SEL_TEACHER){dimmed=true;cellCls='si-assigned';}
     else cellCls=heatClass(n)||'si-h2';
   }
-
   let qaClass='';
   if(QA_TEACHER&&!c.teacher_id){
     const hasConflict=CLASSES.some(x=>x.teacher_id===QA_TEACHER&&x.day_of_week===day&&x.hour===c.hour&&primaryCode(x.turma_code)!==pc);
     qaClass=(!hasConflict)?'qa-compatible':'qa-incompatible';
   }else if(QA_TEACHER&&c.teacher_id){qaClass='qa-incompatible';}
-
-  // Avatar initials
   const av=tc?avCol(tc.name):null;
   const avatarHTML=tc
     ? `<div style="width:44px;height:44px;border-radius:50%;background:${av.bg};color:${av.t};border:2px solid ${av.t}55;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${avInit(tc.name)}</div>`
     : `<div style="width:44px;height:44px;border-radius:50%;border:1.5px dashed rgba(215,193,145,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(215,193,145,.25)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
-
-  const capCol=n<5?'var(--red)':n<=8?'var(--amber)':n<=12?'var(--teal)':'var(--green)';
-
-  const teacherName = tc ? tc.name.split(' ')[0] : '';
-  const shortCode = pc.replace(/^[A-Z]+-/,'');
-
+  const teacherName=tc?tc.name.split(' ')[0]:'';
+  const shortCode=pc.replace(/^[A-Z]+-/,'');
   return `<div class="slot-cell ${cellCls} ${qaClass}${isNow?' is-now':''}"
     style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.06':''};flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;padding:0 8px;"
     onclick="${QA_TEACHER?`qaAssign(event,'${pc}')`:`openPopup(event,'${pc}')`}"
@@ -1433,7 +1310,6 @@ function showTT(e,pc,day,h){
   const pairDays=expandDays(c.day_of_week);
   const pairLabel=pairDays.join('+');
   const durLabel=`${c.start_time||c.hour+'h'}–${c.end_time||(c.hour+Math.floor((c.duration_min||90)/60))+'h'}`;
-
   const stuRefs=(c.student_refs||[]).slice(0,7);
   const stuAvsHTML=stuRefs.map(ref=>{
     const enr=ENROL_BY_REF[ref]||{ref,name:ref};
@@ -1441,7 +1317,6 @@ function showTT(e,pc,day,h){
     return`<div class="tt-stu-av" style="background:${av.bg};color:${av.t};border-color:${av.t}44" onclick="openDossier('${ref}')" title="${enr.name||ref}">${avInit(enr.name||ref)}</div>`;
   }).join('');
   const moreN=n-stuRefs.length;
-
   let body=`<div class="tt-hero" style="--tt-dept-col:${deptAccent}">
     <div class="tt-hero-code" style="color:${deptAccent}">${pc}</div>
     <div class="tt-hero-sub">${pairLabel} · ${durLabel} · ${lm.label} ${FLAGS[c.lang]||c.lang}</div>
@@ -1451,9 +1326,7 @@ function showTT(e,pc,day,h){
       ${tc?`<span class="tt-badge" style="background:var(--green-a);border-color:var(--green-b);color:var(--green)">com professor</span>`:`<span class="tt-badge" style="background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)">sem professor</span>`}
     </div>
   </div>`;
-
   if(stuRefs.length){body+=`<div class="tt-students-row">${stuAvsHTML}${moreN>0?`<span class="tt-stu-more">+${moreN}</span>`:''}<span style="font-size:7px;color:var(--t3);margin-left:auto">clique → dossier</span></div>`;}
-
   if(tc){
     const hv=teacherHours(tc.id);const av=avCol(tc.name);const pct=Math.min(100,Math.round(hv/tc.contractH*100));
     body+=`<div class="tt-sec-label">Professor atribuído</div>
@@ -1480,7 +1353,6 @@ function showTT(e,pc,day,h){
   }
   const qaHint=QA_TEACHER?`<span class="tt-qa-hint">⚡ clique → atribuir ${(TEACHERS.find(x=>x.id===QA_TEACHER)||{code:''}).code}</span>`:'<span class="tt-kbd">clique</span> para '+(tc?'alterar':'atribuir');
   body+=`<div class="tt-footer">${qaHint}<span style="margin-left:auto"><span class="tt-kbd">hover avatar</span> dossier</span></div>`;
-
   tt.innerHTML=body;tt.style.setProperty('--tt-dept-col',deptAccent);
   posTT(e,tt);_ttTimer=setTimeout(()=>tt.classList.add('show'),60);
 }
@@ -1499,20 +1371,17 @@ function openPopup(e,pc){
   const lvKey=LEVEL_CODE_REVERSE[c.level_code]||`${dept}|${c.level_code}`;
   const lm=LEVEL_MAP[lvKey]||{label:c.level_display||c.level_code,color:lvlColor(dept)};
   const durLabel=`${c.start_time||c.hour+'h'}–${c.end_time||(c.hour+Math.floor((c.duration_min||90)/60))+'h'}`;
-
   document.getElementById('pop-hero-strip').style.background=deptAccent;
   document.getElementById('pop-code').textContent=pc;
   document.getElementById('pop-code').style.color=deptAccent;
   document.getElementById('pop-slot-info').textContent=`${pairLabel} · ${durLabel} · ${lm.label} · ${FLAGS[c.lang]||''} ${c.lang}`;
   document.getElementById('pop-see-all').style.display=c.student_refs&&c.student_refs.length?'':'none';
-
   const n=(c.student_refs||[]).length;
   document.getElementById('pop-meta').innerHTML=
     `<div class="pop-meta-chip">${FLAGS[c.lang]||''} ${c.lang}</div>
      <div class="pop-meta-chip" style="color:${lm.color};border-color:${lm.color}44">${lm.label}</div>
      <div class="pop-meta-chip" style="color:${n<5?'var(--red)':n<=8?'var(--amber)':'var(--green)'}">${n}/${MAX_G} alunos</div>
      <div class="pop-meta-chip">${pairLabel} · ${durLabel}</div>`;
-
   const stuRefs=c.student_refs||[];
   let stuHtml='';
   stuRefs.slice(0,10).forEach(ref=>{
@@ -1531,7 +1400,6 @@ function openPopup(e,pc){
   });
   if(stuRefs.length>10)stuHtml+=`<div style="padding:4px 13px;font-size:7px;color:var(--t3)">+${stuRefs.length-10} mais</div>`;
   document.getElementById('pop-students').innerHTML=stuHtml||'<div style="padding:8px 13px;font-size:7.5px;color:var(--t3)">Sem alunos</div>';
-
   const ranked=getRankedTeachers(pc,c.day_of_week,c.hour,c.lang||'EN');
   let optHtml='';
   ranked.forEach(r=>{
@@ -1578,8 +1446,8 @@ async function popConfirm(){
   const prev={id:c.teacher_id,code:c.teacher_code};
   assignTeacherToSlots(POP_TURMA,POP_SEL||null,(t&&t.code)||null);
   saveLocal();
- try{const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{method:'PATCH',headers:H,body:JSON.stringify({teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null})});console.log('PATCH status',r.status);document.getElementById('bot-src').textContent=r.ok?'Guardado':'Erro '+r.status;}
-catch(e){console.error('PATCH failed',e);document.getElementById('bot-src').textContent='Local';}
+  try{const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{method:'PATCH',headers:H,body:JSON.stringify({teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null})});console.log('PATCH status',r.status);document.getElementById('bot-src').textContent=r.ok?'Guardado':'Erro '+r.status;}
+  catch(e){console.error('PATCH failed',e);document.getElementById('bot-src').textContent='Local';}
   if(POP_SEL)pushUndo(POP_TURMA,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
   showToast(t?`${POP_TURMA} → ${t.code} ✓`:'Professor removido','ok');
   closePopup();renderAll();
@@ -1603,7 +1471,6 @@ function openDossier(ref){
   const lm=getLM(enr);
   const dept=lm.dept||'adults';
   const av=avCol(enr.name||ref);
-
   document.getElementById('dos-hero-bg').style.background=DEPT_GRAD[dept]||DEPT_GRAD.adults;
   document.getElementById('dos-hero-tag').textContent=`ALM · Dossier · ${ref}`;
   const dosAv=document.getElementById('dos-av');
@@ -1611,16 +1478,13 @@ function openDossier(ref){
   dosAv.textContent=avInit(enr.name||ref);
   document.getElementById('dos-hero-name').textContent=enr.name||ref;
   document.getElementById('dos-hero-sub').textContent=`${ref} · ${enr.lang||'EN'} · ${enr.branch||'—'}`;
-
   const accent=DEPT_ACCENT[dept]||DEPT_ACCENT.adults;
   document.getElementById('dos-badges').innerHTML=`
     <span class="dos-badge" style="background:${accent}22;border-color:${accent}55;color:${accent}">${lm.label}</span>
     <span class="dos-badge" style="background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.35);color:#7AABEE">${FLAGS[enr.lang||'EN']||''} ${enr.lang||'EN'}</span>
     <span class="dos-badge" style="background:var(--gold3);border-color:var(--b3);color:var(--gold2)">${enr.branch||'—'}</span>`;
-
   const turmaC=CLASSES.find(c=>!c._secondary&&(c.student_refs||[]).includes(ref));
   const teacher=turmaC?TEACHERS.find(t=>t.id===turmaC.teacher_id):null;
-
   let statGrid='';
   if(turmaC){
     const pairDays=expandDays(turmaC.day_of_week).join('+');
@@ -1641,7 +1505,6 @@ function openDossier(ref){
     document.getElementById('dos-mini-roster').innerHTML='<div class="dos-roster-hdr">Sem turma atribuída</div>';
   }
   document.getElementById('dos-stat-grid').innerHTML=statGrid;
-
   const absences=Math.floor(Math.random()*6);
   const totalSess=22,present=totalSess-absences,pct=Math.round(present/totalSess*100);
   const attCol=pct<75?'var(--red)':pct<88?'var(--amber)':'var(--green)';
@@ -1659,7 +1522,6 @@ function openDossier(ref){
   let sessHtml='';
   for(let i=0;i<totalSess;i++){const isAbs=i<absences;sessHtml+=`<div class="dos-sess-dot" style="background:${isAbs?'rgba(232,69,90,.4)':'rgba(29,184,122,.35)'};border-radius:3px;width:16px;height:16px">${isAbs?'✕':'·'}</div>`;}
   document.getElementById('dos-sessions-grid').innerHTML=sessHtml;
-
   const emailAddr=`${(enr.name||'aluno').split(' ')[0].toLowerCase()}.${(enr.name||'').split(' ').pop().toLowerCase()}@email.com`;
   const phone=`+351 9${Math.floor(10000000+Math.random()*89999999)}`;
   document.getElementById('dos-contact-email').innerHTML=`<div class="dos-contact-label">Email</div><div class="dos-contact-info"><span class="dos-contact-icon">📧</span><span class="dos-contact-val">${emailAddr}</span><button class="dos-contact-btn email">Enviar email</button></div>`;
@@ -1667,7 +1529,6 @@ function openDossier(ref){
   document.getElementById('dos-recipients').innerHTML=['Aluno','Encarregado','Secretaria'].map((r,i)=>`<div class="dos-rec-chip${i===0?' active':''}" onclick="this.classList.toggle('active')">${r}</div>`).join('');
   document.getElementById('dos-subject').value='';
   document.getElementById('dos-message').value='';
-
   const risk=absences>=5?'danger':absences>=3?'warn':'ok';
   const riskMsg={ok:`✓ Presença satisfatória — ${pct}%`,warn:`⚠ Atenção — ${absences} falta${absences>1?'s':''} registadas`,danger:`🚨 Limite excedido — ${absences} faltas`}[risk];
   document.getElementById('dos-risk-banner').className=`dos-risk-banner dos-risk-${risk}`;
@@ -1675,7 +1536,6 @@ function openDossier(ref){
   document.getElementById('dos-flag-chips').innerHTML=['Comportamento','Pagamento em falta','Baixo desempenho','Excesso de faltas','Necessidades especiais'].map(f=>`<div class="dos-flag-chip" onclick="this.classList.toggle('active')">${f}</div>`).join('');
   _dosNoteKey=`alm-dos-note-${ref}`;
   document.getElementById('dos-note').value=localStorage.getItem(_dosNoteKey)||'';
-
   document.querySelectorAll('.dos-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.dos-pane').forEach(p=>p.classList.remove('active'));
   document.querySelector('.dos-tab').classList.add('active');
