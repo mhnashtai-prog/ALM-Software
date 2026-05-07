@@ -797,7 +797,7 @@ async function loadAll(){
   try{
     const[enrol,reqs]=await Promise.all([
       sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-      sbGet('timetable_requests',`select=ref,student_name,branch,family,level_cefr,day_preferences,status,assigned_turma,notes&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
+    sbGet('timetable_requests',`select=ref,student_name,branch,family,level_cefr,day_preferences,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
     ]);
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r});
@@ -1143,7 +1143,7 @@ async function quickConfirm(boxId){
   const refs=box.students.map(e=>e.ref).filter(Boolean);
   if(refs.length){
     try{
-      await Promise.all(refs.map(ref=>sbUpsertRequest(ref,{assigned_turma:box.code,status:'atribuido'})));
+     await Promise.all(refs.map(ref=>sbUpsertRequest(ref,{assigned_turma:box.code,status:'atribuido',pair_code:box.pair?.code||'SW',block:box.block||'tarde'})));
       refs.forEach(ref=>{
         if(rByRef[ref]){rByRef[ref].assigned_turma=box.code;rByRef[ref].status='atribuido';}
         else{rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY};allR.push(rByRef[ref]);}
