@@ -983,7 +983,50 @@ async function boot(){
   renderAll();updateKPIs();
   showToast(`${TEACHERS.length} professores · ${CLASSES.filter(c=>!c._secondary).length} turmas`,'ok');
 }
-
+async function boot(){
+  const[enrol,teachers,requests]=await Promise.all([
+    sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+    sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week&limit=200'),
+    sbGet('timetable_requests',`select=ref,assigned_turma,status,family,level_cefr,branch&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
+  ]);
+  
+  ENROLMENTS=enrol||[];
+  TEACHERS=(teachers||[]).map(r=>({...})); // same as before
+  buildEnrolIndex();
+  
+  // Rebuild classes from timetable_requests — same logic as Decision
+  const groups={};
+  requests.filter(r=>r.assigned_turma&&r.status==='atribuido').forEach(r=>{
+    if(!groups[r.assigned_turma])groups[r.assigned_turma]=[];
+    groups[r.assigned_turma].push(r.ref);
+  });
+  
+  // Build class objects from groups + enrolment data
+  const classesFromRequests=Object.entries(groups).map(([code,refs])=>{
+    const sample=ENROL_BY_REF[refs[0]]||{};
+    const lmk=lk(sample);
+    const info=LEVEL_MAP[lmk]||{dept:'adults',label:'?'};
+    const levelCode=Object.entries(LEVEL_CODE_REVERSE).find(([c,k])=>k===lmk)?.[0]||'G1';
+    return{
+      turma_code:code,
+      department:info.dept||'adults',
+      level_code:levelCode,
+      level_display:info.label,
+      branch:normB(sample.branch||'FUNCHAL'),
+      day_of_week:'SEG', // default — will expand to SEG+QUA
+      hour:14,
+      start_time:'14:00',
+      end_time:'15:30',
+      duration_min:90,
+      lang:sample.lang||'EN',
+      student_refs:refs,
+      teacher_id:null,
+      teacher_code:null
+    };
+  });
+  
+  buildClasses(classesFromRequests);
+}
 function buildEnrolIndex(){ENROL_BY_REF={};ENROLMENTS.forEach(e=>{ENROL_BY_REF[e.ref]=e;});}
 
 function buildClasses(fromDB){
