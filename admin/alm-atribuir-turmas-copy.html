@@ -549,12 +549,12 @@ body{display:flex;flex-direction:column}
   </div>
   <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
   <div class="tabs">
-    <a class="tab-link" href="#"><div class="tab-num">1</div><div class="tab-label">Painel</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="#"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="#"><div class="tab-num">3</div><div class="tab-label">Formation</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="#"><div class="tab-num">4</div><div class="tab-label">Decision</div><div class="tab-link-arrow">↗</div></a>
-    <div class="tab active"><div class="tab-num">5</div><div class="tab-label">Assign</div></div>
-    <a class="tab-link" href="#"><div class="tab-num">6</div><div class="tab-label">Acompanhar</div><div class="tab-link-arrow">↗</div></a>
+  <a class="tab-link" href="/admin/alm-painel-central"><div class="tab-num">1</div><div class="tab-label">Painel</div><div class="tab-link-arrow">↗</div></a>
+<a class="tab-link" href="/admin/alm-painel-central#audit"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-link-arrow">↗</div></a>
+<a class="tab-link" href="/admin/alm-group-formation"><div class="tab-num">3</div><div class="tab-label">Formation</div><div class="tab-link-arrow">↗</div></a>
+<a class="tab-link" href="/admin/alm-confirmar-turmas-criadas"><div class="tab-num">4</div><div class="tab-label">Decision</div><div class="tab-link-arrow">↗</div></a>
+<div class="tab active"><div class="tab-num">5</div><div class="tab-label">Assign</div></div>
+<a class="tab-link" href="/admin/alm-painel-central#watchlist"><div class="tab-num">6</div><div class="tab-label">Acompanhar</div><div class="tab-link-arrow">↗</div></a>
   </div>
   <div class="topbar-right">
     <div class="live"><div class="live-dot"></div><span class="live-lbl">LIVE</span></div>
@@ -989,8 +989,12 @@ function buildEnrolIndex(){ENROL_BY_REF={};ENROLMENTS.forEach(e=>{ENROL_BY_REF[e
 function buildClasses(fromDB){
   const local=getLocal();
   const merged={};
-  try{const s=JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');Object.values(s).filter(c=>c&&c.turma_code).forEach(c=>{merged[c.turma_code]={...c,branch:normB(c.branch||'')};});}catch{}
-  fromDB.forEach(c=>{if(!merged[c.turma_code])merged[c.turma_code]={...c,branch:normB(c.branch||'')};});
+  fromDB.forEach(c=>{
+    if(typeof c.student_refs==='string'){try{c.student_refs=JSON.parse(c.student_refs);}catch{c.student_refs=[];}}
+    if(!Array.isArray(c.student_refs))c.student_refs=[];
+    if(typeof c.hour==='string')c.hour=parseInt(c.hour,10)||9;
+    merged[c.turma_code]={...c,branch:normB(c.branch||'')};
+  });
   Object.values(merged).forEach(c=>{const l=local[c.turma_code];if(l){c.teacher_id=l.teacher_id??c.teacher_id;c.teacher_code=l.teacher_code??c.teacher_code;}});
   if(!Object.keys(merged).length){buildClassesFromDemo();return;}
   expandAndStore(Object.values(merged));
@@ -1013,7 +1017,6 @@ function expandAndStore(primary){
     if(days.length>1)CLASSES.push({...c,turma_code:c.turma_code+'_B',_primaryCode:c.turma_code,day_of_week:days[1],_secondary:true});
   });
 }
-
 function buildBranchTabs(){
   const branches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
   const ordered=BO.filter(b=>branches.includes(b));
@@ -1093,11 +1096,26 @@ function renderPanelList(){if(VIEW_MODE==='level')renderLevelList();else renderT
 function renderLevelList(){
   const cls=branchClasses().filter(c=>!c._secondary);
   const lm={};
+
+  // Build from enrolments first — shows ALL levels even without classes yet
+  const branchEnrols=ENROLMENTS.filter(e=>normB(e.branch)===normB(SEL_BRANCH));
+  branchEnrols.forEach(e=>{
+    const lmk=lk(e);
+    if(!LEVEL_MAP[lmk])return;
+    const info=LEVEL_MAP[lmk];
+    const levelCode=Object.entries(LEVEL_CODE_REVERSE).find(([code,key])=>key===lmk)?.[0]||e.level_cefr;
+    const classKey=`${info.dept}|${levelCode}`;
+    if(!lm[classKey])lm[classKey]={course:info.dept,cefr:levelCode,label:info.label,dept:info.deptKey||deptKeyFromDept(info.dept),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(info.dept)};
+    lm[classKey].studentCount++;
+  });
+
+  // Overlay class data on top
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
     if(!lm[k]){const lmk=LEVEL_CODE_REVERSE[c.level_code]||`${c.department}|${c.level_code}`;const info=LEVEL_MAP[lmk]||{label:c.level_display||c.level_code,deptKey:deptKeyFromDept(c.department),color:lvlColor(c.department)};lm[k]={course:c.department,cefr:c.level_code,label:c.level_display||info.label,dept:info.deptKey||deptKeyFromDept(c.department),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(c.department)};}
-    lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;lm[k].studentCount+=(c.student_refs||[]).length;
+    lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;
   });
+
   const byDept={};Object.values(lm).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
   const CEFR_ORDER={A1:1,A2:2,B1:3,B2:4,C1:5,C2:6};
   let html='';
@@ -1109,9 +1127,10 @@ function renderLevelList(){
     items.forEach(lv=>{
       const isActive=SEL_LEVEL&&SEL_LEVEL.course===lv.course&&SEL_LEVEL.cefr===lv.cefr;
       const allDone=lv.turmas>0&&lv.assigned===lv.turmas;
-      const dotCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(201,168,76,.4)';
-      const fillCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
-      const fracCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--gold2)';
+      const noClass=lv.turmas===0;
+      const dotCol=noClass?'rgba(201,168,76,.2)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(201,168,76,.4)';
+      const fillCol=noClass?'var(--b2)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
+      const fracCol=noClass?'var(--t3)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--gold2)';
       const pct=lv.turmas?Math.round(lv.assigned/lv.turmas*100):0;
       html+=`<div class="panel-row${isActive?' active':''}" onclick="selectLevel('${lv.course}','${lv.cefr}','${lv.label}','${lv.color}')">
         <div class="pr-dot" style="background:${dotCol}"></div>
@@ -1291,9 +1310,9 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
       if(!isMatch){dimmed=true;cellCls=c.teacher_id?'si-assigned':'si-empty';}
       else cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-h2');
     }else{cellCls=c.teacher_id?'si-assigned':(heatClass(n)||'si-h2');}
-  }else{
+ }else{
     if(c.teacher_id===SEL_TEACHER)cellCls='si-mine';
-    else if(c.teacher_id&&c.teacher_id!==SEL_TEACHER)cellCls='si-conflict';
+    else if(c.teacher_id&&c.teacher_id!==SEL_TEACHER){dimmed=true;cellCls='si-assigned';}
     else cellCls=heatClass(n)||'si-h2';
   }
 
@@ -1315,7 +1334,7 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
   const shortCode = pc.replace(/^[A-Z]+-/,'');
 
   return `<div class="slot-cell ${cellCls} ${qaClass}${isNow?' is-now':''}"
-    style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.15':''};flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;padding:0 8px;"
+    style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.06':''};flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;padding:0 8px;"
     onclick="${QA_TEACHER?`qaAssign(event,'${pc}')`:`openPopup(event,'${pc}')`}"
     onmouseenter="showTT(event,'${pc}','${day}',${c.hour})"
     onmouseleave="hideTT()">
@@ -1516,8 +1535,8 @@ async function popConfirm(){
   const prev={id:c.teacher_id,code:c.teacher_code};
   assignTeacherToSlots(POP_TURMA,POP_SEL||null,(t&&t.code)||null);
   saveLocal();
-  try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});document.getElementById('bot-src').textContent='Guardado';}
-  catch{document.getElementById('bot-src').textContent='Local';}
+ try{const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(POP_TURMA)}`,{method:'PATCH',headers:H,body:JSON.stringify({teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null})});console.log('PATCH status',r.status);document.getElementById('bot-src').textContent=r.ok?'Guardado':'Erro '+r.status;}
+catch(e){console.error('PATCH failed',e);document.getElementById('bot-src').textContent='Local';}
   if(POP_SEL)pushUndo(POP_TURMA,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
   showToast(t?`${POP_TURMA} → ${t.code} ✓`:'Professor removido','ok');
   closePopup();renderAll();
