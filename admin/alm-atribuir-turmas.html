@@ -989,8 +989,12 @@ function buildEnrolIndex(){ENROL_BY_REF={};ENROLMENTS.forEach(e=>{ENROL_BY_REF[e
 function buildClasses(fromDB){
   const local=getLocal();
   const merged={};
-  try{const s=JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');Object.values(s).filter(c=>c&&c.turma_code).forEach(c=>{merged[c.turma_code]={...c,branch:normB(c.branch||'')};});}catch{}
-  fromDB.forEach(c=>{if(!merged[c.turma_code])merged[c.turma_code]={...c,branch:normB(c.branch||'')};});
+  fromDB.forEach(c=>{
+    if(typeof c.student_refs==='string'){try{c.student_refs=JSON.parse(c.student_refs);}catch{c.student_refs=[];}}
+    if(!Array.isArray(c.student_refs))c.student_refs=[];
+    if(typeof c.hour==='string')c.hour=parseInt(c.hour,10)||9;
+    merged[c.turma_code]={...c,branch:normB(c.branch||'')};
+  });
   Object.values(merged).forEach(c=>{const l=local[c.turma_code];if(l){c.teacher_id=l.teacher_id??c.teacher_id;c.teacher_code=l.teacher_code??c.teacher_code;}});
   if(!Object.keys(merged).length){buildClassesFromDemo();return;}
   expandAndStore(Object.values(merged));
@@ -1008,12 +1012,10 @@ function buildClassesFromDemo(){
 function expandAndStore(primary){
   CLASSES=[];
   primary.forEach(c=>{
-    CLASSES.push({...c,day_of_week:expandDays(c.day_of_week)[0],_secondary:false});
-    const days=expandDays(c.day_of_week);
-    if(days.length>1)CLASSES.push({...c,turma_code:c.turma_code+'_B',_primaryCode:c.turma_code,day_of_week:days[1],_secondary:true});
+    CLASSES.push({...c,_secondary:false,_primaryCode:c.turma_code});
   });
+  console.log('CLASSES loaded:',CLASSES.length,CLASSES.map(c=>({code:c.turma_code,day:c.day_of_week,hour:c.hour,dept:c.department,level:c.level_code,branch:c.branch})));
 }
-
 function buildBranchTabs(){
   const branches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
   const ordered=BO.filter(b=>branches.includes(b));
