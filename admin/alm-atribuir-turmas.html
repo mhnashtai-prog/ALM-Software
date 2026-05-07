@@ -1096,11 +1096,26 @@ function renderPanelList(){if(VIEW_MODE==='level')renderLevelList();else renderT
 function renderLevelList(){
   const cls=branchClasses().filter(c=>!c._secondary);
   const lm={};
+
+  // Build from enrolments first — shows ALL levels even without classes yet
+  const branchEnrols=ENROLMENTS.filter(e=>normB(e.branch)===normB(SEL_BRANCH));
+  branchEnrols.forEach(e=>{
+    const lmk=lk(e);
+    if(!LEVEL_MAP[lmk])return;
+    const info=LEVEL_MAP[lmk];
+    const levelCode=Object.entries(LEVEL_CODE_REVERSE).find(([code,key])=>key===lmk)?.[0]||e.level_cefr;
+    const classKey=`${info.dept}|${levelCode}`;
+    if(!lm[classKey])lm[classKey]={course:info.dept,cefr:levelCode,label:info.label,dept:info.deptKey||deptKeyFromDept(info.dept),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(info.dept)};
+    lm[classKey].studentCount++;
+  });
+
+  // Overlay class data on top
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
     if(!lm[k]){const lmk=LEVEL_CODE_REVERSE[c.level_code]||`${c.department}|${c.level_code}`;const info=LEVEL_MAP[lmk]||{label:c.level_display||c.level_code,deptKey:deptKeyFromDept(c.department),color:lvlColor(c.department)};lm[k]={course:c.department,cefr:c.level_code,label:c.level_display||info.label,dept:info.deptKey||deptKeyFromDept(c.department),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(c.department)};}
-    lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;lm[k].studentCount+=(c.student_refs||[]).length;
+    lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;
   });
+
   const byDept={};Object.values(lm).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
   const CEFR_ORDER={A1:1,A2:2,B1:3,B2:4,C1:5,C2:6};
   let html='';
@@ -1112,9 +1127,10 @@ function renderLevelList(){
     items.forEach(lv=>{
       const isActive=SEL_LEVEL&&SEL_LEVEL.course===lv.course&&SEL_LEVEL.cefr===lv.cefr;
       const allDone=lv.turmas>0&&lv.assigned===lv.turmas;
-      const dotCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(201,168,76,.4)';
-      const fillCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
-      const fracCol=allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--gold2)';
+      const noClass=lv.turmas===0;
+      const dotCol=noClass?'rgba(201,168,76,.2)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'rgba(201,168,76,.4)';
+      const fillCol=noClass?'var(--b2)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--b2)';
+      const fracCol=noClass?'var(--t3)':allDone?'var(--green)':lv.assigned>0?'var(--amber)':'var(--gold2)';
       const pct=lv.turmas?Math.round(lv.assigned/lv.turmas*100):0;
       html+=`<div class="panel-row${isActive?' active':''}" onclick="selectLevel('${lv.course}','${lv.cefr}','${lv.label}','${lv.color}')">
         <div class="pr-dot" style="background:${dotCol}"></div>
