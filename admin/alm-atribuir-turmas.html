@@ -18,7 +18,8 @@
   --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.60);--t3:rgba(215,193,145,.32);--t4:rgba(215,193,145,.12);
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
   --c-inf:#5A9EFF;--c-juv:#28C8B0;--c-ger:#E8A030;--c-exa:#B06AE8;
-  --tl-col-w:90px;--tl-sep-w:32px;--tl-row-h:70px;--tl-label:52px;
+  /* Timeline: 11 visible columns, each 90px wide, plus 32px lunch separator */
+  --tl-col-w:90px;--tl-sep-w:32px;--tl-row-h:58px;--tl-label:52px;
   --tl-before-cols:4;--tl-after-cols:7;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
@@ -139,6 +140,10 @@ body{display:flex;flex-direction:column}
 .qa-mode-bar{display:none;align-items:center;gap:8px;padding:5px 16px;background:rgba(29,184,122,.06);border-bottom:1px solid var(--green-b);font-size:8px;color:var(--green);letter-spacing:.06em}
 .qa-mode-bar.show{display:flex}
 
+/* ══════════════════════════════════════════
+   TIMELINE GRID — 11-column layout
+   Before: 8h 9h 10h 11h | SEP | 14h 15h 16h 17h 18h 19h 20h
+   ══════════════════════════════════════════ */
 .grid-area{flex:1;overflow:auto;padding:12px 0 80px}
 .grid-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 16px}
 .grid-title{font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
@@ -146,44 +151,108 @@ body{display:flex;flex-direction:column}
 .leg-i{display:flex;align-items:center;gap:3px;font-size:7px;color:var(--t3)}
 .leg-sq{width:8px;height:8px;border-radius:1px;border:.5px solid}
 
+/* Timeline container */
 .tl-wrap{position:relative;min-width:max-content}
+
+/* Hour ruler row */
 .tl-ruler{display:flex;align-items:stretch;height:22px;position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--b2)}
 .tl-ruler-label{width:var(--tl-label);flex-shrink:0;border-right:1px solid var(--b2)}
 .tl-ruler-cols{display:flex;align-items:stretch;height:100%}
-.tl-ruler-hour{width:var(--tl-col-w);flex-shrink:0;display:flex;align-items:center;padding-left:6px;font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3);white-space:nowrap;}
-.tl-ruler-sep{width:var(--tl-sep-w);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);border-left:1.5px solid rgba(201,168,76,.28);border-right:1.5px solid rgba(201,168,76,.28);font-size:6px;letter-spacing:.06em;color:rgba(201,168,76,.3);font-weight:700;writing-mode:horizontal-tb;white-space:nowrap;overflow:hidden;}
+
+/* Regular hour tick in ruler */
+.tl-ruler-hour{
+  width:var(--tl-col-w);
+  flex-shrink:0;
+  display:flex;align-items:center;
+  padding-left:6px;
+  font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3);
+  white-space:nowrap;
+}
+/* Lunch separator in ruler — narrow dark column */
+.tl-ruler-sep{
+  width:var(--tl-sep-w);
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);
+  border-left:1.5px solid rgba(201,168,76,.28);
+  border-right:1.5px solid rgba(201,168,76,.28);
+  font-size:6px;letter-spacing:.06em;color:rgba(201,168,76,.3);
+  font-weight:700;writing-mode:horizontal-tb;
+  white-space:nowrap;overflow:hidden;
+}
+
+/* Day rows */
 .tl-row{display:flex;align-items:stretch;position:relative}
 .tl-row:last-child{border-bottom:none}
 .tl-day-label{width:var(--tl-label);flex-shrink:0;border-right:1px solid var(--b2);display:flex;flex-direction:column;justify-content:center;padding:0 10px;min-height:var(--tl-row-h)}
 .tl-day-name{font-size:11px;font-weight:700;color:var(--t2);line-height:1}
 .tl-day-today{font-size:6px;color:var(--green);font-weight:700;letter-spacing:.06em;margin-top:1px}
 .tl-day-sub{font-size:6.5px;color:var(--t3);margin-top:1px;letter-spacing:.04em}
-.tl-lane{position:relative;display:flex;min-height:var(--tl-row-h)}
-.tl-lane-before{position:relative;width:calc(4 * var(--tl-col-w));flex-shrink:0;min-height:var(--tl-row-h);}
-.tl-lane-after{position:relative;width:calc(7 * var(--tl-col-w));flex-shrink:0;min-height:var(--tl-row-h);}
-.tl-lane-sep{width:var(--tl-sep-w);flex-shrink:0;background:rgba(0,0,0,.45);border-left:1.5px solid rgba(201,168,76,.22);border-right:1.5px solid rgba(201,168,76,.22);display:flex;align-items:center;justify-content:center;position:relative;z-index:1;}
-.tl-lane-sep-label{font-size:7px;color:rgba(201,168,76,.2);font-weight:700;letter-spacing:.08em;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;user-select:none;}
 
-/* SLOT CELLS */
+/* The lane: flex row with before-cols, separator, after-cols */
+.tl-lane{position:relative;display:flex;min-height:var(--tl-row-h)}
+
+/* Before-lunch section — no grid lines, clean */
+.tl-lane-before{
+  position:relative;
+  width:calc(4 * var(--tl-col-w));
+  flex-shrink:0;
+  min-height:var(--tl-row-h);
+}
+/* After-lunch section — no grid lines */
+.tl-lane-after{
+  position:relative;
+  width:calc(7 * var(--tl-col-w));
+  flex-shrink:0;
+  min-height:var(--tl-row-h);
+}
+/* Lunch separator column in lane */
+.tl-lane-sep{
+  width:var(--tl-sep-w);
+  flex-shrink:0;
+  background:rgba(0,0,0,.45);
+  border-left:1.5px solid rgba(201,168,76,.22);
+  border-right:1.5px solid rgba(201,168,76,.22);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  z-index:1;
+}
+.tl-lane-sep-label{
+  font-size:7px;color:rgba(201,168,76,.2);
+  font-weight:700;letter-spacing:.08em;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  white-space:nowrap;user-select:none;
+}
+
+/* ══════════════════════════════════════════
+   SLOT CELLS — border-free, gutter-spaced (teacher-portal parity)
+   Cells sit inside the column width; inset provides the gutter gap.
+   ══════════════════════════════════════════ */
 .slot-cell{
   position:absolute;
   top:3px;bottom:3px;
+  /* left/width set inline; 3px gap each side via width calc in JS */
   z-index:1;
   border-radius:5px;
-  border:none;
-  display:flex;flex-direction:row;
-  align-items:center;
+  border:none;                     /* NO borders — gap = spacing only */
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
   transition:all .15s ease;
   overflow:hidden;
   font-family:var(--mono);
   cursor:pointer;
   min-width:0;
   background:rgba(255,255,255,.02);
-  padding:0 8px;
-  gap:6px;
 }
-.slot-cell::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--cell-dept-col,transparent);border-radius:5px 0 0 5px;}
+/* left-edge dept colour accent */
+.slot-cell::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--cell-dept-col,transparent);
+  border-radius:5px 0 0 5px;
+}
 .slot-cell:hover{transform:scale(1.015);box-shadow:0 4px 18px rgba(0,0,0,.45);z-index:5}
+
+/* state backgrounds — no borders, muted like teacher portal */
 .si-empty{background:rgba(255,255,255,.018)}
 .si-empty:hover{background:rgba(201,168,76,.05)}
 .si-h1{background:rgba(232,69,90,.08)}
@@ -195,40 +264,87 @@ body{display:flex;flex-direction:column}
 .si-assigned:hover{background:rgba(29,184,122,.17)}
 .si-mine{background:rgba(29,184,122,.16);box-shadow:0 0 0 1.5px rgba(29,184,122,.35) inset}
 .si-conflict{background:rgba(232,69,90,.1)}
+
+/* NOW glow */
 .slot-cell.is-now{box-shadow:0 0 0 1.5px rgba(29,184,122,.5),0 0 14px rgba(29,184,122,.15);animation:nowGlow 2s ease infinite}
 @keyframes nowGlow{0%,100%{box-shadow:0 0 0 1.5px rgba(29,184,122,.5),0 0 14px rgba(29,184,122,.1)}50%{box-shadow:0 0 0 2px rgba(29,184,122,.8),0 0 22px rgba(29,184,122,.25)}}
+
+/* QA mode */
 .qa-mode-on .slot-cell.si-empty,.qa-mode-on .slot-cell.si-h1,.qa-mode-on .slot-cell.si-h2,.qa-mode-on .slot-cell.si-h3,.qa-mode-on .slot-cell.si-h4,.qa-mode-on .slot-cell.si-h5{cursor:crosshair}
 .qa-mode-on .slot-cell.qa-compatible{border-color:rgba(29,184,122,.4)!important;animation:cellPulse .9s ease infinite}
 .qa-mode-on .slot-cell.qa-incompatible{opacity:.15;pointer-events:none}
 @keyframes cellPulse{0%,100%{box-shadow:0 0 0 0 rgba(29,184,122,.35)}50%{box-shadow:0 0 0 4px rgba(29,184,122,.0)}}
 
-/* ── CELL CODE — FIX: big, blue, dominant ── */
-.cell-group-code{
-  font-family:var(--display);
-  font-size:22px;
-  font-weight:400;
-  letter-spacing:2px;
-  color:#4A8FF5;
-  line-height:1;
-  white-space:nowrap;
-  flex-shrink:0;
-}
-.si-assigned .cell-group-code,.si-mine .cell-group-code{color:#7ABEFF;}
-.cell-teacher-name{
-  flex:1;min-width:0;
-  font-size:10px;font-weight:500;
-  color:var(--t2);
+/* ── CELL INTERIOR — 3 clean lines, centred ── */
+.cell-code{
+  font-size:9px;font-weight:700;letter-spacing:.04em;line-height:1;
+  color:rgba(140,230,180,.55);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;padding:0 6px;
+  margin-bottom:2px;
 }
-.cell-lvl-tag{
-  flex-shrink:0;
-  font-size:7px;color:var(--t3);
-  font-family:var(--mono);opacity:.7;
-  writing-mode:vertical-rl;transform:rotate(180deg);
+.si-assigned .cell-code,.si-mine .cell-code{color:rgba(140,230,180,.9)}
+
+.cell-time{
+  font-size:10px;font-weight:700;line-height:1;
+  color:rgba(140,230,180,.95);
+  white-space:nowrap;
+}
+.si-empty .cell-time,.si-h1 .cell-time,.si-h2 .cell-time,.si-h3 .cell-time,.si-h4 .cell-time,.si-h5 .cell-time{
+  color:rgba(215,193,145,.4);
 }
 
+.cell-sub{
+  font-size:8px;line-height:1;margin-top:2px;
+  color:rgba(100,200,150,.7);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;padding:0 6px;
+}
+.si-empty .cell-sub,.si-h1 .cell-sub,.si-h2 .cell-sub,.si-h3 .cell-sub,.si-h4 .cell-sub,.si-h5 .cell-sub{
+  color:rgba(215,193,145,.28);
+}
+
+/* hover action overlay — reveal icons like teacher portal */
+.cell-actions{
+  display:none;position:absolute;inset:0;border-radius:5px;
+  background:rgba(29,184,122,.22);
+  align-items:center;justify-content:center;gap:4px;
+}
+.slot-cell.si-assigned:hover .cell-actions,
+.slot-cell.si-mine:hover .cell-actions{display:flex}
+.slot-cell.si-assigned:hover .cell-code,
+.slot-cell.si-assigned:hover .cell-time,
+.slot-cell.si-assigned:hover .cell-sub,
+.slot-cell.si-mine:hover .cell-code,
+.slot-cell.si-mine:hover .cell-time,
+.slot-cell.si-mine:hover .cell-sub{opacity:0}
+.cell-act-icon{
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(0,0,0,.4);border:.5px solid rgba(29,184,122,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(140,230,180,.9);transition:all .12s;
+}
+.cell-act-icon:hover{background:rgba(29,184,122,.35);transform:scale(1.15)}
+
+/* NOW dot */
 .now-dot{position:absolute;top:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease infinite;z-index:2}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* level pill — subtle, top-left */
+.cell-level-pill{
+  position:absolute;top:4px;left:6px;
+  font-size:6px;font-weight:700;letter-spacing:.04em;
+  padding:1px 4px;border-radius:2px;
+  background:var(--cell-dept-col,rgba(201,168,76,.15));
+  color:rgba(255,255,255,.45);
+  line-height:1.4;white-space:nowrap;
+}
+
+/* keep ghost/qa vars for JS compatibility */
+.cell-av-ghost,.cell-av-qa-ghost,.cell-av,.cell-av-empty,.ghost-ring{display:none}
+.cell-top,.cell-mid,.cell-bottom,.cell-pair-chips,.cell-day-chip,.cell-info,.cell-cap-bar,.cell-cap-fill,.cell-cap-n{display:none}
+
+/* Now-line */
 .tl-now-line{position:absolute;top:0;bottom:0;width:1.5px;background:var(--green);z-index:8;pointer-events:none;opacity:.7}
 .tl-now-line::before{content:'';position:absolute;top:-3px;left:-3px;width:7px;height:7px;border-radius:50%;background:var(--green)}
 
@@ -382,7 +498,7 @@ body{display:flex;flex-direction:column}
 .dos-contact-btn.email{background:rgba(74,143,245,.14);border-color:rgba(74,143,245,.35);color:var(--blue)}
 .dos-contact-btn.sms{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
 .dos-recipients{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
-.dos-rec-chip{padding:4px 11px;border-radius:99px;border:.5px solid var(--b);font-size:9px;cursor:pointer;color:var(--t2);transition:all .12px;font-family:var(--mono)}
+.dos-rec-chip{padding:4px 11px;border-radius:99px;border:.5px solid var(--b);font-size:9px;cursor:pointer;color:var(--t2);transition:all .12s;font-family:var(--mono)}
 .dos-rec-chip.active{background:rgba(74,143,245,.14);border-color:rgba(74,143,245,.35);color:var(--blue)}
 .dos-inp{width:100%;padding:8px 10px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:7px;font-family:var(--mono);font-size:10px;color:var(--t);outline:none;margin-bottom:8px;transition:border-color .12s}
 .dos-inp:focus{border-color:var(--gold)}
@@ -428,17 +544,17 @@ body{display:flex;flex-direction:column}
 
 <div class="topbar">
   <div class="nav-duo">
-    <a class="nav-home" href="javascript:void(0)" onclick="navTo('home')"><span class="nav-home-icon">⌂</span></a>
-    <a class="nav-back" href="javascript:void(0)" onclick="history.back()"><span class="nav-back-arrow">←</span><span class="nav-back-label">Voltar</span></a>
+    <a class="nav-home" href="#"><span class="nav-home-icon">⌂</span></a>
+    <a class="nav-back" href="#"><span class="nav-back-arrow">←</span><span class="nav-back-label">Voltar</span></a>
   </div>
   <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
   <div class="tabs">
-    <a class="tab-link" href="javascript:void(0)" onclick="navTo('painel')"><div class="tab-num">1</div><div class="tab-label">Painel</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="javascript:void(0)" onclick="navTo('audit')"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="javascript:void(0)" onclick="navTo('formation')"><div class="tab-num">3</div><div class="tab-label">Formation</div><div class="tab-link-arrow">↗</div></a>
-    <a class="tab-link" href="javascript:void(0)" onclick="navTo('decision')"><div class="tab-num">4</div><div class="tab-label">Decision</div><div class="tab-link-arrow">↗</div></a>
+    <a class="tab-link" href="#"><div class="tab-num">1</div><div class="tab-label">Painel</div><div class="tab-link-arrow">↗</div></a>
+    <a class="tab-link" href="#"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-link-arrow">↗</div></a>
+    <a class="tab-link" href="#"><div class="tab-num">3</div><div class="tab-label">Formation</div><div class="tab-link-arrow">↗</div></a>
+    <a class="tab-link" href="#"><div class="tab-num">4</div><div class="tab-label">Decision</div><div class="tab-link-arrow">↗</div></a>
     <div class="tab active"><div class="tab-num">5</div><div class="tab-label">Assign</div></div>
-    <a class="tab-link" href="javascript:void(0)" onclick="navTo('acompanhar')"><div class="tab-num">6</div><div class="tab-label">Acompanhar</div><div class="tab-link-arrow">↗</div></a>
+    <a class="tab-link" href="#"><div class="tab-num">6</div><div class="tab-label">Acompanhar</div><div class="tab-link-arrow">↗</div></a>
   </div>
   <div class="topbar-right">
     <div class="live"><div class="live-dot"></div><span class="live-lbl">LIVE</span></div>
@@ -501,7 +617,7 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="botbar">
-  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v15 · Timeline Grid · 11-col</span></span>
+  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v14 · Timeline Grid · 11-col</span></span>
   <div class="bot-right">
     <span class="bot-stat">Atribuídas: <span id="bot-assigned">0</span></span>
     <span class="bot-stat">Pendentes: <span id="bot-pending">—</span></span>
@@ -613,29 +729,6 @@ body{display:flex;flex-direction:column}
 
 <script>
 /* ════════════════════════════════════════════════
-   NAV — resolve real deployed URLs
-   ════════════════════════════════════════════════ */
-function navTo(page){
-  // Try to infer sibling paths from current URL
-  const base=window.location.href.replace(/\/alm-[^/]*$|\/admin\/[^/]*$/,'');
-  const pathMap={
-    home:   base+'/',
-    painel: base+'/admin/alm-painel',
-    audit:  base+'/admin/alm-audit',
-    formation: base+'/admin/alm-formacao',
-    decision:  base+'/admin/alm-decisao',
-    acompanhar:base+'/admin/alm-acompanhar',
-  };
-  const url=pathMap[page];
-  if(url&&url!==window.location.href){
-    window.location.href=url;
-  }else{
-    // Fallback: show a toast indicating nav target
-    showToast(`Navegar para: ${page}`,'info');
-  }
-}
-
-/* ════════════════════════════════════════════════
    SUPABASE
    ════════════════════════════════════════════════ */
 const SB='https://oapygbeliocdvitbdjbq.supabase.co';
@@ -646,16 +739,19 @@ const sbGet=(t,q)=>fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.o
 const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
 /* ════════════════════════════════════════════════
-   TIMELINE CONSTANTS
+   TIMELINE CONSTANTS — 11-column layout
+   Visible hours: 8,9,10,11 | [lunch gap] | 14,15,16,17,18,19,20
    ════════════════════════════════════════════════ */
-const TL_COL_W = 90;
-const TL_SEP_W = 32;
-const HOURS_BEFORE = [8,9,10,11];
-const HOURS_AFTER  = [14,15,16,17,18,19,20];
+const TL_COL_W = 90;   // px per visible hour column
+const TL_SEP_W = 32;   // px for lunch separator
+const HOURS_BEFORE = [8,9,10,11];           // 4 cols before lunch
+const HOURS_AFTER  = [14,15,16,17,18,19,20]; // 7 cols after lunch
 const ALL_HOURS = [...HOURS_BEFORE, ...HOURS_AFTER];
-const TOTAL_BEFORE = HOURS_BEFORE.length * TL_COL_W;
-const TOTAL_AFTER  = HOURS_AFTER.length  * TL_COL_W;
-const TL_ROW_H = 70;
+const TOTAL_BEFORE = HOURS_BEFORE.length * TL_COL_W; // 360
+const TOTAL_AFTER  = HOURS_AFTER.length  * TL_COL_W; // 630
+const TOTAL_W = TOTAL_BEFORE + TL_SEP_W + TOTAL_AFTER; // 1022
+
+const TL_ROW_H = 58;
 const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL={SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
 const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
@@ -671,8 +767,6 @@ const DEPT_GRAD={
   exam:'linear-gradient(145deg,#6A28A8,#3A1260,#140820)',
 };
 const DEPT_ACCENT={kids:'#5A9EFF',kids_juv:'#28C8B0',adults:'#E8A030',exam:'#B06AE8'};
-
-// Full level map — covers canonical keys
 const LEVEL_MAP={
   'kids|A1':{label:'PI-a1',color:'var(--c-inf)',deptKey:'infantil',dept:'kids'},
   'kids|A2':{label:'PI-a2',color:'var(--c-inf)',deptKey:'infantil',dept:'kids'},
@@ -691,18 +785,7 @@ const LEVEL_MAP={
   'exam|C1':{label:'7th C1',color:'var(--c-exa)',deptKey:'exames',dept:'exam'},
   'exam|C2':{label:'8th C2',color:'var(--c-exa)',deptKey:'exames',dept:'exam'},
 };
-
-// Reverse map: DB level_code → canonical LEVEL_MAP key
-const LEVEL_CODE_REVERSE={
-  'PI1A':'kids|A1','PI1B':'kids|A1','PI2A':'kids|A2','PI2B':'kids|A2',
-  'PI3A':'kids|B1','PI3B':'kids|B1','PI4A':'kids|B2','PI4B':'kids|B2',
-  'PJ1':'kids_juv|A1','PJ2':'kids_juv|A2','PJ3':'kids_juv|B1',
-  'G1':'adults|A1','G2':'adults|A2','G3':'adults|B1','G4':'adults|B2','G5':'adults|C1','G6':'adults|C2',
-  'EX6':'exam|B2','EX7':'exam|C1','EX8':'exam|C2',
-  // CEFR codes used directly
-  'A1':'adults|A1','A2':'adults|A2','B1':'adults|B1','B2':'adults|B2','C1':'adults|C1','C2':'adults|C2',
-};
-
+const LEVEL_CODE_REVERSE={'PI1B':'kids|A1','PJ1':'kids_juv|A1','G1':'adults|A1','G2':'adults|A2','G3':'adults|B1','G4':'adults|B2','G5':'adults|C1','EX6':'exam|B2','EX7':'exam|C1','EX8':'exam|C2'};
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
 function avInit(name){return(name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
@@ -721,13 +804,18 @@ function nowMinutes(){return new Date().getMinutes();}
 
 /* ════════════════════════════════════════════════
    11-COLUMN timeToX
+   Converts an hour (+ optional minutes) to pixel X offset within the lane sections.
+   Returns {section:'before'|'after', x:number} so the caller knows which div to place the cell in.
    ════════════════════════════════════════════════ */
 function timeToX(timeStr){
   let h,m;
   if(typeof timeStr==='number'){h=timeStr;m=0;}
   else{const parts=(timeStr||'').split(':').map(Number);h=parts[0]||0;m=parts[1]||0;}
-  if(h<12){return{section:'before',x:(h-8+m/60)*TL_COL_W};}
-  else{return{section:'after',x:(h-14+m/60)*TL_COL_W};}
+  if(h<12){
+    return{section:'before',x:(h-8+m/60)*TL_COL_W};
+  }else{
+    return{section:'after',x:(h-14+m/60)*TL_COL_W};
+  }
 }
 function durationToPx(minutes){return(minutes/60)*TL_COL_W;}
 
@@ -750,34 +838,8 @@ function teacherHours(tid){return CLASSES.filter(c=>c.teacher_id===tid&&!c._seco
 function getLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'{}')}catch{return{}}}
 function saveLocal(){const m={};CLASSES.filter(c=>!c._secondary&&c.teacher_id).forEach(c=>{m[c.turma_code]={teacher_id:c.teacher_id,teacher_code:c.teacher_code};});localStorage.setItem(LS_KEY,JSON.stringify(m));}
 function assignTeacherToSlots(pc,tid,tc){CLASSES.forEach(c=>{const p=c._secondary?c._primaryCode:c.turma_code;if(p===pc){c.teacher_id=tid;c.teacher_code=tc;}});}
-
-/* FIX: branch matching — lenient, handles partial matches and substrings */
-function branchClasses(){
-  if(!SEL_BRANCH)return CLASSES;
-  const nb=normB(SEL_BRANCH);
-  return CLASSES.filter(c=>{
-    const cb=normB(c.branch||'');
-    if(cb===nb)return true;
-    if(cb&&(cb.startsWith(nb)||nb.startsWith(cb)))return true;
-    if(c.student_refs&&c.student_refs.length){
-      const e=ENROLMENTS.find(x=>c.student_refs.includes(x.ref));
-      if(e&&normB(e.branch)===nb)return true;
-    }
-    if(!c.branch&&nb===normB(BO[0]))return true;
-    return false;
-  });
-}
-
-function branchTeachers(){
-  const nb=normB(SEL_BRANCH);
-  const f=TEACHERS.filter(t=>{
-    const tb=normB(t.branch||'');
-    if(tb===nb||tb.startsWith(nb)||nb.startsWith(tb))return true;
-    return(t.branches||[]).some(b=>{const bb=normB(b);return bb===nb||bb.startsWith(nb)||nb.startsWith(bb);});
-  });
-  return f.length?f:TEACHERS;
-}
-
+function branchClasses(){if(!SEL_BRANCH)return CLASSES;const nb=normB(SEL_BRANCH);return CLASSES.filter(c=>{if(c.branch&&normB(c.branch)===nb)return true;if(c.student_refs&&c.student_refs.length){const e=ENROLMENTS.find(x=>c.student_refs.includes(x.ref));if(e&&normB(e.branch)===nb)return true;}if(!c.branch&&nb===normB(BO[0]))return true;return false;});}
+function branchTeachers(){const nb=normB(SEL_BRANCH);const f=TEACHERS.filter(t=>(t.branches||[]).some(b=>normB(b)===nb)||normB(t.branch)===nb);return f.length?f:TEACHERS;}
 function heatClass(n){if(!n)return'';if(n<5)return'si-h1';if(n<=8)return'si-h2';if(n<=12)return'si-h3';if(n<=17)return'si-h4';return'si-h5';}
 
 /* ════════════════════════════════════════════════
@@ -953,11 +1015,8 @@ function expandAndStore(primary){
 }
 
 function buildBranchTabs(){
-  // Collect all branches from CLASSES + ENROLMENTS
-  const fromClasses=CLASSES.filter(c=>!c._secondary&&c.branch).map(c=>normB(c.branch));
-  const fromEnrol=ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean);
-  const allBranches=[...new Set([...fromClasses,...fromEnrol])];
-  const ordered=BO.filter(b=>allBranches.includes(b));
+  const branches=[...new Set(ENROLMENTS.map(e=>normB(e.branch)).filter(Boolean))];
+  const ordered=BO.filter(b=>branches.includes(b));
   if(!ordered.length)ordered.push('FUNCHAL');
   if(!ordered.includes(normB(SEL_BRANCH)))SEL_BRANCH=ordered[0];
   document.getElementById('branch-strip').innerHTML=ordered.map(b=>`<button class="btab${normB(SEL_BRANCH)===b?' active':''}" onclick="selectBranch('${b}',this)">${BL[b]||b}</button>`).join('');
@@ -1031,35 +1090,15 @@ function updateKPIs(){
 
 function renderPanelList(){if(VIEW_MODE==='level')renderLevelList();else renderTeacherList();}
 
-/* FIX: renderLevelList — robust for any level_code/department combo from real DB */
 function renderLevelList(){
   const cls=branchClasses().filter(c=>!c._secondary);
   const lm={};
   cls.forEach(c=>{
     const k=`${c.department}|${c.level_code}`;
-    if(!lm[k]){
-      // Try reverse lookup first
-      const lmk=LEVEL_CODE_REVERSE[c.level_code]||`${c.department}|${c.level_code}`;
-      const info=LEVEL_MAP[lmk]||null;
-      // Fallback: construct from raw data
-      const fallbackLabel=c.level_display||c.level_code||'?';
-      const fallbackDept=deptKeyFromDept(c.department||'adults');
-      const fallbackColor=lvlColor(c.department||'adults');
-      lm[k]={
-        course:c.department||'adults',
-        cefr:c.level_code||'?',
-        label:info?info.label:fallbackLabel,
-        dept:info?(info.deptKey||fallbackDept):fallbackDept,
-        turmas:0,assigned:0,studentCount:0,
-        color:info?info.color:fallbackColor
-      };
-    }
-    lm[k].turmas++;
-    if(c.teacher_id)lm[k].assigned++;
-    lm[k].studentCount+=(c.student_refs||[]).length;
+    if(!lm[k]){const lmk=LEVEL_CODE_REVERSE[c.level_code]||`${c.department}|${c.level_code}`;const info=LEVEL_MAP[lmk]||{label:c.level_display||c.level_code,deptKey:deptKeyFromDept(c.department),color:lvlColor(c.department)};lm[k]={course:c.department,cefr:c.level_code,label:c.level_display||info.label,dept:info.deptKey||deptKeyFromDept(c.department),turmas:0,assigned:0,studentCount:0,color:info.color||lvlColor(c.department)};}
+    lm[k].turmas++;if(c.teacher_id)lm[k].assigned++;lm[k].studentCount+=(c.student_refs||[]).length;
   });
-  const byDept={};
-  Object.values(lm).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
+  const byDept={};Object.values(lm).forEach(lv=>{if(!byDept[lv.dept])byDept[lv.dept]=[];byDept[lv.dept].push(lv);});
   const CEFR_ORDER={A1:1,A2:2,B1:3,B2:4,C1:5,C2:6};
   let html='';
   DEPT_ORDER.forEach(dept=>{
@@ -1142,7 +1181,8 @@ function renderCtxStrip(){
 }
 
 /* ════════════════════════════════════════════════
-   RENDER GRID
+   RENDER GRID — 11-column layout
+   Each row = label | before-lane | sep | after-lane
    ════════════════════════════════════════════════ */
 function renderGrid(){
   const wrap=document.getElementById('tl-wrap');
@@ -1150,27 +1190,42 @@ function renderGrid(){
   const nowH=nowHour(), nowM=nowMinutes();
   let html='';
 
-  // Ruler
+  // ── Ruler ──
   html+=`<div class="tl-ruler">
     <div class="tl-ruler-label"></div>
     <div class="tl-ruler-cols">`;
-  HOURS_BEFORE.forEach(h=>{html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;});
+
+  HOURS_BEFORE.forEach(h=>{
+    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
+  });
+  // Lunch separator in ruler
   html+=`<div class="tl-ruler-sep"></div>`;
-  HOURS_AFTER.forEach(h=>{html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;});
+  HOURS_AFTER.forEach(h=>{
+    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
+  });
+
   html+=`</div></div>`;
 
-  // Day rows
+  // ── Day rows ──
   DAYS.forEach(day=>{
     const isToday=day===today;
     const dayCls=branchClasses().filter(c=>c.day_of_week===day);
     const sorted=[...dayCls].sort((a,b)=>a.hour-b.hour);
+
+    // Partition cells into before/after lunch
     const beforeCells=sorted.filter(c=>c.hour<12);
     const afterCells =sorted.filter(c=>c.hour>=14);
 
+    // Now-line positions
     let nowBeforeHTML='', nowAfterHTML='';
     if(isToday){
-      if(nowH>=8&&nowH<12){const nx=((nowH-8)+nowM/60)*TL_COL_W;nowBeforeHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;}
-      else if(nowH>=14&&nowH<21){const nx=((nowH-14)+nowM/60)*TL_COL_W;nowAfterHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;}
+      if(nowH>=8&&nowH<12){
+        const nx=((nowH-8)+nowM/60)*TL_COL_W;
+        nowBeforeHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
+      }else if(nowH>=14&&nowH<21){
+        const nx=((nowH-14)+nowM/60)*TL_COL_W;
+        nowAfterHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
+      }
     }
 
     html+=`<div class="tl-row">
@@ -1196,7 +1251,6 @@ function renderGrid(){
   wrap.innerHTML=html;
 }
 
-/* FIX: renderTimelineCell — group code is BIG + BLUE + dominant */
 function renderTimelineCell(c,day,isToday,nowH,nowM,section){
   const pc=c._secondary?c._primaryCode:c.turma_code;
   const primary=CLASSES.find(x=>x.turma_code===pc&&!x._secondary)||c;
@@ -1210,22 +1264,25 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
   const startH=c.hour||8;
   const durMin=c.duration_min||90;
 
-  const leftPx=section==='before'?(startH-8)*TL_COL_W+4:(startH-14)*TL_COL_W+4;
+  let leftPx=section==='before'?(startH-8)*TL_COL_W+4:(startH-14)*TL_COL_W+4;
   const widthPx=durationToPx(durMin)-8;
   const isNow=isToday&&nowH===startH;
 
-  // Short group code — just the number part
-  const shortCode=pc.replace(/^[A-Z]+-0*/,'').replace(/^[A-Z]+-/,'');
+  // time display
+  const timeStr=c.start_time||`${startH}:00`;
+  const endStr=c.end_time||`${startH+Math.floor(durMin/60)}:${String(durMin%60).padStart(2,'0')}`;
 
-  // Teacher avatar
-  const av=tc?avCol(tc.name):null;
-  const avatarSize=widthPx>120?44:32;
-  const avatarFS=widthPx>120?13:9;
-  const avatarHTML=tc
-    ? `<div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:${av.bg};color:${av.t};border:2px solid ${av.t}55;display:flex;align-items:center;justify-content:center;font-size:${avatarFS}px;font-weight:700;flex-shrink:0">${avInit(tc.name)}</div>`
-    : `<div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;border:1.5px dashed rgba(215,193,145,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="${avatarFS+5}" height="${avatarFS+5}" viewBox="0 0 24 24" fill="none" stroke="rgba(215,193,145,.25)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
-
-  const teacherName=tc?(widthPx>140?tc.name.split(' ')[0]:(tc.code||'')):'';
+  // suggested teacher for empty slots
+  let suggestedCode='';
+  if(!tc&&!QA_TEACHER){
+    const ranked=getRankedTeachers(pc,day,c.hour,c.lang||'EN');
+    if(ranked.length)suggestedCode=ranked[0].t.code;
+  }
+  let qaCode='';
+  if(!tc&&QA_TEACHER){
+    const qt=TEACHERS.find(x=>x.id===QA_TEACHER);
+    if(qt)qaCode=qt.code;
+  }
 
   let cellCls='';let dimmed=false;
   if(VIEW_MODE==='level'){
@@ -1246,22 +1303,29 @@ function renderTimelineCell(c,day,isToday,nowH,nowM,section){
     qaClass=(!hasConflict)?'qa-compatible':'qa-incompatible';
   }else if(QA_TEACHER&&c.teacher_id){qaClass='qa-incompatible';}
 
-  // Code color: bright blue, bigger when assigned
-  const codeColor=tc?'#7ABEFF':'#4A8FF5';
-  const codeSizePx=widthPx>100?22:16;
+  // Avatar initials
+  const av=tc?avCol(tc.name):null;
+  const avatarHTML=tc
+    ? `<div style="width:44px;height:44px;border-radius:50%;background:${av.bg};color:${av.t};border:2px solid ${av.t}55;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${avInit(tc.name)}</div>`
+    : `<div style="width:44px;height:44px;border-radius:50%;border:1.5px dashed rgba(215,193,145,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(215,193,145,.25)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+
+  const capCol=n<5?'var(--red)':n<=8?'var(--amber)':n<=12?'var(--teal)':'var(--green)';
+
+  const teacherName = tc ? tc.name.split(' ')[0] : '';
+  const shortCode = pc.replace(/^[A-Z]+-/,'');
 
   return `<div class="slot-cell ${cellCls} ${qaClass}${isNow?' is-now':''}"
-    style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.15':''};"
+    style="left:${leftPx}px;width:${widthPx}px;--cell-dept-col:${deptAccent};${dimmed?'opacity:.15':''};flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;padding:0 8px;"
     onclick="${QA_TEACHER?`qaAssign(event,'${pc}')`:`openPopup(event,'${pc}')`}"
     onmouseenter="showTT(event,'${pc}','${day}',${c.hour})"
     onmouseleave="hideTT()">
     ${isNow?'<div class="now-dot"></div>':''}
     ${avatarHTML}
-    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;">
-      <div style="font-family:var(--display);font-size:${codeSizePx}px;font-weight:400;letter-spacing:2px;color:${codeColor};line-height:1;white-space:nowrap;">${shortCode}</div>
-      <div style="font-size:8px;font-weight:500;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${teacherName}</div>
+    <div style="flex:1;min-width:0;font-size:10px;font-weight:500;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${teacherName}</div>
+    <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:1px">
+      <div style="font-size:9px;font-weight:700;color:var(--t3);font-family:var(--mono)">${shortCode}</div>
+      <div style="font-size:7px;color:var(--t3);font-family:var(--mono);opacity:.6">${lvlLabel}</div>
     </div>
-    <div style="flex-shrink:0;font-size:7px;color:var(--t3);font-family:var(--mono);opacity:.7;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;">${lvlLabel}</div>
   </div>`;
 }
 
