@@ -18,7 +18,9 @@
   --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.60);--t3:rgba(215,193,145,.32);--t4:rgba(215,193,145,.12);
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
   --c-inf:#5A9EFF;--c-juv:#28C8B0;--c-ger:#E8A030;--c-exa:#B06AE8;
-  --tl-start:8;--tl-end:21;--tl-col-w:72px;--tl-row-h:52px;--tl-label:52px;
+  /* Timeline: 11 visible columns, each 90px wide, plus 32px lunch separator */
+  --tl-col-w:90px;--tl-sep-w:32px;--tl-row-h:52px;--tl-label:52px;
+  --tl-before-cols:4;--tl-after-cols:7;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
 body{display:flex;flex-direction:column}
@@ -139,7 +141,8 @@ body{display:flex;flex-direction:column}
 .qa-mode-bar.show{display:flex}
 
 /* ══════════════════════════════════════════
-   TIMELINE GRID
+   TIMELINE GRID — 11-column layout
+   Before: 8h 9h 10h 11h | SEP | 14h 15h 16h 17h 18h 19h 20h
    ══════════════════════════════════════════ */
 .grid-area{flex:1;overflow:auto;padding:12px 0 80px}
 .grid-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 16px}
@@ -154,10 +157,30 @@ body{display:flex;flex-direction:column}
 /* Hour ruler row */
 .tl-ruler{display:flex;align-items:stretch;height:22px;position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--b2)}
 .tl-ruler-label{width:var(--tl-label);flex-shrink:0;border-right:1px solid var(--b2)}
-.tl-ruler-hours{position:relative;flex:1}
-.tl-ruler-hour{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:4px;font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3);border-left:.5px solid var(--b);white-space:nowrap}
-/* Lunch break separator — stronger tick in the ruler */
-.tl-ruler-hour.brk{border-left:1.5px solid rgba(201,168,76,.35)}
+.tl-ruler-cols{display:flex;align-items:stretch;height:100%}
+
+/* Regular hour tick in ruler */
+.tl-ruler-hour{
+  width:var(--tl-col-w);
+  flex-shrink:0;
+  display:flex;align-items:center;
+  padding-left:6px;
+  font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3);
+  border-left:.5px solid var(--b);
+  white-space:nowrap;
+}
+/* Lunch separator in ruler — narrow dark column */
+.tl-ruler-sep{
+  width:var(--tl-sep-w);
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);
+  border-left:1.5px solid rgba(201,168,76,.28);
+  border-right:1.5px solid rgba(201,168,76,.28);
+  font-size:6px;letter-spacing:.06em;color:rgba(201,168,76,.3);
+  font-weight:700;writing-mode:horizontal-tb;
+  white-space:nowrap;overflow:hidden;
+}
 
 /* Day rows */
 .tl-row{display:flex;align-items:stretch;border-bottom:.5px solid rgba(201,168,76,.04);position:relative}
@@ -167,13 +190,15 @@ body{display:flex;flex-direction:column}
 .tl-day-today{font-size:6px;color:var(--green);font-weight:700;letter-spacing:.06em;margin-top:1px}
 .tl-day-sub{font-size:6.5px;color:var(--t3);margin-top:1px;letter-spacing:.04em}
 
-/* The lane where cells go */
-.tl-lane{position:relative;flex:1;min-height:var(--tl-row-h)}
+/* The lane: flex row with before-cols, separator, after-cols */
+.tl-lane{position:relative;display:flex;min-height:var(--tl-row-h)}
 
-/* Hour grid lines inside lane */
-.tl-lane::before{
-  content:'';
-  position:absolute;inset:0;
+/* Before-lunch section */
+.tl-lane-before{
+  position:relative;
+  width:calc(4 * var(--tl-col-w));
+  flex-shrink:0;
+  min-height:var(--tl-row-h);
   background-image:repeating-linear-gradient(
     90deg,
     transparent 0,
@@ -181,25 +206,41 @@ body{display:flex;flex-direction:column}
     var(--b) calc(var(--tl-col-w) - .5px),
     var(--b) var(--tl-col-w)
   );
-  pointer-events:none;
-  z-index:0;
 }
-/* Lunch break: slim twin separator lines only — no dark fill */
-.tl-lane::after{
-  content:'';
-  position:absolute;
-  top:0;bottom:0;
-  left:calc((12 - var(--tl-start)) * var(--tl-col-w));
-  width:calc(2 * var(--tl-col-w));
-  background:transparent;
-  border-left:1px solid rgba(201,168,76,.22);
-  border-right:1px solid rgba(201,168,76,.22);
-  pointer-events:none;
-  z-index:0;
+/* After-lunch section */
+.tl-lane-after{
+  position:relative;
+  width:calc(7 * var(--tl-col-w));
+  flex-shrink:0;
+  min-height:var(--tl-row-h);
+  background-image:repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(var(--tl-col-w) - .5px),
+    var(--b) calc(var(--tl-col-w) - .5px),
+    var(--b) var(--tl-col-w)
+  );
+}
+/* Lunch separator column in lane */
+.tl-lane-sep{
+  width:var(--tl-sep-w);
+  flex-shrink:0;
+  background:rgba(0,0,0,.45);
+  border-left:1.5px solid rgba(201,168,76,.22);
+  border-right:1.5px solid rgba(201,168,76,.22);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  z-index:1;
+}
+.tl-lane-sep-label{
+  font-size:7px;color:rgba(201,168,76,.2);
+  font-weight:700;letter-spacing:.08em;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  white-space:nowrap;user-select:none;
 }
 
 /* ══════════════════════════════════════════
-   SLOT CELLS — rectangular, sharp corners
+   SLOT CELLS — positioned within before/after lane sections
    ══════════════════════════════════════════ */
 .slot-cell{
   position:absolute;
@@ -214,7 +255,6 @@ body{display:flex;flex-direction:column}
   cursor:pointer;
   min-width:0;
 }
-/* dept colour top strip */
 .slot-cell::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:var(--cell-dept-col,rgba(201,168,76,.3));
@@ -225,7 +265,6 @@ body{display:flex;flex-direction:column}
 .slot-cell.is-now{box-shadow:0 0 0 1.5px var(--green),0 0 16px rgba(29,184,122,.2);animation:nowGlow 2s ease infinite}
 @keyframes nowGlow{0%,100%{box-shadow:0 0 0 1.5px rgba(29,184,122,.6),0 0 16px rgba(29,184,122,.15)}50%{box-shadow:0 0 0 2px rgba(29,184,122,.9),0 0 24px rgba(29,184,122,.3)}}
 
-/* heat classes */
 .si-empty{background:rgba(255,255,255,.018);border-color:rgba(201,168,76,.05)}
 .si-empty:hover{background:rgba(201,168,76,.06);border-color:var(--b)}
 .si-h1{background:rgba(232,69,90,.1);border-color:rgba(232,69,90,.25)}
@@ -238,13 +277,11 @@ body{display:flex;flex-direction:column}
 .si-mine{background:rgba(29,184,122,.18);border-color:rgba(29,184,122,.55);box-shadow:0 0 0 1px rgba(29,184,122,.25)}
 .si-conflict{background:rgba(232,69,90,.12);border-color:rgba(232,69,90,.35)}
 
-/* QA mode */
 .qa-mode-on .slot-cell.si-empty,.qa-mode-on .slot-cell.si-h1,.qa-mode-on .slot-cell.si-h2,.qa-mode-on .slot-cell.si-h3,.qa-mode-on .slot-cell.si-h4,.qa-mode-on .slot-cell.si-h5{cursor:crosshair}
 .qa-mode-on .slot-cell.qa-compatible{border-color:rgba(29,184,122,.4)!important;animation:cellPulse .9s ease infinite}
 .qa-mode-on .slot-cell.qa-incompatible{opacity:.18;pointer-events:none}
 @keyframes cellPulse{0%,100%{box-shadow:0 0 0 0 rgba(29,184,122,.35)}50%{box-shadow:0 0 0 5px rgba(29,184,122,.0)}}
 
-/* Cell interior zones */
 .cell-top{display:flex;align-items:center;justify-content:space-between;padding:3px 5px 1px;gap:3px;flex-shrink:0}
 .cell-pair-chips{display:flex;gap:2px;flex-shrink:0}
 .cell-day-chip{font-size:5.5px;font-weight:700;letter-spacing:.04em;padding:1px 3px;border-radius:2px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--t2);line-height:1.4}
@@ -543,7 +580,7 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="botbar">
-  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v14 · Timeline Grid</span></span>
+  <span>ALM · Assign · <span style="color:var(--green);font-weight:700">v14 · Timeline Grid · 11-col</span></span>
   <div class="bot-right">
     <span class="bot-stat">Atribuídas: <span id="bot-assigned">0</span></span>
     <span class="bot-stat">Pendentes: <span id="bot-pending">—</span></span>
@@ -665,12 +702,19 @@ const sbGet=(t,q)=>fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}).then(r=>{if(!r.o
 const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:H,body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
 /* ════════════════════════════════════════════════
-   TIMELINE CONSTANTS
+   TIMELINE CONSTANTS — 11-column layout
+   Visible hours: 8,9,10,11 | [lunch gap] | 14,15,16,17,18,19,20
    ════════════════════════════════════════════════ */
-const TL_START=8;
-const TL_END=21;
-const TL_COL_W=72;
-const TL_ROW_H=52;
+const TL_COL_W = 90;   // px per visible hour column
+const TL_SEP_W = 32;   // px for lunch separator
+const HOURS_BEFORE = [8,9,10,11];           // 4 cols before lunch
+const HOURS_AFTER  = [14,15,16,17,18,19,20]; // 7 cols after lunch
+const ALL_HOURS = [...HOURS_BEFORE, ...HOURS_AFTER];
+const TOTAL_BEFORE = HOURS_BEFORE.length * TL_COL_W; // 360
+const TOTAL_AFTER  = HOURS_AFTER.length  * TL_COL_W; // 630
+const TOTAL_W = TOTAL_BEFORE + TL_SEP_W + TOTAL_AFTER; // 1022
+
+const TL_ROW_H = 52;
 const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL={SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
 const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
@@ -720,7 +764,22 @@ function primaryCode(code){return(code||'').replace(/_B$/,'');}
 function todayKey(){const m=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];return m[new Date().getDay()]||null;}
 function nowHour(){return new Date().getHours();}
 function nowMinutes(){return new Date().getMinutes();}
-function timeToX(timeStr){if(typeof timeStr==='number')return(timeStr-TL_START)*TL_COL_W;const[h,m]=(timeStr||'').split(':').map(Number);return((h-TL_START)+m/60)*TL_COL_W;}
+
+/* ════════════════════════════════════════════════
+   11-COLUMN timeToX
+   Converts an hour (+ optional minutes) to pixel X offset within the lane sections.
+   Returns {section:'before'|'after', x:number} so the caller knows which div to place the cell in.
+   ════════════════════════════════════════════════ */
+function timeToX(timeStr){
+  let h,m;
+  if(typeof timeStr==='number'){h=timeStr;m=0;}
+  else{const parts=(timeStr||'').split(':').map(Number);h=parts[0]||0;m=parts[1]||0;}
+  if(h<12){
+    return{section:'before',x:(h-8+m/60)*TL_COL_W};
+  }else{
+    return{section:'after',x:(h-14+m/60)*TL_COL_W};
+  }
+}
 function durationToPx(minutes){return(minutes/60)*TL_COL_W;}
 
 /* ════════════════════════════════════════════════
@@ -1084,48 +1143,78 @@ function renderCtxStrip(){
   }
 }
 
+/* ════════════════════════════════════════════════
+   RENDER GRID — 11-column layout
+   Each row = label | before-lane | sep | after-lane
+   ════════════════════════════════════════════════ */
 function renderGrid(){
   const wrap=document.getElementById('tl-wrap');
-  const totalW=(TL_END-TL_START)*TL_COL_W;
   const today=todayKey();
   const nowH=nowHour(), nowM=nowMinutes();
   let html='';
 
-  // Ruler
-  html+=`<div class="tl-ruler"><div class="tl-ruler-label"></div><div class="tl-ruler-hours" style="width:${totalW}px;position:relative;height:100%">`;
-  for(let h=TL_START;h<TL_END;h++){
-    const x=(h-TL_START)*TL_COL_W;
-    const isBrk=(h===12||h===14);
-    html+=`<div class="tl-ruler-hour${isBrk?' brk':''}" style="left:${x}px;width:${TL_COL_W}px">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
-  }
+  // ── Ruler ──
+  html+=`<div class="tl-ruler">
+    <div class="tl-ruler-label"></div>
+    <div class="tl-ruler-cols">`;
+
+  HOURS_BEFORE.forEach(h=>{
+    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
+  });
+  // Lunch separator in ruler
+  html+=`<div class="tl-ruler-sep">☕</div>`;
+  HOURS_AFTER.forEach(h=>{
+    html+=`<div class="tl-ruler-hour">${h}<span style="font-size:5px;opacity:.5">h</span></div>`;
+  });
+
   html+=`</div></div>`;
 
-  // Day rows
+  // ── Day rows ──
   DAYS.forEach(day=>{
     const isToday=day===today;
     const dayCls=branchClasses().filter(c=>c.day_of_week===day);
+    const sorted=[...dayCls].sort((a,b)=>a.hour-b.hour);
+
+    // Partition cells into before/after lunch
+    const beforeCells=sorted.filter(c=>c.hour<12);
+    const afterCells =sorted.filter(c=>c.hour>=14);
+
+    // Now-line positions
+    let nowBeforeHTML='', nowAfterHTML='';
+    if(isToday){
+      if(nowH>=8&&nowH<12){
+        const nx=((nowH-8)+nowM/60)*TL_COL_W;
+        nowBeforeHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
+      }else if(nowH>=14&&nowH<21){
+        const nx=((nowH-14)+nowM/60)*TL_COL_W;
+        nowAfterHTML=`<div class="tl-now-line" style="left:${nx}px"></div>`;
+      }
+    }
+
     html+=`<div class="tl-row">
       <div class="tl-day-label">
         <div class="tl-day-name" style="color:${isToday?'var(--green)':'var(--t2)'}">${day}</div>
         ${isToday?'<div class="tl-day-today">HOJE</div>':''}
         <div class="tl-day-sub">${DAYS_FULL[day]||''}</div>
       </div>
-      <div class="tl-lane" style="width:${totalW}px;height:${TL_ROW_H}px">`;
-
-    if(isToday&&nowH>=TL_START&&nowH<TL_END){
-      const nowX=((nowH-TL_START)+nowM/60)*TL_COL_W;
-      html+=`<div class="tl-now-line" style="left:${nowX}px"></div>`;
-    }
-
-    const sorted=[...dayCls].sort((a,b)=>a.hour-b.hour);
-    sorted.forEach(c=>{html+=renderTimelineCell(c,day,isToday,nowH,nowM);});
-    html+=`</div></div>`;
+      <div class="tl-lane">
+        <div class="tl-lane-before" style="height:${TL_ROW_H}px">
+          ${nowBeforeHTML}
+          ${beforeCells.map(c=>renderTimelineCell(c,day,isToday,nowH,nowM,'before')).join('')}
+        </div>
+        <div class="tl-lane-sep"><div class="tl-lane-sep-label">almoço</div></div>
+        <div class="tl-lane-after" style="height:${TL_ROW_H}px">
+          ${nowAfterHTML}
+          ${afterCells.map(c=>renderTimelineCell(c,day,isToday,nowH,nowM,'after')).join('')}
+        </div>
+      </div>
+    </div>`;
   });
 
   wrap.innerHTML=html;
 }
 
-function renderTimelineCell(c,day,isToday,nowH,nowM){
+function renderTimelineCell(c,day,isToday,nowH,nowM,section){
   const pc=c._secondary?c._primaryCode:c.turma_code;
   const primary=CLASSES.find(x=>x.turma_code===pc&&!x._secondary)||c;
   const tc=TEACHERS.find(t=>t.id===c.teacher_id);
@@ -1140,9 +1229,16 @@ function renderTimelineCell(c,day,isToday,nowH,nowM){
   const capPct=MAX_G>0?Math.round(n/MAX_G*100):0;
   const capCol=n<5?'var(--red)':n<=8?'var(--amber)':n<=12?'var(--teal)':'var(--green)';
 
-  const startH=c.hour||TL_START;
+  const startH=c.hour||8;
   const durMin=c.duration_min||90;
-  const leftPx=timeToX(startH);
+
+  // X position within the section div
+  let leftPx;
+  if(section==='before'){
+    leftPx=(startH-8)*TL_COL_W;
+  }else{
+    leftPx=(startH-14)*TL_COL_W;
+  }
   const widthPx=durationToPx(durMin)-4;
   const isNow=isToday&&nowH===startH;
 
