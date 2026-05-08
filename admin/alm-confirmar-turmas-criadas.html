@@ -842,81 +842,123 @@ async function loadAll(){
 }
 
 /* ── GROUP FORMATION ALGORITHM ── */
-function buildProposals(levelKey,branch){
-  const atLevel=allE.filter(e=>lk(e)===levelKey&&(branch==='all'||normB(e.branch)===branch));
-  const withReq=atLevel.filter(e=>!!rByRef[e.ref]);
-  const dept=(LEVEL_MAP[levelKey]||{}).dept||'adults';
+function buildProposals(levelKey, branch) {
+  const atLevel = allE.filter(e => lk(e) === levelKey && (branch === 'all' || normB(e.branch) === branch));
+  const withReq = atLevel.filter(e => !!rByRef[e.ref]);
+  const dept = (LEVEL_MAP[levelKey] || {}).dept || 'adults';
 
-  // Recover already-assigned groups from DB
-  const assignedGroups={};const alreadyAssigned=new Set();
-  withReq.forEach(e=>{
-    const r=rByRef[e.ref];
-    if(r?.assigned_turma&&normS(r.status)==='atribuido'){
-      if(!assignedGroups[r.assigned_turma])assignedGroups[r.assigned_turma]=[];
-      assignedGroups[r.assigned_turma].push(e);alreadyAssigned.add(e.ref);
+  // ── Recover already-assigned groups from DB ──
+  const assignedGroups = {}; const alreadyAssigned = new Set();
+  withReq.forEach(e => {
+    const r = rByRef[e.ref];
+    if (r?.assigned_turma && normS(r.status) === 'atribuido') {
+      if (!assignedGroups[r.assigned_turma]) assignedGroups[r.assigned_turma] = [];
+      assignedGroups[r.assigned_turma].push(e); alreadyAssigned.add(e.ref);
     }
   });
-  const savedGroups=Object.entries(assignedGroups).map(([code,students])=>{
-    const firstReq=students.map(e=>rByRef[e.ref]).find(r=>r?.pair_code);
-    const pairCode=firstReq?.pair_code||'SW';
-    const block=firstReq?.block||'tarde';
-    const foundPair=PAIRS.find(p=>p.code===pairCode)||PAIRS[0];
-    return{code,students,_savedFromDB:true,pair:foundPair,block};
+  const savedGroups = Object.entries(assignedGroups).map(([code, students]) => {
+    const firstReq = students.map(e => rByRef[e.ref]).find(r => r?.pair_code);
+    const pairCode = firstReq?.pair_code || 'SW';
+    const block = firstReq?.block || 'tarde';
+    const foundPair = PAIRS.find(p => p.code === pairCode) || PAIRS[0];
+    return { code, students, _savedFromDB: true, pair: foundPair, block };
   });
 
-  const unassigned=withReq.filter(e=>!alreadyAssigned.has(e.ref));
-  const placed=new Set();const algorithmGroups=[];
+  const unassigned = withReq.filter(e => !alreadyAssigned.has(e.ref));
+  const placed = new Set();
+  const algorithmGroups = [];
 
-  // Flag students whose prefs have same day listed twice (invalid)
-  const sameDayB=unassigned.filter(e=>{const a=analysePrefs(e.ref);return a&&a.sameDay});
-  sameDayB.forEach(e=>placed.add(e.ref));
+  // ── Flag same-day conflicts (both slots on identical day = invalid) ──
+  const sameDayB = unassigned.filter(e => { const a = analysePrefs(e.ref); return a && a.sameDay; });
+  sameDayB.forEach(e => placed.add(e.ref));
 
-  // Flag students with no valid block slots
-  const invalidB=unassigned.filter(e=>{
-    if(placed.has(e.ref))return false;
-    const a=analysePrefs(e.ref);return a&&a.validSlots.length===0;
-  });
-  invalidB.forEach(e=>placed.add(e.ref));
+  const eligible = unassigned.filter(e => !placed.has(e.ref));
 
-  const eligible=unassigned.filter(e=>!placed.has(e.ref));
+  // ── Helper: does student fit a given pair+block? ──
+  function fits(e, pair, block) {
+    const a = analysePrefs(e.ref);
+    if (!a) return false;
+    if (pair.a === pair.b) {
+      return a.validSlots.filter(s => s.dayIdx === pair.a && s.block === block).length >= 2;
+    }
+    return (
+      a.validSlots.some(s => s.dayIdx === pair.a && s.block === block) &&
+      a.validSlots.some(s => s.dayIdx === pair.b && s.block === block)
+    );
+  }
 
-  // Group by pair + block
-  PAIRS.forEach(pair=>{
-    if(pair.examOnly&&dept!=='exam')return;
-    ['manha','tarde'].forEach(block=>{
-      const sub=eligible.filter(e=>{
-        if(placed.has(e.ref))return false;
-        const a=analysePrefs(e.ref);if(!a)return false;
-        // Student must have BOTH days of the pair in their valid slots for this block
-        if(pair.a===pair.b){
-          // Saturday pair: need 2 slots on that day
-          return a.validSlots.filter(s=>s.dayIdx===pair.a&&s.block===block).length>=2;
-        }
-        return(
-          a.validSlots.some(s=>s.dayIdx===pair.a&&s.block===block)&&
-          a.validSlots.some(s=>s.dayIdx===pair.b&&s.block===block)
-        );
-      });
-      if(sub.length<MIN_G)return;
-      let rem=[...sub];
-      while(rem.length>=MIN_G){
-        const chunk=rem.slice(0,MAX_G);rem=rem.slice(MAX_G);
-        chunk.forEach(e=>placed.add(e.ref));
-        algorithmGroups.push({pair,block,students:chunk});
+  // ── PASS 1: strict pair+block — greedy, largest viable groups first ──
+  PAIRS.forEach(pair => {
+    if (pair.examOnly && dept !== 'exam') return;
+    ['manha', 'tarde'].forEach(block => {
+      const sub = eligible.filter(e => !placed.has(e.ref) && fits(e, pair, block));
+      if (sub.length < MIN_G) return;
+      let rem = [...sub];
+      while (rem.length >= MIN_G) {
+        const chunk = rem.slice(0, MAX_G); rem = rem.slice(MAX_G);
+        chunk.forEach(e => placed.add(e.ref));
+        algorithmGroups.push({ pair, block, students: chunk });
       }
+      // leftover rem (< MIN_G) stays unplaced — handled in pass 2
     });
   });
 
-  // Remaining unplaced students go to SINAL
-  const sinal=[
-    ...sameDayB.map(e=>({e,reason:'same-day'})),
-    ...invalidB.map(e=>({e,reason:'invalid-window'})),
-    ...eligible.filter(e=>!placed.has(e.ref)).map(e=>({e,reason:'no-group'})),
+  // ── PASS 2: remaining students — iterate until no more groups can be formed ──
+  // Per block, repeatedly find the pair that covers the most unplaced students,
+  // form a group, mark them placed, repeat until pool < MIN_G.
+  ['manha', 'tarde'].forEach(block => {
+    let changed = true;
+    while (changed) {
+      changed = false;
+
+      // Pool: unplaced students who have at least one valid slot in this block
+      const pool = eligible.filter(e => {
+        if (placed.has(e.ref)) return false;
+        const a = analysePrefs(e.ref);
+        if (!a || !a.validSlots.length) return false;
+        return a.validSlots.some(s => s.block === block);
+      });
+      if (pool.length < MIN_G) break;
+
+      // Find the pair covering the most pool students
+      let bestPair = null, bestCount = 0;
+      PAIRS.forEach(pair => {
+        if (pair.examOnly && dept !== 'exam') return;
+        const count = pool.filter(e => fits(e, pair, block)).length;
+        if (count > bestCount) { bestCount = count; bestPair = pair; }
+      });
+
+      if (!bestPair || bestCount < MIN_G) break;
+
+      // Form groups from matched students
+      const matched = pool.filter(e => !placed.has(e.ref) && fits(e, bestPair, block));
+      let rem = [...matched];
+      while (rem.length >= MIN_G) {
+        const chunk = rem.slice(0, MAX_G); rem = rem.slice(MAX_G);
+        chunk.forEach(e => placed.add(e.ref));
+        algorithmGroups.push({ pair: bestPair, block, students: chunk });
+        changed = true;
+      }
+    }
+  });
+
+  // ── SINAL: genuinely unplaceable ──
+  const invalidB = eligible.filter(e => {
+    if (placed.has(e.ref)) return false;
+    const a = analysePrefs(e.ref);
+    return !a || a.validSlots.length === 0;
+  });
+  invalidB.forEach(e => placed.add(e.ref));
+
+  const sinal = [
+    ...sameDayB.map(e => ({ e, reason: 'same-day' })),
+    ...invalidB.map(e => ({ e, reason: 'invalid-window' })),
+    ...eligible.filter(e => !placed.has(e.ref)).map(e => ({ e, reason: 'no-group' })),
   ];
 
-  return{savedGroups,groups:algorithmGroups,sinal,total:atLevel.length,withReq:withReq.length};
+  return { savedGroups, groups: algorithmGroups, sinal, total: atLevel.length, withReq: withReq.length };
 }
-
+  
 function initBranchTabs(){
   const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))];
   const ordered=BO.filter(b=>branches.includes(b));
