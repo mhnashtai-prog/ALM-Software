@@ -170,6 +170,11 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
 .csr{font-size:11px;color:rgba(235,210,155,.75);padding:4px 0;border-bottom:.5px solid rgba(210,180,100,.06);display:flex;align-items:center;gap:8px}
 .csr:last-child{border-bottom:none}
 .csd{font-weight:700;color:rgba(93,202,165,.85);width:36px;flex-shrink:0;font-size:10px;letter-spacing:.06em}
+/* ── NEXT STUDENT BUTTON ── */
+.btn-next{width:100%;padding:13px;background:rgba(232,201,122,.12);border:.5px solid rgba(232,201,122,.35);border-radius:12px;font-size:14px;font-weight:700;color:var(--gold);cursor:pointer;letter-spacing:.04em;transition:all .2s;font-family:'Outfit',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-next:hover{background:rgba(232,201,122,.22);transform:translateY(-1px)}
+.btn-next-arrow{font-size:18px;line-height:1}
+.next-counter{font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.08em;margin-top:6px;text-align:center}
 </style>
 </head>
 <body>
@@ -328,6 +333,12 @@ html,body{min-height:100%;background:linear-gradient(155deg,#1A1520 0%,#2E2240 4
       <div class="confirm-ref" id="conf-ref">ALM-0000</div>
       <div class="confirm-body">O pedido foi registado. A direcção irá analisar e atribuir uma turma em breve.</div>
       <div class="confirm-slots" id="conf-slots"></div>
+      <!-- ── NEXT STUDENT BUTTON ── -->
+      <button class="btn-next" onclick="nextStudent()">
+        <span class="btn-next-arrow">→</span>
+        Próximo aluno
+      </button>
+      <div class="next-counter" id="next-counter"></div>
     </div>
   </div>
 
@@ -341,7 +352,6 @@ const sbGet =(t,q='')=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{headers:SH}).then(r=
 const sbPost=(t,b)   =>fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 const sbPatch=(t,q,b)=>fetch(`${SB_URL}/rest/v1/${t}?${q}`,{method:'PATCH',headers:{...SH,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status;return r.json()});
 
-// actual Supabase column is level_cefr
 const ENROL_SELECT='ref,name,lang,level_cefr,branch,family,phone';
 
 const DAYS_PT  =['Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -351,6 +361,36 @@ const ALL_HRS  =[8,9,10,11,null,14,15,16,17,18,19,20];
 const DEFAULT_DUR=90;
 
 let student=null,sessions=[],popState=null;
+let sessionCount=0; // track how many requests submitted this session
+
+/* ── NEXT STUDENT ── */
+function nextStudent(){
+  sessionCount++;
+  // reset everything
+  student=null;sessions=[];
+  document.getElementById('inp-num').value='';
+  document.getElementById('inp-name').value='';
+  document.getElementById('not-found').classList.remove('show');
+  document.getElementById('profile').classList.remove('show');
+  document.getElementById('status-banner').classList.remove('show');
+  document.getElementById('notes-field').value='';
+  document.getElementById('notes-count').textContent='0 / 200';
+  document.getElementById('confirm-wrap').classList.remove('show');
+  document.getElementById('change-wrap').classList.remove('show');
+  document.getElementById('btn-submit').style.display='';
+  document.getElementById('btn-submit').textContent='✓ Enviar pedido de horário';
+  document.getElementById('warn-msg').classList.remove('show');
+  document.getElementById('num-1').className='card-num';
+  document.getElementById('num-2').className='card-num';
+  document.getElementById('num-3').className='card-num';
+  document.getElementById('grid-rows').classList.remove('grid-locked');
+  // lock grid until student found
+  document.querySelectorAll('.gcell:not(.gap-cell)').forEach(c=>c.classList.add('locked-cell'));
+  redrawBands();updateSummary();updateSubmitState();
+  // scroll to top and focus
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(()=>document.getElementById('inp-num').focus(),400);
+}
 
 /* ── GRID ── */
 function buildGrid(){
@@ -523,7 +563,6 @@ async function onNameInput(){
   clearTimeout(acTimer);
   acTimer=setTimeout(async()=>{
     try{
-      // FIX: select `level` not `level_cefr`
       const rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=${ENROL_SELECT}&limit=6`);
       if(!rows.length){drop.classList.remove('open');return;}
       drop.innerHTML=rows.map(s=>{
@@ -550,7 +589,6 @@ async function doLookup(){
   btn.textContent='A procurar…';btn.disabled=true;
   try{
     let rows=[];
-    // FIX: use ENROL_SELECT (with `level`) for both queries
     if(num) rows=await sbGet('enrolments',`ref=eq.${encodeURIComponent(num)}&select=${ENROL_SELECT}&limit=1`);
     if(!rows.length&&nameQ.length>1) rows=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(nameQ)}*&select=${ENROL_SELECT}&limit=1`);
     if(!rows.length){nf.classList.add('show');document.getElementById('profile').classList.remove('show');student=null;updateSubmitState();}
@@ -565,9 +603,8 @@ async function loadProfile(s){
   document.getElementById('p-avatar').textContent=ini;
   document.getElementById('p-name').textContent=s.name||'—';
   document.getElementById('p-ref').textContent=s.ref||'—';
-  const cL={kids:'Kids',adults:'Adultos',exam:'Exame'};
-  // FIX: use s.level (not s.level_cefr); use s.family for course normalization
-  const course=normCourse(s.family||s.level_cefr||'');
+  const cL={kids:'Kids',kids_juv:'Juvenil',adults:'Adultos',exam:'Exame'};
+  const course=s.family||'adults';
   document.getElementById('p-badges').innerHTML=`
     <span class="pbadge pb-lang">${s.lang||'EN'}</span>
     <span class="pbadge pb-lvl">${s.level_cefr||'?'}</span>
@@ -589,14 +626,6 @@ async function loadProfile(s){
     else setStateFresh();
   }catch(e){ setStateFresh(); }
   updateSubmitState();
-}
-
-// FIX: normCourse uses `family` field primarily (infants/juvenil/geral/exam → kids/kids/adults/exam)
-function normCourse(raw){
-  const k=(raw||'').toLowerCase();
-  if(k==='infants'||k==='juvenil'||k.includes('kids')||k.includes('juvenil')) return 'kids';
-  if(k==='exam'||k.includes('exam')) return 'exam';
-  return 'adults';
 }
 
 function setStateFresh(){
@@ -673,7 +702,8 @@ async function submitRequest(){
   const payload={
     ref:student.ref,student_name:student.name,
     branch:student.branch||'',lang:student.lang||'EN',
-    family:normCourse(student.family||student.level_cefr||''),
+    // FIX: pass raw family value, not normalized
+    family:student.family||'',
     level_cefr:student.level_cefr||'',
     sessions_per_week:sessions.length,
     day_preferences:dayPreferences,availability:availability,
@@ -710,6 +740,9 @@ function showConfirmation(p){
     `<div class="csr"><span class="csd">${s.day_code}</span>${s.session_start} – ${s.session_end}<span style="color:var(--text-dim);font-size:10px;margin-left:auto">${s.duration_min} min</span></div>`
   ).join('');
   document.getElementById('num-3').className='card-num done';
+  // update counter
+  const counter=document.getElementById('next-counter');
+  if(sessionCount>0) counter.textContent=`${sessionCount} pedido${sessionCount!==1?'s':''} registado${sessionCount!==1?'s':''} nesta sessão`;
   wrap.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
