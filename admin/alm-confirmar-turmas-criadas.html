@@ -643,6 +643,15 @@ function normS(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-
 function lk(e){return`${(e.family||'').toLowerCase()}|${(e.level_cefr||'').toUpperCase()}`}
 function getLM(e){return LEVEL_MAP[lk(e)]||{dept:'adults',label:`${e.family||''}·${e.level_cefr||''}`,color:'var(--t3)',order:99}}
 function parseDp(raw){if(!raw)return[];if(Array.isArray(raw))return raw;try{return JSON.parse(raw)||[]}catch{return[]}}
+  function inferHour(refs,block){
+  const hours=refs.flatMap(ref=>{
+    const prefs=parseDp(rByRef[ref]?.day_preferences);
+    return prefs.map(p=>parseH(p.session_start||p.start_time||'')).filter(h=>h!==null&&(block==='manha'?h>=8&&h<=11:h>=14&&h<=20));
+  });
+  const freq={};hours.forEach(h=>{freq[h]=(freq[h]||0)+1;});
+  const best=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+  return best?parseInt(best[0]):(block==='manha'?9:14);
+}
 function parseH(t){if(t==null)return null;const h=parseInt((t+'').split(':')[0],10);return isNaN(h)?null:h}
 function classB(s){const h=parseH(s);if(h===null)return null;if(h>=8&&h<=11)return'manha';if(h>=14&&h<=20)return'tarde';return null}
 function normD(str){
@@ -794,7 +803,7 @@ function buildProposals(levelKey,branch){
         const chunk=rem.slice(0,MAX_G);rem=rem.slice(MAX_G);
         chunk.forEach(e=>placed.add(e.ref));
         const hour=inferHour(chunk.map(e=>e.ref),block);
-        algorithmGroups.push({pair,block,hour,students:chunk});
+        algorithmGroups.push({pair,block,students:chunk,_savedFromDB:false,hour:inferHour(chunk.map(e=>e.ref),block)});
       }
     });
   });
