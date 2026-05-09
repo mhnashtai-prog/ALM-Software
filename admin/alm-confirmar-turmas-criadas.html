@@ -719,10 +719,10 @@ function normD(str){
 }
 function analysePrefs(ref){
   const req=rByRef[ref];if(!req)return null;
-  const raw=parseDp(req.day_preferences);
+  const raw=parseDp(req.slots||req.day_preferences);
   const slots=raw.map(p=>{
     const dayRaw=p.day_code||p.day||p.weekday||p.dia||'';
-    return{dayIdx:normD(dayRaw),block:classB(p.session_start||p.start_time||''),dayLabel:p.day_name||dayRaw||'?',start:p.session_start||p.start_time||''};
+    return{dayIdx:normD(dayRaw),block:classB(p.time||p.session_start||p.start_time||''),dayLabel:p.day_name||dayRaw||'?',start:p.time||p.session_start||p.start_time||''};
   }).filter(s=>s.dayIdx!==null);
   const dayList=slots.map(s=>s.dayIdx);
   return{prefs:slots,sameDay:dayList.length>=2&&new Set(dayList).size<dayList.length,validSlots:slots.filter(s=>s.block!==null),dayIdxs:[...new Set(slots.map(s=>s.dayIdx))]};
@@ -803,8 +803,8 @@ async function sbUpsertRequest(ref,payload){
 async function loadAll(){
   try{
     const[enrol,reqs]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-    sbGet('timetable_requests',`select=ref,student_name,branch,family,level_cefr,day_preferences,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
+     sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+    sbGet('timetable_requests',`select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
     ]);
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r});
