@@ -155,6 +155,7 @@ body{display:flex;flex-direction:column}
 .gc-pill-status.s-pending{background:rgba(255,255,255,.06);color:var(--t3)}
 .gc-pill-status.s-warn{background:var(--amber);color:#fff}
 .gc-pill-status.s-danger{background:var(--red);color:#fff}
+.gc-pill-status.s-saving{background:var(--teal);color:#fff;animation:blink 1s infinite}
 .gc-cap{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
 .gc-cap-frac{line-height:1;white-space:nowrap}
 .gc-cap-frac .gc-n{font-size:20px;font-weight:700}
@@ -173,12 +174,15 @@ body{display:flex;flex-direction:column}
 .criar-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;background:rgba(201,168,76,.92);color:#09080F;transition:all .18s;height:40px;width:100%}
 .criar-btn:hover{background:#E8C97A}
 .criar-btn.armed{background:rgba(29,184,122,.85);color:#fff;animation:armPulse .4s ease}
+.criar-btn.saving{background:rgba(40,200,176,.7);color:#fff;cursor:not-allowed}
 .criar-btn:disabled{opacity:.5;cursor:not-allowed}
 @keyframes armPulse{0%{transform:scale(1)}40%{transform:scale(1.025)}100%{transform:scale(1)}}
 .criar-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(9,8,15,.35);flex-shrink:0}
 .gc-signal-body{padding:9px 11px 8px;font-size:10px;color:var(--t2);line-height:1.55;border-bottom:0.5px solid rgba(255,255,255,.06);flex:1}
+/* DB write error indicator on card */
+.gc-err-bar{background:var(--red-a);border-top:1px solid var(--red-b);padding:4px 10px;font-size:8px;color:var(--red);letter-spacing:.04em;font-weight:600;cursor:pointer}
 /* debug log panel */
-.debug-log{position:fixed;bottom:50px;right:10px;width:340px;max-height:180px;overflow-y:auto;background:rgba(9,8,15,.97);border:1px solid var(--b2);font-size:8.5px;font-family:var(--mono);color:var(--t2);z-index:9999;padding:6px 10px;border-radius:4px;display:none}
+.debug-log{position:fixed;bottom:50px;right:10px;width:380px;max-height:220px;overflow-y:auto;background:rgba(9,8,15,.97);border:1px solid var(--b2);font-size:8.5px;font-family:var(--mono);color:var(--t2);z-index:9999;padding:6px 10px;border-radius:4px;display:none}
 .debug-log.show{display:block}
 .dl-row{padding:2px 0;border-bottom:.5px solid var(--b)}
 .dl-err{color:var(--red)}
@@ -369,6 +373,7 @@ body{display:flex;flex-direction:column}
 .gl-footer-btn.confirm{background:var(--green);color:#09080F}
 .gl-footer-btn.confirm:hover{background:#22d48c}
 .gl-footer-btn.already{background:#0D3D24;color:var(--green);cursor:default}
+.gl-footer-btn.saving{background:rgba(40,200,176,.5);color:#fff;cursor:not-allowed}
 .prog-bar{position:fixed;bottom:0;left:220px;right:0;z-index:150;background:rgba(9,8,15,.98);border-top:1px solid var(--b2);padding:8px 18px;display:flex;align-items:center;gap:12px;backdrop-filter:blur(10px)}
 .pb-lbl{font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);flex-shrink:0}
 .pb-track{flex:1;height:3px;background:rgba(255,255,255,.05);overflow:hidden;border-radius:2px}
@@ -400,7 +405,7 @@ body{display:flex;flex-direction:column}
     <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
     <a class="nav-back" href="/admin/alm-painel-central"><span class="nav-back-arrow">←</span><span class="nav-back-label">Voltar</span></a>
   </div>
-  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr" id="brand-yr">—</span></div>
   <div class="tabs">
     <a class="tab-link" href="/admin/alm-painel-central"><div class="tab-num">1</div><div class="tab-label">Painel</div><div class="tab-link-arrow">↗</div></a>
     <a class="tab-link" href="/admin/alm-painel-central#audit"><div class="tab-num">2</div><div class="tab-label">Audit</div><div class="tab-link-arrow">↗</div></a>
@@ -411,7 +416,7 @@ body{display:flex;flex-direction:column}
   </div>
   <div class="topbar-right">
     <div class="live"><div class="live-dot"></div><span class="live-lbl">LIVE</span></div>
-    <div class="topbar-pill">2026/2027</div>
+    <div class="topbar-pill" id="pill-ay">—</div>
     <div class="topbar-pill gold" id="pill-total">— grupos</div>
     <div class="topbar-pill ok" id="pill-conf">0 conf.</div>
     <div class="topbar-pill load" id="pill-status">A carregar…</div>
@@ -462,7 +467,6 @@ body{display:flex;flex-direction:column}
   <button class="pb-btn ok" onclick="confirmAllVisible()">✓ Criar todas visíveis</button>
 </div>
 
-<!-- DEBUG LOG -->
 <div class="debug-log" id="debug-log"></div>
 
 <!-- SEARCH MODAL -->
@@ -517,7 +521,7 @@ body{display:flex;flex-direction:column}
   </div>
 </div>
 
-<!-- MUDAR / ATRIBUIR TURMA MODAL -->
+<!-- MUDAR / ATRIBUIR MODAL -->
 <div class="modal-overlay" id="mt-overlay" onclick="if(event.target===this)closeMudarModal()">
   <div class="modal-card" id="mt-card">
     <div class="m-success" id="mt-success">
@@ -586,16 +590,18 @@ body{display:flex;flex-direction:column}
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// CONFIG — no hardcoded logic lives here, just the connection
+// CONFIG
 // ═══════════════════════════════════════════════════════════════
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
-const AY  = '2026/2027';
 
 // ═══════════════════════════════════════════════════════════════
-// CONSTANTS — derived from data, never assume level codes
+// FALLBACK CONSTANTS (used until Supabase config loads)
 // ═══════════════════════════════════════════════════════════════
+let AY = '2026/2027';
+let MIN_G = 5, MAX_G = 17;
+
 const DEPT_GRADS = {
   kids:     'linear-gradient(145deg,#1A5FAA 0%,#0E2F5E 55%,#060D24 100%)',
   kids_juv: 'linear-gradient(145deg,#0D8A6A 0%,#065240 55%,#021C16 100%)',
@@ -604,12 +610,19 @@ const DEPT_GRADS = {
   sinal:    'linear-gradient(145deg,#C04A10 0%,#6A2006 55%,#220800 100%)',
 };
 const DEPT_ACCENTS = { kids:'#5A9EFF', kids_juv:'#1EC8A0', adults:'#F0A040', exam:'#B06AE8', sinal:'#F06030' };
-const BL  = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
-const BO  = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
-const BC  = { FUNCHAL:'FUN', CAMARA_LOBOS:'CLB', SANTA_CRUZ:'SCZ', MACHICO:'MAC', RIBEIRA_BRAVA:'RBR', CALHETA:'CAL' };
+const AV_POOL = [
+  {bg:'#3A2244',text:'#C8A0E0'},{bg:'#1E2E50',text:'#7AABEE'},
+  {bg:'#1A3A2A',text:'#5EC888'},{bg:'#3A2A14',text:'#D4944A'},
+  {bg:'#3A1A1A',text:'#E07878'},{bg:'#282838',text:'#9898D8'},
+  {bg:'#1A2A3A',text:'#5A9EC8'},{bg:'#2A3820',text:'#80B850'},
+];
 
-// level_code → dept + label + display order (all driven by LEVEL_MAP, never a separate lookup)
-const LEVEL_MAP = {
+// Fallback static config — replaced by Supabase data when available
+let BL  = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
+let BO  = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+let BC  = { FUNCHAL:'FUN', CAMARA_LOBOS:'CLB', SANTA_CRUZ:'SCZ', MACHICO:'MAC', RIBEIRA_BRAVA:'RBR', CALHETA:'CAL' };
+
+let LEVEL_MAP = {
   'PI1': { dept:'kids',     label:'PI 1',       color:'var(--c-inf)', order:1  },
   'PI2': { dept:'kids',     label:'PI 2',       color:'var(--c-inf)', order:2  },
   'PI3': { dept:'kids',     label:'PI 3',       color:'var(--c-inf)', order:3  },
@@ -627,30 +640,24 @@ const LEVEL_MAP = {
   '7':   { dept:'exam',     label:'Ano 7 CAE',  color:'var(--c-exa)', order:15 },
   '8':   { dept:'exam',     label:'Ano 8 CPE',  color:'var(--c-exa)', order:16 },
 };
-const DC = {
+let DC = {
   kids:     { label:'Infantil', color:'var(--c-inf)' },
   kids_juv: { label:'Juvenil',  color:'var(--c-juv)' },
   adults:   { label:'Geral',    color:'var(--c-ger)' },
   exam:     { label:'Exames',   color:'var(--c-exa)' },
 };
-const DO = ['kids','kids_juv','adults','exam'];
+let DO = ['kids','kids_juv','adults','exam'];
 
-const DAY_IDX  = { monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,segunda:0,terca:1,quarta:2,quinta:3,sexta:4,sabado:5,mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,seg:0,ter:1,qua:2,qui:3,sex:4,sab:5,SEG:0,TER:1,QUA:2,QUI:3,SEX:4,SAB:5 };
-const DAYS_PT  = ['SEG','TER','QUA','QUI','SEX','SAB'];
-const PAIRS    = [
+let PAIRS = [
   { a:0, b:2, aL:'SEG', bL:'QUA', code:'SW' },
   { a:1, b:3, aL:'TER', bL:'QUI', code:'TQ' },
   { a:2, b:4, aL:'QUA', bL:'SEX', code:'QX' },
   { a:5, b:5, aL:'SAB', bL:'SAB', code:'SS', examOnly:true },
 ];
-const MIN_G = 5, MAX_G = 17;
-const SK_CONF = 'alm-dec-confirmed-2627';
-const AV_POOL = [
-  {bg:'#3A2244',text:'#C8A0E0'},{bg:'#1E2E50',text:'#7AABEE'},
-  {bg:'#1A3A2A',text:'#5EC888'},{bg:'#3A2A14',text:'#D4944A'},
-  {bg:'#3A1A1A',text:'#E07878'},{bg:'#282838',text:'#9898D8'},
-  {bg:'#1A2A3A',text:'#5A9EC8'},{bg:'#2A3820',text:'#80B850'},
-];
+
+const DAY_IDX  = { monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,segunda:0,terca:1,quarta:2,quinta:3,sexta:4,sabado:5,mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,seg:0,ter:1,qua:2,qui:3,sex:4,sab:5,SEG:0,TER:1,QUA:2,QUI:3,SEX:4,SAB:5 };
+const DAYS_PT  = ['SEG','TER','QUA','QUI','SEX','SAB'];
+const SK_CONF  = 'alm-dec-confirmed-2627';
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
@@ -663,9 +670,11 @@ let _glBoxId=null;
 let _smHighlight=-1, _smItems=[], _smOpenSwap=null;
 let _armedBox=null, _armTimer=null;
 let _mtRef=null, _mtSelectedBoxId=null, _mtSelectedCode=null, _mtSelectedFull=false, _mtMode='mudar';
+// Track which boxes are currently being saved (prevents double-clicks)
+let _saving=new Set();
 
 // ═══════════════════════════════════════════════════════════════
-// DEBUG LOG — always visible to admin, never swallows errors
+// DEBUG LOG
 // ═══════════════════════════════════════════════════════════════
 let _debugVisible = false;
 function toggleDebug() {
@@ -678,8 +687,13 @@ function dlog(msg, type='info') {
   row.className = 'dl-row dl-' + type;
   row.textContent = new Date().toISOString().slice(11,19) + ' ' + msg;
   el.prepend(row);
-  if (el.children.length > 80) el.lastChild.remove();
+  if (el.children.length > 120) el.lastChild.remove();
   console[type==='err'?'error':type==='ok'?'info':'log']('[ALM]', msg);
+  // Auto-open on errors
+  if (type === 'err' && !_debugVisible) {
+    _debugVisible = true;
+    el.classList.add('show');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -708,49 +722,104 @@ function resetSeq() { _brSeq={}; }
 function elv(id,v)  { const n=document.getElementById(id); if(n&&v!==undefined) n.textContent=v; return n; }
 
 // ═══════════════════════════════════════════════════════════════
-// SUPABASE — robust fetch with full error surfacing
+// SUPABASE FETCH
 // ═══════════════════════════════════════════════════════════════
 async function sbGet(table, qs) {
   let all=[], page=0, ps=1000;
   while(true) {
     const s=page*ps, e=s+ps-1;
     const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, { headers:{...H,'Range':`${s}-${e}`} });
-    if(!r.ok) { const t=await r.text(); throw new Error(`${table} HTTP ${r.status}: ${t.slice(0,120)}`); }
+    if(!r.ok) { const t=await r.text(); throw new Error(`${table} HTTP ${r.status}: ${t.slice(0,200)}`); }
     const d = await r.json(); all=all.concat(d);
     if(d.length<ps) break; page++; if(page>4) break;
   }
   return all;
 }
 
-/**
- * Upsert a single timetable_request row.
- * - PATCH if the ref already exists in rByRef
- * - POST otherwise (insert with all required fields from enrolment)
- * Never silently drops errors.
- */
+// ═══════════════════════════════════════════════════════════════
+// CONFIG LOADER — tries to read from Supabase alm_config table
+// Falls back to hardcoded values silently if table doesn't exist
+// ═══════════════════════════════════════════════════════════════
+async function loadConfig() {
+  try {
+    // Try settings table for academic year and capacity
+    const settings = await sbGet('alm_config', `select=key,value&limit=100`);
+    if (settings && settings.length) {
+      const map = {};
+      settings.forEach(row => { map[row.key] = row.value; });
+      if (map['academic_year'])  AY    = map['academic_year'];
+      if (map['min_group_size']) MIN_G = parseInt(map['min_group_size']);
+      if (map['max_group_size']) MAX_G = parseInt(map['max_group_size']);
+      dlog(`Config loaded from Supabase: AY=${AY} MIN=${MIN_G} MAX=${MAX_G}`, 'ok');
+    }
+  } catch(e) {
+    dlog(`alm_config table not found — using fallback constants (${e.message.slice(0,60)})`, 'info');
+  }
+
+  try {
+    // Try branches table
+    const brs = await sbGet('alm_branches', `select=code,label,short_code,display_order&order=display_order`);
+    if (brs && brs.length) {
+      BL={}; BO=[]; BC={};
+      brs.forEach(b => { BL[b.code]=b.label; BO.push(b.code); BC[b.code]=b.short_code||b.code.slice(0,3); });
+      dlog(`Branches loaded from Supabase: ${BO.join(', ')}`, 'ok');
+    }
+  } catch(e) {
+    dlog(`alm_branches not found — using fallback branches`, 'info');
+  }
+
+  try {
+    // Try levels table
+    const lvls = await sbGet('alm_levels', `select=code,dept,label,color,display_order&order=display_order`);
+    if (lvls && lvls.length) {
+      LEVEL_MAP={};
+      lvls.forEach(l => { LEVEL_MAP[l.code] = { dept:l.dept, label:l.label, color:l.color||'var(--t3)', order:l.display_order||99 }; });
+      dlog(`Levels loaded from Supabase: ${lvls.length} levels`, 'ok');
+    }
+  } catch(e) {
+    dlog(`alm_levels not found — using fallback level map`, 'info');
+  }
+
+  try {
+    // Try scheduling pairs table
+    const pairs = await sbGet('alm_pairs', `select=day_a,day_b,label_a,label_b,code,exam_only&order=display_order`);
+    if (pairs && pairs.length) {
+      PAIRS = pairs.map(p => ({ a:p.day_a, b:p.day_b, aL:p.label_a, bL:p.label_b, code:p.code, examOnly:!!p.exam_only }));
+      dlog(`Pairs loaded from Supabase: ${PAIRS.map(p=>p.code).join(', ')}`, 'ok');
+    }
+  } catch(e) {
+    dlog(`alm_pairs not found — using fallback pairs`, 'info');
+  }
+
+  // Update brand year display
+  elv('brand-yr', AY.slice(-4)); 
+  elv('pill-ay', AY);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUPABASE WRITE — timetable_requests
+// ═══════════════════════════════════════════════════════════════
 async function sbUpsertRequest(ref, payload) {
   dlog(`sbUpsertRequest ${ref} → ${JSON.stringify(payload)}`, 'info');
-
   const enrol = allE.find(e => e.ref === ref);
   const existing = rByRef[ref];
 
   if (existing) {
-    // UPDATE existing row
     const url = `${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}`;
     const r = await fetch(url, {
       method: 'PATCH',
-      headers: { ...H, Prefer: 'return=minimal' },
+      headers: { ...H, Prefer: 'return=representation' },
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
       const txt = await r.text();
-      dlog(`PATCH failed ${r.status}: ${txt.slice(0,200)}`, 'err');
+      dlog(`PATCH timetable_requests FAILED ${r.status}: ${txt.slice(0,300)}`, 'err');
       return false;
     }
-    dlog(`PATCH OK ${ref}`, 'ok');
-    return true;
+    const rows = await r.json();
+    dlog(`PATCH OK ${ref} — ${rows.length} row(s) updated`, 'ok');
+    return rows.length > 0;
   } else {
-    // INSERT new row — must include all NOT NULL columns
     const body = {
       ref,
       academic_year: AY,
@@ -761,64 +830,59 @@ async function sbUpsertRequest(ref, payload) {
       level_cefr:    enrol?.level_cefr || enrol?.level_code || '',
       day_preferences: '[]',
       status: 'atribuido',
-      ...payload,  // overrides status / assigned_turma etc.
+      ...payload,
     };
     const r = await fetch(`${SB}/rest/v1/timetable_requests`, {
       method: 'POST',
-      headers: { ...H, Prefer: 'resolution=merge-duplicates,return=minimal' },
+      headers: { ...H, Prefer: 'return=representation' },
       body: JSON.stringify(body),
     });
-    if (!r.ok && r.status !== 201) {
+    if (!r.ok) {
       const txt = await r.text();
-      dlog(`POST timetable_requests failed ${r.status}: ${txt.slice(0,200)}`, 'err');
+      dlog(`POST timetable_requests FAILED ${r.status}: ${txt.slice(0,300)}`, 'err');
       return false;
     }
-    dlog(`POST timetable_requests OK ${ref}`, 'ok');
-    return true;
+    const rows = await r.json();
+    dlog(`POST timetable_requests OK ${ref} — ${rows.length} row(s) inserted`, 'ok');
+    return rows.length > 0;
   }
 }
 
-/**
- * Upsert a row in the `classes` table.
- * All values derived from the box object — nothing hardcoded.
- * Unique key for upsert: turma_code + academic_year.
- */
+// ═══════════════════════════════════════════════════════════════
+// SUPABASE WRITE — classes
+// This function tries to write, logs the EXACT error, and returns
+// {ok: bool, error: string|null} so callers can decide.
+// ═══════════════════════════════════════════════════════════════
 async function sbInsertClass(box, refs) {
-  // Derive all values purely from box data — no hardcoded maps
   const students = box.students || [];
   const sampleEnrol = students.find(e => e) || {};
-  const lang = sampleEnrol.lang || 'EN';
-  const levelCode = lk(sampleEnrol) || box.lk || '';   // the raw level_code from enrolment
+  const levelCode   = lk(sampleEnrol) || box.lk || '';
   const levelDisplay = box.meta?.label || levelCode;
-  const dept = box.dk || getLM(sampleEnrol).dept || 'adults';
-  const dayOfWeek = box.pair?.aL || 'SEG';
-  const isManha = box.block === 'manha';
-  const hour = isManha ? 9 : 14;
-  const startTime = isManha ? '09:00' : '14:00';
-  const endTime   = isManha ? '10:30' : '15:30';
+  const dept        = box.dk || getLM(sampleEnrol).dept || 'adults';
+  const dayOfWeek   = box.pair?.aL || 'SEG';
+  const isManha     = box.block === 'manha';
 
+  // Build the row with only the columns we know exist
+  // student_refs sent as JSON string to avoid type ambiguity
   const row = {
     turma_code:    box.code,
     academic_year: AY,
-    lang,
-    level_code:    levelCode,   // raw level_code from the students' enrolment records
+    lang:          sampleEnrol.lang || 'EN',
+    level_code:    levelCode,
     level_display: levelDisplay,
     department:    dept,
     branch:        activeLoc,
     day_of_week:   dayOfWeek,
-    hour,
-    start_time:    startTime,
-    end_time:      endTime,
+    hour:          isManha ? 9 : 14,
+    start_time:    isManha ? '09:00' : '14:00',
+    end_time:      isManha ? '10:30' : '15:30',
     duration_min:  90,
-    student_refs:  refs,
-    teacher_id:    null,
-    teacher_code:  null,
-    teacher_name:  null,
+    student_refs:  JSON.stringify(refs),  // always string — avoids text[] vs jsonb ambiguity
     group_key:     box.lk || levelCode,
     status:        'confirmed',
   };
 
-  dlog(`sbInsertClass ${box.code} level=${levelCode} dept=${dept} refs=${refs.length}`, 'info');
+  dlog(`sbInsertClass ${box.code} — ${refs.length} refs, dept=${dept}, level=${levelCode}`, 'info');
 
   const r = await fetch(`${SB}/rest/v1/classes`, {
     method: 'POST',
@@ -826,18 +890,36 @@ async function sbInsertClass(box, refs) {
       apikey: KEY,
       Authorization: 'Bearer ' + KEY,
       'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal',
+      // return=representation means we get the inserted row back — confirms actual write
+      Prefer: 'resolution=merge-duplicates,return=representation',
     },
     body: JSON.stringify(row),
   });
 
-  if (!r.ok && r.status !== 201 && r.status !== 200) {
-    const txt = await r.text();
-    dlog(`sbInsertClass FAILED ${r.status}: ${txt.slice(0,300)}`, 'err');
-    return false;
+  const responseText = await r.text();
+  dlog(`sbInsertClass raw response ${r.status}: ${responseText.slice(0, 300)}`, r.ok ? 'info' : 'err');
+
+  if (!r.ok) {
+    // Try to parse a useful error message from PostgREST
+    let errMsg = `HTTP ${r.status}`;
+    try {
+      const errObj = JSON.parse(responseText);
+      errMsg = errObj.message || errObj.hint || errObj.details || responseText.slice(0,200);
+    } catch {}
+    dlog(`sbInsertClass FAILED: ${errMsg}`, 'err');
+    return { ok: false, error: errMsg };
   }
-  dlog(`sbInsertClass OK ${box.code}`, 'ok');
-  return true;
+
+  // Verify that a row was actually returned
+  let rows = [];
+  try { rows = JSON.parse(responseText); } catch {}
+  if (!Array.isArray(rows) || rows.length === 0) {
+    dlog(`sbInsertClass: response OK but 0 rows returned — possible duplicate or RLS block`, 'err');
+    return { ok: false, error: 'Zero rows returned — check RLS or unique constraint' };
+  }
+
+  dlog(`sbInsertClass OK ${box.code} — row id=${rows[0]?.id || rows[0]?.turma_code}`, 'ok');
+  return { ok: true, error: null };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -859,9 +941,9 @@ async function loadAll() {
     showToast(`${tot} inscritos · ${allR.length} pedidos`, 'ok');
   } catch(err) {
     dlog('loadAll ERROR: ' + err.message, 'err');
-    elv('pill-status','Erro'); document.getElementById('pill-status').className='topbar-pill err';
+    elv('pill-status','Erro DB'); document.getElementById('pill-status').className='topbar-pill err';
     document.getElementById('rp-shell').innerHTML=`<div class="spinner-wrap" style="color:var(--red)">Erro ao carregar: ${err.message}</div>`;
-    showToast('Erro: '+err.message,'err');
+    showToast('Erro BD: '+err.message,'err');
   }
 }
 
@@ -885,7 +967,6 @@ function buildProposals(levelKey, branch) {
   const withReq  = atLevel.filter(e=>!!rByRef[e.ref]);
   const dept     = (LEVEL_MAP[levelKey]||{}).dept||'adults';
 
-  // Collect already-assigned groups from DB
   const assignedGroups={}, alreadyAssigned=new Set();
   withReq.forEach(e=>{
     const r=rByRef[e.ref];
@@ -1012,6 +1093,8 @@ function updateProgress(conf,total) {
 function buildCardHTML(boxId, box, isConf) {
   const safeId=boxId.replace(/[|.\-]/g,'_');
   const deptCls=`dept-${box.dk||'adults'}`;
+  const isSaving=_saving.has(boxId);
+  const hasDbErr=!!box._dbError;
 
   if(box.type==='sinal') {
     return `<div class="gcard is-signal ${deptCls}" id="gcard-${safeId}">
@@ -1023,8 +1106,8 @@ function buildCardHTML(boxId, box, isConf) {
 
   const n=box.students.length, isLow=box.isLow;
   const sc=isConf?'is-confirmed':isLow?'is-low':'';
-  const ps=isConf?'s-ok':isLow?'s-danger':'s-pending';
-  const pl=isConf?'OK':isLow?'✕':'–';
+  const ps=isSaving?'s-saving':isConf?'s-ok':isLow?'s-danger':'s-pending';
+  const pl=isSaving?'…':isConf?'OK':isLow?'✕':'–';
   const accent=DEPT_ACCENTS[box.dk||'adults']||'#F0A040';
   const capPct=Math.round(n/MAX_G*100);
   const capCol=isConf?'var(--green)':isLow?'var(--red)':capPct>=80?'var(--amber)':accent;
@@ -1035,11 +1118,13 @@ function buildCardHTML(boxId, box, isConf) {
   const capHTML=`<div class="gc-cap"><div class="gc-cap-frac"><span class="gc-n" style="color:${capCol}">${n}</span><span class="gc-max">/${MAX_G}</span></div><div class="gc-cap-bar"><div class="gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div>`;
 
   let z3;
-  if(isConf) {
+  if(isSaving) {
+    z3=`<div class="gc-z3"><button class="criar-btn saving" style="height:34px" disabled><div class="criar-dot" style="border-color:rgba(255,255,255,.3)"></div>A GUARDAR…</button></div>`;
+  } else if(isConf) {
     z3=`<div class="gc-z3"><button style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 12px;height:34px;background:#0D3D24;border:none;width:100%;cursor:pointer;font-family:var(--mono)" onclick="openGroupListDS('${boxId}')">
       <div style="display:flex;align-items:center;gap:7px">
         <div style="width:14px;height:14px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg>
+          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap:round;stroke-linejoin:round"><polyline points="2,6 5,9 10,3"/></svg>
         </div>
         <span style="font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--green)">TURMA CRIADA</span>
       </div>
@@ -1055,6 +1140,11 @@ function buildCardHTML(boxId, box, isConf) {
     z3=`<div class="gc-z3"><button class="criar-btn" style="height:34px" onclick="armConfirm('${boxId}')"><div class="criar-dot"></div>CRIAR TURMA</button></div>`;
   }
 
+  // Show DB error bar if last write failed
+  const errBar = hasDbErr
+    ? `<div class="gc-err-bar" onclick="toggleDebug()">⚠ Erro DB: ${(box._dbError||'').slice(0,60)} — ver LOG</div>`
+    : '';
+
   const codeStyle=isLow?'color:var(--red)':'';
   return `<div class="gcard ${sc} ${deptCls}" id="gcard-${safeId}">
     <div class="gc-z1">
@@ -1069,7 +1159,7 @@ function buildCardHTML(boxId, box, isConf) {
         <div class="gc-teacher-name">— ver Step 5</div>
       </div>
     </div>
-    ${z3}
+    ${z3}${errBar}
   </div>`;
 }
 
@@ -1082,7 +1172,7 @@ function renderGrid(confG, totalG, branchStudents) {
     <span class="intent-icon">🏫</span>
     <div>
       <div class="intent-title">Criação de Turmas · ${BL[activeLoc]||activeLoc}</div>
-      <div class="intent-desc">1.º clique pede confirmação · 2.º clique guarda no Supabase · LOG = ver erros detalhados</div>
+      <div class="intent-desc">1.º clique arma · 2.º clique guarda no Supabase · LOG abre automaticamente em caso de erro</div>
     </div>
     <div class="intent-stats">
       <div class="is-item"><div class="is-v" style="color:var(--gold2)">${allE.length}</div><div class="is-l">Total inscr.</div></div>
@@ -1168,17 +1258,14 @@ function scrollToBox(boxId) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ARM / CONFIRM — fully serialised, no race conditions
+// ARM / CONFIRM — serialised, correct DB-first sequencing
 // ═══════════════════════════════════════════════════════════════
 function armConfirm(boxId) {
+  if(_saving.has(boxId)) return; // already saving
   if(_armedBox&&_armedBox!==boxId) { const prev=_armedBox; _armedBox=null; clearTimeout(_armTimer); _armTimer=null; updateCardInDOM(prev); }
   _armedBox=boxId; updateCardInDOM(boxId); clearTimeout(_armTimer);
   _armTimer=setTimeout(()=>{
-    if(_armedBox===boxId) {
-      _armedBox=null; _armTimer=null;
-      const cb=_boxes[boxId];
-      if(cb&&!cb.confirmed&&!getConf()[boxId]) updateCardInDOM(boxId);
-    }
+    if(_armedBox===boxId) { _armedBox=null; _armTimer=null; updateCardInDOM(boxId); }
   }, 4000);
 }
 
@@ -1191,26 +1278,26 @@ function updateCardInDOM(boxId) {
 }
 
 /**
- * quickConfirm — the only place that writes to Supabase on confirm.
- * Errors are surfaced in the debug log AND as error toasts.
- * Local state is ONLY committed after successful Supabase write (or offline fallback).
+ * quickConfirm — DB-first: only marks confirmed AFTER successful Supabase writes.
+ * On any failure: shows exact error, keeps card in pending state, auto-opens LOG.
  */
 async function quickConfirm(boxId) {
   const box=_boxes[boxId]; if(!box||box.type!=='group') return;
   const conf=getConf();
   if(conf[boxId]||box.confirmed) { showToast(`${box.code} já criado`,'warn'); return; }
+  if(_saving.has(boxId)) { showToast('A guardar…','info'); return; }
 
-  // Disarm immediately
+  // Disarm
   _armedBox=null; clearTimeout(_armTimer); _armTimer=null;
 
-  // Disable button while saving to prevent double-clicks
-  const safeId=boxId.replace(/[|.\-]/g,'_');
-  const cardEl=document.getElementById('gcard-'+safeId);
-  if(cardEl) { const btn=cardEl.querySelector('.criar-btn'); if(btn) { btn.disabled=true; btn.textContent='A guardar…'; } }
+  // Mark saving — shows spinner state on card
+  _saving.add(boxId);
+  box._dbError = null;
+  updateCardInDOM(boxId);
 
   const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
 
-  // 1) Write timetable_requests for all students
+  // ── STEP 1: write timetable_requests ──
   let reqErrors=0;
   if(refs.length) {
     const results = await Promise.all(
@@ -1225,33 +1312,46 @@ async function quickConfirm(boxId) {
     if(reqErrors) dlog(`${reqErrors}/${refs.length} timetable_request writes failed for ${box.code}`,'err');
   }
 
-  // 2) Write to classes table
-  const classOk = await sbInsertClass(box, refs).catch(e=>{ dlog('sbInsertClass exception: '+e.message,'err'); return false; });
+  // ── STEP 2: write classes table ──
+  const classResult = await sbInsertClass(box, refs).catch(e=>{
+    dlog('sbInsertClass exception: '+e.message,'err');
+    return { ok: false, error: e.message };
+  });
 
-  // 3) Update in-memory rByRef regardless (so UI is consistent)
+  // ── STEP 3: evaluate results ──
+  _saving.delete(boxId);
+
+  if (!classResult.ok) {
+    // DB write failed — keep card pending, show error
+    box._dbError = classResult.error || 'classes write failed';
+    updateCardInDOM(boxId);
+    showToast(`⚠ ${box.code}: ${(classResult.error||'DB error').slice(0,60)}`, 'err');
+    // Triage update to show still pending
+    const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
+    renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
+    return;
+  }
+
+  // ── STEP 4: only NOW commit confirmed state ──
+  const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c);
+  box.confirmed=true; box._dbError=null;
+
+  // Update in-memory rByRef
   refs.forEach(ref=>{
     if(rByRef[ref]) { rByRef[ref].assigned_turma=box.code; rByRef[ref].status='atribuido'; }
     else            { rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY}; allR.push(rByRef[ref]); }
   });
 
-  // 4) Commit confirmed state
-  const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c);
-  box.confirmed=true;
-
-  // 5) Refresh UI
   updateCardInDOM(boxId);
   if(_glBoxId===boxId) openGroupListDS(boxId);
   updateTopConf();
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
   renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
 
-  // 6) Toast with full feedback
-  if(!classOk||reqErrors) {
-    showToast(`${box.code} guardado local · ${reqErrors>0?reqErrors+' req. falharam':''} ${!classOk?'· classes falhou':''}`.trim(),'warn');
-    dlog(`Confirm ${box.code}: classOk=${classOk} reqErrors=${reqErrors}`,'err');
-    if(_debugVisible===false) { _debugVisible=true; document.getElementById('debug-log').classList.add('show'); }
+  if(reqErrors > 0) {
+    showToast(`${box.code} ✓ criado · ${reqErrors} req. falharam (ver LOG)`, 'warn');
   } else {
-    showToast(`${box.code} ✓ turma criada e guardada!`,'ok');
+    showToast(`${box.code} ✓ turma criada e guardada no Supabase!`, 'ok');
   }
 }
 
@@ -1259,12 +1359,15 @@ function cancelGroup(boxId) { if(!confirm('Cancelar este grupo?')) return; showT
 
 async function confirmAllVisible() {
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  const conf=getConf(); let ct=0;
+  const conf=getConf(); let ct=0, failed=0;
   for(const boxId of groups) {
     const box=_boxes[boxId];
-    if(box&&!box.confirmed&&!conf[boxId]&&!box.isLow) { await quickConfirm(boxId); ct++; }
+    if(box&&!box.confirmed&&!conf[boxId]&&!box.isLow) {
+      await quickConfirm(boxId);
+      if(box.confirmed) ct++; else failed++;
+    }
   }
-  showToast(`${ct} turmas criadas`,'ok');
+  showToast(`${ct} criadas · ${failed} falharam`, failed?'warn':'ok');
 }
 
 async function syncAllToClasses() {
@@ -1272,15 +1375,14 @@ async function syncAllToClasses() {
   const confirmed=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group'&&(_boxes[id].confirmed||conf[id]));
   if(!confirmed.length) { showToast('Nenhum grupo confirmado para sincronizar','warn'); return; }
   showToast(`A sincronizar ${confirmed.length} turmas…`,'info');
-  let ok=0,fail=0;
+  let ok=0, fail=0;
   for(const boxId of confirmed) {
     const box=_boxes[boxId];
     const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
-    const r=await sbInsertClass(box,refs).catch(e=>{ dlog('sync fail: '+e.message,'err'); return false; });
-    r?ok++:fail++;
+    const r=await sbInsertClass(box,refs).catch(e=>{ dlog('sync fail: '+e.message,'err'); return {ok:false,error:e.message}; });
+    r.ok ? ok++ : fail++;
   }
   showToast(`Sync: ${ok} OK · ${fail} falhou`, fail?'warn':'ok');
-  if(fail&&!_debugVisible) { _debugVisible=true; document.getElementById('debug-log').classList.add('show'); }
 }
 
 function updateTopConf() {
@@ -1395,7 +1497,6 @@ async function confirmMudar(){
     setTimeout(()=>closeMudarModal(),1600);
   } else {
     showToast('Erro ao guardar — ver LOG','err');
-    if(!_debugVisible){_debugVisible=true;document.getElementById('debug-log').classList.add('show');}
     btn.disabled=false;
     const verb=_mtMode==='atribuir'?'ATRIBUIR':'MOVER PARA';
     btn.textContent=_mtSelectedFull?`⚠ FORÇAR → ${_mtSelectedCode}`:`✓ ${verb} ${_mtSelectedCode}`;
@@ -1440,7 +1541,7 @@ function openDossier(ref){
   const a=analysePrefs(ref); let slotsHTML='';
   if(a?.prefs.length){
     slotsHTML=`<div class="m-sec-label" style="margin-top:12px">Disponibilidade</div><div style="display:flex;flex-wrap:wrap;gap:5px;padding:0 14px 10px">`;
-    a.prefs.forEach(p=>{const day=p.dayIdx!==null?DAYS_PT[p.dayIdx]:(p.dayLabel||'?');const cls=a.sameDay?'m-slot-warn':p.block?'m-slot-ok':'m-slot-bad';slotsHTML+=`<span style="font-size:9px;padding:4px 12px;border-radius:5px;border:1px solid;font-family:var(--mono);font-weight:600" class="${cls}">${day} ${p.start}</span>`;});
+    a.prefs.forEach(p=>{const day=p.dayIdx!==null?DAYS_PT[p.dayIdx]:(p.dayLabel||'?');slotsHTML+=`<span style="font-size:9px;padding:4px 12px;border-radius:5px;border:1px solid rgba(255,255,255,.1);font-family:var(--mono);font-weight:600;color:var(--t2)">${day} ${p.start}</span>`;});
     slotsHTML+='</div>';
   }
   const groups=getCompatibleGroups(ref); const currentCode=placement?.box?.code||placement?.code||null; let reassignHTML='';
@@ -1465,7 +1566,7 @@ async function dsConfirmMove(){
   const payload={assigned_turma:code,status:'atribuido'}; if(note) payload.notes=note;
   const ok=await sbUpsertRequest(_dsRef,payload).catch(e=>{dlog('dsConfirmMove: '+e.message,'err');return false;});
   if(ok){ moveStudentBetweenBoxes(_dsRef,boxId); const enrol=allE.find(e=>e.ref===_dsRef); showToast(`${enrol?.name||_dsRef} → ${code} ✓`,'ok'); openDossier(_dsRef); }
-  else { showToast('Erro ao guardar — ver LOG','err'); if(!_debugVisible){_debugVisible=true;document.getElementById('debug-log').classList.add('show');} btn.disabled=false; btn.textContent='✓ Confirmar'; }
+  else { showToast('Erro ao guardar — ver LOG','err'); btn.disabled=false; btn.textContent='✓ Confirmar'; }
 }
 
 function dsOpenMudar(){ const ref=_dsRef, mode=rByRef[ref]?.assigned_turma?'mudar':'atribuir'; closeDossier(); openMudarModal(ref,mode); }
@@ -1547,7 +1648,10 @@ function glFooterAction(){
   const box=_boxes[_glBoxId]; if(!box||box.type!=='group') return;
   const conf=getConf();
   if(box.confirmed||conf[_glBoxId]){showToast('Turma já criada','warn');return;}
-  quickConfirm(_glBoxId);
+  // Close overlay so the user sees the saving animation on the card
+  closeGroupList();
+  armConfirm(_glBoxId);
+  setTimeout(()=>quickConfirm(_glBoxId), 100);
 }
 function closeGroupList(){ document.getElementById('gl-overlay').classList.remove('open'); _glBoxId=null; }
 
@@ -1610,11 +1714,10 @@ function renderSmResults(matches){
     return`<div class="sm-result-item" id="smri-${i}" onclick="smItemClick('${e.ref}')">
       <div class="sm-ri-av" style="background:${col.bg};border-color:${col.text};color:${col.text}">${init}</div>
       <div class="sm-ri-info"><div class="sm-ri-name">${e.name||'—'}</div><div class="sm-ri-sub">${e.ref} · ${meta.label} · ${br}</div></div>
-      <div class="sm-ri-right">${pillHtml}<div class="sm-ri-status">${st==='atribuido'?'em turma':st==='sem_pedido'?'sem pedido':'pendente'}</div>${actionBtn}</div>
+      <div class="sm-ri-right">${pillHtml}<div style="font-size:8px;color:var(--t3)">${st==='atribuido'?'em turma':st==='sem_pedido'?'sem pedido':'pendente'}</div>${actionBtn}</div>
     </div>`;
   }).join('');
 }
-
 function smOpenSwap(ref){
   document.querySelectorAll('.sm-swap-panel').forEach(el=>el.remove());
   if(_smOpenSwap===ref){_smOpenSwap=null;return;}
@@ -1645,7 +1748,6 @@ async function smSwapConfirm(ref){
     document.querySelectorAll('.sm-swap-panel').forEach(el=>el.remove()); _smOpenSwap=null; renderSmResults(_smItems);
   }else{
     showToast('Erro ao guardar — ver LOG','err');
-    if(!_debugVisible){_debugVisible=true;document.getElementById('debug-log').classList.add('show');}
     if(btn){btn.disabled=false;btn.textContent='✓ Confirmar';}
   }
 }
@@ -1666,11 +1768,11 @@ function onSmKey(e){
 // EXPORT
 // ═══════════════════════════════════════════════════════════════
 function exportCSVAll(){
-  const rows=['Código,Filial,Nível,Dias,Bloco,Alunos,Criado'];
+  const rows=['Código,Filial,Nível,Dias,Bloco,Alunos,Criado,Erro'];
   const conf=getConf();
   Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group').forEach(boxId=>{
     const box=_boxes[boxId];
-    rows.push(`${box.code},${activeLoc},${box.meta?.label||'—'},${box.pair?.aL||'—'}+${box.pair?.bL||'—'},${box.block==='manha'?'Manha':'Tarde'},${box.students?.length||0},${box.confirmed||conf[boxId]?'sim':'nao'}`);
+    rows.push(`${box.code},${activeLoc},${box.meta?.label||'—'},${box.pair?.aL||'—'}+${box.pair?.bL||'—'},${box.block==='manha'?'Manha':'Tarde'},${box.students?.length||0},${box.confirmed||conf[boxId]?'sim':'nao'},${box._dbError||''}`);
   });
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'})); a.download=`ALM-Decision-${activeLoc}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
   showToast('CSV exportado','ok');
@@ -1682,7 +1784,7 @@ function exportCSVAll(){
 let _toastT;
 function showToast(msg,type='info'){
   const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast ${type} show`;
-  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),2800);
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),3200);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1700,10 +1802,14 @@ document.addEventListener('keydown',e=>{
 });
 
 // ═══════════════════════════════════════════════════════════════
-// INIT
+// INIT — load config first, then data
 // ═══════════════════════════════════════════════════════════════
 (function(){ const p=new URLSearchParams(window.location.search); const num=p.get('num'); if(num) window._pendingRef='ALM-'+num.replace(/\D/g,'').padStart(4,'0'); })();
-loadAll().then(()=>{ if(window._pendingRef){ setTimeout(()=>openDossier(window._pendingRef),200); delete window._pendingRef; } });
+
+loadConfig()
+  .then(() => loadAll())
+  .then(() => { if(window._pendingRef){ setTimeout(()=>openDossier(window._pendingRef),200); delete window._pendingRef; } })
+  .catch(err => dlog('Init error: ' + err.message, 'err'));
 </script>
 </body>
 </html>
