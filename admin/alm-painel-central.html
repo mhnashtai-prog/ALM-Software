@@ -678,10 +678,11 @@ function normDay(str){
   if(!isNaN(n)&&n>=1&&n<=6)return n-1;
   return DAY_EN_TO_IDX[(str+'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')]??null;
 }
-function analysePrefs(ref){
+ function analysePrefs(ref){
   const req=reqByRef[ref];if(!req)return null;
-  const raw=parseDayPrefs(req.day_preferences);
-  const slots=raw.map(p=>({dayIdx:normDay(p.day||p.weekday||p.dia||''),block:classifyBlock(p.session_start||p.start_time||''),hour:parseHour(p.session_start||p.start_time||''),raw:p})).filter(s=>s.dayIdx!==null);
+  const raw=parseDayPrefs(req.slots||req.day_preferences);
+  const filtered=Array.isArray(raw)?raw.filter(p=>p.available!==false):raw;
+  const slots=filtered.map(p=>({dayIdx:normDay(p.day||p.weekday||p.dia||''),block:classifyBlock(p.session_start||p.start_time||''),hour:parseHour(p.session_start||p.start_time||''),raw:p})).filter(s=>s.dayIdx!==null);
   const dayList=slots.map(s=>s.dayIdx);
   const sameDay=dayList.length>=2&&new Set(dayList).size<dayList.length;
   const validSlots=slots.filter(s=>s.block!==null);
