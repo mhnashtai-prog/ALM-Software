@@ -683,10 +683,10 @@ function normDay(str){
   const raw=parseDayPrefs(req.slots||req.day_preferences);
   const filtered=Array.isArray(raw)?raw.filter(p=>p.available!==false):raw;
   const slots=filtered.map(p=>({dayIdx:normDay(p.day||p.weekday||p.dia||''),block:classifyBlock(p.session_start||p.start_time||''),hour:parseHour(p.session_start||p.start_time||''),raw:p})).filter(s=>s.dayIdx!==null);
-  const dayList=slots.map(s=>s.dayIdx);
-  const sameDay=dayList.length>=2&&new Set(dayList).size<dayList.length;
+ const dayIdxSet=[...new Set(slots.map(s=>s.dayIdx))];
+  const sameDay=dayIdxSet.length===1&&slots.length>=2;
   const validSlots=slots.filter(s=>s.block!==null);
-  return{prefs:slots,sameDay,validSlots,invalidSlots:slots.filter(s=>s.block===null),hasManha:validSlots.some(s=>s.block==='manha'),hasTarde:validSlots.some(s=>s.block==='tarde'),dayIdxs:[...new Set(slots.map(s=>s.dayIdx))]};
+ return{prefs:slots,sameDay,validSlots,invalidSlots:slots.filter(s=>s.block===null),hasManha:validSlots.some(s=>s.block==='manha'),hasTarde:validSlots.some(s=>s.block==='tarde'),dayIdxs:dayIdxSet};
 }
 
 /* ══ LEFT PANEL SEARCH ══ */
