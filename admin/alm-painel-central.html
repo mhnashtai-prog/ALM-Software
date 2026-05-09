@@ -598,22 +598,22 @@ const BRANCH_LABELS = {
 };
 const BRANCH_ORDER = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
 const LEVEL_MAP = {
-  'kids|A1':    {dept:'kids',    label:'PI-a1', color:'var(--c-inf)',order:1, max:60},
-  'kids|A2':    {dept:'kids',    label:'PI-a2', color:'var(--c-inf)',order:2, max:60},
-  'kids|B1':    {dept:'kids',    label:'PI-a3', color:'var(--c-inf)',order:3, max:60},
-  'kids|B2':    {dept:'kids',    label:'PI-a4', color:'var(--c-inf)',order:4, max:60},
-  'kids_juv|A1':{dept:'kids_juv',label:'PJ1',  color:'var(--c-juv)',order:5, max:90},
-  'kids_juv|A2':{dept:'kids_juv',label:'PJ2',  color:'var(--c-juv)',order:6, max:90},
-  'kids_juv|B1':{dept:'kids_juv',label:'PJ3',  color:'var(--c-juv)',order:7, max:90},
-  'adults|A1':  {dept:'adults',  label:'1st',   color:'var(--c-ger)',order:8, max:200},
-  'adults|A2':  {dept:'adults',  label:'2nd',   color:'var(--c-ger)',order:9, max:200},
-  'adults|B1':  {dept:'adults',  label:'3rd',   color:'var(--c-ger)',order:10,max:200},
-  'adults|B2':  {dept:'adults',  label:'4th',   color:'var(--c-ger)',order:11,max:200},
-  'adults|C1':  {dept:'adults',  label:'5th',   color:'var(--c-ger)',order:12,max:200},
-  'adults|C2':  {dept:'adults',  label:'5th+',  color:'var(--c-ger)',order:13,max:200},
-  'exam|B2':    {dept:'exam',    label:'6th B2',color:'var(--c-exa)',order:13,max:60},
-  'exam|C1':    {dept:'exam',    label:'7th C1',color:'var(--c-exa)',order:14,max:60},
-  'exam|C2':    {dept:'exam',    label:'8th C2',color:'var(--c-exa)',order:15,max:60},
+  'kids|PI1':   {dept:'kids',    label:'PI 1',      color:'var(--c-inf)',order:1,  max:60},
+  'kids|PI2':   {dept:'kids',    label:'PI 2',      color:'var(--c-inf)',order:2,  max:60},
+  'kids|PI3':   {dept:'kids',    label:'PI 3',      color:'var(--c-inf)',order:3,  max:60},
+  'kids|PI4':   {dept:'kids',    label:'PI 4',      color:'var(--c-inf)',order:4,  max:60},
+  'kids_juv|PJ1':{dept:'kids_juv',label:'PJ 1',    color:'var(--c-juv)',order:5,  max:90},
+  'kids_juv|PJ2':{dept:'kids_juv',label:'PJ 2',    color:'var(--c-juv)',order:6,  max:90},
+  'kids_juv|PJ3':{dept:'kids_juv',label:'PJ 3',    color:'var(--c-juv)',order:7,  max:90},
+  'adults|1':   {dept:'adults',  label:'Ano 1',     color:'var(--c-ger)',order:8,  max:200},
+  'adults|2':   {dept:'adults',  label:'Ano 2',     color:'var(--c-ger)',order:9,  max:200},
+  'adults|3':   {dept:'adults',  label:'Ano 3',     color:'var(--c-ger)',order:10, max:200},
+  'adults|4':   {dept:'adults',  label:'Ano 4',     color:'var(--c-ger)',order:11, max:200},
+  'adults|5':   {dept:'adults',  label:'Ano 5',     color:'var(--c-ger)',order:12, max:200},
+  'adults|Portugues':{dept:'adults',label:'Português',color:'var(--c-ger)',order:13,max:200},
+  'exam|6':     {dept:'exam',    label:'Ano 6 FCE', color:'var(--c-exa)',order:14, max:60},
+  'exam|7':     {dept:'exam',    label:'Ano 7 CAE', color:'var(--c-exa)',order:15, max:60},
+  'exam|8':     {dept:'exam',    label:'Ano 8 CPE', color:'var(--c-exa)',order:16, max:60},
 };
 const DEPT_CONFIG = {
   kids:     {label:'Infantil',color:'var(--c-inf)'},
@@ -648,7 +648,7 @@ let _lastProposals=null,openSinalBody=false;
 /* ══ HELPERS ══ */
 function normBranch(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim()}
 function normStatus(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()}
-function levelKey(e){return`${(e.family||'').toLowerCase()}|${(e.level_cefr||'').toUpperCase()}`}
+function levelKey(e){return`${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`}
 function getLevelMeta(e){return LEVEL_MAP[levelKey(e)]||{dept:'unknown',label:`${e.family||'?'}·${e.level_cefr||'?'}`,color:'var(--t3)',order:99,max:60}}
 function getLocStudents(){return activeLoc==='all'?allEnrolments:allEnrolments.filter(e=>normBranch(e.branch)===activeLoc)}
 
@@ -993,7 +993,7 @@ async function loadAll(){
   const pill=document.getElementById('pill-status');
   try{
     const[enrol,reqs]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+     sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('timetable_requests',`select=ref,student_name,branch,family,level_cefr,day_preferences,status,sessions_per_week&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
     ]);
     allEnrolments=enrol||[];allRequests=reqs||[];reqByRef={};
@@ -1281,9 +1281,10 @@ window.openDossier=async function(ref,role){
   avEl.textContent=(DS_ENROL?.name||ref||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   document.getElementById('ds-name').textContent=DS_ENROL?.name||ref||'—';
 
-  const lvlMap={infantil:{A1:'PI-a1',A2:'PI-a2'},kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
-  const lvl=lvlMap[course]?.[cefr]||cefr;
-
+const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1','PJ2':'PJ 2','PJ3':'PJ 3','1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5','Portugues':'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
+  const rawCode=(DS_ENROL?.level_code||DS_ENROL?.level_cefr||DS_REQ?.level_code||DS_REQ?.level_cefr||'').trim();
+  const lvl=ALM_DISP[rawCode]||rawCode||cefr;
+  
   document.getElementById('ds-ref').textContent=`${ref}  ·  ${lvl}  ·  ${DS_FLAGS[DS_ENROL?.lang||'EN']||''}${DS_ENROL?.lang||''}`;
   const e=DS_ENROL,items=[];
   if(e?.age)items.push(`<span class="ds-ci">${e.age} anos</span>`);
@@ -1367,11 +1368,11 @@ function dsEnrolHtml(course,lvl){
   return`<div class="ds-sub-hdr">Dados pessoais</div>${personal}<div class="ds-sub-hdr">Dados académicos</div>${academic}`;
 }
 
-function dsHistHtml(){
+  function dsHistHtml(){
   if(!DS_HIST.length)return`<div class="ds-empty">Sem historial registado.</div>`;
-  const lvlMap={infantil:{A1:'PI-a1',A2:'PI-a2'},kids:{A1:'PI-a1',A2:'PI-a2',B1:'Pj1',B2:'Pj2',C1:'Pj3'},adults:{A1:'1º Ano',A2:'2º Ano',B1:'3º Ano',B2:'4º Ano',C1:'5º Ano',C2:'6º Ano'},exam:{B1:'4º Ano',B2:'6º Ano',C1:'7º Ano',C2:'8º Ano'}};
+  const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1','PJ2':'PJ 2','PJ3':'PJ 3','1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5','Portugues':'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
   return DS_HIST.map(yr=>{
-    const course2=inferCourse(yr),lvl=lvlMap[course2]?.[(yr.level_cefr||'').toUpperCase()]||yr.level_cefr||'—';
+   const course2=inferCourse(yr),lvl=ALM_DISP[(yr.level_code||yr.level_cefr||'').trim()]||(yr.level_code||yr.level_cefr||'—');
     const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
     const lbl=yr.outcome==='aprovado'?'Aprovado':yr.outcome==='reprovado'?'Reprovado':yr.outcome||'Em curso';
     const att=yr.absences!=null?Math.max(0,100-yr.absences*5):null;
