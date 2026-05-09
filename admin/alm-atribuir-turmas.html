@@ -509,7 +509,8 @@ function deptKey(course){
 const AV_POOL=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#282838',t:'#9898D8'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#2A3820',t:'#80B850'}];
 function avCol(name){let h=0;for(let i=0;i<(name||'').length;i++)h=(h*31+(name||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
 function avInit(name){return(name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
-function normB(b){return(b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
+const DAY_NORM={monday:'SEG',tuesday:'TER',wednesday:'QUA',thursday:'QUI',friday:'SEX',saturday:'SÁB',segunda:'SEG',terca:'TER',quarta:'QUA',quinta:'QUI',sexta:'SEX',sabado:'SÁB',seg:'SEG',ter:'TER',qua:'QUA',qui:'QUI',sex:'SEX',sab:'SÁB'};
+function normDay(d){return DAY_NORM[(d||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')]||(d||'').toUpperCase();}
 
 /* ══ STATE ══ */
 let TEACHERS=[];
@@ -601,6 +602,7 @@ async function boot(){
       classesFromDB=Object.values(turmaMap);
     }
     CLASSES=classesFromDB;
+    CLASSES.forEach(c=>{c.day_of_week=normDay(c.day_of_week);});
     document.getElementById('bot-src').textContent='Supabase ao vivo';
   }catch(e){
     TEACHERS=FALLBACK;
