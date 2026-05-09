@@ -854,56 +854,44 @@ async function sbInsertClass(box, refs) {
   const levelCode   = lk(sampleEnrol) || box.lk || '';
   const levelDisplay = box.meta?.label || levelCode;
   const dept        = box.dk || getLM(sampleEnrol).dept || 'adults';
-  const dayOfWeek   = box.pair?.aL || 'SEG';
   const isManha     = box.block === 'manha';
 
-  const row = {
-    turma_code:    box.code,
-    academic_year: AY,
-    lang:          sampleEnrol.lang || 'EN',
-    level_code:    levelCode,
-    level_display: levelDisplay,
-    department:    dept,
-    branch:        activeLoc,
-    day_of_week:   dayOfWeek,
-    hour:          isManha ? 9 : 14,
-    start_time:    isManha ? '09:00' : '14:00',
-    end_time:      isManha ? '10:30' : '15:30',
-    duration_min:  90,
-    student_refs:  JSON.stringify(refs),
-    group_key:     box.lk || levelCode,
-    status:        'confirmed',
-  };
+  const days = [...new Set([box.pair?.aL, box.pair?.bL].filter(Boolean))];
 
-  dlog(`sbInsertClass ${box.code} — ${refs.length} refs, dept=${dept}, level=${levelCode}`, 'info');
+  for (const day of days) {
+    const row = {
+      turma_code:    box.code,
+      academic_year: AY,
+      lang:          sampleEnrol.lang || 'EN',
+      level_code:    levelCode,
+      level_display: levelDisplay,
+      department:    dept,
+      branch:        activeLoc,
+      day_of_week:   day,
+      hour:          isManha ? 9 : 14,
+      start_time:    isManha ? '09:00' : '14:00',
+      end_time:      isManha ? '10:30' : '15:30',
+      duration_min:  90,
+      student_refs:  JSON.stringify(refs),
+      group_key:     box.lk || levelCode,
+      status:        'confirmed',
+    };
 
-  const r = await fetch(`${SB}/rest/v1/classes`, {
-    method: 'POST',
-    headers: {
-      apikey: KEY,
-      Authorization: 'Bearer ' + KEY,
-      'Content-Type': 'application/json',
-       Prefer: 'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(row),
-  });
+    const r = await fetch(`${SB}/rest/v1/classes`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(row),
+    });
 
-  const responseText = await r.text();
-  dlog(`sbInsertClass raw response ${r.status}: ${responseText.slice(0, 300)}`, r.ok ? 'info' : 'err');
-
-  if (!r.ok) {
-    let errMsg = `HTTP ${r.status}`;
-    try {
-      const errObj = JSON.parse(responseText);
-      errMsg = errObj.message || errObj.hint || errObj.details || responseText.slice(0,200);
-    } catch {}
-    dlog(`sbInsertClass FAILED: ${errMsg}`, 'err');
-    return { ok: false, error: errMsg };
+    if (!r.ok) {
+      const txt = await r.text();
+      return { ok: false, error: `${day}: HTTP ${r.status} ${txt.slice(0,120)}` };
+    }
   }
 
-  // ▶ FIX 3: With merge-duplicates, 0 rows returned = row already existed = SUCCESS.
   return { ok: true, error: null };
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
