@@ -19,10 +19,10 @@
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
   --c-inf:#5A9EFF;--c-juv:#1EC8A8;--c-ger:#D4922A;--c-exa:#A060D8;
 
-  --kids-bg:rgba(74,130,255,.18);  --kids-bd:rgba(90,158,255,.65);  --kids-glow:rgba(90,158,255,.32);
-  --juv-bg:rgba(30,200,168,.18);   --juv-bd:rgba(30,200,168,.65);   --juv-glow:rgba(30,200,168,.32);
-  --ger-bg:rgba(212,146,42,.17);   --ger-bd:rgba(220,158,52,.6);    --ger-glow:rgba(220,158,52,.28);
-  --exa-bg:rgba(160,96,216,.18);   --exa-bd:rgba(168,108,224,.65);  --exa-glow:rgba(168,108,224,.32);
+  --kids-bg:rgba(74,130,255,.18);  --kids-bd:rgba(90,158,255,.65); 
+  --juv-bg:rgba(30,200,168,.18);   --juv-bd:rgba(30,200,168,.65);   
+  --ger-bg:rgba(212,146,42,.17);   --ger-bd:rgba(220,158,52,.6);    
+  --exa-bg:rgba(160,96,216,.18);   --exa-bd:rgba(168,108,224,.65);  
 
   /* [IMPROVEMENT 4] Row height +10% — was 44px */
   --row-h: 48px;
@@ -253,19 +253,14 @@ body{display:flex;flex-direction:column}
   background-image:linear-gradient(180deg,rgba(255,255,255,.05) 0%,rgba(0,0,0,.10) 100%);
 }
 .cband:hover{
-  filter:brightness(1.35);
-  transform:scaleY(1.07);
   z-index:20;
 }
 
-.cb-kids{background-color:var(--kids-bg);border:1px solid var(--kids-bd);box-shadow:inset 2px 0 0 rgba(90,158,255,.7);}
-.cb-kids:hover{box-shadow:0 0 12px var(--kids-glow),inset 2px 0 0 rgba(90,158,255,.9);}
-.cb-kids_juv{background-color:var(--juv-bg);border:1px solid var(--juv-bd);box-shadow:inset 2px 0 0 rgba(30,200,168,.7);}
-.cb-kids_juv:hover{box-shadow:0 0 12px var(--juv-glow),inset 2px 0 0 rgba(30,200,168,.9);}
-.cb-adults{background-color:var(--ger-bg);border:1px solid var(--ger-bd);box-shadow:inset 2px 0 0 rgba(212,146,42,.7);}
-.cb-adults:hover{box-shadow:0 0 12px var(--ger-glow),inset 2px 0 0 rgba(212,146,42,.9);}
-.cb-exam{background-color:var(--exa-bg);border:1px solid var(--exa-bd);box-shadow:inset 2px 0 0 rgba(160,96,216,.7);}
-.cb-exam:hover{box-shadow:0 0 12px var(--exa-glow),inset 2px 0 0 rgba(160,96,216,.9);}
+.cb-kids{background-color:var(--kids-bg);box-shadow:inset 2px 0 0 rgba(90,158,255,.7);}
+.cb-kids_juv{background-color:var(--juv-bg);box-shadow:inset 2px 0 0 rgba(30,200,168,.7);}
+.cb-adults{background-color:var(--ger-bg);box-shadow:inset 2px 0 0 rgba(212,146,42,.7);}
+.cb-exam{background-color:var(--exa-bg);box-shadow:inset 2px 0 0 rgba(160,96,216,.7);}
+
 
 /* [IMPROVEMENT 6] Unassigned bands — stronger contrast */
 .cb-unassigned.cb-kids{background-color:rgba(74,130,255,.08)!important;border:1.5px dashed rgba(90,158,255,.5)!important;box-shadow:none!important;}
@@ -275,13 +270,7 @@ body{display:flex;flex-direction:column}
 
 /* [IMPROVEMENT 5] Avatar — larger, more prominent */
 .cband-av-wrap{position:relative;flex-shrink:0;width:36px;height:36px}
-.cband-av-ring{
-  position:absolute;inset:-3px;
-  border-radius:50%;
-  border:1.5px solid;
-  opacity:.6;
-  pointer-events:none;
-}
+
 .cband-av{
   position:absolute;inset:0;
   border-radius:50%;
@@ -749,16 +738,19 @@ async function boot(){
   strip.innerHTML=finalB.map(b=>
     `<button class="btab${b===SEL_BRANCH?' active':''}" onclick="selectBranch('${b}',this)">${BL[b]||b}</button>`
   ).join('');
-
-  buildGrid();
-  renderAll();
-  updateKPIs();
+  
+buildGrid();
+  requestAnimationFrame(() => {
+    renderAll();
+    updateKPIs();
+  });
   showToast(`${TEACHERS.length} professores · ${CLASSES.filter(c=>!c._virtual).length} turmas`,'ok');
 }
 
 /* ════════════════════════════════════════════════
    BUILD GRID DOM
-════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════
 function buildGrid(){
   const lblCol = document.getElementById('day-lbl-col');
   const scrollCols = document.getElementById('scroll-cols');
@@ -856,7 +848,6 @@ function drawOneBand(c, rowEl){
   if(tc && av){
     avHTML=`
       <div class="cband-av-wrap">
-        <div class="cband-av-ring" style="border-color:${dc.color}"></div>
         <div class="cband-av" style="background:${av.bg};color:${av.t}">${avInit(tc.name)}</div>
       </div>`;
   }else{
@@ -918,7 +909,7 @@ function teacherHours(tid){
 function renderAll(){
   renderPanelList();
   renderCtxStrip();
-  drawBands();
+  requestAnimationFrame(() => drawBands());  // ← wait for layout
   updateKPIs();
 }
 
