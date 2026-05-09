@@ -694,7 +694,7 @@ async function boot(){
     const [enrol, teachers, classes] = await Promise.all([
       sbGet('enrolments', `select=ref,name,branch,lang,family,level_code&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
       sbGet('teachers',   `select=id,code,name,lang,native,branch_primary,branches,contract_hours_week`),
-      sbGet('classes',    `select=turma_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,days_of_week&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
+      sbGet('classes',    `select=turma_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
     ]);
 
     ENROLMENTS = enrol||[];
@@ -712,18 +712,11 @@ async function boot(){
       branches:  Array.isArray(r.branches)?r.branches.map(normB):[normB(r.branch_primary||'')],
     }));
 
-    // [IMPROVEMENT 2] Expand multi-day classes into one entry per day
-    const rawClasses = (classes||[]).map(c=>{
+    CLASSES = (classes||[]).map(c=>{
       let refs=[];
       if(Array.isArray(c.student_refs)) refs=c.student_refs;
       else if(typeof c.student_refs==='string'&&c.student_refs){
         try{refs=JSON.parse(c.student_refs);}catch{refs=[];}
-      }
-      // Normalise days_of_week field (may be array or comma string)
-      let daysArr = null;
-      if(Array.isArray(c.days_of_week) && c.days_of_week.length>1) daysArr = c.days_of_week;
-      else if(typeof c.days_of_week==='string' && c.days_of_week.includes(',')){
-        daysArr = c.days_of_week.split(',').map(d=>d.trim().toUpperCase().replace('SAB','SÁB'));
       }
       return {
         ...c,
@@ -731,23 +724,12 @@ async function boot(){
         day_of_week:  (c.day_of_week||'SEG').toUpperCase().replace('SAB','SÁB'),
         branch:       normB(c.branch||''),
         student_refs: refs,
-        _extraDays:   daysArr ? daysArr.map(d=>d.toUpperCase().replace('SAB','SÁB')).filter(d=>d!==((c.day_of_week||'SEG').toUpperCase().replace('SAB','SÁB'))) : [],
+        _virtual:     false,
       };
     }).filter(c=>DAYS.includes(c.day_of_week)&&c.hour!=null);
 
-    // Expand: for each extra day, create a virtual copy of the class band
-    CLASSES = [];
-    rawClasses.forEach(c=>{
-      CLASSES.push(c);
-      (c._extraDays||[]).forEach(extraDay=>{
-        if(DAYS.includes(extraDay)){
-          CLASSES.push({...c, day_of_week: extraDay, _virtual: true});
-        }
-      });
-    });
-
-    console.log(`[ALM v17] ${TEACHERS.length} teachers · ${CLASSES.length} class slots`);
-    document.getElementById('bot-src').textContent=`Supabase · ${rawClasses.length} turmas`;
+    console.log(`[ALM v17] ${TEACHERS.length} teachers · ${CLASSES.length} turmas`);
+    document.getElementById('bot-src').textContent=`Supabase · ${CLASSES.length} turmas`;
 
   }catch(err){
     console.error('[ALM v17]', err);
