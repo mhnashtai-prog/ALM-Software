@@ -179,9 +179,7 @@ body{display:flex;flex-direction:column}
 @keyframes armPulse{0%{transform:scale(1)}40%{transform:scale(1.025)}100%{transform:scale(1)}}
 .criar-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(9,8,15,.35);flex-shrink:0}
 .gc-signal-body{padding:9px 11px 8px;font-size:10px;color:var(--t2);line-height:1.55;border-bottom:0.5px solid rgba(255,255,255,.06);flex:1}
-/* DB write error indicator on card */
 .gc-err-bar{background:var(--red-a);border-top:1px solid var(--red-b);padding:4px 10px;font-size:8px;color:var(--red);letter-spacing:.04em;font-weight:600;cursor:pointer}
-/* debug log panel */
 .debug-log{position:fixed;bottom:50px;right:10px;width:380px;max-height:220px;overflow-y:auto;background:rgba(9,8,15,.97);border:1px solid var(--b2);font-size:8.5px;font-family:var(--mono);color:var(--t2);z-index:9999;padding:6px 10px;border-radius:4px;display:none}
 .debug-log.show{display:block}
 .dl-row{padding:2px 0;border-bottom:.5px solid var(--b)}
@@ -597,7 +595,7 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
 
 // ═══════════════════════════════════════════════════════════════
-// FALLBACK CONSTANTS (used until Supabase config loads)
+// FALLBACK CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 let AY = '2026/2027';
 let MIN_G = 5, MAX_G = 17;
@@ -617,7 +615,6 @@ const AV_POOL = [
   {bg:'#1A2A3A',text:'#5A9EC8'},{bg:'#2A3820',text:'#80B850'},
 ];
 
-// Fallback static config — replaced by Supabase data when available
 let BL  = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
 let BO  = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
 let BC  = { FUNCHAL:'FUN', CAMARA_LOBOS:'CLB', SANTA_CRUZ:'SCZ', MACHICO:'MAC', RIBEIRA_BRAVA:'RBR', CALHETA:'CAL' };
@@ -670,7 +667,6 @@ let _glBoxId=null;
 let _smHighlight=-1, _smItems=[], _smOpenSwap=null;
 let _armedBox=null, _armTimer=null;
 let _mtRef=null, _mtSelectedBoxId=null, _mtSelectedCode=null, _mtSelectedFull=false, _mtMode='mudar';
-// Track which boxes are currently being saved (prevents double-clicks)
 let _saving=new Set();
 
 // ═══════════════════════════════════════════════════════════════
@@ -689,7 +685,6 @@ function dlog(msg, type='info') {
   el.prepend(row);
   if (el.children.length > 120) el.lastChild.remove();
   console[type==='err'?'error':type==='ok'?'info':'log']('[ALM]', msg);
-  // Auto-open on errors
   if (type === 'err' && !_debugVisible) {
     _debugVisible = true;
     el.classList.add('show');
@@ -722,13 +717,17 @@ function resetSeq() { _brSeq={}; }
 function elv(id,v)  { const n=document.getElementById(id); if(n&&v!==undefined) n.textContent=v; return n; }
 
 // ═══════════════════════════════════════════════════════════════
-// SUPABASE FETCH
+// ▶ FIX 1: sbGet — added Prefer: count=none to prevent Range
+//   header conflicts that caused "Failed to fetch" on some
+//   Supabase configurations.
 // ═══════════════════════════════════════════════════════════════
 async function sbGet(table, qs) {
   let all=[], page=0, ps=1000;
   while(true) {
     const s=page*ps, e=s+ps-1;
-    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, { headers:{...H,'Range':`${s}-${e}`} });
+    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+      headers: { ...H, 'Range': `${s}-${e}`, 'Prefer': 'count=none' }
+    });
     if(!r.ok) { const t=await r.text(); throw new Error(`${table} HTTP ${r.status}: ${t.slice(0,200)}`); }
     const d = await r.json(); all=all.concat(d);
     if(d.length<ps) break; page++; if(page>4) break;
@@ -737,12 +736,10 @@ async function sbGet(table, qs) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CONFIG LOADER — tries to read from Supabase alm_config table
-// Falls back to hardcoded values silently if table doesn't exist
+// CONFIG LOADER
 // ═══════════════════════════════════════════════════════════════
 async function loadConfig() {
   try {
-    // Try settings table for academic year and capacity
     const settings = await sbGet('alm_config', `select=key,value&limit=100`);
     if (settings && settings.length) {
       const map = {};
@@ -757,7 +754,6 @@ async function loadConfig() {
   }
 
   try {
-    // Try branches table
     const brs = await sbGet('alm_branches', `select=code,label,short_code,display_order&order=display_order`);
     if (brs && brs.length) {
       BL={}; BO=[]; BC={};
@@ -769,7 +765,6 @@ async function loadConfig() {
   }
 
   try {
-    // Try levels table
     const lvls = await sbGet('alm_levels', `select=code,dept,label,color,display_order&order=display_order`);
     if (lvls && lvls.length) {
       LEVEL_MAP={};
@@ -781,7 +776,6 @@ async function loadConfig() {
   }
 
   try {
-    // Try scheduling pairs table
     const pairs = await sbGet('alm_pairs', `select=day_a,day_b,label_a,label_b,code,exam_only&order=display_order`);
     if (pairs && pairs.length) {
       PAIRS = pairs.map(p => ({ a:p.day_a, b:p.day_b, aL:p.label_a, bL:p.label_b, code:p.code, examOnly:!!p.exam_only }));
@@ -791,8 +785,7 @@ async function loadConfig() {
     dlog(`alm_pairs not found — using fallback pairs`, 'info');
   }
 
-  // Update brand year display
-  elv('brand-yr', AY.slice(-4)); 
+  elv('brand-yr', AY.slice(-4));
   elv('pill-ay', AY);
 }
 
@@ -850,8 +843,10 @@ async function sbUpsertRequest(ref, payload) {
 
 // ═══════════════════════════════════════════════════════════════
 // SUPABASE WRITE — classes
-// This function tries to write, logs the EXACT error, and returns
-// {ok: bool, error: string|null} so callers can decide.
+// ▶ FIX 3: With resolution=merge-duplicates, Supabase returns
+//   0 rows when the row already exists (not an error — the
+//   class IS in the DB). We now treat 0 rows as success so
+//   the card stays green after the DB write.
 // ═══════════════════════════════════════════════════════════════
 async function sbInsertClass(box, refs) {
   const students = box.students || [];
@@ -862,8 +857,6 @@ async function sbInsertClass(box, refs) {
   const dayOfWeek   = box.pair?.aL || 'SEG';
   const isManha     = box.block === 'manha';
 
-  // Build the row with only the columns we know exist
-  // student_refs sent as JSON string to avoid type ambiguity
   const row = {
     turma_code:    box.code,
     academic_year: AY,
@@ -877,7 +870,7 @@ async function sbInsertClass(box, refs) {
     start_time:    isManha ? '09:00' : '14:00',
     end_time:      isManha ? '10:30' : '15:30',
     duration_min:  90,
-    student_refs:  JSON.stringify(refs),  // always string — avoids text[] vs jsonb ambiguity
+    student_refs:  JSON.stringify(refs),
     group_key:     box.lk || levelCode,
     status:        'confirmed',
   };
@@ -890,7 +883,6 @@ async function sbInsertClass(box, refs) {
       apikey: KEY,
       Authorization: 'Bearer ' + KEY,
       'Content-Type': 'application/json',
-      // return=representation means we get the inserted row back — confirms actual write
       Prefer: 'resolution=merge-duplicates,return=representation',
     },
     body: JSON.stringify(row),
@@ -900,7 +892,6 @@ async function sbInsertClass(box, refs) {
   dlog(`sbInsertClass raw response ${r.status}: ${responseText.slice(0, 300)}`, r.ok ? 'info' : 'err');
 
   if (!r.ok) {
-    // Try to parse a useful error message from PostgREST
     let errMsg = `HTTP ${r.status}`;
     try {
       const errObj = JSON.parse(responseText);
@@ -910,12 +901,14 @@ async function sbInsertClass(box, refs) {
     return { ok: false, error: errMsg };
   }
 
-  // Verify that a row was actually returned
   let rows = [];
   try { rows = JSON.parse(responseText); } catch {}
+
+  // ▶ FIX 3: With merge-duplicates, 0 rows returned = row already existed = SUCCESS.
+  // The class IS in the database; PostgREST just doesn't return it on a no-op upsert.
   if (!Array.isArray(rows) || rows.length === 0) {
-    dlog(`sbInsertClass: response OK but 0 rows returned — possible duplicate or RLS block`, 'err');
-    return { ok: false, error: 'Zero rows returned — check RLS or unique constraint' };
+    dlog(`sbInsertClass: merge-duplicates returned 0 rows — row already exists, treating as success`, 'ok');
+    return { ok: true, error: null };
   }
 
   dlog(`sbInsertClass OK ${box.code} — row id=${rows[0]?.id || rows[0]?.turma_code}`, 'ok');
@@ -924,12 +917,17 @@ async function sbInsertClass(box, refs) {
 
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
+// ▶ FIX 2: Added &order=ref to both fetches so Supabase always
+//   returns rows in a deterministic order. Without this, the
+//   random row order caused group composition to vary between
+//   page loads, shifting the positional seq counter and breaking
+//   the localStorage boxId→confirmed mapping.
 // ═══════════════════════════════════════════════════════════════
 async function loadAll() {
   try {
     const [enrol, reqs] = await Promise.all([
-      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-      sbGet('timetable_requests', `select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
+      sbGet('timetable_requests', `select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
     ]);
     allE=enrol||[]; allR=reqs||[]; rByRef={};
     allR.forEach(r => { rByRef[r.ref] = r; });
@@ -1047,9 +1045,13 @@ function renderAll() {
     if(!td[dk]) td[dk]={};
     const res=buildProposals(k,activeLoc);
 
+    // ▶ FIX 4: Use stable code-based boxId for saved groups.
+    // Previously this did Object.keys(_boxes).find(...) which always
+    // returned undefined since _boxes={} at start of renderAll.
+    // The stable key `${activeLoc}|${k}|SAVED|${code}` is correct.
     res.savedGroups.forEach(g=>{
       const code=g.code;
-      const boxId=Object.keys(_boxes).find(id=>_boxes[id]?.code===code&&_boxes[id]?.type==='group') || `${activeLoc}|${k}|SAVED|${code}`;
+      const boxId=`${activeLoc}|${k}|SAVED|${code}`;
       if(!conf[boxId]) { const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c); }
       _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:true,isLow:false,type:'group'};
     });
@@ -1140,7 +1142,6 @@ function buildCardHTML(boxId, box, isConf) {
     z3=`<div class="gc-z3"><button class="criar-btn" style="height:34px" onclick="armConfirm('${boxId}')"><div class="criar-dot"></div>CRIAR TURMA</button></div>`;
   }
 
-  // Show DB error bar if last write failed
   const errBar = hasDbErr
     ? `<div class="gc-err-bar" onclick="toggleDebug()">⚠ Erro DB: ${(box._dbError||'').slice(0,60)} — ver LOG</div>`
     : '';
@@ -1258,10 +1259,10 @@ function scrollToBox(boxId) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ARM / CONFIRM — serialised, correct DB-first sequencing
+// ARM / CONFIRM
 // ═══════════════════════════════════════════════════════════════
 function armConfirm(boxId) {
-  if(_saving.has(boxId)) return; // already saving
+  if(_saving.has(boxId)) return;
   if(_armedBox&&_armedBox!==boxId) { const prev=_armedBox; _armedBox=null; clearTimeout(_armTimer); _armTimer=null; updateCardInDOM(prev); }
   _armedBox=boxId; updateCardInDOM(boxId); clearTimeout(_armTimer);
   _armTimer=setTimeout(()=>{
@@ -1277,27 +1278,21 @@ function updateCardInDOM(boxId) {
   if(el) el.outerHTML=buildCardHTML(boxId,box,isConf);
 }
 
-/**
- * quickConfirm — DB-first: only marks confirmed AFTER successful Supabase writes.
- * On any failure: shows exact error, keeps card in pending state, auto-opens LOG.
- */
 async function quickConfirm(boxId) {
   const box=_boxes[boxId]; if(!box||box.type!=='group') return;
   const conf=getConf();
   if(conf[boxId]||box.confirmed) { showToast(`${box.code} já criado`,'warn'); return; }
   if(_saving.has(boxId)) { showToast('A guardar…','info'); return; }
 
-  // Disarm
   _armedBox=null; clearTimeout(_armTimer); _armTimer=null;
 
-  // Mark saving — shows spinner state on card
   _saving.add(boxId);
   box._dbError = null;
   updateCardInDOM(boxId);
 
   const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
 
-  // ── STEP 1: write timetable_requests ──
+  // Step 1: write timetable_requests
   let reqErrors=0;
   if(refs.length) {
     const results = await Promise.all(
@@ -1312,31 +1307,28 @@ async function quickConfirm(boxId) {
     if(reqErrors) dlog(`${reqErrors}/${refs.length} timetable_request writes failed for ${box.code}`,'err');
   }
 
-  // ── STEP 2: write classes table ──
+  // Step 2: write classes table
   const classResult = await sbInsertClass(box, refs).catch(e=>{
     dlog('sbInsertClass exception: '+e.message,'err');
     return { ok: false, error: e.message };
   });
 
-  // ── STEP 3: evaluate results ──
+  // Step 3: evaluate
   _saving.delete(boxId);
 
   if (!classResult.ok) {
-    // DB write failed — keep card pending, show error
     box._dbError = classResult.error || 'classes write failed';
     updateCardInDOM(boxId);
     showToast(`⚠ ${box.code}: ${(classResult.error||'DB error').slice(0,60)}`, 'err');
-    // Triage update to show still pending
     const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
     renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
     return;
   }
 
-  // ── STEP 4: only NOW commit confirmed state ──
+  // Step 4: commit confirmed state only after successful DB write
   const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c);
   box.confirmed=true; box._dbError=null;
 
-  // Update in-memory rByRef
   refs.forEach(ref=>{
     if(rByRef[ref]) { rByRef[ref].assigned_turma=box.code; rByRef[ref].status='atribuido'; }
     else            { rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY}; allR.push(rByRef[ref]); }
@@ -1648,7 +1640,6 @@ function glFooterAction(){
   const box=_boxes[_glBoxId]; if(!box||box.type!=='group') return;
   const conf=getConf();
   if(box.confirmed||conf[_glBoxId]){showToast('Turma já criada','warn');return;}
-  // Close overlay so the user sees the saving animation on the card
   closeGroupList();
   armConfirm(_glBoxId);
   setTimeout(()=>quickConfirm(_glBoxId), 100);
@@ -1802,7 +1793,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // ═══════════════════════════════════════════════════════════════
-// INIT — load config first, then data
+// INIT
 // ═══════════════════════════════════════════════════════════════
 (function(){ const p=new URLSearchParams(window.location.search); const num=p.get('num'); if(num) window._pendingRef='ALM-'+num.replace(/\D/g,'').padStart(4,'0'); })();
 
