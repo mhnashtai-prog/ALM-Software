@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -720,13 +719,13 @@ function normD(str){
 function analysePrefs(ref){
   const req=rByRef[ref];if(!req)return null;
   const raw=parseDp(req.slots||req.day_preferences);
- const slots=raw.filter(p=>p.available!==false).map(p=>{
+  const slots=raw.filter(p=>p.available!==false).map(p=>{
     const dayRaw=p.day_code||p.day||p.weekday||p.dia||'';
     return{dayIdx:normD(dayRaw),block:classB(p.time||p.session_start||p.start_time||''),dayLabel:p.day_name||dayRaw||'?',start:p.time||p.session_start||p.start_time||''};
   }).filter(s=>s.dayIdx!==null);
   const dayIdxs=[...new Set(slots.map(s=>s.dayIdx))];
-const sameDay=dayIdxs.length===1&&slots.length>=2;
-return{prefs:slots,sameDay,validSlots:slots.filter(s=>s.block!==null),dayIdxs};
+  const sameDay=dayIdxs.length===1&&slots.length>=2;
+  return{prefs:slots,sameDay,validSlots:slots.filter(s=>s.block!==null),dayIdxs};
 }
 function avCol(name){
   let h=0;for(let i=0;i<(name||'?').length;i++)h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
@@ -749,7 +748,6 @@ async function sbGet(table,qs){
   return all;
 }
 
-/* ══ NEW: write confirmed group to classes table ══ */
 const LEVEL_CODE_MAP={'kids|A1':'PI1B','kids|A2':'PI1B','kids|B1':'PJ1','kids|B2':'PJ1','kids_juv|A1':'PJ1','kids_juv|A2':'PJ1','kids_juv|B1':'PJ1','adults|A1':'G1','adults|A2':'G2','adults|B1':'G3','adults|B2':'G4','adults|C1':'G5','adults|C2':'G5','exam|B2':'EX6','exam|C1':'EX7','exam|C2':'EX8'};
 async function sbInsertClass(box, refs) {
   const row = {
@@ -804,8 +802,8 @@ async function sbUpsertRequest(ref,payload){
 async function loadAll(){
   try{
     const[enrol,reqs]=await Promise.all([
-     sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-    sbGet('timetable_requests',`select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
+      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('timetable_requests',`select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`)
     ]);
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r});
@@ -891,6 +889,8 @@ function setLoc(loc,btn){activeLoc=loc;document.querySelectorAll('.btab').forEac
 
 function renderAll(){
   resetSeq();_boxes={};_armedBox=null;
+  // ── FIX: cancel any pending arm timer when re-rendering ──
+  if(_armTimer){clearTimeout(_armTimer);_armTimer=null;}
   const conf=getConf();
   const students=allE.filter(e=>normB(e.branch)===activeLoc);
   const lkSet=[...new Set(students.map(e=>lk(e)).filter(k=>LEVEL_MAP[k]))];
@@ -1010,8 +1010,9 @@ function buildCardHTML(boxId,box,isConf){
   </div>`;
 }
 
-function renderGrid(confG,totalG,totalStudents){
+function renderGrid(confG,totalG,branchStudents){
   const conf=getConf(),pct=totalG?Math.round(confG/totalG*100):0;
+  // FIX: banner shows allE.length (total across ALL branches), not branch-filtered count
   let html=`<div class="intent-banner">
     <span class="intent-icon">🏫</span>
     <div>
@@ -1019,7 +1020,8 @@ function renderGrid(confG,totalG,totalStudents){
       <div class="intent-desc">1.º clique em CRIAR TURMA pede confirmação · 2.º clique irreversível · ↗ Nome = dossier · ⇄ Mudar turma · ⟳ Sync Step 5 escreve tudo para a tabela classes</div>
     </div>
     <div class="intent-stats">
-      <div class="is-item"><div class="is-v" style="color:var(--gold2)">${totalStudents}</div><div class="is-l">Inscritos</div></div>
+      <div class="is-item"><div class="is-v" style="color:var(--gold2)">${allE.length}</div><div class="is-l">Total inscr.</div></div>
+      <div class="is-item"><div class="is-v" style="color:var(--t2)">${branchStudents}</div><div class="is-l">${BL[activeLoc]||activeLoc}</div></div>
       <div class="is-item"><div class="is-v" style="color:var(--green)">${confG}</div><div class="is-l">Criadas</div></div>
       <div class="is-item"><div class="is-v" style="color:var(--amber)">${totalG-confG}</div><div class="is-l">Pendentes</div></div>
       <div class="is-item"><div class="is-v" style="color:${pct>=100?'var(--green)':'var(--t2)'}">${pct}%</div><div class="is-l">Progresso</div></div>
@@ -1101,10 +1103,22 @@ function scrollToBox(boxId){
 }
 
 function armConfirm(boxId){
-  if(_armedBox&&_armedBox!==boxId){const prev=_armedBox;_armedBox=null;clearTimeout(_armTimer);updateCardInDOM(prev);}
+  if(_armedBox&&_armedBox!==boxId){const prev=_armedBox;_armedBox=null;clearTimeout(_armTimer);_armTimer=null;updateCardInDOM(prev);}
   _armedBox=boxId;updateCardInDOM(boxId);clearTimeout(_armTimer);
-  _armTimer=setTimeout(()=>{if(_armedBox===boxId){_armedBox=null;updateCardInDOM(boxId);}},4000);
+  // ── FIX: timer guard — only reset to unarmed if box is NOT confirmed ──
+  _armTimer=setTimeout(()=>{
+    if(_armedBox===boxId){
+      _armedBox=null;
+      _armTimer=null;
+      const _cb=_boxes[boxId];
+      // If the box was confirmed while the timer was running, don't flip it back
+      if(_cb&&!_cb.confirmed&&!getConf()[boxId]){
+        updateCardInDOM(boxId);
+      }
+    }
+  },4000);
 }
+
 function updateCardInDOM(boxId){
   const box=_boxes[boxId];if(!box)return;
   const conf=getConf(),isConf=box.confirmed||!!conf[boxId];
@@ -1117,46 +1131,45 @@ async function quickConfirm(boxId){
   const box=_boxes[boxId];if(!box||box.type!=='group')return;
   const conf=getConf();
   if(conf[boxId]||box.confirmed){showToast(`${box.code} já criado`,'warn');return}
-  _armedBox=null;clearTimeout(_armTimer);
+
+  // ── FIX: cancel arm timer IMMEDIATELY and null it out ──
+  _armedBox=null;
+  clearTimeout(_armTimer);
+  _armTimer=null;
+
   conf[boxId]=new Date().toISOString();saveConf(conf);box.confirmed=true;
+
   try{
-  const _stored=JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');
-  _stored[box.code]={
-    turma_code:box.code,
-    lk:box.lk,
-    dk:box.dk,
-    department:box.dk,
-    level_code:(box.lk||'|').split('|')[1]||'A1',
-    level_display:box.meta?.label||'—',
-    branch:activeLoc,
-    day_of_week:box.pair?.aL||'SEG',
-    hour:box.block==='manha'?9:14,
-    start_time:box.block==='manha'?'09:00':'14:00',
-    end_time:box.block==='manha'?'10:30':'15:30',
-    duration_min:90,
-    lang:(box.students||[]).find(e=>e.lang)?.lang||'EN',
-    student_refs:(box.students||[]).map(e=>e.ref).filter(Boolean),
-    teacher_id:null,
-    teacher_code:null,
-  };
-  localStorage.setItem('alm-boxes-confirmed-2627',JSON.stringify(_stored));
-}catch(_){}
-  const safeId=boxId.replace(/[|.\-]/g,'_');
+    const _stored=JSON.parse(localStorage.getItem('alm-boxes-confirmed-2627')||'{}');
+    _stored[box.code]={
+      turma_code:box.code,lk:box.lk,dk:box.dk,department:box.dk,
+      level_code:(box.lk||'|').split('|')[1]||'A1',level_display:box.meta?.label||'—',
+      branch:activeLoc,day_of_week:box.pair?.aL||'SEG',
+      hour:box.block==='manha'?9:14,start_time:box.block==='manha'?'09:00':'14:00',
+      end_time:box.block==='manha'?'10:30':'15:30',duration_min:90,
+      lang:(box.students||[]).find(e=>e.lang)?.lang||'EN',
+      student_refs:(box.students||[]).map(e=>e.ref).filter(Boolean),
+      teacher_id:null,teacher_code:null,
+    };
+    localStorage.setItem('alm-boxes-confirmed-2627',JSON.stringify(_stored));
+  }catch(_){}
+
+  // Render green immediately — box.confirmed is already true
   updateCardInDOM(boxId);
   if(_glBoxId===boxId)openGroupListDS(boxId);
   updateTopConf();
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
   renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
   showToast(`${box.code} ✓ turma criada!`,'ok');
+
   const refs=box.students.map(e=>e.ref).filter(Boolean);
   if(refs.length){
     try{
-     await Promise.all(refs.map(ref=>sbUpsertRequest(ref,{assigned_turma:box.code,status:'atribuido',pair_code:box.pair?.code||'SW',block:box.block||'tarde'})));
+      await Promise.all(refs.map(ref=>sbUpsertRequest(ref,{assigned_turma:box.code,status:'atribuido',pair_code:box.pair?.code||'SW',block:box.block||'tarde'})));
       refs.forEach(ref=>{
         if(rByRef[ref]){rByRef[ref].assigned_turma=box.code;rByRef[ref].status='atribuido';}
         else{rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY};allR.push(rByRef[ref]);}
       });
-      /* ══ HANDOFF: write to classes table so Assign (Step 5) reads real data ══ */
       await sbInsertClass(box,refs);
     }catch{showToast('Sem ligação — local OK','warn')}
   }
@@ -1171,7 +1184,6 @@ async function confirmAllVisible(){
   showToast(`${ct} turmas criadas`,'ok');
 }
 
-/* ══ SYNC ALL CONFIRMED GROUPS → classes table ══ */
 async function syncAllToClasses(){
   const conf=getConf();
   const confirmed=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group'&&(_boxes[id].confirmed||conf[id]));
@@ -1181,10 +1193,8 @@ async function syncAllToClasses(){
   for(const boxId of confirmed){
     const box=_boxes[boxId];
     const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
-    try{
-      const r=await sbInsertClass(box,refs);
-      if(r)ok++;else fail++;
-    }catch(e){fail++;console.warn('sync fail',boxId,e);}
+    try{const r=await sbInsertClass(box,refs);if(r)ok++;else fail++;}
+    catch(e){fail++;console.warn('sync fail',boxId,e);}
   }
   showToast(`Sync concluído: ${ok} OK · ${fail} falhou`,fail?'warn':'ok');
 }
@@ -1245,7 +1255,6 @@ function openMudarModal(ref,mode){
   const meta=getLM(enrol),col=avCol(enrol.name||ref),init=avInit(enrol.name||ref);
   const req=rByRef[ref];
   const currentCode=req?.assigned_turma||null;
-  const hasNoRequest=!req;
   const grad=DEPT_GRADS[meta.dept]||DEPT_GRADS.adults;
   const accent=DEPT_ACCENTS[meta.dept]||DEPT_ACCENTS.adults;
 
@@ -1259,7 +1268,7 @@ function openMudarModal(ref,mode){
 
   let statusBadge='';
   if(currentCode)statusBadge=`<span class="m-badge" style="background:var(--green-a);border-color:var(--green-b);color:var(--green)">${currentCode} actual</span>`;
-  else if(hasNoRequest)statusBadge=`<span class="m-badge" style="background:var(--red-a);border-color:var(--red-b);color:var(--red)">Sem pedido</span>`;
+  else if(!req)statusBadge=`<span class="m-badge" style="background:var(--red-a);border-color:var(--red-b);color:var(--red)">Sem pedido</span>`;
   else statusBadge=`<span class="m-badge" style="background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)">A aguardar</span>`;
   document.getElementById('mt-badges').innerHTML=`
     <span class="m-badge" style="background:rgba(201,168,76,.12);border-color:var(--b3);color:var(--gold2)">${meta.label}</span>
@@ -1518,10 +1527,10 @@ function buildGroupListBodyRaw(students,showTick,isConf,levelKey,isSinal){
     const stTc=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
     const stTxt=st==='atribuido'?'ATRIBUÍDO':st==='sem_pedido'?'SEM PEDIDO':'PENDENTE';
     const tickHtml=showTick
-     ?`<div class="m-stu-tick ${isConf?'m-stu-tick-done':'m-stu-tick-pending'}">${isConf?'✓':'◎'}</div>`
+      ?`<div class="m-stu-tick ${isConf?'m-stu-tick-done':'m-stu-tick-pending'}">${isConf?'✓':'◎'}</div>`
       :`<div style="width:20px;height:20px;border-radius:50%;background:var(--amber-a);border:1.5px solid var(--amber-b);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--amber);flex-shrink:0;cursor:pointer" onclick="closeGroupList();openDossier('${e.ref}')">!</div>`;
     const actionBtn=isSinal
-     ?`<button class="m-sab-atribuir" onclick="event.stopPropagation();closeGroupList();openMudarModal('${e.ref}','atribuir')">↗ Atribuir</button>`
+      ?`<button class="m-sab-atribuir" onclick="event.stopPropagation();closeGroupList();openMudarModal('${e.ref}','atribuir')">↗ Atribuir</button>`
       :`<button class="m-sab-mudar" onclick="event.stopPropagation();closeGroupList();openMudarModal('${e.ref}','mudar')">⇄ Mudar</button>`;
     return`<div class="m-stu-row">
       ${tickHtml}
@@ -1681,7 +1690,7 @@ document.addEventListener('keydown',e=>{
     if(document.getElementById('ds-overlay').classList.contains('open')){closeDossier();return}
     if(document.getElementById('search-modal-overlay').classList.contains('open')){closeSearchModal();return}
     if(document.getElementById('gl-overlay').classList.contains('open')){closeGroupList();return}
-    if(_armedBox){const b=_armedBox;_armedBox=null;clearTimeout(_armTimer);updateCardInDOM(b);}
+    if(_armedBox){const b=_armedBox;_armedBox=null;clearTimeout(_armTimer);_armTimer=null;updateCardInDOM(b);}
   }
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearchModal();}
 });
