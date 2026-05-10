@@ -545,30 +545,44 @@ select.sf-inp{cursor:pointer}
       </div>
 
       <!-- TAB 4: FOTOCÓPIAS -->
-      <div class="tab-pane" id="tab-fotoc">
-        <div class="tab-sec">Pedido de fotocópias</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div><div class="sf-label">Documento / Ficha</div><input class="sf-inp" type="text" placeholder="ex: Grammar test U3, Handout p.42…"/></div>
-          <div class="ff-row">
-            <div><div class="sf-label">Nº de cópias</div><input class="sf-inp" type="number" min="1" max="200" value="17"/></div>
-            <div><div class="sf-label">Frente / Verso</div>
-              <select class="sf-inp"><option>Só frente</option><option>Frente e verso</option></select>
-            </div>
-          </div>
-          <div><div class="sf-label">Urgência</div>
-            <div class="fotoc-urgency">
-              <div class="urg-btn" onclick="pickUrg('normal',this)">Normal (48h)</div>
-              <div class="urg-btn" onclick="pickUrg('urgent',this)">Urgente (24h)</div>
-              <div class="urg-btn" onclick="pickUrg('express',this)">Express (hoje)</div>
-            </div>
-          </div>
-          <div><div class="sf-label">Observações</div><textarea class="sum-textarea" style="min-height:50px" placeholder="Instruções especiais…"></textarea></div>
-          <div style="display:flex;gap:10px">
-            <div style="font-size:8.5px;color:var(--t3)">📎 Anexar ficheiro</div>
-            <div style="font-size:8.5px;color:var(--t3);margin-left:auto">Sala de impressão: <strong style="color:var(--t2)">1º andar</strong></div>
-          </div>
-        </div>
+    <div class="tab-pane" id="tab-fotoc">
+    <div class="tab-sec">Pedido de fotocópias</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+     <div>
+      <div class="sf-label">Documento / Ficha</div>
+      <input class="sf-inp" id="fotoc-doc" type="text" placeholder="ex: Grammar test U3, Handout p.42…"/>
+    </div>
+    <div class="ff-row">
+      <div>
+        <div class="sf-label">Nº de cópias</div>
+        <input class="sf-inp" id="fotoc-copies" type="number" min="1" max="200" value="17"/>
       </div>
+      <div>
+        <div class="sf-label">Frente / Verso</div>
+        <select class="sf-inp" id="fotoc-sides">
+          <option>Só frente</option>
+          <option>Frente e verso</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <div class="sf-label">Urgência</div>
+      <div class="fotoc-urgency">
+        <div class="urg-btn" id="urg-normal"  onclick="pickUrg('normal',this)">Normal (48h)</div>
+        <div class="urg-btn" id="urg-urgent"  onclick="pickUrg('urgent',this)">Urgente (24h)</div>
+        <div class="urg-btn" id="urg-express" onclick="pickUrg('express',this)">Express (hoje)</div>
+      </div>
+    </div>
+    <div>
+      <div class="sf-label">Observações</div>
+      <textarea class="sum-textarea" id="fotoc-obs" style="min-height:50px" placeholder="Instruções especiais…"></textarea>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div style="font-size:8.5px;color:var(--t3)">📎 Anexar ficheiro</div>
+      <div style="font-size:8.5px;color:var(--t3);margin-left:auto">Sala de impressão: <strong style="color:var(--t2)">1º andar</strong></div>
+    </div>
+  </div>
+</div>
 
       <!-- TAB 5: PÁGINA DO PROFESSOR -->
       <div class="tab-pane" id="tab-recursos">
@@ -1472,19 +1486,36 @@ async function confirmAction(){
     return;
   }
 
-  /* Fotocópias — write to teacher_requests */
+// Fotocópias — write to teacher_requests
   if(id==='fotoc'&&ME?.id){
+    const urgEl = document.querySelector('.urg-btn.on-normal, .urg-btn.on-urgent, .urg-btn.on-express');
+    const urgency = urgEl?.classList.contains('on-urgent')  ? 'urgent'
+                  : urgEl?.classList.contains('on-express') ? 'express'
+                  : 'normal';
     try{
       await sbPost('teacher_requests',{
-        teacher_id: ME.id,
-        type:       'foto',
-        text:       'Pedido de fotocópias',
-        detail:     '',
-        status:     'pending',
-        created_at: new Date().toISOString(),
+        teacher_id:   ME.id,
+        teacher_name: ME.name,
+        turma_code:   currentSlot?.turmaCode||null,
+        type:         'foto',
+        document:     document.getElementById('fotoc-doc')?.value||'',
+        copies:       parseInt(document.getElementById('fotoc-copies')?.value)||1,
+        sides:        document.getElementById('fotoc-sides')?.value||'Só frente',
+        urgency,
+        observations: document.getElementById('fotoc-obs')?.value||'',
+        status:       'pending',
+        created_at:   new Date().toISOString(),
       });
       showToast('Pedido de fotocópias enviado ✓','ok');
-    }catch(e){ showToast('Erro ao enviar pedido','err'); }
+      /* clear form */
+      document.getElementById('fotoc-doc').value='';
+      document.getElementById('fotoc-obs').value='';
+      document.getElementById('fotoc-copies').value='17';
+      document.querySelectorAll('.urg-btn').forEach(b=>b.className='urg-btn');
+    }catch(e){
+      console.error(e);
+      showToast('Erro ao enviar pedido: '+e.message,'err');
+    }
     flash();
     return;
   }
