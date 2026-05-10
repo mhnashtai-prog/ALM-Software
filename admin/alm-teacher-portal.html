@@ -433,11 +433,14 @@ select.sf-inp{cursor:pointer}
       </div>
       <div class="mh-info">
         <div class="mh-turma" id="mh-turma">—</div>
-        <div class="mh-slot">
+       <div class="mh-slot">
           <span class="mh-time-badge" id="mh-time">--:--</span>
           <span class="mh-day-txt"    id="mh-day">—</span>
           <span class="mh-dept-badge" id="mh-dept-badge">—</span>
           <span class="mh-submit-badge" id="mh-submit-badge" style="display:none">✓ Presenças submetidas</span>
+          <a id="mh-cal-link" href="#" target="_self"
+             style="display:none;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;border:.5px solid rgba(40,200,176,.3);background:rgba(40,200,176,.08);color:var(--teal);font-family:var(--mono);font-size:7.5px;font-weight:700;text-decoration:none;letter-spacing:.04em"
+             title="Ver no calendário">📅 Ver aula no calendário</a>
         </div>
       </div>
       <div class="mh-stats">
@@ -660,8 +663,12 @@ select.sf-inp{cursor:pointer}
 
     </div><!-- /modal-body -->
 
-    <div class="modal-footer">
+   <div class="modal-footer">
       <span class="mf-saved" id="mf-saved">✓ Guardado</span>
+      <a id="mf-cal-link" href="#"
+         class="mf-btn btn-ghost"
+         style="text-decoration:none;display:none"
+         title="Abrir no calendário">📅 Calendário</a>
       <button class="mf-btn btn-ghost" onclick="closeModal()">Fechar</button>
       <button class="mf-btn btn-green" onclick="confirmAction()">✓ Guardar & Fechar</button>
     </div>
@@ -1161,6 +1168,44 @@ function openSlot(day, h, tab){
   document.getElementById('att-class').textContent = s.turmaCode||'—';
   buildStudentList();
   updateAttHeader();
+
+  /* Tab */
+ /* Calendar deep-link — find which lesson date matches today or nearest */
+  const slotDateISO = (()=>{
+    const todayISO = new Date().toISOString().slice(0,10);
+    const dowMap = {SEG:1,TER:2,QUA:3,QUI:4,SEX:5,'SÁB':6};
+    const slotDow = dowMap[day]||1;
+    const td = new Date();
+    const diff = (slotDow - td.getDay() + 7) % 7;
+    const target = new Date(td);
+    target.setDate(td.getDate() + (diff===0 ? 0 : diff));
+    return target.toISOString().slice(0,10);
+  })();
+  const calUrl = `/admin/alm-calendario.html?teacher=${encodeURIComponent(ME?.id||'')}&date=${slotDateISO}`;
+
+  const mhCal = document.getElementById('mh-cal-link');
+  if(mhCal){ mhCal.href=calUrl; mhCal.style.display='inline-flex'; }
+  const mfCal = document.getElementById('mf-cal-link');
+  if(mfCal){ mfCal.href=calUrl; mfCal.style.display='inline-flex'; }
+
+  /* Tab */
+  /* Calendar deep-link — find which lesson date matches today or nearest */
+  const slotDateISO = (()=>{
+    const todayISO = new Date().toISOString().slice(0,10);
+    const dowMap = {SEG:1,TER:2,QUA:3,QUI:4,SEX:5,'SÁB':6};
+    const slotDow = dowMap[day]||1;
+    const td = new Date();
+    const diff = (slotDow - td.getDay() + 7) % 7;
+    const target = new Date(td);
+    target.setDate(td.getDate() + (diff===0 ? 0 : diff));
+    return target.toISOString().slice(0,10);
+  })();
+  const calUrl = `/admin/alm-calendario.html?teacher=${encodeURIComponent(ME?.id||'')}&date=${slotDateISO}`;
+
+  const mhCal = document.getElementById('mh-cal-link');
+  if(mhCal){ mhCal.href=calUrl; mhCal.style.display='inline-flex'; }
+  const mfCal = document.getElementById('mf-cal-link');
+  if(mfCal){ mfCal.href=calUrl; mfCal.style.display='inline-flex'; }
 
   /* Tab */
   const tabKey = tab||'presencas';
