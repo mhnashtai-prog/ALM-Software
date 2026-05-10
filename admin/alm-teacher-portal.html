@@ -350,6 +350,7 @@ select.sf-inp{cursor:pointer}
     <div class="tb-pill gold" id="kpi-alunos">— alunos</div>
     <button class="tb-btn ok" onclick="boot()">↻ Recarregar</button>
     <span class="tb-clock" id="clk">--:--:--</span>
+    <a class="tb-btn ok" id="cal-link" href="/admin/alm-calendario.html" style="text-decoration:none">📅 Calendário</a>
     <a class="mapa-pill" href="/admin/alm-escola-mapa" title="Mapa Geral da Escola">
       <div class="mapa-pill-dot"></div>
       <div class="mapa-pill-txt">
@@ -867,6 +868,11 @@ async function switchTeacher(id){
   if(!ME) return;
   document.getElementById('teacher-picker').style.display='none';
   await loadTeacherData();
+  
+  /* Update calendar link with teacher id */
+  if(ME){
+    const calLink = document.getElementById('cal-link');
+    if(calLink) calLink.href = '/admin/alm-calendario.html?teacher=' + encodeURIComponent(ME.id);
 }
 
 /* ════════════════════════════════════════════════
@@ -994,6 +1000,10 @@ async function loadTeacherData(){
   renderHeroStats();
   buildGrid();
   buildTodayStrip();
+  
+  /* Update calendar link */
+  const calLink = document.getElementById('cal-link');
+  if(calLink && ME) calLink.href = '/admin/alm-calendario.html?teacher=' + encodeURIComponent(ME.id);
 }
 
 /* ════════════════════════════════════════════════
@@ -1041,17 +1051,20 @@ function buildTodayStrip(){
     return;
   }
   const nowMin = new Date().getHours()*60+new Date().getMinutes();
+  const todayISO = new Date().toISOString().slice(0,10);
   container.innerHTML = slots.map(h=>{
     const s   = SCHEDULE[todayKey][h];
     const [sh,sm] = (s.start||'9:00').split(':').map(Number);
     const [eh,em] = (s.end  ||'10:30').split(':').map(Number);
     const isNow  = nowMin>=sh*60+sm&&nowMin<eh*60+em;
     const isDone = s.hasSubmission;
+    const calHref = `/admin/alm-calendario.html?teacher=${ME?.id||''}&date=${todayISO}`;
     return`<div class="today-slot${isNow?' now':''}${isDone?' submitted':''}" onclick="openSlot('${todayKey}',${h})">
       ${isNow ? '<span class="ts-now-badge">AGORA</span>' : ''}
       ${isDone && !isNow ? '<span class="ts-done-badge">✓</span>' : ''}
       <b>${s.start}–${s.end}</b>
       <span style="font-size:8.5px;color:var(--t3)">${s.durationMin}min · ${s.level||''}</span>
+      <a href="${calHref}" onclick="event.stopPropagation()" style="margin-left:auto;font-size:8px;color:var(--t3);text-decoration:none;padding:2px 6px;border:.5px solid var(--b);border-radius:2px;white-space:nowrap" title="Ver no calendário">📅</a>
     </div>`;
   }).join('');
 }
