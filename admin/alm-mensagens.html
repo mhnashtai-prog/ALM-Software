@@ -415,27 +415,27 @@ async function boot(){
   try{
     const today = new Date().toISOString().slice(0,10);
 
-    const [teachers, classes, enrols, attend, sumarios, requests] = await Promise.all([
+   const [teachers, classes, enrols, attend, sumarios, requests] = await Promise.all([
       /* Same query as alm-atribuir-turmas */
-      sbGet('teachers',
+         sbGet('teachers',
         `select=id,code,name,lang,native,branch_primary,branches,contract_hours_week`),
-      sbGet('classes',
-        `select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=hour`
-      sbGet('enrolments',
+         sbGet('classes',
+        `select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=hour`),
+         sbGet('enrolments',
         `select=ref,name,branch,lang,level_code&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-      sbGet('attendance',
+         sbGet('attendance',
         `select=id,turma_code,student_ref,student_name,date,status,recorded_by&date=eq.${encodeURIComponent(today)}&limit=2000`)
           .catch(()=>[]),
-      sbGet('lesson_summaries',
+         sbGet('lesson_summaries',
         `select=id,turma_code,teacher_id,date,summary,book_page,skill,participation,notes&date=eq.${today}&limit=500`)
           .catch(()=>[]),
-      sbGet('teacher_requests',
+         sbGet('teacher_requests',
         `select=id,teacher_id,type,text,detail,status,created_at&order=created_at.desc&limit=500`)
           .catch(()=>[]),
-    ]);
-
-    /* ── normalise TEACHERS (identical to alm-atribuir-turmas) ── */
-    TEACHERS = (teachers||[]).map(r=>({
+         ]);     
+       
+      /* ── normalise TEACHERS (identical to alm-atribuir-turmas) ── */
+      TEACHERS = (teachers||[]).map(r=>({
       id:           r.id,
       code:         r.code||'??',
       name:         r.name||'—',
