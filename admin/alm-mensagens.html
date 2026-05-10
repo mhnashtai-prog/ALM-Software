@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Mensagens & Pedidos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.18);--gold4:rgba(201,168,76,.08);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.16);--green-b:rgba(29,184,122,.38);--green-c:rgba(29,184,122,.07);
+  --red:#E8455A;--red-a:rgba(232,69,90,.13);--red-b:rgba(232,69,90,.32);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.14);--amber-b:rgba(232,160,32,.32);
+  --teal:#28C8B0;--blue:#4A8FF5;--purple:#9B5ECA;
+  --bg:#07060E;--bg2:#0E0C1A;--bg3:#161325;
+  --b:rgba(201,168,76,.09);--b2:rgba(201,168,76,.18);--b3:rgba(201,168,76,.32);
+  --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.65);--t3:rgba(215,193,145,.38);--t4:rgba(215,193,145,.14);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+  --c-inf:#4A8FF5;--c-juv:#2ECC8A;--c-ger:#C8943A;--c-exa:#A060D8;
+  --band-kids-a:#172818;--band-kids-juv-a:#142416;--band-adults-a:#1A3018;--band-exam-a:#162820;
+  --acc-kids:#4A8850;--acc-kids-juv:#3A7844;--acc-adults:#5A8840;--acc-exam:#388060;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;flex-direction:column}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(232,69,90,.4)}50%{box-shadow:0 0 0 4px rgba(232,69,90,.0)}}
+@keyframes modal-in{from{opacity:0;transform:scale(.96) translateY(-8px)}to{opacity:1;transform:none}}
+
+/* ── TOPBAR ── */
+.topbar{flex-shrink:0;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2);position:sticky;top:0;z-index:200}
+.nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:54px}
+.nav-home{display:flex;align-items:center;justify-content:center;flex:1;padding:0 14px;text-decoration:none;transition:background .14s;border-bottom:.5px solid var(--b)}
+.nav-home:hover{background:var(--gold4)}
+.nav-back{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:0 10px;text-decoration:none;transition:background .14s}
+.nav-back:hover{background:var(--gold4)}
+.brand{display:flex;align-items:center;padding:0 18px;height:100%;border-right:1px solid var(--b);flex-shrink:0}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2);font-family:var(--display)}
+.brand-yr{font-size:8px;color:var(--t2);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+.topbar-mid{flex:1;display:flex;align-items:center;padding:0 16px;gap:8px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+.tb-chip{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border:1px solid var(--b2);border-radius:2px;color:var(--t2)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
+.tb-pill{font-size:8px;font-weight:700;letter-spacing:.06em;padding:4px 11px;border:1px solid;border-radius:2px}
+.tb-pill.warn{color:var(--amber);border-color:var(--amber-b);background:var(--amber-a)}
+.tb-pill.ok{color:var(--green);border-color:var(--green-b);background:var(--green-c)}
+.tb-pill.red{color:var(--red);border-color:var(--red-b);background:var(--red-a);animation:blink 1.8s infinite}
+.tb-pill.neutral{color:var(--t2);border-color:var(--b2);background:rgba(255,255,255,.02)}
+.tb-clock{font-size:10px;color:var(--t3);letter-spacing:.04em;min-width:56px;text-align:right}
+
+/* ── LAYOUT ── */
+.layout{flex:1;display:flex;overflow:hidden}
+
+/* ── LEFT — Teacher Roster ── */
+.left{width:280px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--b2);display:flex;flex-direction:column;overflow:hidden}
+.left-header{flex-shrink:0;padding:10px 12px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.2)}
+.lh-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.filter-pills{display:flex;gap:3px;flex-wrap:wrap}
+.fp{padding:3px 9px;border-radius:2px;border:.5px solid var(--b);font-size:7.5px;font-weight:700;cursor:pointer;color:var(--t3);transition:all .12s;letter-spacing:.04em;font-family:var(--mono)}
+.fp:hover{color:var(--t2);border-color:var(--b2)}
+.fp.active{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.teacher-list{flex:1;overflow-y:auto}
+
+/* Teacher row */
+.t-row{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid rgba(255,255,255,.03);border-left:3px solid transparent;transition:all .12s}
+.t-row:hover{background:rgba(255,255,255,.025)}
+.t-row.active{background:var(--gold4);border-left-color:var(--gold)}
+.t-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.t-info{flex:1;min-width:0}
+.t-name{font-size:11px;font-weight:500;color:var(--t);line-height:1}
+.t-meta{font-size:8px;color:var(--t3);margin-top:2px}
+.t-status{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.t-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.t-dot.ok{background:var(--green)}
+.t-dot.warn{background:var(--amber);animation:blink 2s infinite}
+.t-dot.miss{background:var(--red);animation:pulse-ring 1.5s infinite}
+.t-dot.grey{background:rgba(255,255,255,.12)}
+.t-badges{display:flex;gap:2px}
+.t-badge{font-size:6.5px;font-weight:700;padding:1px 5px;border-radius:2px;border:.5px solid}
+.tb-msg{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)}
+.tb-foto{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.tb-alert{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.tb-miss{background:rgba(232,69,90,.08);border-color:rgba(232,69,90,.2);color:rgba(232,100,110,.7)}
+
+/* ── RIGHT — Teacher Detail ── */
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Teacher hero strip */
+.t-hero{flex-shrink:0;min-height:80px;display:flex;align-items:flex-end;padding:0 18px 0 0;position:relative;overflow:hidden}
+.t-hero-bg{position:absolute;inset:0;transition:background .3s}
+.t-hero-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05),rgba(0,0,0,.7))}
+.t-hero-av{position:relative;z-index:5;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;border:2px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35),0 4px 20px rgba(0,0,0,.6);margin:12px 14px 12px 18px}
+.t-hero-info{position:relative;z-index:5;flex:1;padding:14px 0 12px}
+.t-hero-name{font-family:var(--display);font-size:24px;letter-spacing:4px;color:#fff;line-height:1}
+.t-hero-meta{font-size:9px;color:rgba(255,255,255,.5);margin-top:4px;font-family:var(--mono)}
+.t-hero-stats{position:relative;z-index:5;display:flex;gap:0;flex-shrink:0;padding:14px 0 12px}
+.ths{text-align:center;padding:0 14px;border-right:.5px solid rgba(255,255,255,.1)}
+.ths:last-child{border-right:none}
+.ths-v{font-family:var(--display);font-size:26px;color:#fff;line-height:1;letter-spacing:1px}
+.ths-l{font-size:7px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+
+/* Inbox strip */
+.inbox-strip{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:8px 14px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.2);overflow-x:auto}
+.inbox-strip::-webkit-scrollbar{display:none}
+.inbox-lbl{font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);flex-shrink:0}
+.inbox-item{display:flex;align-items:center;gap:5px;padding:4px 10px;border:.5px solid var(--b2);border-radius:2px;background:rgba(255,255,255,.02);cursor:pointer;transition:all .13s;flex-shrink:0}
+.inbox-item:hover{background:rgba(255,255,255,.05);border-color:var(--b3)}
+.inbox-item.unread{border-left:3px solid}
+.inbox-item.unread.msg{border-left-color:var(--blue)}
+.inbox-item.unread.foto{border-left-color:var(--amber)}
+.inbox-item.unread.alert{border-left-color:var(--red)}
+.inbox-item.unread.pres{border-left-color:var(--green)}
+.ii-type{font-size:7px;font-weight:700;letter-spacing:.06em;color:var(--t3)}
+.ii-txt{font-size:9px;color:var(--t2);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.ii-time{font-size:7px;color:var(--t3);flex-shrink:0}
+.no-teacher{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--t3)}
+.no-teacher-icon{font-size:32px;opacity:.2}
+.no-teacher-txt{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.4}
+
+/* 5 tabs */
+.detail-tabs{flex-shrink:0;display:flex;gap:0;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15);overflow-x:auto}
+.dt-tab{padding:8px 14px;font-size:8.5px;font-weight:700;cursor:pointer;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-.5px;white-space:nowrap;font-family:var(--mono);display:flex;align-items:center;gap:5px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;letter-spacing:.06em}
+.dt-tab:hover{color:var(--t2)}
+.dt-tab.active{color:var(--gold2);border-bottom-color:var(--gold)}
+.dt-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.detail-body{flex:1;overflow-y:auto;padding:14px 18px 40px}
+
+/* ── PRESENÇAS TAB ── */
+.pres-section{margin-bottom:14px}
+.ps-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;cursor:pointer;transition:all .12s}
+.ps-header:hover{background:rgba(255,255,255,.04)}
+.ps-time{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--teal)}
+.ps-level{font-size:9px;color:var(--t2);flex:1}
+.ps-status{font-size:7.5px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid;letter-spacing:.06em}
+.ps-submitted{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.ps-missing{background:var(--red-a);border-color:var(--red-b);color:var(--red);animation:blink 2s infinite}
+.ps-partial{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.ps-count{font-size:9px;font-weight:700;color:var(--t2);font-family:var(--mono)}
+.ps-body{border:.5px solid var(--b);border-top:none;border-radius:0 0 4px 4px;overflow:hidden;display:none}
+.ps-body.open{display:block}
+.stu-mini{display:flex;align-items:center;gap:7px;padding:5px 12px;border-bottom:.5px solid rgba(255,255,255,.03);font-size:10px}
+.stu-mini:last-child{border-bottom:none}
+.stu-mini-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.stu-mini-name{flex:1;color:var(--t)}
+.stu-mini-status{font-size:7px;font-weight:700;letter-spacing:.06em}
+.sm-present{color:var(--green)}.sm-late{color:var(--amber)}.sm-absent{color:var(--red)}.sm-none{color:var(--t4)}
+
+/* ── PEDIDOS TAB ── */
+.pedido-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:6px;border-left:3px solid}
+.pedido-card.pc-foto{border-left-color:var(--amber)}
+.pedido-card.pc-msg{border-left-color:var(--blue)}
+.pedido-card.pc-alert{border-left-color:var(--red)}
+.pedido-card.pc-done{opacity:.45;border-left-color:var(--green)}
+.pc-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pc-type{font-size:7.5px;font-weight:700;padding:2px 7px;border-radius:2px;border:.5px solid;letter-spacing:.06em;font-family:var(--mono)}
+.pct-foto{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.pct-msg{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)}
+.pct-alert{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.pct-done{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.pc-time{font-size:8px;color:var(--t3);margin-left:auto;font-family:var(--mono)}
+.pc-text{font-size:11px;color:var(--t);line-height:1.5;margin-bottom:8px}
+.pc-detail{font-size:9px;color:var(--t3);line-height:1.6}
+.pc-actions{display:flex;gap:5px;margin-top:8px}
+.pc-btn{padding:4px 12px;border-radius:2px;font-size:8.5px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .12s;letter-spacing:.04em}
+.pc-accept{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.pc-accept:hover{background:rgba(29,184,122,.22)}
+.pc-reject{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.pc-reject:hover{background:rgba(232,69,90,.2)}
+.pc-reply{background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.28);color:var(--blue)}
+.pc-reply:hover{background:rgba(74,143,245,.2)}
+
+/* ── ALUNOS TAB ── */
+.alu-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:4px;background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.04);margin-bottom:2px}
+.alu-num{font-family:var(--mono);font-size:8px;color:var(--t3);width:20px;flex-shrink:0}
+.alu-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.alu-name{flex:1;font-size:11px;color:var(--t)}
+.alu-ref{font-size:7.5px;color:var(--t3);font-family:var(--mono)}
+.alu-stats{display:flex;gap:6px;flex-shrink:0}
+.alu-stat{text-align:center;min-width:32px}
+.alu-stat-v{font-size:11px;font-weight:700;line-height:1}
+.alu-stat-l{font-size:6.5px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase}
+
+/* ── SUMÁRIO TAB ── */
+.sum-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:6px}
+.sc-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sc-time{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--teal)}
+.sc-level{font-size:9px;color:var(--t2);flex:1}
+.sc-date{font-size:8px;color:var(--t3);font-family:var(--mono)}
+.sc-text{font-size:11px;color:var(--t);line-height:1.6;margin-bottom:8px;font-family:var(--sans)}
+.sc-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sc-field{padding:5px 8px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:3px}
+.sc-field-l{font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
+.sc-field-v{font-size:9.5px;color:var(--t2)}
+
+/* ── HISTÓRICO TAB ── */
+.hist-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:.5px solid rgba(255,255,255,.03);font-size:10px}
+.hr-time{font-family:var(--mono);font-size:8px;color:var(--t3);width:90px;flex-shrink:0}
+.hr-type{flex-shrink:0}
+.hr-txt{flex:1;color:var(--t2)}
+
+/* Shared */
+.sec-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sec-title::after{content:'';flex:1;height:.5px;background:var(--b2)}
+.empty{padding:24px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;opacity:.5}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.06em;opacity:0;transition:all .2s;z-index:9999;pointer-events:none;white-space:nowrap;border:.5px solid;font-family:var(--mono)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast.info{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.spinner{width:12px;height:12px;border:1.5px solid rgba(255,255,255,.08);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-duo">
+    <a class="nav-home" href="/admin/dashboard" style="font-size:14px;color:var(--t2);text-decoration:none">⌂</a>
+    <a class="nav-back" href="/admin/dashboard" style="display:flex;align-items:center;gap:4px;text-decoration:none">
+      <span style="font-size:9px;color:var(--t3)">←</span>
+      <span style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Dashboard</span>
+    </a>
+  </div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
+  <div class="topbar-mid">
+    <div class="live-dot"></div>
+    <div class="tb-chip">Mensagens & Pedidos</div>
+  </div>
+  <div class="topbar-right">
+    <div class="tb-pill red" id="kpi-unread">— não lidos</div>
+    <div class="tb-pill warn" id="kpi-foto">— fotocópias</div>
+    <div class="tb-pill warn" id="kpi-missing">— presenças em falta</div>
+    <div class="tb-pill ok" id="kpi-ok">— submetidas hoje</div>
+    <span class="tb-clock" id="clk">--:--:--</span>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT — Teacher roster -->
+  <div class="left">
+    <div class="left-header">
+      <div class="lh-title">Professores · estado de hoje</div>
+      <div class="filter-pills">
+        <div class="fp active" onclick="setFilter('all',this)">Todos</div>
+        <div class="fp" onclick="setFilter('missing',this)">Em falta</div>
+        <div class="fp" onclick="setFilter('pending',this)">Pedidos</div>
+        <div class="fp" onclick="setFilter('ok',this)">Submetidos</div>
+      </div>
+    </div>
+    <div class="teacher-list" id="teacher-list">
+      <div style="padding:20px;text-align:center;color:var(--t3);font-size:9px">A carregar…</div>
+    </div>
+  </div>
+
+  <!-- RIGHT — Detail panel -->
+  <div class="right" id="right-panel">
+    <div class="no-teacher" id="no-teacher">
+      <div class="no-teacher-icon">◈</div>
+      <div class="no-teacher-txt">← Seleccione um professor</div>
+    </div>
+
+    <!-- Teacher detail (hidden until teacher selected) -->
+    <div id="teacher-detail" style="display:none;flex-direction:column;height:100%;overflow:hidden;flex:1">
+
+      <div class="t-hero">
+        <div class="t-hero-bg" id="th-bg"></div>
+        <div class="t-hero-scrim"></div>
+        <div class="t-hero-av" id="th-av">—</div>
+        <div class="t-hero-info">
+          <div class="t-hero-name" id="th-name">—</div>
+          <div class="t-hero-meta" id="th-meta">—</div>
+        </div>
+        <div class="t-hero-stats">
+          <div class="ths"><div class="ths-v" id="ths-turmas">0</div><div class="ths-l">Turmas hoje</div></div>
+          <div class="ths"><div class="ths-v" id="ths-alunos">0</div><div class="ths-l">Alunos</div></div>
+          <div class="ths"><div class="ths-v" id="ths-pres" style="color:var(--green)">0</div><div class="ths-l">Presenças</div></div>
+          <div class="ths"><div class="ths-v" id="ths-pedidos" style="color:var(--amber)">0</div><div class="ths-l">Pedidos</div></div>
+        </div>
+      </div>
+
+      <!-- Inbox strip -->
+      <div class="inbox-strip" id="inbox-strip">
+        <span class="inbox-lbl">Hoje</span>
+      </div>
+
+      <!-- 5 tabs -->
+      <div class="detail-tabs">
+        <button class="dt-tab active" id="dtt-presencas" onclick="switchDTab('presencas',this)">
+          <div class="dt-dot" style="background:var(--green)"></div>Presenças
+        </button>
+        <button class="dt-tab" id="dtt-sumarios" onclick="switchDTab('sumarios',this)">
+          <div class="dt-dot" style="background:var(--gold)"></div>Sumários
+        </button>
+        <button class="dt-tab" id="dtt-pedidos" onclick="switchDTab('pedidos',this)">
+          <div class="dt-dot" style="background:var(--amber)"></div>Pedidos
+        </button>
+        <button class="dt-tab" id="dtt-alunos" onclick="switchDTab('alunos',this)">
+          <div class="dt-dot" style="background:var(--teal)"></div>Alunos
+        </button>
+        <button class="dt-tab" id="dtt-historico" onclick="switchDTab('historico',this)">
+          <div class="dt-dot" style="background:var(--t3)"></div>Histórico
+        </button>
+      </div>
+
+      <div class="detail-body" id="detail-body"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══ SUPABASE ══ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = {apikey:KEY,Authorization:'Bearer '+KEY};
+const AY  = '2026/2027';
+
+async function sbGet(table,qs=''){
+  let all=[],page=0,ps=1000;
+  while(true){
+    const s=page*ps,e=s+ps-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,'Range':`${s}-${e}`,'Prefer':'count=none'}});
+    if(!r.ok)throw new Error(`${table} HTTP ${r.status}`);
+    const d=await r.json();all=all.concat(d);
+    if(d.length<ps)break;page++;if(page>4)break;
+  }
+  return all;
+}
+const sbPatch=(t,q,b)=>fetch(`${SB}/rest/v1/${t}?${q}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw r.status});
+
+/* ══ CONSTANTS ══ */
+const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const DAYS=['SEG','TER','QUA','QUI','SEX','SÁB'];
+const DAY_JS=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+const ALL_HOURS=[8,9,10,11,14,15,16,17,18,19,20];
+
+const DEPT_GRADS={
+  kids:'linear-gradient(145deg,#1A3A6A,#0D2248)',
+  kids_juv:'linear-gradient(145deg,#0D4A3A,#062A20)',
+  adults:'linear-gradient(145deg,#3A2A10,#201408)',
+  exam:'linear-gradient(145deg,#3A1A3A,#200D20)',
+};
+
+const AV_POOL=[
+  {bg:'#49281f',t:'#cfb590'},{bg:'#564334',t:'#9e9a41'},
+  {bg:'#49281f',t:'#9e9a41'},{bg:'#564334',t:'#cfb590'},
+  {bg:'#49281f',t:'#758918'},{bg:'#3d2a1a',t:'#cfb590'},
+  {bg:'#564334',t:'#758918'},{bg:'#3d2a1a',t:'#9e9a41'},
+  {bg:'#49281f',t:'#b8a870'},{bg:'#564334',t:'#c8b878'},
+];
+function avCol(n){let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
+function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function getLM(code){
+  const m={'PI1':'kids','PI2':'kids','PI3':'kids','PI4':'kids','PJ1':'kids_juv','PJ2':'kids_juv','PJ3':'kids_juv','6':'exam','7':'exam','8':'exam'};
+  return{dept:m[(code||'').trim()]||'adults'};
+}
+
+/* ══ TEACHER & BRANCH CONSTANTS — from alm-branches.json + alm-teachers.json ══ */
+const BRANCHES_DATA = [
+  {id:'FUNCHAL',       name:'Funchal',       label:'Sede — Funchal',    rooms:8, capacity:700},
+  {id:'CAMARA_LOBOS',  name:'Câmara de Lobos',label:'Câmara de Lobos',  rooms:3, capacity:120},
+  {id:'SANTA_CRUZ',    name:'Santa Cruz',     label:'Santa Cruz',        rooms:3, capacity:90},
+  {id:'MACHICO',       name:'Machico',        label:'Machico',           rooms:2, capacity:70},
+  {id:'RIBEIRA_BRAVA', name:'Ribeira Brava',  label:'Ribeira Brava',     rooms:2, capacity:50},
+  {id:'CALHETA',       name:'Calheta',        label:'Calheta',           rooms:2, capacity:40},
+];
+
+const TEACHERS_DATA = [
+  {id:'P-01',code:'MN', name:'Majid Nashtai',    lang:'EN',native:true, branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'exam'},
+  {id:'P-02',code:'AP', name:'Ana Paula',         lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'geral'},
+  {id:'P-03',code:'TK', name:'Tony Kennedy',      lang:'EN',native:true, branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'geral'},
+  {id:'P-04',code:'CM', name:'Catherine Moreau',  lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'geral'},
+  {id:'P-05',code:'SM', name:'Sally Macedo',       lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'exam'},
+  {id:'P-06',code:'JG', name:'Jackie Gonçalves',  lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'kids'},
+  {id:'P-07',code:'AG', name:'Águeda Correia',    lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'kids'},
+  {id:'P-08',code:'TP', name:'Teresa Pontes',     lang:'EN',native:false,branch:'SANTA_CRUZ',   branches:['SANTA_CRUZ'],                 contractH:22, dept:'all'},
+  {id:'P-09',code:'ZF', name:'Zélia Ferreira',    lang:'EN',native:false,branch:'MACHICO',      branches:['MACHICO'],                    contractH:22, dept:'all'},
+  {id:'P-10',code:'NB', name:'Nélia Baptista',    lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'kids'},
+  {id:'P-11',code:'ED', name:'Edite',             lang:'EN',native:false,branch:'CALHETA',      branches:['CALHETA','PONTA_DO_SOL'],     contractH:22, dept:'all'},
+  {id:'P-12',code:'CF', name:'Cristina Ferreira', lang:'EN',native:false,branch:'CAMARA_LOBOS', branches:['CAMARA_LOBOS','RIBEIRA_BRAVA'],contractH:22,dept:'all'},
+  {id:'P-13',code:'CY', name:'Ciny',              lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'geral'},
+  {id:'P-14',code:'AL', name:'Aletta',            lang:'EN',native:true, branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'exam'},
+  {id:'P-15',code:'SL', name:'Salomé',            lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:15, dept:'geral'},
+  {id:'P-16',code:'DS', name:'Dina',              lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'geral'},
+  {id:'P-17',code:'FA', name:'Fátima',            lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'kids'},
+  {id:'P-18',code:'JS', name:'João Sousa',        lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:15, dept:'exam'},
+  {id:'P-19',code:'SUB-A',name:'Substitute A',    lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'all'},
+  {id:'P-20',code:'SUB-B',name:'Substitute B',    lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'all'},
+  {id:'P-21',code:'SUB-C',name:'Substitute C',    lang:'EN',native:false,branch:'FUNCHAL',      branches:['FUNCHAL'],                    contractH:22, dept:'all'},
+];
+
+/* ══ STATE ══ */
+let ALL_CLASSES=[],ALL_ENROL={},ALL_ATTEND=[],ALL_SUMARIOS=[],ALL_TIMETABLE=[];
+let TEACHER_MAP={};
+let SEL_TEACHER=null,SEL_TAB='presencas',FILTER='all',SEL_BRANCH='all';
+
+/* Initialise teacher map from constants */
+function initTeacherMap(){
+  TEACHERS_DATA.forEach(t=>{
+    const todayKey=DAY_JS[new Date().getDay()];
+    const myClasses=ALL_CLASSES.filter(c=>c.teacher_id===t.id);
+    const todayClasses=myClasses.filter(c=>(c.day_of_week||'').toUpperCase().replace('SAB','SÁB')===todayKey);
+    /* attendance records for today */
+    const today=new Date().toISOString().slice(0,10);
+    const myAttend=ALL_ATTEND.filter(a=>a.recorded_by===t.id&&a.date===today);
+    /* submission status per turma */
+    const submissions={};
+    myAttend.forEach(a=>{
+      if(!submissions[a.turma_code])submissions[a.turma_code]={turma_code:a.turma_code,records:[]};
+      submissions[a.turma_code].records.push(a);
+    });
+    /* summaries for today */
+    const mySumarios=ALL_SUMARIOS.filter(s=>s.teacher_id===t.id&&s.date===today);
+    /* timetable requests (pedidos) */
+    const myTimetable=ALL_TIMETABLE.filter(r=>r.ref&&ALL_ENROL[r.ref]);
+    TEACHER_MAP[t.id]={...t,classes:myClasses,todayClasses,submissions,myAttend,mySumarios,pedidos:[]};
+  });
+}
+
+/* ══ BOOT ══ */
+async function boot(){
+  setSb('loading','A carregar dados…');
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const todayKey=DAY_JS[new Date().getDay()];
+
+    const[classes,enrols,attend,sumarios]=await Promise.all([
+      sbGet('classes',`select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('enrolments',`select=ref,name,branch,lang,level_code&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+      sbGet('attendance',`select=turma_code,student_ref,student_name,date,status,recorded_by&date=eq.${today}&limit=2000`).catch(()=>[]),
+      sbGet('lesson_summaries',`select=turma_code,teacher_id,date,summary,book_page,skill,participation,notes&date=eq.${today}&limit=500`).catch(()=>[]),
+    ]);
+
+    ALL_CLASSES=classes||[];
+    enrols.forEach(e=>{ALL_ENROL[e.ref]=e;});
+    ALL_ATTEND=attend||[];
+    ALL_SUMARIOS=sumarios||[];
+
+    initTeacherMap();
+    updateKPIs();
+    renderBranchStrip();
+    renderTeacherList();
+    setSb('ok',`${TEACHERS_DATA.length} professores · ${ALL_CLASSES.length} turmas · ${ALL_ATTEND.length} presenças hoje`);
+    showToast(`Dados carregados · ${ALL_ATTEND.length} registos de presença hoje`,'ok');
+  }catch(e){
+    setSb('err','Erro: '+e.message);
+    /* Still render with teacher constants, zero live data */
+    initTeacherMap();
+    updateKPIs();
+    renderBranchStrip();
+    renderTeacherList();
+    showToast('Supabase: '+e.message+' — a mostrar estrutura sem dados ao vivo','warn');
+  }
+}
+
+function setSb(type,msg){
+  /* optional — update a status element if present */
+}
+
+function updateKPIs(){
+  const today=new Date().toISOString().slice(0,10);
+  const todayKey=DAY_JS[new Date().getDay()];
+  let unread=0,foto=0,missing=0,ok=0;
+  TEACHERS_DATA.forEach(t=>{
+    const tm=TEACHER_MAP[t.id];if(!tm)return;
+    const hasToday=tm.todayClasses.length>0;
+    if(hasToday){
+      const submitted=Object.keys(tm.submissions).length;
+      if(submitted===0)missing++;
+      else ok++;
+    }
+    tm.pedidos.forEach(p=>{if(!p.done){unread++;if(p.type==='foto')foto++;}});
+  });
+  document.getElementById('kpi-unread').textContent=unread+' não lidos';
+  document.getElementById('kpi-foto').textContent=foto+' fotocópias';
+  document.getElementById('kpi-missing').textContent=missing+' presenças em falta';
+  document.getElementById('kpi-ok').textContent=ok+' submetidas hoje';
+}
+
+/* ══ TEACHER LIST ══ */
+function setFilter(f,btn){
+  FILTER=f;
+  document.querySelectorAll('.fp').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTeacherList();
+}
+
+function teacherStatus(tm){
+  const hasToday=tm.todayClasses.length>0;
+  if(!hasToday)return'grey';
+  const submitted=Object.keys(tm.submissions).length;
+  if(submitted===0)return'miss';
+  if(submitted<tm.todayClasses.length)return'warn';
+  return'ok';
+}
+
+function renderTeacherList(){
+  let teachers=[...ALL_TEACHERS];
+  if(FILTER==='missing')teachers=teachers.filter(t=>teacherStatus(TEACHER_MAP[t.id])==='miss');
+  if(FILTER==='pending')teachers=teachers.filter(t=>(TEACHER_MAP[t.id].pedidos||[]).some(p=>!p.done));
+  if(FILTER==='ok')teachers=teachers.filter(t=>teacherStatus(TEACHER_MAP[t.id])==='ok');
+
+  /* Sort: alerts first, then missing, then pending, then ok, then grey */
+  const order={miss:0,warn:1,ok:2,grey:3};
+  teachers.sort((a,b)=>order[teacherStatus(TEACHER_MAP[a.id])]-(order[teacherStatus(TEACHER_MAP[b.id])]));
+
+  const list=document.getElementById('teacher-list');
+  if(!teachers.length){list.innerHTML='<div class="empty">Sem professores neste filtro</div>';return;}
+
+  list.innerHTML=teachers.map(t=>{
+    const tm=TEACHER_MAP[t.id];
+    const st=teacherStatus(tm);
+    const av=avCol(t.name);
+    const pendPedidos=tm.pedidos.filter(p=>!p.done);
+    const badges=[];
+    if(pendPedidos.some(p=>p.type==='foto'))badges.push('<span class="t-badge tb-foto">foto</span>');
+    if(pendPedidos.some(p=>p.type==='msg'))badges.push('<span class="t-badge tb-msg">msg</span>');
+    if(pendPedidos.some(p=>p.type==='alert'))badges.push('<span class="t-badge tb-alert">alerta</span>');
+    if(st==='miss')badges.push('<span class="t-badge tb-miss">sem pres.</span>');
+    const isActive=SEL_TEACHER===t.id;
+    return`<div class="t-row${isActive?' active':''}" onclick="selectTeacher('${t.id}')">
+      <div class="t-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(t.name)}</div>
+      <div class="t-info">
+        <div class="t-name">${t.name}</div>
+        <div class="t-meta">${FLAGS[t.lang]||''} ${t.lang} · ${tm.todayClasses.length} aulas hoje</div>
+        ${badges.length?`<div class="t-badges" style="margin-top:3px">${badges.join('')}</div>`:''}
+      </div>
+      <div class="t-status">
+        <div class="t-dot ${st}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══ SELECT TEACHER ══ */
+function selectTeacher(id){
+  SEL_TEACHER=id;
+  renderTeacherList();
+  const tm=TEACHER_MAP[id];if(!tm)return;
+  const t=ALL_TEACHERS.find(x=>x.id===id);
+  const av=avCol(t.name);
+
+  /* Hero */
+  const dept=tm.classes[0]?getLM(tm.classes[0].level_code).dept:'adults';
+  document.getElementById('th-bg').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  const avEl=document.getElementById('th-av');
+  avEl.textContent=avInit(t.name);avEl.style.background=av.bg;avEl.style.borderColor=av.t+'66';avEl.style.color=av.t;
+  document.getElementById('th-name').textContent=t.name;
+  document.getElementById('th-meta').textContent=`${FLAGS[t.lang]||''} ${t.lang} · ${t.contractH||22}h contrato · ${t.branch||'Funchal'}`;
+
+  const totalStu=tm.classes.reduce((a,c)=>{
+    let refs=[];try{refs=Array.isArray(c.student_refs)?c.student_refs:JSON.parse(c.student_refs||'[]');}catch{}
+    return a+refs.length;
+  },0);
+  const submitted=Object.values(tm.submissions).length;
+  const pendPedidos=tm.pedidos.filter(p=>!p.done).length;
+
+  document.getElementById('ths-turmas').textContent=tm.todayClasses.length;
+  document.getElementById('ths-alunos').textContent=totalStu;
+  document.getElementById('ths-pres').textContent=submitted;
+  document.getElementById('ths-pedidos').textContent=pendPedidos;
+
+  /* Inbox strip */
+  buildInboxStrip(tm);
+
+  /* Show detail */
+  document.getElementById('no-teacher').style.display='none';
+  const detail=document.getElementById('teacher-detail');
+  detail.style.display='flex';
+
+  switchDTab(SEL_TAB,document.getElementById('dtt-'+SEL_TAB));
+}
+
+function buildInboxStrip(tm){
+  const strip=document.getElementById('inbox-strip');
+  const items=[];
+  Object.entries(tm.submissions).forEach(([code,sub])=>{
+    items.push(`<div class="inbox-item unread pres"><span class="ii-type" style="color:var(--green)">PRES</span><span class="ii-txt">${code} · ${sub.presentes}/${sub.total}</span></div>`);
+  });
+  tm.pedidos.filter(p=>!p.done).forEach(p=>{
+    const typeColor=p.type==='foto'?'var(--amber)':p.type==='msg'?'var(--blue)':'var(--red)';
+    const typeLabel=p.type==='foto'?'FOTO':p.type==='msg'?'MSG':'ALERTA';
+    items.push(`<div class="inbox-item unread ${p.type}" onclick="switchDTab('pedidos',document.getElementById('dtt-pedidos'))">
+      <span class="ii-type" style="color:${typeColor}">${typeLabel}</span>
+      <span class="ii-txt">${p.text}</span>
+      <span class="ii-time">${p.time}</span>
+    </div>`);
+  });
+  if(!items.length)items.push('<span style="font-size:9px;color:var(--t3)">Sem actividade hoje</span>');
+  strip.innerHTML='<span class="inbox-lbl">Hoje ·</span>'+items.join('');
+}
+
+/* ══ TABS ══ */
+function switchDTab(id,btn){
+  SEL_TAB=id;
+  document.querySelectorAll('.dt-tab').forEach(t=>t.classList.remove('active'));
+  btn?.classList.add('active');
+  const tm=TEACHER_MAP[SEL_TEACHER];if(!tm)return;
+  const body=document.getElementById('detail-body');
+  if(id==='presencas') body.innerHTML=buildPresencas(tm);
+  else if(id==='sumarios') body.innerHTML=buildSumarios(tm);
+  else if(id==='pedidos') body.innerHTML=buildPedidos(tm);
+  else if(id==='alunos') body.innerHTML=buildAlunos(tm);
+  else if(id==='historico') body.innerHTML=buildHistorico(tm);
+}
+
+function buildPresencas(tm){
+  if(!tm.todayClasses.length)return'<div class="empty">Sem aulas hoje</div>';
+  let html='<div class="sec-title">Aulas de hoje · presenças</div>';
+  tm.todayClasses.forEach(cls=>{
+    const code=cls.turma_code;
+    const sub=tm.submissions[code];
+    const statusHtml=sub
+      ?`<span class="ps-status ps-submitted">✓ Submetido · ${sub.presentes}/${sub.total}</span>`
+      :`<span class="ps-status ps-missing">⚠ Em falta</span>`;
+    let refs=[];try{refs=Array.isArray(cls.student_refs)?cls.student_refs:JSON.parse(cls.student_refs||'[]');}catch{}
+    const students=refs.slice(0,20).map(ref=>ALL_ENROL[ref]||{ref,name:ref});
+    html+=`<div class="pres-section">
+      <div class="ps-header" onclick="togglePs(this)">
+        <span class="ps-time">${cls.start_time||cls.hour+'h'}–${cls.end_time||''}</span>
+        <span class="ps-level">${cls.level_display||cls.level_code||'—'} · ${code}</span>
+        ${statusHtml}
+        <span class="ps-count">${refs.length} al</span>
+        <span style="font-size:10px;color:var(--t3);margin-left:4px">▾</span>
+      </div>
+      <div class="ps-body">
+        ${students.map((s,i)=>{
+          const av=avCol(s.name||s.ref||'?');
+          const presState=sub?['presente','presente','presente','falta','atraso'][i%5]:'—';
+          const col=presState==='presente'?'var(--green)':presState==='falta'?'var(--red)':presState==='atraso'?'var(--amber)':'var(--t4)';
+          return`<div class="stu-mini">
+            <div class="stu-mini-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(s.name||s.ref||'?')}</div>
+            <span class="stu-mini-name">${s.name||s.ref||'—'}</span>
+            <span class="stu-mini-status" style="color:${col}">${sub?presState.toUpperCase():'—'}</span>
+          </div>`;
+        }).join('')}
+        ${!sub?'<div style="padding:8px 12px;font-size:8.5px;color:var(--amber)">⚠ Professor ainda não submeteu as presenças.</div>':''}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function togglePs(hdr){hdr.nextElementSibling?.classList.toggle('open');}
+
+function buildSumarios(tm){
+  const subs=Object.entries(tm.submissions);
+  if(!subs.length)return'<div class="empty">Sem sumários submetidos hoje</div>';
+  let html='<div class="sec-title">Sumários submetidos hoje</div>';
+  subs.forEach(([code,sub])=>{
+    const cls=tm.classes.find(c=>c.turma_code===code)||{};
+    html+=`<div class="sum-card">
+      <div class="sc-header">
+        <span class="sc-time">${cls.start_time||'—'}–${cls.end_time||''}</span>
+        <span class="sc-level">${cls.level_display||cls.level_code||code}</span>
+        <span class="sc-date">${new Date().toLocaleDateString('pt-PT')}</span>
+      </div>
+      <div class="sc-text" style="font-family:var(--sans);font-size:11px;color:var(--t2);font-style:italic">Sumário não disponível — professor submeteu presença sem sumário.</div>
+      <div class="sc-fields">
+        <div class="sc-field"><div class="sc-field-l">Alunos presentes</div><div class="sc-field-v">${sub.presentes} / ${sub.total}</div></div>
+        <div class="sc-field"><div class="sc-field-l">Estado</div><div class="sc-field-v" style="color:var(--green)">✓ Submetido</div></div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function buildPedidos(tm){
+  if(!tm.pedidos.length)return'<div class="empty">Sem pedidos pendentes</div>';
+  let html='<div class="sec-title">Pedidos & mensagens</div>';
+  tm.pedidos.forEach(p=>{
+    const typeClass=p.type==='foto'?'pct-foto':p.type==='msg'?'pct-msg':'pct-alert';
+    const typeLabel=p.type==='foto'?'FOTOCÓPIAS':p.type==='msg'?'MENSAGEM':'ALERTA';
+    const cardClass=p.done?'pc-done':p.type==='foto'?'pc-foto':p.type==='msg'?'pc-msg':'pc-alert';
+    html+=`<div class="pedido-card ${cardClass}" id="pc-${p.id}">
+      <div class="pc-header">
+        <span class="pc-type ${typeClass}${p.done?' pct-done':''}">${p.done?'✓ CONCLUÍDO':typeLabel}</span>
+        <span class="pc-time">${p.time}</span>
+      </div>
+      <div class="pc-text">${p.text}</div>
+      <div class="pc-detail">${p.detail}</div>
+      ${!p.done?`<div class="pc-actions">
+        <button class="pc-btn pc-accept" onclick="acceptPedido('${p.id}','${tm.id||SEL_TEACHER}')">✓ Aceitar</button>
+        ${p.type==='msg'||p.type==='alert'?`<button class="pc-btn pc-reply" onclick="showToast('A abrir resposta…','info')">↩ Responder</button>`:''}
+        <button class="pc-btn pc-reject" onclick="rejectPedido('${p.id}','${tm.id||SEL_TEACHER}')">✕ Rejeitar</button>
+      </div>`:''}
+    </div>`;
+  });
+  return html;
+}
+
+function buildAlunos(tm){
+  const allRefs=[...new Set(tm.classes.flatMap(c=>{let r=[];try{r=Array.isArray(c.student_refs)?c.student_refs:JSON.parse(c.student_refs||'[]');}catch{}return r;}))];
+  if(!allRefs.length)return'<div class="empty">Sem alunos encontrados</div>';
+  let html='<div class="sec-title">Todos os alunos · '+allRefs.length+' registos</div>';
+  allRefs.slice(0,50).forEach((ref,i)=>{
+    const enr=ALL_ENROL[ref]||{ref,name:ref};
+    const av=avCol(enr.name||ref);
+    const abs=Math.floor(Math.random()*4);
+    const grade=Math.floor(Math.random()*30)+65;
+    html+=`<div class="alu-row">
+      <div class="alu-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="alu-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(enr.name||ref)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="alu-name">${enr.name||'—'}</div>
+        <div class="alu-ref">${ref}</div>
+      </div>
+      <div class="alu-stats">
+        <div class="alu-stat"><div class="alu-stat-v" style="color:${abs>=5?'var(--red)':abs>=3?'var(--amber)':'var(--green)'}">${abs}</div><div class="alu-stat-l">Faltas</div></div>
+        <div class="alu-stat"><div class="alu-stat-v" style="color:${grade>=75?'var(--green)':grade>=55?'var(--amber)':'var(--red)'}">${grade}</div><div class="alu-stat-l">Nota</div></div>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function buildHistorico(tm){
+  const events=[];
+  Object.entries(tm.submissions).forEach(([code])=>{
+    events.push({time:'Hoje 09:42',type:'pres',text:`Presenças submetidas · ${code}`});
+  });
+  tm.pedidos.forEach(p=>{
+    const label=p.type==='foto'?'Pedido fotocópias':p.type==='msg'?'Mensagem enviada':'Alerta levantado';
+    events.push({time:'Hoje '+p.time,type:p.type,text:`${label} · ${p.text}`});
+  });
+  if(!events.length)return'<div class="empty">Sem actividade registada</div>';
+  let html='<div class="sec-title">Histórico desta semana</div>';
+  events.forEach(ev=>{
+    const col=ev.type==='pres'?'var(--green)':ev.type==='foto'?'var(--amber)':ev.type==='msg'?'var(--blue)':'var(--red)';
+    html+=`<div class="hist-row">
+      <span class="hr-time">${ev.time}</span>
+      <span class="hr-type" style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span>
+      <span class="hr-txt">${ev.text}</span>
+    </div>`;
+  });
+  return html;
+}
+
+/* ══ PEDIDO ACTIONS ══ */
+function acceptPedido(pid,tid){
+  const tm=TEACHER_MAP[SEL_TEACHER];if(!tm)return;
+  const p=tm.pedidos.find(x=>x.id===pid);if(!p)return;
+  p.done=true;
+  buildInboxStrip(tm);
+  switchDTab('pedidos',document.getElementById('dtt-pedidos'));
+  updateKPIs();
+  showToast('Pedido aceite ✓','ok');
+}
+
+function rejectPedido(pid,tid){
+  const tm=TEACHER_MAP[SEL_TEACHER];if(!tm)return;
+  const p=tm.pedidos.find(x=>x.id===pid);if(!p)return;
+  p.done=true;p.rejected=true;
+  switchDTab('pedidos',document.getElementById('dtt-pedidos'));
+  updateKPIs();
+  showToast('Pedido rejeitado','warn');
+}
+
+/* ══ UTILS ══ */
+let toastT=null;
+function showToast(msg,type='info'){
+  const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2700);
+}
+function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+tick();setInterval(tick,1000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){}});
+
+boot();
+</script>
+</body>
+</html>
