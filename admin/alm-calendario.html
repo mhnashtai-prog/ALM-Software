@@ -98,15 +98,15 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 .cal-day{aspect-ratio:1;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--t2);position:relative;transition:all .15s;border:.5px solid transparent}
 .cal-day.clickable{cursor:pointer}
 .cal-day.clickable:hover{background:var(--gold4);border-color:var(--b2);color:var(--t)}
-.cal-day.grey{color:var(--t4)}   /* non-lesson day */
+.cal-day.grey{color:var(--t4)}
 .cal-day.today{background:rgba(29,184,122,.12);border-color:rgba(29,184,122,.35);color:var(--green)}
 .cal-day.has-lesson{font-weight:700;color:var(--gold2)}
 .cal-day.has-lesson::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--gold)}
 .cal-day.done-lesson{color:var(--teal)}
 .cal-day.done-lesson::after{background:var(--teal)}
 .cal-day.selected{background:var(--gold3);border-color:var(--b3);color:var(--gold2)}
-.cal-day.selected.done-lesson{background:rgba(40,200,176,.15);border-color:rgba(40,200,176,.4)}
-.cal-day.break-day{color:var(--t4);opacity:.4}  /* holiday / school break */
+.cal-day.selected.done-lesson{background:rgba(40,200,176,.15);border-color:rgba(40,200,176,.4);color:var(--teal)}
+.cal-day.break-day{color:var(--t4);opacity:.35}
 
 /* Legend */
 .cal-legend{display:flex;gap:10px;padding:8px 14px;border-top:.5px solid var(--b);flex-wrap:wrap}
@@ -120,7 +120,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 .cp-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--green));border-radius:2px;transition:width .4s}
 
 /* ── RIGHT: LESSON PANEL ── */
-.lesson-panel{display:flex;flex-direction:column;gap:10px;animation:slide-up .25s ease}
+.lesson-panel{display:flex;flex-direction:column;gap:10px}
 .lp-hero{background:var(--bg2);border:.5px solid var(--b2);border-radius:8px;overflow:hidden}
 .lph-top{padding:16px 18px 12px;display:flex;align-items:flex-start;gap:12px}
 .lph-num{font-family:var(--display);font-size:56px;letter-spacing:2px;line-height:1;flex-shrink:0}
@@ -138,6 +138,9 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 .ltr-time{font-size:9px;color:var(--teal);margin-left:2px}
 .ltr-level{font-size:9px;color:var(--t3)}
 .ltr-sala{font-size:8px;color:var(--t3);margin-left:auto}
+/* Button inside turma row to jump to portal for that date */
+.ltr-edit-btn{font-size:7.5px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid var(--b2);background:transparent;color:var(--t3);cursor:pointer;font-family:var(--mono);transition:all .12s;text-decoration:none;margin-left:4px}
+.ltr-edit-btn:hover{border-color:var(--b3);color:var(--gold2);background:var(--gold4)}
 
 .lp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;background:var(--bg2);border:.5px solid var(--b);border-radius:8px;gap:8px}
 .lpe-icon{font-size:32px;opacity:.3}
@@ -192,18 +195,18 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 <div class="topbar">
   <div class="nav-duo">
     <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
-    <a class="nav-back" href="javascript:history.back()">
+    <a class="nav-back" id="back-nav" href="/admin/alm-teacher-portal.html">
       <span class="nav-back-arrow">←</span>
       <span class="nav-back-label">Portal</span>
     </a>
   </div>
-  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr" id="brand-yr">——</span></div>
   <div class="topbar-mid">
     <div class="live-dot"></div>
     <div class="tb-chip">Calendário de Aulas</div>
   </div>
   <div class="topbar-right">
-    <div class="tb-pill neutral">2026/2027</div>
+    <div class="tb-pill neutral" id="kpi-ay">——</div>
     <div class="tb-pill ok" id="kpi-done">— aulas</div>
     <div class="tb-pill gold" id="kpi-remain">— em falta</div>
     <span class="tb-clock" id="clk">--:--:--</span>
@@ -240,7 +243,6 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
       </div>
     </div>
 
-    <!-- Schedule strip: shows which days/times this teacher has lessons -->
     <div class="cal-schedule" id="cal-schedule"></div>
 
     <div class="cal-month-nav">
@@ -306,90 +308,82 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H   = {apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
-const AY  = '2026/2027';
 
-async function sbGet(table,qs=''){
-  let all=[],page=0,ps=1000;
-  while(true){
-    const s=page*ps,e=s+ps-1;
-    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
-    if(!r.ok){const t=await r.text();throw new Error(`${table} ${r.status}: ${t.slice(0,80)}`);}
-    const d=await r.json();all=all.concat(d);
-    if(d.length<ps)break;page++;if(page>9)break;
-  }
-  return all;
-}
+/* ── Academic year: loaded from Supabase school_config, falls back to defaults ── */
+let AY         = '2026/2027';
+let YEAR_START = '2026-09-19';
+let YEAR_END   = '2027-06-25';
 
-/* ══════════════════════════════════
-   SCHOOL CALENDAR LOGIC
-   ─────────────────────────────────
-   Academic year: 19 Sep 2026 – 25 Jun 2027
-   The teacher's lesson dates are derived from their
-   actual class schedule (day_of_week) stored in
-   Supabase. Every matching weekday within term time
-   is a lesson date — no mathematical approximation.
-══════════════════════════════════ */
-
-/* Term start & end — adjust per school */
-const YEAR_START_ISO = '2026-09-19'; /* Friday 19 Sep 2026 */
-const YEAR_END_ISO   = '2027-06-25'; /* Thursday 25 Jun 2027 */
-
-/* Portuguese public holidays */
+/* Portuguese public holidays (national + Madeira regional) */
 const HOLIDAYS = new Set([
   '2026-10-05','2026-11-01','2026-12-01','2026-12-08','2026-12-25',
   '2027-01-01','2027-04-01','2027-04-02','2027-04-25','2027-05-01','2027-06-10',
 ]);
 
-/* School break windows (inclusive) — Christmas, Carnival, Easter */
+/* School break windows inclusive */
 const BREAKS = [
-  ['2026-12-19','2027-01-04'],  /* Christmas */
-  ['2027-02-15','2027-02-21'],  /* Carnival  */
-  ['2027-03-29','2027-04-11'],  /* Easter    */
+  ['2026-12-19','2027-01-04'],  /* Christmas  */
+  ['2027-02-15','2027-02-21'],  /* Carnival   */
+  ['2027-03-29','2027-04-11'],  /* Easter     */
 ];
 
-function isInBreak(iso){
-  return BREAKS.some(([s,e])=>iso>=s&&iso<=e);
-}
-
+function isInBreak(iso){return BREAKS.some(([s,e])=>iso>=s&&iso<=e);}
 function isTeachingDay(iso){
   if(HOLIDAYS.has(iso))return false;
-  if(isInBreak(iso))return false;
-  return true;
+  return !isInBreak(iso);
 }
 
-/* Maps DB day_of_week strings → JS getDay() number */
-const DOW_MAP = {
+/* day_of_week string → JS getDay() number */
+const DOW_MAP={
   'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'SÁB':6,
   'SEGUNDA':1,'TERCA':2,'TERÇA':2,'QUARTA':3,'QUINTA':4,'SEXTA':5,'SABADO':6,'SÁBADO':6,
   'MON':1,'TUE':2,'WED':3,'THU':4,'FRI':5,'SAT':6,
 };
 
 /**
- * buildLessonDates(classDows)
- * classDows: array of day_of_week strings from the teacher's classes
- *            e.g. ['TER','QUI'] for Tuesday+Thursday
- * Returns: sorted array of ISO date strings that are:
- *   — within the academic year
- *   — match one of the teacher's teaching days
- *   — not a holiday or school break
+ * buildLessonDates(dow)
+ * Returns sorted array of ISO date strings that are:
+ *  — within the academic year (YEAR_START … YEAR_END)
+ *  — on the given day-of-week
+ *  — not a holiday or school break
  */
-function buildLessonDates(classDows){
-  const targetDows=new Set(classDows.map(d=>DOW_MAP[(d||'').toUpperCase().trim()]).filter(Boolean));
-  if(!targetDows.size)return[];
-
+function buildLessonDates(dow){
+  const target=DOW_MAP[(dow||'').toUpperCase().trim()];
+  if(!target)return[];
   const dates=[];
-  const d=new Date(YEAR_START_ISO+'T12:00:00');
-  const end=new Date(YEAR_END_ISO+'T12:00:00');
-
+  const d=new Date(YEAR_START+'T12:00:00');
+  const end=new Date(YEAR_END+'T12:00:00');
   while(d<=end){
-    const dow=d.getDay(); /* 0=Sun, 1=Mon … */
-    const iso=d.toISOString().slice(0,10);
-    if(targetDows.has(dow)&&isTeachingDay(iso)){
-      dates.push(iso);
+    if(d.getDay()===target){
+      const iso=d.toISOString().slice(0,10);
+      if(isTeachingDay(iso))dates.push(iso);
     }
     d.setDate(d.getDate()+1);
   }
-  return dates.sort();
+  return dates;
+}
+
+/**
+ * allLessonDates(classDows)
+ * Union of all lesson dates across all a teacher's class day-of-weeks,
+ * deduplicated and sorted. A date can be a lesson date if ANY class
+ * falls on that day.
+ */
+function allLessonDates(classDows){
+  const set=new Set();
+  classDows.forEach(dow=>{buildLessonDates(dow).forEach(d=>set.add(d));});
+  return [...set].sort();
+}
+
+/**
+ * lessonNumber(dow, iso)
+ * 1-based sequential lesson number for a given date within its
+ * day-of-week stream.
+ */
+function lessonNumber(dow,iso){
+  const dates=buildLessonDates(dow);
+  const idx=dates.indexOf(iso);
+  return idx>=0?idx+1:0;
 }
 
 /* ══════════════════════════════════
@@ -413,17 +407,31 @@ let TEACHERS=[];
 let ME=null;
 let teacherId=null;
 let MY_CLASSES=[];
-let LESSON_DATES=[];  /* sorted ISO strings — derived from actual class schedule */
-let ATTEND_MAP={};    /* date → { turma_code → [{ref,name,status}] } */
-let SUMMARY_MAP={};   /* date → summary obj */
-let REQUEST_MAP={};   /* date → requests[] */
-let calYear=2026, calMonth=8; /* start at Sep 2026 */
+let ALL_DATES=[];    /* sorted ISO strings — union of all lesson dates for this teacher */
+let DOW_BY_DATE={};  /* iso → dow string (the class day-of-week for this date) */
+let ATTEND_MAP={};   /* date → { turma_code → [{ref,name,status}] } */
+let SUMMARY_MAP={};  /* date → summary obj */
+let REQUEST_MAP={};  /* date → requests[] */
+let calYear=2026, calMonth=8; /* Sep=8 (zero-indexed) */
 let selectedDate=null;
 
 /* ══════════════════════════════════
    BOOT
 ══════════════════════════════════ */
 async function boot(){
+  /* Load school config */
+  try{
+    const cfg=await sbGet('school_config','select=key,value&limit=20');
+    cfg.forEach(r=>{
+      if(r.key==='academic_year')   AY=r.value;
+      if(r.key==='year_start_date') YEAR_START=r.value;
+      if(r.key==='year_end_date')   YEAR_END=r.value;
+    });
+  }catch(e){/* use defaults */}
+
+  document.getElementById('brand-yr').textContent=AY;
+  document.getElementById('kpi-ay').textContent=AY;
+
   setSb('loading','A carregar professores…');
   try{
     const raw=await sbGet('teachers','select=id,code,name,lang,native,branch_primary,contract_hours_week&limit=200');
@@ -439,12 +447,13 @@ async function boot(){
   const tp=params.get('teacher');
   if(tp)ME=TEACHERS.find(t=>t.id===tp||t.code===tp)||null;
 
-  /* Pre-selected date from URL */
+  /* Pre-selected date from URL (passed by portal when calendar button is clicked) */
   const dateParam=params.get('date');
   if(dateParam){
     selectedDate=dateParam;
     const d=new Date(dateParam+'T12:00:00');
-    calYear=d.getFullYear();calMonth=d.getMonth();
+    calYear=d.getFullYear();
+    calMonth=d.getMonth();
   }
 
   if(!ME){
@@ -457,13 +466,14 @@ async function boot(){
     renderCalTeacherHero();renderCalendar();return;
   }
   teacherId=ME.id;
-  updateBackLink();
+  updateLinks();
   await loadData();
 }
 
-function updateBackLink(){
-  const btn=document.getElementById('back-portal-btn');
-  if(btn&&teacherId) btn.href=`/admin/alm-teacher-portal.html?teacher=${encodeURIComponent(teacherId)}`;
+function updateLinks(){
+  const portalUrl=`/admin/alm-teacher-portal.html?teacher=${encodeURIComponent(teacherId||'')}`;
+  document.getElementById('back-portal-btn').href=portalUrl;
+  document.getElementById('back-nav').href=portalUrl;
 }
 
 async function switchTeacher(id){
@@ -471,8 +481,20 @@ async function switchTeacher(id){
   ME=TEACHERS.find(t=>t.id===id);if(!ME)return;
   teacherId=ME.id;
   document.getElementById('teacher-picker').classList.remove('show');
-  updateBackLink();
+  updateLinks();
   await loadData();
+}
+
+async function sbGet(table,qs=''){
+  let all=[],page=0,ps=1000;
+  while(true){
+    const s=page*ps,e=s+ps-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
+    if(!r.ok){const t=await r.text();throw new Error(`${table} ${r.status}: ${t.slice(0,80)}`);}
+    const d=await r.json();all=all.concat(d);
+    if(d.length<ps)break;page++;if(page>9)break;
+  }
+  return all;
 }
 
 /* ══════════════════════════════════
@@ -480,77 +502,83 @@ async function switchTeacher(id){
 ══════════════════════════════════ */
 async function loadData(){
   setSb('loading',`A carregar dados de ${ME.name}…`);
-  ATTEND_MAP={};SUMMARY_MAP={};REQUEST_MAP={};MY_CLASSES=[];LESSON_DATES=[];
+  ATTEND_MAP={};SUMMARY_MAP={};REQUEST_MAP={};MY_CLASSES=[];ALL_DATES=[];DOW_BY_DATE={};
 
   try{
-    /* Fetch this teacher's classes — only need day_of_week, times, level */
     const classes=await sbGet('classes',
-      `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}&select=turma_code,lang,level_code,level_display,department,day_of_week,hour,start_time,end_time,duration_min,sala&limit=200`);
+      `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}`+
+      `&select=turma_code,lang,level_code,level_display,department,day_of_week,hour,start_time,end_time,duration_min,sala&limit=200`);
     MY_CLASSES=classes;
 
-    /* Build lesson dates from the teacher's actual teaching days */
-    const classDows=classes.map(c=>c.day_of_week).filter(Boolean);
-    LESSON_DATES=buildLessonDates(classDows);
+    /* Build the master lesson date list from actual class schedule */
+    const classDows=classes.map(c=>(c.day_of_week||'').toUpperCase().replace('SAB','SÁB')).filter(Boolean);
+    ALL_DATES=allLessonDates(classDows);
 
-    /* Build schedule strip */
+    /* Build DOW_BY_DATE: for each date, which dow does it correspond to */
+    classDows.forEach(dow=>{
+      buildLessonDates(dow).forEach(iso=>{
+        /* If multiple classes on same day this maps correctly */
+        DOW_BY_DATE[iso]=dow;
+      });
+    });
+
     renderScheduleStrip(classes);
 
     const turmaCodes=classes.map(c=>c.turma_code).filter(Boolean);
 
-    /* All attendance for this teacher's turmas — all dates */
+    /* All attendance for this teacher's turmas */
     if(turmaCodes.length){
-      const attRows=await sbGet('attendance',
-        `turma_code=in.(${turmaCodes.join(',')})&select=turma_code,student_ref,student_name,date,status&limit=9999`);
-      attRows.forEach(r=>{
-        if(!ATTEND_MAP[r.date])ATTEND_MAP[r.date]={};
-        if(!ATTEND_MAP[r.date][r.turma_code])ATTEND_MAP[r.date][r.turma_code]=[];
-        ATTEND_MAP[r.date][r.turma_code].push({ref:r.student_ref,name:r.student_name||r.student_ref,status:r.status});
-      });
+      try{
+        const attRows=await sbGet('attendance',
+          `turma_code=in.(${turmaCodes.join(',')})&select=turma_code,student_ref,student_name,date,status,lesson_number&limit=9999`);
+        attRows.forEach(r=>{
+          if(!ATTEND_MAP[r.date])ATTEND_MAP[r.date]={};
+          if(!ATTEND_MAP[r.date][r.turma_code])ATTEND_MAP[r.date][r.turma_code]=[];
+          ATTEND_MAP[r.date][r.turma_code].push({ref:r.student_ref,name:r.student_name||r.student_ref,status:r.status,lessonNum:r.lesson_number});
+        });
+      }catch(e){console.warn('attendance fetch failed',e);}
     }
 
-    /* Lesson summaries — only columns that actually exist */
+    /* Lesson summaries */
     try{
       const sums=await sbGet('lesson_summaries',
-        `teacher_id=eq.${encodeURIComponent(ME.id)}&select=turma_code,date,summary,book_page,skill,participation,notes&limit=2000`);
+        `teacher_id=eq.${encodeURIComponent(ME.id)}&select=turma_code,date,summary,book_page,skill,participation,notes,tpc,tpc_ref,tpc_due,lesson_number&limit=2000`);
       sums.forEach(s=>{SUMMARY_MAP[s.date]=s;});
-    }catch(e){
-      /* If lesson_summaries is missing columns, degrade gracefully */
-      console.warn('lesson_summaries partial load:',e.message);
-    }
+    }catch(e){console.warn('lesson_summaries load:',e.message);}
 
     /* Teacher requests */
     try{
       const reqs=await sbGet('teacher_requests',
         `teacher_id=eq.${encodeURIComponent(ME.id)}&select=id,type,document,copies,urgency,status,created_at&limit=500`);
       reqs.forEach(r=>{
-        const d=r.created_at?.slice(0,10);
+        const d=(r.created_at||'').slice(0,10);
         if(d){if(!REQUEST_MAP[d])REQUEST_MAP[d]=[];REQUEST_MAP[d].push(r);}
       });
     }catch(e){console.warn('teacher_requests load:',e.message);}
 
-    const total=LESSON_DATES.length;
-    const done=LESSON_DATES.filter(d=>ATTEND_MAP[d]||SUMMARY_MAP[d]).length;
+    const total=ALL_DATES.length;
+    const done=ALL_DATES.filter(d=>ATTEND_MAP[d]||SUMMARY_MAP[d]).length;
     document.getElementById('kpi-done').textContent=done+' registadas';
     document.getElementById('kpi-remain').textContent=(total-done)+' em falta';
     updateProgress(done,total);
-    setSb('ok',`${classes.length} turmas · ${done}/${total} aulas registadas · ${YEAR_START_ISO} → ${YEAR_END_ISO}`);
+    setSb('ok',`${classes.length} turmas · ${done}/${total} aulas registadas · ${YEAR_START} → ${YEAR_END}`);
 
   }catch(e){setSb('err','Erro: '+e.message);console.error(e);}
 
   renderCalTeacherHero();
   renderCalendar();
-  /* Auto-open date from URL if it's a lesson date */
-  if(selectedDate&&LESSON_DATES.includes(selectedDate)){
+
+  /* Auto-open the date passed via URL if it is a lesson date */
+  if(selectedDate&&ALL_DATES.includes(selectedDate)){
     selectDate(selectedDate);
   }else if(selectedDate){
-    /* Date passed via URL but not a lesson day — jump to the month and show empty */
+    /* Date is in the calendar but not a lesson day — still navigate to the month */
     renderCalendar();
   }
 }
 
 /* ══════════════════════════════════
    SCHEDULE STRIP
-   Shows e.g. "TER 08:00–09:30 · QUI 08:00–09:30"
 ══════════════════════════════════ */
 function renderScheduleStrip(classes){
   const strip=document.getElementById('cal-schedule');
@@ -568,7 +596,7 @@ function renderScheduleStrip(classes){
 }
 
 /* ══════════════════════════════════
-   HERO INSIDE CALENDAR
+   TEACHER HERO IN CALENDAR PANEL
 ══════════════════════════════════ */
 function renderCalTeacherHero(){
   if(!ME)return;
@@ -577,15 +605,21 @@ function renderCalTeacherHero(){
   el.textContent=avInit(ME.name);el.style.background=av.bg;el.style.borderColor=av.t+'66';el.style.color=av.t;
   document.getElementById('cth-name').textContent=ME.name;
   document.getElementById('cth-meta').textContent=`${FLAGS[ME.lang]||''} ${ME.lang} · ${ME.contractH}h · ${ME.branch}`;
-  document.getElementById('cth-num').textContent=LESSON_DATES.length||'—';
+  document.getElementById('cth-num').textContent=ALL_DATES.length||'—';
 }
 
 /* ══════════════════════════════════
    CALENDAR RENDER
+   Only dates in ALL_DATES (derived from actual class schedule +
+   holiday/break exclusions) are shown as lesson days.
+   Non-lesson weekdays are grey. Breaks are dimmed.
 ══════════════════════════════════ */
 function renderCalendar(){
-  const lessonSet=new Set(LESSON_DATES);
-  const doneSet=new Set([...Object.keys(ATTEND_MAP),...Object.keys(SUMMARY_MAP)]);
+  const lessonSet=new Set(ALL_DATES);
+  const doneSet=new Set([
+    ...Object.keys(ATTEND_MAP).filter(d=>lessonSet.has(d)),
+    ...Object.keys(SUMMARY_MAP).filter(d=>lessonSet.has(d)),
+  ]);
   const todayISO=new Date().toISOString().slice(0,10);
 
   document.getElementById('cmn-title').textContent=MONTHS_PT[calMonth];
@@ -595,25 +629,29 @@ function renderCalendar(){
   const startDow=new Date(calYear,calMonth,1).getDay();
 
   let html='';
-  /* blank cells before month start */
   for(let i=0;i<startDow;i++)html+=`<div class="cal-day grey"></div>`;
 
   for(let d=1;d<=lastDay;d++){
-    const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const mm=String(calMonth+1).padStart(2,'0');
+    const dd=String(d).padStart(2,'0');
+    const iso=`${calYear}-${mm}-${dd}`;
     const isLesson=lessonSet.has(iso);
-    const isDone=doneSet.has(iso)&&isLesson;
+    const isDone=doneSet.has(iso);
     const isToday=iso===todayISO;
     const isSel=iso===selectedDate;
     const isBreak=isInBreak(iso)||HOLIDAYS.has(iso);
+    const isInYear=iso>=YEAR_START&&iso<=YEAR_END;
 
     let cls='cal-day';
-    if(isBreak&&!isLesson)cls+=' break-day';
-    else if(!isLesson)cls+=' grey';
-    if(isLesson)cls+=' clickable';
-    if(isToday)cls+=' today';
-    if(isSel)cls+=' selected';
-    if(isDone)cls+=' done-lesson';
-    else if(isLesson)cls+=' has-lesson';
+    if(!isInYear)            cls+=' grey';
+    else if(isBreak&&!isLesson) cls+=' break-day';
+    else if(!isLesson)       cls+=' grey';
+
+    if(isLesson)  cls+=' clickable';
+    if(isToday)   cls+=' today';
+    if(isSel)     cls+=' selected';
+    if(isDone)    cls+=' done-lesson';
+    else if(isLesson) cls+=' has-lesson';
 
     const click=isLesson?`onclick="selectDate('${iso}')"`:' ';
     html+=`<div class="${cls}" ${click}>${d}</div>`;
@@ -622,8 +660,14 @@ function renderCalendar(){
   document.getElementById('cal-grid').innerHTML=html;
 }
 
-function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
-function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function prevMonth(){
+  calMonth--;if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+function nextMonth(){
+  calMonth++;if(calMonth>11){calMonth=0;calYear++;}
+  renderCalendar();
+}
 
 /* ══════════════════════════════════
    SELECT DATE → LESSON SHEET
@@ -632,42 +676,51 @@ function selectDate(iso){
   selectedDate=iso;
   renderCalendar();
 
-  const lessonNum=LESSON_DATES.indexOf(iso)+1;
-  const total=LESSON_DATES.length;
+  /* Which dow does this date belong to? */
+  const dow=DOW_BY_DATE[iso]||null;
+  /* Sequential lesson number within this day-of-week stream */
+  const lessonNum=dow?lessonNumber(dow,iso):0;
+  const totalForDow=dow?buildLessonDates(dow).length:0;
+  /* Position in ALL_DATES (across all streams) */
+  const globalPos=ALL_DATES.indexOf(iso)+1;
+  const globalTotal=ALL_DATES.length;
+
   const att=ATTEND_MAP[iso]||{};
   const sum=SUMMARY_MAP[iso]||null;
   const reqs=REQUEST_MAP[iso]||[];
 
-  const numColor=lessonNum<=Math.floor(total*.33)?'var(--blue)':lessonNum<=Math.floor(total*.66)?'var(--teal)':'var(--gold2)';
-  const barPct=total?Math.round(lessonNum/total*100):0;
+  const numColor=globalPos<=Math.floor(globalTotal*.33)?'var(--blue)':globalPos<=Math.floor(globalTotal*.66)?'var(--teal)':'var(--gold2)';
+  const barPct=globalTotal?Math.round(globalPos/globalTotal*100):0;
 
   const dt=new Date(iso+'T12:00:00');
   const datePT=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const dayName=MONTHS_PT[dt.getMonth()].toUpperCase();
 
-  /* Which turmas have lessons on this day */
-  const dow=dt.getDay();
-  const turmaDow=(MY_CLASSES||[]).filter(c=>DOW_MAP[(c.day_of_week||'').toUpperCase().trim()]===dow);
+  /* Which turmas have lessons on this date's day-of-week */
+  const dtDow=dt.getDay();
+  const turmaDow=MY_CLASSES.filter(c=>DOW_MAP[(c.day_of_week||'').toUpperCase().trim()]===dtDow);
 
   const turmaBlock=turmaDow.length?`
     <div class="lph-turmas">
-      ${turmaDow.map(c=>`<div class="lph-turma-row">
-        <div class="ltr-code">${c.turma_code||'—'}</div>
-        <div class="ltr-time">${c.start_time||''}${c.end_time?'–'+c.end_time:''}</div>
-        <div class="ltr-level">${c.level_display||c.level_code||''}</div>
-        <div class="ltr-sala">${c.sala?'Sala '+c.sala:''}</div>
-      </div>`).join('')}
+      ${turmaDow.map(c=>{
+        const editUrl=`/admin/alm-teacher-portal.html?teacher=${encodeURIComponent(ME?.id||'')}`;
+        return`<div class="lph-turma-row">
+          <div class="ltr-code">${c.turma_code||'—'}</div>
+          <div class="ltr-time">${c.start_time||''}${c.end_time?'–'+c.end_time:''}</div>
+          <div class="ltr-level">${c.level_display||c.level_code||''}</div>
+          <div class="ltr-sala">${c.sala?'Sala '+c.sala:''}</div>
+          <a class="ltr-edit-btn" href="${editUrl}" title="Registar presenças no Portal">✎ Portal</a>
+        </div>`;
+      }).join('')}
     </div>`:'';
 
-  /* Attendance HTML */
+  /* Attendance */
   const turmaKeys=Object.keys(att);
   let attHTML='';
   if(!turmaKeys.length){
-    attHTML=`<div class="no-data">Sem presenças registadas.
+    const portalUrl=`/admin/alm-teacher-portal.html?teacher=${encodeURIComponent(ME?.id||'')}`;
+    attHTML=`<div class="no-data">Sem presenças registadas para este dia.
       <div style="margin-top:8px">
-        <a class="qa-btn qa-gold" style="display:inline-flex" href="/admin/alm-teacher-portal.html?teacher=${ME?.id||''}">
-          ▣ Registar presenças →
-        </a>
+        <a class="qa-btn qa-gold" style="display:inline-flex" href="${portalUrl}">▣ Registar no Portal →</a>
       </div>
     </div>`;
   }else{
@@ -676,9 +729,13 @@ function selectDate(iso){
       const pres=rows.filter(r=>r.status==='present'||r.status==='presente').length;
       const late=rows.filter(r=>r.status==='late'||r.status==='atraso').length;
       const abs=rows.filter(r=>r.status==='absent'||r.status==='falta').length;
+      /* Lesson number stored at write time takes precedence */
+      const storedLN=rows[0]?.lessonNum||lessonNum;
       attHTML+=`<div style="margin-bottom:10px">
-        <div style="font-size:8px;font-weight:700;color:var(--gold2);letter-spacing:.08em;margin-bottom:5px">
-          ${tc} · ${pres+late}/${rows.length} presentes${late>0?' · '+late+' atraso':''}${abs>0?' · '+abs+' falta':''}
+        <div style="font-size:8px;font-weight:700;color:var(--gold2);letter-spacing:.08em;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+          ${tc}
+          <span style="font-size:7.5px;color:var(--teal);font-weight:400">Aula ${String(storedLN).padStart(3,'0')}</span>
+          <span style="font-size:7.5px;color:var(--t3);font-weight:400">${pres+late}/${rows.length} presentes${late>0?' · '+late+' atraso':''}${abs>0?' · '+abs+' falta':''}</span>
         </div>
         <div class="att-mini">
           ${rows.map(r=>{
@@ -698,27 +755,28 @@ function selectDate(iso){
     });
   }
 
-  /* Summary HTML */
+  /* Summary */
   let sumHTML='';
   if(sum){
     sumHTML=`<div class="sum-box">
+      ${sum.lesson_number?`<div style="font-size:7.5px;color:var(--teal);margin-bottom:6px;letter-spacing:.04em">Aula ${String(sum.lesson_number).padStart(3,'0')} · ${dow||''}</div>`:''}
       <div>${sum.summary||'<em style="color:var(--t3);font-style:italic">Sem texto de sumário.</em>'}</div>
       ${sum.book_page?`<div class="sum-field"><span class="sf-k">Livro/Pág.</span><span class="sf-v">${sum.book_page}</span></div>`:''}
       ${sum.skill?`<div class="sum-field"><span class="sf-k">Competência</span><span class="sf-v">${sum.skill}</span></div>`:''}
       ${sum.participation?`<div class="sum-field"><span class="sf-k">Participação</span><span class="sf-v">${sum.participation}</span></div>`:''}
+      ${sum.tpc?`<div class="sum-field"><span class="sf-k">TPC</span><span class="sf-v">${sum.tpc}${sum.tpc_ref?' · '+sum.tpc_ref:''}${sum.tpc_due?' · entrega '+sum.tpc_due:''}</span></div>`:''}
       ${sum.notes?`<div class="sum-field"><span class="sf-k">Observações</span><span class="sf-v">${sum.notes}</span></div>`:''}
     </div>`;
   }else{
+    const portalUrl=`/admin/alm-teacher-portal.html?teacher=${encodeURIComponent(ME?.id||'')}`;
     sumHTML=`<div class="no-data">Sem sumário registado.
       <div style="margin-top:8px">
-        <a class="qa-btn qa-gold" style="display:inline-flex" href="/admin/alm-teacher-portal.html?teacher=${ME?.id||''}">
-          ✎ Registar sumário →
-        </a>
+        <a class="qa-btn qa-gold" style="display:inline-flex" href="${portalUrl}">✎ Registar no Portal →</a>
       </div>
     </div>`;
   }
 
-  /* Requests HTML */
+  /* Requests */
   let reqHTML='';
   if(reqs.length){
     reqHTML=`<div class="att-mini">${reqs.map(r=>`<div class="att-mini-row">
@@ -734,16 +792,20 @@ function selectDate(iso){
   const totalAbs=allAtt.filter(r=>r.status==='absent'||r.status==='falta').length;
   const totalStu=allAtt.length;
 
+  /* Lesson number display string */
+  const lnStr=lessonNum>0
+    ?`Aula ${String(lessonNum).padStart(3,'0')} de ${totalForDow} · ${dow||''} · Posição ${globalPos}/${globalTotal}`
+    :`Posição ${globalPos}/${globalTotal}`;
+
   const panel=document.getElementById('lesson-panel');
   panel.innerHTML=`
     <div class="lp-hero" style="animation:slide-up .2s ease">
       <div class="lph-top">
-        <div class="lph-num" style="color:${numColor}">${String(lessonNum).padStart(2,'0')}</div>
+        <div class="lph-num" style="color:${numColor}">${String(lessonNum||globalPos).padStart(3,'0')}</div>
         <div class="lph-info">
-          <div class="lph-date">${datePT.split(',')[0].toUpperCase()} ${dt.getDate()} ${dayName}</div>
-          <div style="font-family:var(--display);font-size:14px;color:var(--t3);letter-spacing:2px;margin-top:2px">${dt.getFullYear()}</div>
+          <div class="lph-date">${datePT}</div>
           <div class="lph-sub">
-            <span class="lph-badge" style="background:rgba(201,168,76,.08);border-color:var(--b2);color:var(--gold2)">Aula ${lessonNum} de ${total}</span>
+            <span class="lph-badge" style="background:rgba(201,168,76,.08);border-color:var(--b2);color:var(--gold2)">${lnStr}</span>
             ${turmaKeys.length?`<span class="lph-badge" style="background:var(--green-c);border-color:var(--green-b);color:var(--green)">✓ Presenças registadas</span>`:''}
             ${sum?`<span class="lph-badge" style="background:rgba(40,200,176,.08);border-color:rgba(40,200,176,.3);color:var(--teal)">✓ Sumário</span>`:''}
           </div>
@@ -781,7 +843,7 @@ function selectDate(iso){
     </div>`:''}
   `;
 
-  if(window.innerWidth<=780) panel.scrollIntoView({behavior:'smooth',block:'start'});
+  if(window.innerWidth<=780)panel.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ══════════════════════════════════
