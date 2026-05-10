@@ -284,7 +284,7 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 </div>
 
 <div class="save-bar">
-  <button class="qa-btn qa-gold" onclick="window.location.href='/admin/alm-teacher-portal.html'+(teacherId?'?teacher='+teacherId:'')">← Portal do Professor</button>
+ <button class="qa-btn qa-gold" onclick="window.location.href='/admin/alm-teacher-portal.html'+(teacherId?'?teacher='+teacherId:'')">← Portal do Professor</button>
   <div class="spinner" id="spinner"></div>
   <div class="sb-right">
     <span class="sb-status" id="sb-status">Pronto</span>
@@ -395,6 +395,15 @@ let selectedDate = null;
 async function boot(){
   setSb('loading','A carregar professores…');
   LESSON_DATES = buildLessonDates();
+  /* Auto-select date from URL ?date=YYYY-MM-DD */
+  const dateParam = new URLSearchParams(window.location.search).get('date');
+  if(dateParam && LESSON_DATES.includes(dateParam)){
+    selectedDate = dateParam;
+    /* Jump calendar to that month */
+    const d = new Date(dateParam+'T12:00:00');
+    calYear  = d.getFullYear();
+    calMonth = d.getMonth();
+  }
 
   try{
     const raw = await sbGet('teachers','select=id,code,name,lang,native,branch_primary,contract_hours_week&limit=200');
@@ -483,6 +492,8 @@ async function loadData(){
 
   renderCalTeacherHero();
   renderCalendar();
+  /* If a date was pre-selected from URL, open its sheet */
+  if(selectedDate) selectDate(selectedDate);
 }
 
 /* ══════════════════════════════════════════
