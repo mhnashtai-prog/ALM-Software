@@ -420,11 +420,11 @@ async function boot(){
       sbGet('teachers',
         `select=id,code,name,lang,native,branch_primary,branches,contract_hours_week`),
       sbGet('classes',
-        `select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
+        `select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=hour`
       sbGet('enrolments',
         `select=ref,name,branch,lang,level_code&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
       sbGet('attendance',
-        `select=id,turma_code,student_ref,student_name,date,status,recorded_by&date=eq.${today}&limit=2000`)
+        `select=id,turma_code,student_ref,student_name,date,status,recorded_by&date=eq.${encodeURIComponent(today)}&limit=2000`)
           .catch(()=>[]),
       sbGet('lesson_summaries',
         `select=id,turma_code,teacher_id,date,summary,book_page,skill,participation,notes&date=eq.${today}&limit=500`)
@@ -532,7 +532,7 @@ function buildTeacherMap(){
 
     /* compute presence counts */
     Object.values(submissions).forEach(sub=>{
-      sub.presentes = sub.records.filter(r=>r.status==='presente').length;
+    sub.presentes = sub.records.filter(r=>r.status==='present'||r.status==='late').length;
       sub.total     = sub.records.length;
     });
 
@@ -751,8 +751,8 @@ function buildPresencas(tm){
           const enr = ENROL_MAP[ref]||{ref,name:ref};
           const av  = avCol(enr.name||ref);
           const st  = recMap[ref]||null;
-          const stLabel = st?st.toUpperCase():'—';
-          const stColor = st==='presente'?'var(--green)':st==='falta'?'var(--red)':st==='atraso'?'var(--amber)':'var(--t4)';
+          const stLabel = st==='present'?'PRESENTE':st==='absent'?'FALTA':st==='late'?'ATRASO':st?st.toUpperCase():'—';
+          const stColor = st==='present'?'var(--green)':st==='absent'?'var(--red)':st==='late'?'var(--amber)':'var(--t4)';
           return`<div class="stu-mini">
             <div class="stu-mini-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(enr.name||ref)}</div>
             <span class="stu-mini-name">${enr.name||ref}</span>
@@ -864,7 +864,7 @@ function buildAlunos(tm){
     const enr = ENROL_MAP[ref]||{ref,name:ref};
     const av  = avCol(enr.name||ref);
     /* Absence count from attendance data */
-    const absCount = ATTEND.filter(a=>a.student_ref===ref&&a.status==='falta').length;
+   const absCount = ATTEND.filter(a=>a.student_ref===ref&&a.status==='absent').length;
     html+=`<div class="alu-row">
       <div class="alu-num">${String(i+1).padStart(2,'0')}</div>
       <div class="alu-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(enr.name||ref)}</div>
