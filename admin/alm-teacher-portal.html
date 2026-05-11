@@ -26,6 +26,8 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes modal-in{from{opacity:0;transform:scale(.95) translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes slide-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes slide-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-20px)}}
 
 .topbar{position:sticky;top:0;z-index:200;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2)}
 .nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:54px}
@@ -129,10 +131,70 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 .slot-done-tick{position:absolute;top:3px;right:3px;font-size:9px;color:var(--green);opacity:.8}
 .slot-now-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite}
 
+/* ══════════════════════════════════════════════
+   LESSON NAVIGATOR  —  the new top-of-modal bar
+══════════════════════════════════════════════ */
+.lesson-nav{
+  display:flex;align-items:center;gap:0;
+  background:var(--bg);border-bottom:.5px solid var(--b2);
+  flex-shrink:0;overflow:hidden;position:relative;
+}
+.ln-rail{
+  flex:1;overflow-x:auto;display:flex;align-items:stretch;gap:0;
+  scroll-behavior:smooth;scrollbar-width:none;
+}
+.ln-rail::-webkit-scrollbar{display:none}
+.ln-cell{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:52px;padding:6px 4px;border-right:.5px solid rgba(201,168,76,.06);
+  cursor:pointer;transition:all .12s;position:relative;flex-shrink:0;
+  border-bottom:2px solid transparent;
+}
+.ln-cell:hover{background:rgba(201,168,76,.06)}
+.ln-cell.active{background:rgba(201,168,76,.1);border-bottom-color:var(--gold)}
+.ln-cell.has-att{border-bottom-color:var(--green)}
+.ln-cell.active.has-att{border-bottom-color:var(--gold);background:rgba(201,168,76,.12)}
+.ln-num{font-size:9px;font-weight:700;color:var(--t2);line-height:1;letter-spacing:.04em}
+.ln-cell.active .ln-num{color:var(--gold2)}
+.ln-date{font-size:6.5px;color:var(--t3);margin-top:2px;white-space:nowrap}
+.ln-dot{width:4px;height:4px;border-radius:50%;margin-top:2px;background:transparent}
+.ln-cell.has-att .ln-dot{background:var(--green)}
+.ln-cell.active .ln-dot{background:var(--gold)}
+.ln-cell.active.has-att .ln-dot{background:var(--gold)}
+.ln-today-marker{position:absolute;top:3px;right:3px;width:4px;height:4px;border-radius:50%;background:var(--teal)}
+.ln-arrow{
+  width:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;background:rgba(0,0,0,.4);border:none;color:var(--t3);
+  font-size:11px;height:100%;transition:all .12s;font-family:var(--mono);
+  border-right:.5px solid var(--b);
+}
+.ln-arrow:last-child{border-right:none;border-left:.5px solid var(--b)}
+.ln-arrow:hover{background:rgba(201,168,76,.08);color:var(--gold2)}
+.ln-arrow:disabled{opacity:.2;cursor:not-allowed}
+.ln-info{
+  display:flex;align-items:center;gap:10px;padding:5px 14px;
+  font-size:8px;border-bottom:.5px solid var(--b);flex-shrink:0;
+  background:rgba(0,0,0,.1);
+}
+.ln-info-pill{
+  padding:2px 8px;border-radius:2px;font-size:7.5px;font-weight:700;
+  border:.5px solid;letter-spacing:.04em;display:flex;align-items:center;gap:4px;
+}
+.ln-info-pill.curr{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.ln-info-pill.done{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.ln-info-pill.total{background:rgba(40,200,176,.08);border-color:rgba(40,200,176,.25);color:var(--teal)}
+.ln-info-pill.future{background:rgba(215,193,145,.05);border-color:var(--b);color:var(--t3)}
+.ln-viewing-badge{
+  margin-left:auto;padding:2px 8px;border-radius:2px;font-size:7.5px;font-weight:700;
+  background:rgba(232,69,90,.1);border:.5px solid rgba(232,69,90,.25);color:var(--red);
+  display:none;
+}
+.ln-viewing-badge.show{display:inline-flex;align-items:center;gap:4px}
+
 /* ── ACTION MODAL ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(4,2,12,.85);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:12px}
 .modal-overlay.open{display:flex}
-.action-modal{background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;width:min(760px,98vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.95);animation:modal-in .2s ease}
+.action-modal{background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;width:min(780px,98vw);max-height:94vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.95);animation:modal-in .2s ease}
 .mh-hero{position:relative;flex-shrink:0;min-height:96px;overflow:hidden;display:flex;align-items:flex-end;padding:0 18px 0 0}
 .mh-hero-bg{position:absolute;inset:0;transition:background .3s}
 .mh-hero-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.1) 0%,rgba(0,0,0,.72) 100%)}
@@ -165,6 +227,17 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--
 .mt-tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .modal-body{overflow-y:auto;flex:1;padding:16px 18px 18px;min-height:0}
 .tab-pane{display:none}.tab-pane.active{display:block}
+
+/* Past lesson read-only banner */
+.past-lesson-banner{
+  display:none;align-items:center;gap:10px;padding:7px 12px;
+  background:rgba(232,160,32,.07);border:.5px solid rgba(232,160,32,.22);
+  border-radius:4px;margin-bottom:12px;font-size:9px;color:var(--amber);
+}
+.past-lesson-banner.show{display:flex}
+.plb-icon{font-size:13px}
+.plb-back{margin-left:auto;padding:2px 10px;background:rgba(232,160,32,.12);border:.5px solid rgba(232,160,32,.3);border-radius:2px;font-size:8px;font-weight:700;cursor:pointer;color:var(--amber);font-family:var(--mono);transition:all .12s}
+.plb-back:hover{background:rgba(232,160,32,.22)}
 
 /* Presence */
 .att-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -296,6 +369,7 @@ select.sf-inp{cursor:pointer}
 
 @media(max-width:580px){
   .hero-stats{display:none}.sum-fields{grid-template-columns:1fr}.ff-row{grid-template-columns:1fr}
+  .ln-info{flex-wrap:wrap;gap:5px}
 }
 </style>
 </head>
@@ -375,6 +449,7 @@ select.sf-inp{cursor:pointer}
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
   <div class="action-modal" onclick="event.stopPropagation()">
 
+    <!-- HERO -->
     <div class="mh-hero">
       <div class="mh-hero-bg" id="mh-hero-bg"></div>
       <div class="mh-hero-scrim"></div>
@@ -390,7 +465,7 @@ select.sf-inp{cursor:pointer}
           <span class="mh-submit-badge" id="mh-submit-badge" style="display:none">✓ Presenças submetidas</span>
           <a class="mh-cal-btn" id="mh-cal-btn" href="#" title="Ver no calendário">📅 Ver no calendário</a>
         </div>
-        <div style="margin-top:4px" id="mh-day-full" style="font-size:9px;color:rgba(255,255,255,.45)"></div>
+        <div style="margin-top:4px" id="mh-day-full"></div>
       </div>
       <div class="mh-stats">
         <div class="mh-att-counter" id="mh-att-num">0</div>
@@ -399,6 +474,24 @@ select.sf-inp{cursor:pointer}
       </div>
     </div>
 
+    <!-- ══ LESSON NAVIGATOR ══ -->
+    <div class="lesson-nav" id="lesson-nav">
+      <button class="ln-arrow" id="ln-prev" onclick="navLesson(-10)" title="Recuar 10 aulas">«</button>
+      <button class="ln-arrow" id="ln-prev1" onclick="navLesson(-1)" title="Aula anterior">‹</button>
+      <div class="ln-rail" id="ln-rail"></div>
+      <button class="ln-arrow" id="ln-next1" onclick="navLesson(1)" title="Próxima aula">›</button>
+      <button class="ln-arrow" id="ln-next" onclick="navLesson(10)" title="Avançar 10 aulas">»</button>
+    </div>
+
+    <!-- lesson nav info strip -->
+    <div class="ln-info" id="ln-info-strip">
+      <div class="ln-info-pill curr" id="ln-pill-curr">Aula — / —</div>
+      <div class="ln-info-pill done" id="ln-pill-done">— com presenças</div>
+      <div class="ln-info-pill total" id="ln-pill-total">— aulas no ano</div>
+      <div class="ln-viewing-badge" id="ln-viewing-badge">⚠ A ver aula passada</div>
+    </div>
+
+    <!-- TABS -->
     <div class="modal-tabs">
       <button class="mt-tab active" id="mt-presencas" onclick="switchTab('presencas',this)">
         <div class="mt-tab-dot" style="background:var(--green)"></div>Presenças
@@ -424,6 +517,12 @@ select.sf-inp{cursor:pointer}
 
       <!-- TAB 1: PRESENÇAS -->
       <div class="tab-pane active" id="tab-presencas">
+        <!-- Past lesson banner -->
+        <div class="past-lesson-banner" id="past-lesson-banner">
+          <span class="plb-icon">⚠</span>
+          <span id="past-lesson-text">A ver uma aula passada. As presenças já registadas são apresentadas como lidas.</span>
+          <button class="plb-back" onclick="jumpToTodayLesson()">↩ Ir para hoje</button>
+        </div>
         <div class="att-header">
           <div><div class="att-class" id="att-class">—</div><div class="att-count" id="att-count">0 / 0</div></div>
           <div class="att-bulk">
@@ -571,7 +670,7 @@ select.sf-inp{cursor:pointer}
         </div>
       </div>
 
-    </div>
+    </div><!-- /modal-body -->
 
     <div class="modal-footer">
       <div class="save-status" id="save-status"></div>
@@ -653,14 +752,12 @@ function buildLessonDates(dow){
   return dates;
 }
 
-/* Returns 1-based lesson number for a date+day pair */
 function lessonNumber(dow, iso){
   const dates = buildLessonDates(dow);
   const idx   = dates.indexOf(iso);
   return idx >= 0 ? idx + 1 : 0;
 }
 
-/* Total lessons in the year for a given day */
 function totalLessons(dow){
   return buildLessonDates(dow).length;
 }
@@ -687,14 +784,6 @@ async function sbGet(table, qs=''){
   return all;
 }
 
-/*
- * saveAttendanceRecords — THE RELIABLE SAVE METHOD
- *
- * Strategy: for each student record, attempt PATCH (update existing row).
- * If PATCH returns 0 rows affected (empty body + 204), do a POST (insert).
- * This avoids all upsert/conflict issues entirely.
- * We do them in parallel (Promise.allSettled) for speed, then collect errors.
- */
 async function saveAttendanceRecords(records){
   const results = await Promise.allSettled(records.map(row => saveOneRecord(row)));
   const errors  = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason));
@@ -702,53 +791,30 @@ async function saveAttendanceRecords(records){
 }
 
 async function saveOneRecord(row){
-  /* Build filter for exact match on the composite key */
   const filter = `turma_code=eq.${encodeURIComponent(row.turma_code)}&student_ref=eq.${encodeURIComponent(row.student_ref)}&date=eq.${encodeURIComponent(row.date)}`;
-
-  /* Try PATCH first (update existing) */
   const patchBody = {
-    status:        row.status,
-    student_name:  row.student_name,
-    lesson_number: row.lesson_number,
-    recorded_by:   row.recorded_by,
-    recorded_at:   row.recorded_at,
+    status:row.status, student_name:row.student_name,
+    lesson_number:row.lesson_number, recorded_by:row.recorded_by, recorded_at:row.recorded_at,
   };
   const patch = await fetch(`${SB}/rest/v1/attendance?${filter}`, {
-    method:'PATCH',
-    headers:{...H, Prefer:'return=representation'},
-    body: JSON.stringify(patchBody),
+    method:'PATCH', headers:{...H, Prefer:'return=representation'}, body:JSON.stringify(patchBody),
   });
-
   if(patch.ok){
     const patched = await patch.json();
-    if(patched && patched.length > 0) return; /* updated successfully */
-    /* PATCH returned 0 rows — row doesn't exist yet, fall through to INSERT */
+    if(patched && patched.length > 0) return;
   } else if(patch.status !== 404 && patch.status !== 406){
-    /* Unexpected error from PATCH */
-    const txt = await patch.text().catch(()=>'');
-    /* Non-fatal: try insert anyway */
-    console.warn('PATCH failed with', patch.status, txt.slice(0,80), '— trying INSERT');
+    console.warn('PATCH failed with', patch.status, '— trying INSERT');
   }
-
-  /* INSERT new row */
   const post = await fetch(`${SB}/rest/v1/attendance`, {
-    method:'POST',
-    headers:{...H, Prefer:'return=minimal'},
-    body: JSON.stringify(row),
+    method:'POST', headers:{...H, Prefer:'return=minimal'}, body:JSON.stringify(row),
   });
   if(!post.ok){
     const txt = await post.text().catch(()=>'');
-    /* If it's a unique constraint violation (23505), the row exists — try plain PATCH without Prefer */
     if(txt.includes('23505') || txt.includes('duplicate')){
       const patch2 = await fetch(`${SB}/rest/v1/attendance?${filter}`, {
-        method:'PATCH',
-        headers:{...H, Prefer:'return=minimal'},
-        body: JSON.stringify(patchBody),
+        method:'PATCH', headers:{...H, Prefer:'return=minimal'}, body:JSON.stringify(patchBody),
       });
-      if(!patch2.ok){
-        const t2 = await patch2.text().catch(()=>'');
-        throw new Error(`update conflict: ${patch2.status} ${t2.slice(0,80)}`);
-      }
+      if(!patch2.ok){ const t2=await patch2.text().catch(()=>''); throw new Error(`update conflict: ${patch2.status} ${t2.slice(0,80)}`); }
       return;
     }
     throw new Error(`insert: ${post.status} ${txt.slice(0,100)}`);
@@ -769,8 +835,27 @@ async function sbPatch(table, qs, body){
   if(!r.ok){ const t=await r.text(); throw new Error(`patch ${table}: ${r.status} ${t.slice(0,120)}`); }
 }
 
+/*
+ * sbUpsertSummary — tries lesson_summaries; if table doesn't exist (PGRST204 / 400),
+ * logs a warning and resolves gracefully instead of throwing.
+ */
+async function sbUpsertSummary(row){
+  const r = await fetch(`${SB}/rest/v1/lesson_summaries`, {
+    method:'POST',
+    headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify([row]),
+  });
+  if(r.ok) return;
+  const txt = await r.text().catch(()=>'');
+  /* PGRST204 = column/table does not exist; 42P01 = undefined table */
+  if(txt.includes('PGRST204') || txt.includes('42P01') || r.status === 404){
+    console.warn('lesson_summaries table not found — summary not persisted. Create the table to enable this feature.');
+    return; /* graceful — don't throw */
+  }
+  throw new Error(`upsert lesson_summaries: ${r.status} ${txt.slice(0,120)}`);
+}
+
 async function sbUpsertSimple(table, rows){
-  /* Simple upsert used for non-attendance tables (summaries etc.) */
   if(!rows || !rows.length) return;
   const r = await fetch(`${SB}/rest/v1/${table}`, {
     method:'POST',
@@ -797,6 +882,12 @@ const DEPT_CONFIG = {
   adults:  {label:'Geral',    color:'var(--c-ger)', slotClass:'sl-adults'},
   exam:    {label:'Exames',   color:'var(--c-exa)', slotClass:'sl-exam'},
 };
+
+/*
+ * FIX: turmas table uses group_key (text) for dept/level categorisation.
+ * group_key examples observed: "adults", "kids_juv", "exam" etc.
+ * We map directly from group_key first, then fall back to level_code heuristics.
+ */
 const LEVEL_MAP = {
   'PI1':{dept:'kids'},'PI2':{dept:'kids'},'PI3':{dept:'kids'},'PI4':{dept:'kids'},
   'PJ1':{dept:'kids_juv'},'PJ2':{dept:'kids_juv'},'PJ3':{dept:'kids_juv'},
@@ -820,28 +911,71 @@ const AV_POOL = [
 ];
 function avCol(n){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+(n||'').charCodeAt(i))&0xffffffff; return AV_POOL[Math.abs(h)%AV_POOL.length]; }
 function avInit(n){ return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
-function getDept(c){ return c.department || LEVEL_MAP[(c.level_code||'').trim()]?.dept || 'adults'; }
+
+function getDept(c){
+  /* 1) explicit department column */
+  if(c.department && DEPT_CONFIG[c.department]) return c.department;
+  /* 2) group_key column (the one that actually exists per Supabase screenshot) */
+  if(c.group_key  && DEPT_CONFIG[c.group_key])  return c.group_key;
+  /* 3) level_code heuristic */
+  return LEVEL_MAP[(c.level_code||'').trim()]?.dept || 'adults';
+}
 function getDC(c){ return DEPT_CONFIG[getDept(c)] || DEPT_CONFIG.adults; }
+
+/*
+ * FIX: turmas table uses group_key instead of day_of_week.
+ * We derive the day from group_key or from the raw data.
+ * The query now selects group_key too and we parse the schedule key from it.
+ *
+ * group_key format from ALM appears to be like "FUN-08-QUI-09" (turma_code-like)
+ * or just the department string. We need to parse day from turma_code if group_key
+ * doesn't contain it.
+ *
+ * Strategy: read day from:
+ *   1. day_of_week column (if it exists / not null)
+ *   2. Parse from turma_code (e.g. "FUN-08-QUI-09" → "QUI")
+ *   3. Parse from group_key
+ */
+function parseDayFromCode(code){
+  if(!code) return null;
+  for(const day of ['SEG','TER','QUA','QUI','SEX','SAB','SÁB']){
+    if(code.toUpperCase().includes(day)) return day === 'SAB' ? 'SÁB' : day;
+  }
+  return null;
+}
+
+function parseHourFromCode(code){
+  if(!code) return null;
+  /* turma_code like FUN-08-QUI-09 → last segment is hour */
+  const parts = code.split('-');
+  const last  = parseInt(parts[parts.length-1], 10);
+  if(!isNaN(last) && last >= 6 && last <= 22) return last;
+  return null;
+}
 
 /* ════════════════════════════════
    STATE
 ════════════════════════════════ */
-let ALL_TEACHERS = [];
-let ME           = null;
-let MY_CLASSES   = [];
-let SCHEDULE     = {};        /* day → hour → classObj */
-let ENROL_BY_REF = {};
-let ATTEND_WEEK  = {};        /* date → turma_code → { ref → status } */
-let currentSlot  = null;
-let currentStuIdx= null;
-let stuModalMode = null;
-let isSaving     = false;
+let ALL_TEACHERS  = [];
+let ME            = null;
+let MY_CLASSES    = [];
+let SCHEDULE      = {};
+let ENROL_BY_REF  = {};
+let ATTEND_CACHE  = {};   /* date → turma_code → { ref → status } — grows as we load past lessons */
+let currentSlot   = null;
+let currentStuIdx = null;
+let stuModalMode  = null;
+let isSaving      = false;
+
+/* Lesson navigator state */
+let NAV_DATES     = [];   /* all lesson ISO dates for current open class */
+let NAV_IDX       = 0;    /* currently viewed lesson index (0-based) */
+let NAV_TODAY_IDX = 0;    /* index of today's (or latest past) lesson */
 
 /* ════════════════════════════════
    BOOT
 ════════════════════════════════ */
 async function boot(){
-  /* Load school config */
   try{
     const cfg = await sbGet('school_config','select=key,value&limit=20');
     cfg.forEach(r=>{
@@ -849,7 +983,7 @@ async function boot(){
       if(r.key==='year_start_date') YEAR_START = r.value;
       if(r.key==='year_end_date')   YEAR_END   = r.value;
     });
-  }catch(e){ /* use defaults */ }
+  }catch(e){}
 
   document.getElementById('brand-yr').textContent = AY;
   document.getElementById('kpi-ay').textContent   = AY;
@@ -895,29 +1029,32 @@ async function switchTeacher(id){
 
 /* ════════════════════════════════
    LOAD TEACHER DATA
+   FIX: select group_key; derive day + hour from turma_code if needed
 ════════════════════════════════ */
 async function loadTeacherData(){
   setSb('loading',`A carregar turmas de ${ME.name}…`);
-  MY_CLASSES=[]; SCHEDULE={}; ENROL_BY_REF={}; ATTEND_WEEK={};
+  MY_CLASSES=[]; SCHEDULE={}; ENROL_BY_REF={}; ATTEND_CACHE={};
   renderHero();
 
   try{
+    /*
+     * FIX: include group_key in select (replaces missing day_of_week / department columns).
+     * We request both columns; whichever is null is handled gracefully.
+     */
     const classes = await sbGet('classes',
       `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}`+
-      `&select=turma_code,teacher_id,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala`);
+      `&select=turma_code,teacher_id,lang,level_code,level_display,department,group_key,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala`);
 
     if(!classes.length){
       setSb('warn','Sem turmas atribuídas — contacte a secretaria');
       buildGrid(); buildTodayStrip(); renderHeroStats(); return;
     }
 
-    /* Collect all student refs */
     const allRefs = [...new Set(classes.flatMap(c=>{
       if(Array.isArray(c.student_refs)) return c.student_refs;
       try{ return JSON.parse(c.student_refs||'[]'); }catch{ return []; }
     }))].filter(Boolean);
 
-    /* Fetch enrolments in chunks */
     if(allRefs.length){
       const CHUNK = 200;
       for(let i=0;i<allRefs.length;i+=CHUNK){
@@ -930,7 +1067,6 @@ async function loadTeacherData(){
       }
     }
 
-    /* Fetch attendance for the full current week */
     const turmaCodes = classes.map(c=>c.turma_code).filter(Boolean);
     if(turmaCodes.length){
       const weekDates = currentWeekDates();
@@ -938,25 +1074,34 @@ async function loadTeacherData(){
         const attRows = await sbGet('attendance',
           `turma_code=in.(${turmaCodes.join(',')})&date=in.(${weekDates.join(',')})&select=turma_code,student_ref,status,date&limit=5000`);
         attRows.forEach(row=>{
-          if(!ATTEND_WEEK[row.date])                            ATTEND_WEEK[row.date]={};
-          if(!ATTEND_WEEK[row.date][row.turma_code])            ATTEND_WEEK[row.date][row.turma_code]={};
-          ATTEND_WEEK[row.date][row.turma_code][row.student_ref] = row.status;
+          if(!ATTEND_CACHE[row.date])                            ATTEND_CACHE[row.date]={};
+          if(!ATTEND_CACHE[row.date][row.turma_code])            ATTEND_CACHE[row.date][row.turma_code]={};
+          ATTEND_CACHE[row.date][row.turma_code][row.student_ref] = row.status;
         });
       }catch(e){ console.warn('attendance week fetch failed',e); }
     }
 
-    /* Build class objects */
     classes.forEach(cls=>{
       let refs = [];
       if(Array.isArray(cls.student_refs)) refs = cls.student_refs;
       else try{ refs = JSON.parse(cls.student_refs||'[]'); }catch{}
 
-      const day = (cls.day_of_week||'SEG').toUpperCase().replace('SAB','SÁB');
-      const h   = typeof cls.hour==='number' ? cls.hour : parseInt(cls.hour,10)||9;
+      /*
+       * FIX: derive day from day_of_week → turma_code → group_key, in that order.
+       * Derive hour from hour column → turma_code.
+       */
+      let day = null;
+      if(cls.day_of_week) day = cls.day_of_week.toUpperCase().replace('SAB','SÁB');
+      if(!day) day = parseDayFromCode(cls.turma_code);
+      if(!day) day = parseDayFromCode(cls.group_key);
+      if(!day) day = 'SEG'; /* last resort */
+
+      let h = typeof cls.hour === 'number' ? cls.hour
+              : parseInt(cls.hour, 10) || 0;
+      if(!h || h < 6) h = parseHourFromCode(cls.turma_code) || 9;
 
       const iso        = todayISO();
-      const existingAtt= (ATTEND_WEEK[iso]||{})[cls.turma_code]||{};
-      const hasSubmission = Object.keys((ATTEND_WEEK[iso]||{})[cls.turma_code]||{}).length > 0;
+      const existingAtt= (ATTEND_CACHE[iso]||{})[cls.turma_code]||{};
 
       const students = refs.map((ref,i)=>{
         const enr = ENROL_BY_REF[ref]||{ref,name:ref};
@@ -975,7 +1120,8 @@ async function loadTeacherData(){
         dept:getDept(cls), branch:cls.branch, day, h,
         start:cls.start_time, end:cls.end_time,
         durationMin:cls.duration_min, sala:cls.sala,
-        students, hasSubmission,
+        students,
+        hasSubmission: Object.keys((ATTEND_CACHE[iso]||{})[cls.turma_code]||{}).length > 0,
       };
       MY_CLASSES.push(classObj);
       if(!SCHEDULE[day]) SCHEDULE[day]={};
@@ -996,7 +1142,6 @@ async function loadTeacherData(){
   renderHeroStats(); buildGrid(); buildTodayStrip();
 }
 
-/* Mon–Sat ISO dates for current calendar week */
 function currentWeekDates(){
   const now = new Date();
   const dow = now.getDay() || 7;
@@ -1011,7 +1156,6 @@ function currentWeekDates(){
   return dates;
 }
 
-/* Map day abbreviation → ISO date for current week */
 function dayDateMap(){
   const map = {};
   currentWeekDates().forEach(iso=>{
@@ -1062,7 +1206,6 @@ function buildTodayStrip(){
   const iso       = todayISO();
 
   if(!slots.length){
-    /* Find next lesson */
     let hint = '';
     for(let d=1;d<=6;d++){
       const check = new Date();
@@ -1086,8 +1229,7 @@ function buildTodayStrip(){
     const [sh,sm] = (s.start||'9:00').split(':').map(Number);
     const [eh,em] = (s.end||'10:30').split(':').map(Number);
     const isNow  = nowMin >= sh*60+sm && nowMin < eh*60+em;
-    const isDone = Object.keys((ATTEND_WEEK[iso]||{})[s.turmaCode]||{}).length > 0;
-    /* Lesson number for today */
+    const isDone = Object.keys((ATTEND_CACHE[iso]||{})[s.turmaCode]||{}).length > 0;
     const lNum = lessonNumber(todayKey, iso);
     const lStr = lNum > 0 ? ` · Aula ${String(lNum).padStart(3,'0')}` : '';
     return `<div class="today-slot${isNow?' now':''}${isDone?' submitted':''}" onclick="openSlot('${todayKey}',${h},'${iso}')">
@@ -1100,7 +1242,7 @@ function buildTodayStrip(){
 }
 
 /* ════════════════════════════════
-   GRID — shows lesson number, not hour
+   GRID
 ════════════════════════════════ */
 function buildGrid(){
   const todayKey  = DAY_JS[new Date().getDay()];
@@ -1131,21 +1273,16 @@ function slotCell(day, h, nowMin, isToday, dayIso){
     const [sh,sm] = (s.start||'9:00').split(':').map(Number);
     const [eh,em] = (s.end||'10:30').split(':').map(Number);
     const isNow  = isToday && nowMin >= sh*60+sm && nowMin < eh*60+em;
-    /* isDone: check if this specific calendar date already has submissions */
-    const isDone = dayIso && Object.keys((ATTEND_WEEK[dayIso]||{})[s.turmaCode]||{}).length > 0;
-
+    const isDone = dayIso && Object.keys((ATTEND_CACHE[dayIso]||{})[s.turmaCode]||{}).length > 0;
     const dc       = getDC(s);
     const av       = avCol(ME?.name||'?');
     const shortCode= (s.turmaCode||'').replace(/^[^-]+-/,'');
     const stuCount = s.students?.length || 0;
-
-    /* ✅ FIX: Show actual lesson sequence number, not the clock hour */
     const lNum    = dayIso ? lessonNumber(day, dayIso) : 0;
     const lTotal  = totalLessons(day);
     const lNumStr = lNum > 0
       ? `<div class="slot-lesson-num">Aula ${String(lNum).padStart(3,'0')}/${lTotal}</div>`
       : '';
-
     return `<td class="slot-cell"><div class="slot-inner booked ${dc.slotClass}${isDone?' done-slot':''}" onclick="openSlot('${day}',${h},'${dayIso}')">
       ${isNow && !isDone ? '<div class="slot-now-dot"></div>' : ''}
       ${isDone           ? '<div class="slot-done-tick">✓</div>' : ''}
@@ -1163,26 +1300,189 @@ function slotCell(day, h, nowMin, isToday, dayIso){
   return `<td class="slot-cell"><div class="slot-inner empty"></div></td>`;
 }
 
+/* ════════════════════════════════════════════════
+   LESSON NAVIGATOR — core logic
+   Builds a horizontal rail of ALL lessons for a
+   given class (day-of-week) in the academic year,
+   letting the teacher click any lesson to view it.
+════════════════════════════════════════════════ */
+
+/*
+ * Initialise the navigator for a newly opened class slot.
+ * Called once per openSlot(); navLesson() reuses the same nav state.
+ */
+function initLessonNav(day, currentISO, turmaCode){
+  NAV_DATES = buildLessonDates(day);
+  const today = todayISO();
+
+  /* Find the index of the lesson we opened */
+  NAV_IDX = NAV_DATES.indexOf(currentISO);
+  if(NAV_IDX < 0) NAV_IDX = NAV_DATES.findIndex(d => d >= today);
+  if(NAV_IDX < 0) NAV_IDX = NAV_DATES.length - 1;
+
+  /* "Today's lesson" = last past or current lesson */
+  NAV_TODAY_IDX = NAV_DATES.reduce((best, d, i) => d <= today ? i : best, 0);
+
+  renderLessonNav(turmaCode);
+}
+
+/* Render / refresh the rail */
+function renderLessonNav(turmaCode){
+  const rail    = document.getElementById('ln-rail');
+  const today   = todayISO();
+  let html      = '';
+
+  NAV_DATES.forEach((iso, i)=>{
+    const lNum    = i + 1;
+    const isActive= i === NAV_IDX;
+    const isFuture= iso > today;
+    const isToday = iso === today;
+    const hasSub  = Object.keys((ATTEND_CACHE[iso]||{})[turmaCode]||{}).length > 0;
+
+    /* Short date label: DD/MM */
+    const dt = new Date(iso + 'T12:00:00');
+    const dd = String(dt.getDate()).padStart(2,'0');
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+
+    const classes = ['ln-cell'];
+    if(isActive) classes.push('active');
+    if(hasSub)   classes.push('has-att');
+
+    html += `<div class="${classes.join(' ')}" data-idx="${i}" onclick="navLesson(${i - NAV_IDX})" title="Aula ${String(lNum).padStart(3,'0')} · ${iso}">
+      ${isToday ? '<div class="ln-today-marker"></div>' : ''}
+      <div class="ln-num">${String(lNum).padStart(3,'0')}</div>
+      <div class="ln-date">${dd}/${mm}</div>
+      <div class="ln-dot"></div>
+    </div>`;
+  });
+  rail.innerHTML = html;
+
+  /* Scroll active cell into view */
+  requestAnimationFrame(()=>{
+    const active = rail.querySelector('.ln-cell.active');
+    if(active) active.scrollIntoView({inline:'center', behavior:'smooth', block:'nearest'});
+  });
+
+  /* Arrow states */
+  document.getElementById('ln-prev').disabled  = NAV_IDX < 10;
+  document.getElementById('ln-prev1').disabled = NAV_IDX < 1;
+  document.getElementById('ln-next1').disabled = NAV_IDX >= NAV_DATES.length - 1;
+  document.getElementById('ln-next').disabled  = NAV_IDX >= NAV_DATES.length - 10;
+
+  /* Info strip */
+  const doneCount = NAV_DATES.filter(d=> Object.keys((ATTEND_CACHE[d]||{})[turmaCode]||{}).length > 0).length;
+  document.getElementById('ln-pill-curr').textContent  = `Aula ${String(NAV_IDX+1).padStart(3,'0')} / ${NAV_DATES.length}`;
+  document.getElementById('ln-pill-done').textContent  = `${doneCount} com presenças`;
+  document.getElementById('ln-pill-total').textContent = `${NAV_DATES.length} aulas no ano`;
+
+  /* Viewing-past badge */
+  const vBadge = document.getElementById('ln-viewing-badge');
+  const isPast = NAV_DATES[NAV_IDX] < today;
+  vBadge.classList.toggle('show', isPast && NAV_IDX !== NAV_TODAY_IDX);
+}
+
+/*
+ * navLesson(delta) — navigate relative to current NAV_IDX.
+ * delta = +1 / -1 / +10 / -10 etc.
+ * When delta is NOT a simple ±1/±10 but an absolute jump (from cell click),
+ * we pass (targetIdx - NAV_IDX).
+ */
+async function navLesson(delta){
+  if(!currentSlot) return;
+  const newIdx = Math.max(0, Math.min(NAV_DATES.length-1, NAV_IDX + delta));
+  if(newIdx === NAV_IDX) return;
+  NAV_IDX = newIdx;
+
+  const targetDate  = NAV_DATES[NAV_IDX];
+  const turmaCode   = currentSlot.turmaCode;
+  const today       = todayISO();
+
+  /* Load attendance for this date if not already cached */
+  if(!ATTEND_CACHE[targetDate]?.[turmaCode]){
+    try{
+      const rows = await sbGet('attendance',
+        `turma_code=eq.${encodeURIComponent(turmaCode)}&date=eq.${encodeURIComponent(targetDate)}&select=student_ref,status&limit=500`);
+      if(!ATTEND_CACHE[targetDate]) ATTEND_CACHE[targetDate] = {};
+      if(!ATTEND_CACHE[targetDate][turmaCode]) ATTEND_CACHE[targetDate][turmaCode] = {};
+      rows.forEach(r=>{ ATTEND_CACHE[targetDate][turmaCode][r.student_ref] = r.status; });
+    }catch(e){ console.warn('Failed to load attendance for', targetDate, e); }
+  }
+
+  /* Update currentSlot to reflect the new lesson date */
+  currentSlot.lessonDate  = targetDate;
+  currentSlot.lessonNum   = NAV_IDX + 1;
+  currentSlot.lessonTotal = NAV_DATES.length;
+
+  const existingAtt   = (ATTEND_CACHE[targetDate]||{})[turmaCode] || {};
+  currentSlot.hasSubmission = Object.keys(existingAtt).length > 0;
+
+  /* Rebuild student state from cached attendance for this date */
+  currentSlot.studentState = currentSlot.students.map(stu=>{
+    const raw = existingAtt[stu.ref] ?? null;
+    const present = raw==='present'||raw==='presente' ? true
+                  : raw==='late'||raw==='atraso'      ? 'late'
+                  : raw==='absent'||raw==='falta'     ? false
+                  : null;
+    return {...stu, present};
+  });
+
+  /* Update hero badges */
+  const lNumEl = document.getElementById('mh-lesson-num');
+  lNumEl.textContent   = `Aula ${String(NAV_IDX+1).padStart(3,'0')} de ${NAV_DATES.length}`;
+  lNumEl.style.display = 'inline-flex';
+
+  const dtObj    = new Date(targetDate + 'T12:00:00');
+  const dateShort= dtObj.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const datePT   = dtObj.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const dateBadge= document.getElementById('mh-date-badge');
+  dateBadge.textContent = '📅 ' + dateShort;
+  dateBadge.title       = datePT;
+
+  const dayFullEl = document.getElementById('mh-day-full');
+  dayFullEl.textContent = datePT + (currentSlot.durationMin?' · '+currentSlot.durationMin+'min':'') + (currentSlot.sala?' · Sala '+currentSlot.sala:'');
+
+  document.getElementById('mh-submit-badge').style.display = currentSlot.hasSubmission ? 'inline-flex' : 'none';
+
+  /* Past lesson banner */
+  const isPast = targetDate < today;
+  const banner = document.getElementById('past-lesson-banner');
+  banner.classList.toggle('show', isPast);
+  if(isPast){
+    const ptDate = dtObj.toLocaleDateString('pt-PT',{day:'numeric',month:'long'});
+    document.getElementById('past-lesson-text').textContent =
+      `A ver aula de ${ptDate}. ${currentSlot.hasSubmission ? 'Presenças já registadas.' : 'Sem registo de presenças.'}`;
+  }
+
+  /* Save footer: disable save for future lessons */
+  const isFuture = targetDate > today;
+  const saveBtn  = document.getElementById('btn-save');
+  saveBtn.disabled  = isFuture;
+  saveBtn.title     = isFuture ? 'Não é possível guardar aulas futuras' : '';
+
+  /* Refresh student list & nav rail */
+  buildStudentList();
+  updateAttHeader();
+  renderLessonNav(turmaCode);
+}
+
+/* Jump back to today's lesson */
+function jumpToTodayLesson(){
+  const delta = NAV_TODAY_IDX - NAV_IDX;
+  if(delta !== 0) navLesson(delta);
+}
+
 /* ════════════════════════════════
    OPEN SLOT
-   dayIso: the actual calendar date of this grid cell (always passed from grid/strip)
 ════════════════════════════════ */
 function openSlot(day, h, dayIso){
   const s = SCHEDULE[day]?.[h];
   if(!s || !s.start) return;
 
-  /* dayIso is always passed explicitly from both grid and strip clicks */
-  const lessonDate = dayIso || todayISO();
+  const lessonDate  = dayIso || todayISO();
+  const existingAtt = (ATTEND_CACHE[lessonDate]||{})[s.turmaCode] || {};
+  const lNum        = lessonNumber(day, lessonDate);
+  const lTotal      = totalLessons(day);
 
-  /* Load attendance state for this specific date */
-  const existingAtt  = (ATTEND_WEEK[lessonDate]||{})[s.turmaCode] || {};
-  const hasSubmission = Object.keys(existingAtt).length > 0;
-
-  /* Lesson number for this specific calendar date */
-  const lNum   = lessonNumber(day, lessonDate);
-  const lTotal = totalLessons(day);
-
-  /* Build student state from existing attendance or null */
   const studentState = s.students.map(stu=>{
     const raw = existingAtt[stu.ref] ?? null;
     const present = raw==='present'||raw==='presente' ? true
@@ -1192,13 +1492,17 @@ function openSlot(day, h, dayIso){
     return {...stu, present};
   });
 
-  currentSlot = {day, h, lessonDate, lessonNum:lNum, lessonTotal:lTotal, ...s, studentState, hasSubmission};
+  currentSlot = {
+    day, h, lessonDate, lessonNum:lNum, lessonTotal:lTotal,
+    ...s, studentState,
+    hasSubmission: Object.keys(existingAtt).length > 0,
+  };
 
-  /* ── Modal hero ── */
+  /* Hero */
   const dept = s.dept || 'adults';
   const av   = avCol(ME?.name||'?');
   const avEl = document.getElementById('mh-av');
-  avEl.textContent   = avInit(ME?.name||'?');
+  avEl.textContent       = avInit(ME?.name||'?');
   avEl.style.background  = av.bg;
   avEl.style.borderColor = av.t+'66';
   avEl.style.color       = av.t;
@@ -1206,58 +1510,72 @@ function openSlot(day, h, dayIso){
   document.getElementById('mh-turma').textContent        = s.turmaCode || '—';
   document.getElementById('mh-time').textContent         = (s.start||'') + '–' + (s.end||'');
 
-  /* Department badge */
   const dBadge = document.getElementById('mh-dept-badge');
   const col    = DEPT_COLOURS[dept] || 'var(--gold2)';
-  dBadge.textContent   = (DEPT_CONFIG[dept]?.label||'—') + ' · ' + (s.lang||'');
+  dBadge.textContent       = (DEPT_CONFIG[dept]?.label||'—') + ' · ' + (s.lang||'');
   dBadge.style.background  = 'rgba(0,0,0,.25)';
   dBadge.style.borderColor = col.replace('var(--','rgba(').replace(')',',.4)');
   dBadge.style.color       = col;
 
-  /* ✅ FIX: Lesson number badge — shows "Aula 027 / 034" */
   const lNumEl = document.getElementById('mh-lesson-num');
-  if(lNum > 0){
-    lNumEl.textContent   = `Aula ${String(lNum).padStart(3,'0')} de ${lTotal}`;
-    lNumEl.style.display = 'inline-flex';
-  } else {
-    lNumEl.style.display = 'none';
-  }
+  if(lNum > 0){ lNumEl.textContent = `Aula ${String(lNum).padStart(3,'0')} de ${lTotal}`; lNumEl.style.display='inline-flex'; }
+  else { lNumEl.style.display='none'; }
 
-  /* ✅ FIX: Date badge — shows the exact calendar date prominently */
   const dtObj    = new Date(lessonDate + 'T12:00:00');
   const datePT   = dtObj.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const dateShort= dtObj.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
   const dateBadge= document.getElementById('mh-date-badge');
-  dateBadge.textContent   = '📅 ' + dateShort;
-  dateBadge.title         = datePT;
+  dateBadge.textContent = '📅 ' + dateShort;
+  dateBadge.title       = datePT;
   dateBadge.style.display = 'inline-flex';
 
-  /* Full date + room in the sub-line */
   const dayFullEl = document.getElementById('mh-day-full');
-  dayFullEl.textContent   = datePT + (s.durationMin ? ' · '+s.durationMin+'min' : '') + (s.sala ? ' · Sala '+s.sala : '');
+  dayFullEl.textContent   = datePT + (s.durationMin?' · '+s.durationMin+'min':'') + (s.sala?' · Sala '+s.sala:'');
   dayFullEl.style.fontSize= '9px';
   dayFullEl.style.color   = 'rgba(255,255,255,.45)';
-  dayFullEl.style.marginTop= '3px';
+  dayFullEl.style.marginTop='3px';
 
-  document.getElementById('mh-submit-badge').style.display = hasSubmission ? 'inline-flex' : 'none';
+  document.getElementById('mh-submit-badge').style.display = currentSlot.hasSubmission ? 'inline-flex' : 'none';
   document.getElementById('att-class').textContent = s.turmaCode || '—';
 
-  /* Calendar link */
-  const calUrl  = `/admin/alm-calendario.html?teacher=${encodeURIComponent(ME?.id||'')}&date=${lessonDate}`;
-  const mhBtn   = document.getElementById('mh-cal-btn');
-  mhBtn.href    = calUrl;
+  const calUrl = `/admin/alm-calendario.html?teacher=${encodeURIComponent(ME?.id||'')}&date=${lessonDate}`;
+  const mhBtn  = document.getElementById('mh-cal-btn');
+  mhBtn.href   = calUrl;
   mhBtn.style.display = 'inline-flex';
+
+  /* Past lesson banner */
+  const today  = todayISO();
+  const isPast = lessonDate < today;
+  const banner = document.getElementById('past-lesson-banner');
+  banner.classList.toggle('show', isPast);
+  if(isPast){
+    const ptDate = dtObj.toLocaleDateString('pt-PT',{day:'numeric',month:'long'});
+    document.getElementById('past-lesson-text').textContent =
+      `A ver aula de ${ptDate}. ${currentSlot.hasSubmission ? 'Presenças já registadas.' : 'Sem registo de presenças.'}`;
+  }
+
+  /* Future lesson: disable save */
+  const isFuture = lessonDate > today;
+  const saveBtn  = document.getElementById('btn-save');
+  saveBtn.disabled  = isFuture;
+  saveBtn.title     = isFuture ? 'Não é possível guardar aulas futuras' : '';
 
   buildStudentList();
   updateAttHeader();
   clearSaveStatus();
   switchTabById('presencas');
+
+  /* Init lesson navigator */
+  initLessonNav(day, lessonDate, s.turmaCode);
+
   document.getElementById('modal-overlay').classList.add('open');
 }
 
 function closeModal(){
   document.getElementById('modal-overlay').classList.remove('open');
   document.getElementById('mh-cal-btn').style.display = 'none';
+  document.getElementById('past-lesson-banner').classList.remove('show');
+  NAV_DATES = []; NAV_IDX = 0; NAV_TODAY_IDX = 0;
 }
 
 function switchTab(id, btn){
@@ -1314,7 +1632,6 @@ function buildStudentList(){
 function toggleStudent(i){
   if(!currentSlot?.studentState) return;
   const s = currentSlot.studentState[i];
-  /* Cycle: null → present → late → absent → null */
   s.present = s.present===null||s.present===undefined ? true
             : s.present===true  ? 'late'
             : s.present==='late'? false
@@ -1364,17 +1681,12 @@ function pickUrg(level, el){
 }
 
 /* ════════════════════════════════
-   SAVE ATTENDANCE — RELIABLE METHOD
-   Uses saveAttendanceRecords() which does PATCH→POST per row
+   SAVE ATTENDANCE
 ════════════════════════════════ */
 async function saveAttendance(){
   if(!currentSlot?.studentState) return;
-
   const marked = currentSlot.studentState.filter(s => s.present !== null && s.present !== undefined);
-  if(!marked.length){
-    showToast('Seleccione pelo menos um aluno','warn');
-    return;
-  }
+  if(!marked.length){ showToast('Seleccione pelo menos um aluno','warn'); return; }
 
   const now = new Date().toISOString();
   const records = marked.map(s=>({
@@ -1395,37 +1707,32 @@ async function saveAttendance(){
   try{
     await saveAttendanceRecords(records);
 
-    /* Update local ATTEND_WEEK cache */
     const ld = currentSlot.lessonDate;
-    if(!ATTEND_WEEK[ld])                      ATTEND_WEEK[ld]={};
-    if(!ATTEND_WEEK[ld][currentSlot.turmaCode]) ATTEND_WEEK[ld][currentSlot.turmaCode]={};
-    records.forEach(r=>{
-      ATTEND_WEEK[ld][currentSlot.turmaCode][r.student_ref] = r.status;
-    });
+    if(!ATTEND_CACHE[ld])                        ATTEND_CACHE[ld]={};
+    if(!ATTEND_CACHE[ld][currentSlot.turmaCode]) ATTEND_CACHE[ld][currentSlot.turmaCode]={};
+    records.forEach(r=>{ ATTEND_CACHE[ld][currentSlot.turmaCode][r.student_ref] = r.status; });
 
-    /* Mark class as submitted */
     const cls = SCHEDULE[currentSlot.day]?.[currentSlot.h];
     if(cls) cls.hasSubmission = true;
     currentSlot.hasSubmission = true;
 
-    buildGrid();
-    buildTodayStrip();
+    buildGrid(); buildTodayStrip();
 
-    const msg = `✓ ${records.length} presenças guardadas — Aula ${String(currentSlot.lessonNum||0).padStart(3,'0')} de ${currentSlot.lessonTotal||'?'} (${currentSlot.lessonDate})`;
-    setSb('ok', msg);
-    showToast(msg, 'ok');
+    /* Refresh nav rail to show new dot */
+    renderLessonNav(currentSlot.turmaCode);
+
+    const msg = `✓ ${records.length} presenças · Aula ${String(currentSlot.lessonNum||0).padStart(3,'0')}/${currentSlot.lessonTotal||'?'} · ${currentSlot.lessonDate}`;
+    setSb('ok', msg); showToast(msg,'ok');
     showSaveStatus('saved', `✓ ${records.length} registos guardados`);
     document.getElementById('mh-submit-badge').style.display = 'inline-flex';
     flash();
 
   }catch(e){
     setSb('err','Erro ao guardar: '+e.message);
-    showToast('Erro: '+e.message, 'err');
-    showSaveStatus('error', '✕ '+e.message.slice(0,60));
+    showToast('Erro: '+e.message,'err');
+    showSaveStatus('error','✕ '+e.message.slice(0,60));
     console.error('saveAttendance error:', e);
-  }finally{
-    setSavingState(false);
-  }
+  }finally{ setSavingState(false); }
 }
 
 /* ════════════════════════════════
@@ -1438,7 +1745,7 @@ function stuAction(event, idx, mode){
   currentStuIdx = idx; stuModalMode = mode;
   const av = avCol(stu.name||stu.ref||'?');
   const smAv = document.getElementById('sm-av');
-  smAv.textContent   = avInit(stu.name||stu.ref||'?');
+  smAv.textContent       = avInit(stu.name||stu.ref||'?');
   smAv.style.background  = av.bg;
   smAv.style.borderColor = av.t+'66';
   smAv.style.color       = av.t;
@@ -1531,16 +1838,14 @@ async function toggleFlag(idx){
 
 /* ════════════════════════════════
    CONFIRM ACTION (save button)
+   FIX: use sbUpsertSummary for lesson_summaries
 ════════════════════════════════ */
 async function confirmAction(){
   if(isSaving) return;
   const activePane = document.querySelector('.tab-pane.active');
   const id         = activePane?.id?.replace('tab-','');
 
-  if(id==='presencas'){
-    await saveAttendance();
-    return;
-  }
+  if(id==='presencas'){ await saveAttendance(); return; }
 
   if(id==='sumario' && currentSlot?.turmaCode){
     const tpcChips = [...document.querySelectorAll('#tpc-chips .chip.active')].map(c=>c.textContent).join(', ');
@@ -1548,7 +1853,8 @@ async function confirmAction(){
     showSaveStatus('saving','A guardar sumário…');
     setSb('loading','A guardar sumário…');
     try{
-      await sbUpsertSimple('lesson_summaries',[{
+      /* FIX: use graceful upsert — won't crash if table missing */
+      await sbUpsertSummary({
         turma_code:    currentSlot.turmaCode,
         teacher_id:    ME?.id,
         date:          currentSlot.lessonDate,
@@ -1562,13 +1868,13 @@ async function confirmAction(){
         tpc_ref:       document.getElementById('sum-tpc-ref')?.value||'',
         tpc_due:       document.getElementById('sum-tpc-date')?.value||null,
         created_at:    new Date().toISOString(),
-      }]);
+      });
       setSb('ok','Sumário guardado ✓');
       showToast('Sumário guardado ✓','ok');
       showSaveStatus('saved','✓ Sumário guardado');
     }catch(e){
       setSb('err','Erro: '+e.message);
-      showToast('Erro ao guardar sumário','err');
+      showToast('Erro ao guardar sumário: '+e.message.slice(0,60),'err');
       showSaveStatus('error','✕ '+e.message.slice(0,60));
     }finally{ setSavingState(false); }
     flash(); return;
@@ -1591,9 +1897,9 @@ async function confirmAction(){
         status:'pending', created_at:new Date().toISOString(),
       });
       showToast('Pedido de fotocópias enviado ✓','ok');
-      document.getElementById('fotoc-doc').value      = '';
-      document.getElementById('fotoc-obs').value      = '';
-      document.getElementById('fotoc-copies').value   = '17';
+      document.getElementById('fotoc-doc').value    = '';
+      document.getElementById('fotoc-obs').value    = '';
+      document.getElementById('fotoc-copies').value = '17';
       document.querySelectorAll('.urg-btn').forEach(b=>b.className='urg-btn');
       document.getElementById('urg-normal').classList.add('on-normal');
     }catch(e){ showToast('Erro: '+e.message,'err'); }
@@ -1615,9 +1921,7 @@ function showSaveStatus(type, msg){
   const el = document.getElementById('save-status');
   el.className = 'save-status ' + type;
   el.textContent = msg;
-  if(type === 'saved'){
-    setTimeout(()=>{ el.className='save-status'; }, 4000);
-  }
+  if(type === 'saved') setTimeout(()=>{ el.className='save-status'; }, 4000);
 }
 
 function clearSaveStatus(){
@@ -1659,7 +1963,7 @@ function showToast(msg, type='info'){
   t.textContent = msg;
   t.className   = 'toast '+type+' show';
   clearTimeout(toastT);
-  toastT = setTimeout(()=>t.classList.remove('show'), 3000);
+  toastT = setTimeout(()=>t.classList.remove('show'), 3500);
 }
 
 document.addEventListener('keydown', e=>{
@@ -1668,6 +1972,11 @@ document.addEventListener('keydown', e=>{
     else closeModal();
   }
   if((e.ctrlKey||e.metaKey) && e.key==='Enter') confirmAction();
+  /* Arrow key lesson navigation when modal open */
+  if(document.getElementById('modal-overlay').classList.contains('open') && NAV_DATES.length){
+    if(e.key==='ArrowLeft' && !e.target.matches('input,textarea,select'))  navLesson(-1);
+    if(e.key==='ArrowRight' && !e.target.matches('input,textarea,select')) navLesson(1);
+  }
 });
 
 tick(); setInterval(tick, 1000);
