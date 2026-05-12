@@ -1342,12 +1342,12 @@ async function loadTeacherData(){
     let classes = [];
     try{
       classes = await sbGet('classes',
-        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${AY}`+
+`teacher_id=eq.${encodeURIComponent(ME.id)}${AY ? '&academic_year=eq.'+AY : ''}`+
         `&select=turma_code,teacher_id,lang,level_code,level_display,department,branch,group_key,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala`);
     }catch(e1){
       console.warn('Full select failed, retrying without optional columns:', e1.message);
       classes = await sbGet('classes',
-        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${AY}`+
+ `teacher_id=eq.${encodeURIComponent(ME.id)}${AY ? '&academic_year=eq.'+AY : ''}`+
         `&select=turma_code,teacher_id,lang,level_code,level_display,branch,group_key,hour,start_time,end_time,duration_min,student_refs,sala`);
     }
 
@@ -1367,7 +1367,7 @@ async function loadTeacherData(){
         const chunk = allRefs.slice(i,i+CHUNK);
         try{
           const enrols = await sbGet('enrolments',
-            `ref=in.(${chunk.join(',')})&select=ref,name,branch,lang&academic_year=eq.${AY}`);
+`ref=in.(${chunk.join(',')})&select=ref,name,branch,lang${AY ? '&academic_year=eq.'+AY : ''}`);
           enrols.forEach(e=>{ ENROL_BY_REF[e.ref]=e; });
         }catch(e){ console.warn('enrolments chunk failed',e); }
       }
