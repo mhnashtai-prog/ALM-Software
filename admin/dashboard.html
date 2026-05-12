@@ -411,24 +411,29 @@
       <div class="tb-health-tooltip" id="tb-health-tooltip"></div>
     </a>
     <div class="year-wrap" id="yearWrap">
-      <div class="year-btn" onclick="toggleYear(event)">
-        <div class="year-btn-inner">
-          <span class="year-label">Ano Lectivo</span>
-          <span id="yearVal">2025 / 2026</span>
-        </div>
-        <span class="year-chevron">▾</span>
-      </div>
-      <div class="year-dropdown">
-        <div class="year-option active" onclick="selectYear(this,'2025 / 2026')">2025 / 2026 <span class="year-badge current">actual</span></div>
-        <div class="year-option" onclick="selectYear(this,'2024 / 2025')">2024 / 2025 <span class="year-badge anterior">anterior</span></div>
-        <div class="year-option" onclick="selectYear(this,'2023 / 2024')">2023 / 2024 <span class="year-badge archive">arquivo</span></div>
-        <div class="year-option" onclick="selectYear(this,'2022 / 2023')">2022 / 2023 <span class="year-badge archive">arquivo</span></div>
-        <div class="year-option" onclick="selectYear(this,'2021 / 2022')">2021 / 2022 <span class="year-badge archive">arquivo</span></div>
-      </div>
+  <div class="year-btn" onclick="toggleYear(event)">
+    <div class="year-btn-inner">
+      <span class="year-label">Ano Lectivo</span>
+      <span id="yearVal">2026 / 2027</span>
     </div>
-    <span class="tb-time" id="t"></span>
+    <span class="year-chevron">▾</span>
   </div>
-
+  <div class="year-dropdown">
+    <div class="year-option active" onclick="selectYear(this,'2026/2027')">2026 / 2027 <span class="year-badge current">actual</span></div>
+    <div class="year-option" onclick="selectYear(this,'2025/2026')">2025 / 2026 <span class="year-badge anterior">anterior</span></div>
+    <div class="year-option" onclick="selectYear(this,'2024/2025')">2024 / 2025 <span class="year-badge archive">arquivo</span></div>
+    <div style="border-top:.5px solid rgba(210,180,100,.12);padding:10px 13px 6px;display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(210,180,100,.35)">Datas lectivas</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="date" id="cfg-start" style="flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(210,180,100,.2);color:#E8C97A;font-family:inherit;font-size:9px;padding:4px 6px;outline:none;border-radius:4px"/>
+        <span style="font-size:9px;color:rgba(210,180,100,.35)">→</span>
+        <input type="date" id="cfg-end" style="flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(210,180,100,.2);color:#E8C97A;font-family:inherit;font-size:9px;padding:4px 6px;outline:none;border-radius:4px"/>
+      </div>
+      <button onclick="saveSchoolDates()" style="width:100%;padding:5px;background:rgba(29,185,84,.85);border:none;border-radius:4px;font-family:inherit;font-size:9px;font-weight:700;color:#09080F;cursor:pointer;letter-spacing:.06em">✓ Guardar para todos os professores</button>
+      <div id="cfg-status" style="font-size:8px;text-align:center;color:rgba(210,180,100,.4);min-height:12px"></div>
+    </div>
+  </div>
+</div>
   <!-- ══ BODY ══ -->
   <div class="body">
     <div class="left-zone">
@@ -541,7 +546,33 @@ document.addEventListener('click',e=>{
   if(!document.getElementById('yearWrap').contains(e.target))
     document.getElementById('yearWrap').classList.remove('open');
 });
-
+   
+async function saveSchoolDates(){
+  const start = document.getElementById('cfg-start')?.value;
+  const end   = document.getElementById('cfg-end')?.value;
+  const status = document.getElementById('cfg-status');
+  if(!start || !end){ status.textContent='Seleccione início e fim'; status.style.color='#E8455A'; return; }
+  const ay = start.slice(0,4) + '/' + end.slice(0,4);
+  status.textContent='A guardar…'; status.style.color='rgba(210,180,100,.5)';
+  try{
+    await fetch(`${SB}/rest/v1/school_config`,{
+      method:'POST',
+      headers:{...SBH,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([
+        {key:'year_start_date', value:start},
+        {key:'year_end_date',   value:end},
+        {key:'academic_year',   value:ay},
+      ]),
+    });
+    document.getElementById('yearVal').textContent = ay.replace('/',' / ');
+    status.textContent='✓ Guardado para todos os professores';
+    status.style.color='#1DB954';
+    setTimeout(()=>{ status.textContent=''; document.getElementById('yearWrap').classList.remove('open'); }, 2000);
+  }catch(e){
+    status.textContent='Erro: '+e.message.slice(0,40);
+    status.style.color='#E8455A';
+  }
+}
 /* ══════════════════════════════════════
    SUPABASE CONFIG
 ══════════════════════════════════════ */
@@ -640,12 +671,23 @@ async function bootTicker(){
       {headers:SBH}
     ).then(r=>r.json());
 
+     
     /* Step 2 — groups to count turmas per branch */
     const groups = await fetch(
       `${SB}/rest/v1/groups?select=branch,student_count&academic_year=eq.2026%2F2027&limit=500`,
       {headers:SBH}
     ).then(r=>r.json());
-
+     
+// After buildTicker() call, load school dates into inputs
+fetch(`${SB}/rest/v1/school_config?select=key,value`,{headers:SBH})
+  .then(r=>r.json())
+  .then(rows=>{
+    rows.forEach(r=>{
+      if(r.key==='year_start_date'){ const el=document.getElementById('cfg-start'); if(el) el.value=r.value; }
+      if(r.key==='year_end_date')  { const el=document.getElementById('cfg-end');   if(el) el.value=r.value; }
+      if(r.key==='academic_year')  { document.getElementById('yearVal').textContent=r.value.replace('/',' / '); }
+    });
+  }).catch(()=>{});
     /* Aggregate enrolments by branch */
     const branchMap = {};
     (enrol||[]).forEach(e => {
