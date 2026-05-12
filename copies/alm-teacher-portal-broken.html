@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Portal do Professor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.18);--gold4:rgba(201,168,76,.08);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.16);--green-b:rgba(29,184,122,.38);--green-c:rgba(29,184,122,.07);
+  --red:#E8455A;--red-a:rgba(232,69,90,.13);--red-b:rgba(232,69,90,.32);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.14);--amber-b:rgba(232,160,32,.32);
+  --teal:#28C8B0;--blue:#4A8FF5;--purple:#9B5ECA;
+  --bg:#07060E;--bg2:#0E0C1A;--bg3:#161325;--bg4:#1C1930;
+  --b:rgba(201,168,76,.09);--b2:rgba(201,168,76,.18);--b3:rgba(201,168,76,.32);
+  --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.65);--t3:rgba(215,193,145,.38);--t4:rgba(215,193,145,.14);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+  --c-inf:#4A8FF5;--c-juv:#2ECC8A;--c-ger:#C8943A;--c-exa:#A060D8;
+  --band-kids-a:#172818;--band-kids-juv-a:#142416;--band-adults-a:#1A3018;--band-exam-a:#162820;
+  --acc-kids:#4A8850;--acc-kids-juv:#3A7844;--acc-adults:#5A8840;--acc-exam:#388060;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes modal-in{from{opacity:0;transform:scale(.95) translateY(-6px)}to{opacity:1;transform:none}}
+
+/* ═══════════ TOPBAR ═══════════ */
+.topbar{position:sticky;top:0;z-index:200;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2)}
+.nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:54px}
+.nav-home{display:flex;align-items:center;justify-content:center;flex:1;padding:0 14px;text-decoration:none;transition:background .14s;border-bottom:.5px solid var(--b)}
+.nav-home:hover{background:var(--gold4)}
+.nav-home-icon{font-size:15px;color:var(--t2)}
+.nav-back{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:0 10px;text-decoration:none;transition:background .14s}
+.nav-back:hover{background:var(--gold4)}
+.nav-back-arrow{font-size:9px;color:var(--t3)}
+.nav-back-label{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.brand{display:flex;align-items:center;padding:0 18px;height:100%;border-right:1px solid var(--b);flex-shrink:0}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2);font-family:var(--display)}
+.brand-yr{font-size:8px;color:var(--t2);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+
+/* ═══════════ MODAL BLOOMBERG LESSON BAR ═══════════ */
+/* topbar has no bar — bar lives only in the modal hero */
+.lb-cell{flex:0 0 52px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-right:.5px solid var(--b);cursor:pointer;transition:background .1s;position:relative;user-select:none;padding:0 2px}
+.lb-cell:hover{background:var(--gold4)}
+.lb-cell.past{opacity:.55}.lb-cell.past:hover{opacity:.9}
+.lb-cell.today{background:rgba(29,184,122,.1);border-right:.5px solid rgba(29,184,122,.25)}
+.lb-cell.today:hover{background:rgba(29,184,122,.18)}
+.lb-cell.future{opacity:.22;cursor:not-allowed;pointer-events:none}
+.lb-cell.active-sel{background:rgba(201,168,76,.13);border-right:.5px solid var(--b3)}
+.lb-num{font-family:var(--display);font-size:16px;letter-spacing:1px;color:var(--gold2);line-height:1}
+.lb-cell.today .lb-num{color:var(--green)}
+.lb-cell.future .lb-num{color:var(--t4)}
+.lb-date{font-size:6.5px;color:var(--t3);letter-spacing:.03em;line-height:1.2;text-align:center;white-space:nowrap}
+.lb-cell.today .lb-date{color:rgba(29,184,122,.8)}
+.lb-dot{position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--green);opacity:0}
+.lb-cell.today .lb-dot{opacity:1;animation:blink 2s infinite}
+.lb-progress{position:absolute;bottom:0;left:0;height:2px;background:var(--teal);pointer-events:none;z-index:3}
+.lb-fade-l{position:absolute;left:0;top:0;bottom:0;width:24px;background:linear-gradient(to right,rgba(7,6,14,1),transparent);pointer-events:none;z-index:2}
+.lb-fade-r{position:absolute;right:0;top:0;bottom:0;width:24px;background:linear-gradient(to left,rgba(7,6,14,1),transparent);pointer-events:none;z-index:2}
+
+/* ── lesson bar config row ── */
+/* ── modal bar container ── */
+.mh-hero{position:relative;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;align-items:stretch}
+.mh-top-row{position:relative;z-index:5;display:flex;align-items:flex-end;padding:12px 16px 10px;gap:0}
+.mh-cfg{display:flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(0,0,0,.3);border-top:.5px solid rgba(255,255,255,.06);border-bottom:.5px solid rgba(255,255,255,.06);position:relative;z-index:5;flex-shrink:0}
+.mh-cfg.mh-cfg-hidden{display:none}
+.mhc-label{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);flex-shrink:0}
+.mhc-inp{background:rgba(255,255,255,.06);border:.5px solid var(--b2);border-radius:2px;padding:3px 7px;font-family:var(--mono);font-size:9px;color:var(--t);outline:none;-webkit-appearance:none;width:100px}
+.mhc-inp:focus{border-color:var(--gold)}
+.mhc-sep{font-size:9px;color:var(--t3);flex-shrink:0}
+.mhc-dows{display:flex;gap:2px}
+.lbc-dow{width:20px;height:20px;border-radius:2px;border:.5px solid var(--b2);font-size:8px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);transition:all .1s;user-select:none}
+.lbc-dow:hover{border-color:var(--b3);color:var(--t)}
+.lbc-dow.active{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.mhc-btn{padding:3px 10px;background:var(--green);border:none;border-radius:2px;font-family:var(--mono);font-size:9px;font-weight:700;color:#07060E;cursor:pointer;flex-shrink:0}
+.mhc-btn:hover{opacity:.85}
+.mhc-gear{width:22px;height:22px;border-radius:50%;border:.5px solid var(--b2);background:transparent;color:var(--t3);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-left:auto;transition:all .12s}
+.mhc-gear:hover{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+/* ── bar track inside modal ── */
+.mh-bar-wrap{position:relative;z-index:5;height:42px;flex-shrink:0;overflow:hidden;border-top:.5px solid rgba(255,255,255,.07)}
+.mh-bar-track{display:flex;align-items:stretch;height:100%;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;cursor:grab}
+.mh-bar-track:active{cursor:grabbing}
+.mh-bar-track::-webkit-scrollbar{display:none}
+.mh-bar-fade-l{position:absolute;left:0;top:0;bottom:0;width:20px;background:linear-gradient(to right,rgba(0,0,0,.6),transparent);pointer-events:none;z-index:2}
+.mh-bar-fade-r{position:absolute;right:0;top:0;bottom:0;width:20px;background:linear-gradient(to left,rgba(0,0,0,.6),transparent);pointer-events:none;z-index:2}
+
+/* ═══════════ TOPBAR RIGHT ═══════════ */
+.topbar-right{display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
+.tb-chip{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border:1px solid var(--green-b);background:var(--green-c);color:var(--green);border-radius:2px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+.tb-pill{font-size:8px;font-weight:700;letter-spacing:.06em;padding:4px 11px;border:1px solid;border-radius:2px}
+.tb-pill.gold{color:var(--gold2);border-color:var(--b3);background:var(--gold4)}
+.tb-pill.ok{color:var(--green);border-color:var(--green-b);background:var(--green-c)}
+.tb-pill.neutral{color:var(--t2);border-color:var(--b2);background:rgba(255,255,255,.02)}
+.tb-btn{display:flex;align-items:center;gap:5px;padding:4px 11px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;transition:all .12s;letter-spacing:.06em;border-radius:2px;text-decoration:none}
+.tb-btn.ok{border-color:var(--green-b);color:var(--green)}.tb-btn.ok:hover{background:var(--green-a)}
+.tb-clock{font-size:10px;color:var(--t3);letter-spacing:.04em;min-width:56px;text-align:right}
+
+/* ═══════════ SHELL ═══════════ */
+.shell{max-width:1100px;margin:0 auto;padding:16px 16px 32px}
+
+.status-banner{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border:.5px solid var(--b);border-radius:4px;margin-bottom:12px;font-size:9px}
+.sb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sb-dot.ok{background:var(--green)}.sb-dot.loading{background:var(--amber);animation:blink 1s infinite}.sb-dot.err{background:var(--red)}.sb-dot.warn{background:var(--amber)}
+.sb-msg.ok{color:var(--green)}.sb-msg.loading,.sb-msg.warn{color:var(--amber)}.sb-msg.err{color:var(--red)}.sb-msg{color:var(--t2)}
+.sb-reload{margin-left:auto;padding:2px 8px;border:.5px solid var(--b2);background:transparent;color:var(--t3);font-family:var(--mono);font-size:8px;cursor:pointer;border-radius:2px;transition:all .12s}
+.sb-reload:hover{color:var(--t2);border-color:var(--b3)}
+
+.teacher-picker{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border:.5px solid var(--b);border-radius:4px;margin-bottom:12px}
+.tp-label{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);flex-shrink:0}
+.tp-select{background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:3px;padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--t);outline:none;cursor:pointer;min-width:220px}
+.tp-select option{background:var(--bg2)}
+
+.hero{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg2);border:.5px solid var(--b2);border-radius:6px;margin-bottom:12px}
+.hero-av{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;letter-spacing:.04em;border:1.5px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.hero-info{flex:1}
+.hero-name{font-family:var(--display);font-size:24px;letter-spacing:4px;color:var(--gold2);line-height:1}
+.hero-meta{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap}
+.h-badge{padding:2px 8px;border-radius:2px;font-size:8px;font-weight:700;letter-spacing:.06em;border:.5px solid}
+.hb-lang{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.35);color:var(--blue)}
+.hb-gold{background:var(--gold4);border-color:var(--b2);color:var(--gold2)}
+.hb-green{background:var(--green-c);border-color:var(--green-b);color:var(--green)}
+.hero-stats{display:flex;gap:0;flex-shrink:0;border-left:.5px solid var(--b);margin-left:auto}
+.hs-item{text-align:center;padding:0 16px;border-right:.5px solid var(--b)}
+.hs-item:last-child{border-right:none}
+.hs-v{font-family:var(--display);font-size:28px;color:var(--gold2);line-height:1;letter-spacing:2px}
+.hs-l{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+
+.today-strip{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border:.5px solid var(--b);border-radius:4px;margin-bottom:12px;flex-wrap:wrap}
+.ts-label{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);flex-shrink:0}
+.today-slot{display:flex;align-items:center;gap:6px;padding:4px 10px;cursor:pointer;background:rgba(29,184,122,.07);border:.5px solid rgba(29,184,122,.22);border-radius:3px;font-family:var(--mono);font-size:10px;color:var(--teal);transition:all .15s}
+.today-slot:hover{background:rgba(29,184,122,.14);border-color:rgba(29,184,122,.4)}
+.today-slot.now{background:rgba(29,184,122,.16);border-color:rgba(29,184,122,.5);box-shadow:0 0 8px rgba(29,184,122,.12)}
+.today-slot.submitted{background:rgba(29,184,122,.04);border-color:rgba(29,184,122,.15);opacity:.7}
+.ts-now-badge{padding:1px 5px;background:var(--green);border-radius:2px;font-size:7px;font-weight:700;color:#07060E}
+.ts-done-badge{padding:1px 5px;background:rgba(29,184,122,.2);border-radius:2px;font-size:7px;font-weight:700;color:var(--green)}
+.no-sessions{font-size:10px;color:var(--t3);font-style:italic}
+.next-lesson-hint{font-size:9px;color:var(--t3);padding:3px 8px;border:.5px solid var(--b);border-radius:2px;margin-left:4px}
+
+.grid-wrap{background:var(--bg2);border:.5px solid var(--b);border-radius:6px;overflow:hidden;margin-bottom:12px}
+.grid-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.18)}
+.gh-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.gh-legend{display:flex;gap:8px}
+.gl-item{display:flex;align-items:center;gap:4px;font-size:7.5px;color:var(--t3)}
+.gl-sw{width:9px;height:9px;border-radius:1px}
+.grid-scroll{overflow-x:auto}
+.grid-table{width:100%;border-collapse:collapse;min-width:640px}
+.grid-table th{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:5px 2px;text-align:center;border-bottom:.5px solid var(--b);background:var(--bg2);white-space:nowrap}
+.grid-table th.th-day{text-align:left;padding-left:10px;width:48px}
+.grid-table th.th-break{width:12px;background:rgba(0,0,0,.3)}
+.day-row{border-bottom:.5px solid rgba(201,168,76,.04)}
+.day-row:last-child{border-bottom:none}
+.day-lbl{padding:0 6px 0 10px;vertical-align:middle}
+.dl-wrap{display:flex;flex-direction:column;gap:2px}
+.dl-name{font-size:11px;font-weight:700;color:var(--t2)}
+.dl-today{font-size:7px;color:var(--green);font-weight:700;letter-spacing:.06em}
+.slot-cell{padding:2px;vertical-align:middle;text-align:center}
+.slot-cell.break-col{background:rgba(0,0,0,.25);cursor:default;width:12px;padding:0}
+.slot-inner{width:100%;height:50px;position:relative;overflow:hidden;display:flex;align-items:center;padding:0 4px 0 2px;gap:4px;transition:opacity .15s;cursor:default}
+.slot-inner.empty{background:rgba(255,255,255,.015);border:.5px solid rgba(201,168,76,.05)}
+.slot-inner.booked{cursor:pointer}.slot-inner.booked:hover{opacity:.8}
+.slot-inner.break-inner{background:rgba(0,0,0,.25);cursor:default}
+.slot-inner.done-slot{opacity:.65}
+.sl-kids{background:var(--band-kids-a);border-left:3px solid var(--acc-kids);border-top:.5px solid rgba(74,136,80,.2)}
+.sl-kids_juv{background:var(--band-kids-juv-a);border-left:3px solid var(--acc-kids-juv);border-top:.5px solid rgba(58,120,68,.2)}
+.sl-adults{background:var(--band-adults-a);border-left:3px solid var(--acc-adults);border-top:.5px solid rgba(90,136,64,.2)}
+.sl-exam{background:var(--band-exam-a);border-left:3px solid var(--acc-exam);border-top:.5px solid rgba(56,128,96,.2)}
+.slot-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.slot-info{flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow:hidden}
+.slot-name{font-size:10px;font-weight:400;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(215,193,145,.7);flex-shrink:1;min-width:0}
+.slot-right{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:1px;margin-left:auto}
+.slot-code{font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.slot-n{font-size:7.5px;font-weight:600;opacity:.5;line-height:1;white-space:nowrap}
+.slot-lesson-num{font-size:7px;color:var(--teal);opacity:.85;line-height:1;font-weight:700}
+.slot-done-tick{position:absolute;top:3px;right:3px;font-size:9px;color:var(--green);opacity:.8}
+.slot-now-dot{position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite}
+
+/* ═══════════ ACTION MODAL ═══════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(4,2,12,.85);z-index:400;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:12px}
+.modal-overlay.open{display:flex}
+.action-modal{background:var(--bg2);border:.5px solid var(--b2);border-radius:10px;width:min(760px,98vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.95);animation:modal-in .2s ease}
+/* mh-hero redeclared in bar section */
+.mh-hero-bg{position:absolute;inset:0;transition:background .3s}
+.mh-hero-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.1) 0%,rgba(0,0,0,.72) 100%)}
+.mh-hero-close{position:absolute;top:10px;right:12px;z-index:10;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.4);border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.mh-hero-close:hover{background:rgba(232,69,90,.5);color:#fff}
+.mh-av-wrap{position:relative;z-index:5;width:64px;height:64px;flex-shrink:0;margin:12px 14px 12px 16px}
+.mh-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;font-family:var(--mono);border:2px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35),0 4px 20px rgba(0,0,0,.6)}
+.mh-info{flex:1;padding:0}
+.mh-turma{font-family:var(--display);font-size:26px;letter-spacing:4px;color:#fff;line-height:1}
+.mh-slot{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.mh-time-badge{font-size:11px;font-weight:700;color:var(--teal);background:rgba(40,200,176,.12);border:.5px solid rgba(40,200,176,.3);padding:2px 8px;border-radius:2px}
+.mh-day-txt{font-size:9px;color:rgba(255,255,255,.5)}
+.mh-dept-badge{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid;letter-spacing:.06em}
+.mh-submit-badge{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid rgba(29,184,122,.4);background:rgba(29,184,122,.12);color:var(--green)}
+.mh-lesson-num{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid rgba(40,200,176,.3);background:rgba(40,200,176,.08);color:var(--teal);letter-spacing:.04em}
+.mh-date-badge{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid rgba(201,168,76,.3);background:rgba(201,168,76,.08);color:var(--gold2);letter-spacing:.04em}
+.mh-cal-btn{display:none;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;border:.5px solid rgba(40,200,176,.3);background:rgba(40,200,176,.08);color:var(--teal);font-size:7.5px;font-weight:700;text-decoration:none;letter-spacing:.04em;transition:all .12s}
+.mh-cal-btn:hover{background:rgba(40,200,176,.18)}
+.mh-stats{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;flex-shrink:0}
+.mh-att-counter{font-family:var(--display);font-size:36px;letter-spacing:2px;color:#fff;line-height:1}
+.mh-att-label{font-size:8px;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;text-align:right}
+.mh-att-bar{width:80px;height:3px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden;margin-top:3px}
+.mh-att-fill{height:100%;border-radius:2px;background:var(--green);transition:width .3s}
+
+.modal-tabs{display:flex;gap:4px;border-bottom:.5px solid var(--b);padding:8px 14px 0;overflow-x:auto;flex-shrink:0;background:rgba(0,0,0,.15)}
+.mt-tab{padding:6px 14px;font-size:8.5px;font-weight:700;cursor:pointer;color:var(--t3);border:.5px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:var(--mono);display:flex;align-items:center;gap:5px;transition:all .15s;background:transparent;border-radius:3px 3px 0 0;letter-spacing:.06em}
+.mt-tab:hover{color:var(--t2);background:rgba(255,255,255,.03)}
+.mt-tab.active{color:var(--gold2);background:rgba(201,168,76,.07);border-color:var(--b2) var(--b2) transparent var(--b2)}
+.mt-tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.modal-body{overflow-y:auto;flex:1;padding:16px 18px 18px;min-height:0}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+.att-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.att-class{font-size:10px;font-weight:700;color:var(--gold2)}
+.att-count{font-size:9px;color:var(--t3)}
+.att-bulk{display:flex;gap:5px;margin-left:auto}
+.ab-btn{padding:3px 9px;border-radius:2px;font-size:8.5px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .12s;letter-spacing:.04em}
+.ab-all{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.ab-none{background:rgba(215,193,145,.06);border-color:var(--b2);color:var(--t3)}
+.ab-absent{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.student-list{display:flex;flex-direction:column;gap:2px}
+.stu-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:4px;background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.04);transition:all .12s;user-select:none;min-height:44px}
+.stu-row:hover{background:rgba(255,255,255,.04)}
+.stu-row.present{background:rgba(29,184,122,.07);border-color:rgba(29,184,122,.18)}
+.stu-row.late{background:rgba(232,160,32,.06);border-color:rgba(232,160,32,.18)}
+.stu-row.absent{background:rgba(232,69,90,.05);border-color:rgba(232,69,90,.14)}
+.stu-pres{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:1.5px solid var(--b2);cursor:pointer;transition:all .18s;background:rgba(255,255,255,.03)}
+.stu-row.present .stu-pres{background:var(--green);border-color:var(--green);color:#07060E;box-shadow:0 0 10px rgba(29,184,122,.3)}
+.stu-row.late .stu-pres{background:var(--amber);border-color:var(--amber);color:#07060E}
+.stu-row.absent .stu-pres{background:var(--red);border-color:var(--red);color:#fff}
+.stu-pres:hover{transform:scale(1.12)}
+.stu-num{font-size:8px;color:var(--t3);width:20px;flex-shrink:0;text-align:right}
+.stu-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35);cursor:pointer}
+.stu-mid{flex:1;min-width:0;display:flex;align-items:center;gap:8px;cursor:pointer}
+.stu-name{font-size:11px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stu-ref{font-size:7.5px;color:var(--t3)}
+.stu-status{font-size:7px;font-weight:700;letter-spacing:.06em;flex-shrink:0;min-width:52px}
+.stu-row.present .stu-status{color:var(--green)}.stu-row.late .stu-status{color:var(--amber)}.stu-row.absent .stu-status{color:var(--red)}
+.stu-row:not(.present):not(.late):not(.absent) .stu-status{color:var(--t4);font-weight:400}
+.stu-actions{display:flex;align-items:center;gap:1px;flex-shrink:0;margin-left:auto}
+.sab{width:26px;height:26px;border-radius:4px;border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .14s;background:transparent;color:rgba(215,193,145,.18)}
+.sab:hover{transform:scale(1.15)}
+.sab-grade:hover{background:rgba(155,94,202,.15);border-color:rgba(155,94,202,.3);color:var(--purple)}
+.sab-office:hover{background:rgba(74,143,245,.15);border-color:rgba(74,143,245,.3);color:var(--blue)}
+.sab-parent:hover{background:rgba(232,160,32,.12);border-color:rgba(232,160,32,.28);color:var(--amber)}
+.sab-email:hover{background:rgba(40,200,176,.12);border-color:rgba(40,200,176,.28);color:var(--teal)}
+.sab-flag:hover{background:rgba(232,69,90,.12);border-color:rgba(232,69,90,.28);color:var(--red)}
+.sab-note:hover{background:rgba(215,193,145,.08);border-color:rgba(215,193,145,.18);color:var(--t2)}
+
+.tab-sec{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.tab-sec::after{content:'';flex:1;height:.5px;background:var(--b2)}
+
+.resource-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:14px}
+.res-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:5px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.res-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.res-card:hover{background:rgba(255,255,255,.04);border-color:var(--b2);transform:translateY(-1px)}
+.res-card.rc-blue::before{background:var(--blue)}.res-card.rc-teal::before{background:var(--teal)}.res-card.rc-purple::before{background:var(--purple)}.res-card.rc-amber::before{background:var(--amber)}.res-card.rc-green::before{background:var(--green)}.res-card.rc-gold::before{background:var(--gold)}
+.rc-icon{font-size:18px;margin-bottom:6px;display:block}
+.rc-title{font-size:11px;font-weight:700;color:var(--t);margin-bottom:3px}
+.rc-sub{font-size:8.5px;color:var(--t3);line-height:1.4}
+.rc-tag{display:inline-block;font-size:7px;font-weight:700;padding:1px 6px;border-radius:2px;border:.5px solid var(--b2);color:var(--t3);margin-top:5px}
+
+.exam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-bottom:14px}
+.exam-card{padding:10px 12px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;cursor:pointer;transition:all .15s}
+.exam-card:hover{background:var(--gold4);border-color:var(--b2)}
+.ec-year{font-size:9px;color:var(--t3);margin-bottom:3px}
+.ec-title{font-size:11px;font-weight:600;color:var(--t);margin-bottom:3px}
+.ec-meta{font-size:8px;color:var(--t3)}
+.ec-score{font-family:var(--display);font-size:20px;color:var(--gold2);line-height:1;margin-top:4px}
+
+.fotoc-urgency{display:flex;gap:5px}
+.urg-btn{padding:5px 14px;border-radius:2px;border:.5px solid var(--b);font-size:9px;cursor:pointer;color:var(--t2);transition:all .12s;font-weight:700;letter-spacing:.04em}
+.urg-btn:hover{border-color:var(--b2);color:var(--t)}
+.urg-btn.on-normal{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.urg-btn.on-urgent{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.urg-btn.on-express{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+
+.sum-textarea{width:100%;padding:9px 10px;background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:4px;font-size:11px;font-family:var(--sans);color:var(--t);outline:none;resize:vertical;min-height:80px;line-height:1.6;transition:border-color .12s}
+.sum-textarea::placeholder{color:var(--t3)}.sum-textarea:focus{border-color:var(--gold)}
+.sum-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.sf-label{font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px}
+.sf-inp{width:100%;padding:6px 9px;background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:3px;font-size:11px;font-family:var(--mono);color:var(--t);outline:none;transition:border-color .12s;-webkit-appearance:none}
+.sf-inp:focus{border-color:var(--gold)}.sf-inp::placeholder{color:var(--t3)}.sf-inp option{background:var(--bg2)}
+select.sf-inp{cursor:pointer}
+
+.chip{padding:4px 11px;border-radius:2px;border:.5px solid var(--b);font-size:9px;cursor:pointer;color:var(--t2);transition:all .12s}
+.chip:hover{border-color:var(--b2);color:var(--t)}.chip.active{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.ff-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.modal-footer{padding:10px 16px;border-top:.5px solid var(--b);display:flex;gap:6px;align-items:center;flex-shrink:0}
+.mf-saved{font-size:8.5px;color:var(--green);opacity:0;transition:opacity .3s}
+.mf-saved.show{opacity:1}
+.mf-btn{padding:6px 16px;border-radius:3px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .15s;letter-spacing:.06em;display:inline-flex;align-items:center;gap:5px}
+.mf-btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-green{background:var(--green);border-color:transparent;color:#07060E;margin-left:auto}.btn-green:hover:not(:disabled){background:#1aa36b}
+.btn-ghost{background:transparent;border-color:var(--b);color:var(--t2)}.btn-ghost:hover{border-color:var(--b2);color:var(--t)}
+
+.stu-modal-overlay{display:none;position:fixed;inset:0;background:rgba(4,2,12,.6);z-index:500;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.stu-modal-overlay.open{display:flex}
+.stu-modal{background:var(--bg3);border:.5px solid var(--b2);border-radius:8px;width:min(400px,96vw);max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.9);animation:modal-in .18s ease;scrollbar-width:none}
+.stu-modal::-webkit-scrollbar{display:none}
+.sm-header{display:flex;align-items:center;gap:10px;padding:12px 14px 8px;border-bottom:.5px solid var(--b)}
+.sm-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.sm-name{font-size:13px;font-weight:600;color:var(--gold2)}
+.sm-meta{font-size:8.5px;color:var(--t3);margin-top:2px}
+.sm-close{margin-left:auto;width:24px;height:24px;border-radius:50%;border:.5px solid var(--b);background:transparent;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.sm-close:hover{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.sm-body{padding:12px 14px}
+.sm-sec-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:7px}
+.sm-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.sm-stat{padding:7px 9px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px}
+.sm-stat-v{font-size:18px;font-weight:700;color:var(--gold2);line-height:1}
+.sm-stat-l{font-size:7.5px;color:var(--t3);margin-top:3px;text-transform:uppercase;letter-spacing:.08em}
+.sm-stat.warn .sm-stat-v{color:var(--amber)}.sm-stat.danger .sm-stat-v{color:var(--red)}.sm-stat.good .sm-stat-v{color:var(--green)}
+.sm-note-area{width:100%;padding:7px 9px;background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:4px;font-size:10px;font-family:var(--sans);color:var(--t);outline:none;resize:vertical;min-height:65px;line-height:1.5;transition:border-color .12s}
+.sm-note-area::placeholder{color:var(--t3)}.sm-note-area:focus{border-color:var(--gold)}
+.sm-footer{padding:8px 14px;border-top:.5px solid var(--b);display:flex;gap:5px;justify-content:flex-end}
+.sm-btn{padding:5px 12px;border-radius:3px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .12px;letter-spacing:.04em}
+.sm-btn-ghost{background:transparent;border-color:var(--b);color:var(--t2)}.sm-btn-ghost:hover{border-color:var(--b2);color:var(--t)}
+.sm-btn-gold{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}.sm-btn-gold:hover{background:var(--gold3)}
+.flag-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.flag-chip{padding:3px 9px;border-radius:2px;border:.5px solid var(--b);font-size:8.5px;cursor:pointer;color:var(--t2);transition:all .12s}
+.flag-chip:hover{border-color:var(--b2)}.flag-chip.on{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+
+.save-status{padding:4px 10px;border-radius:3px;font-size:9px;font-weight:700;border:.5px solid;display:none}
+.save-status.saving{display:flex;align-items:center;gap:6px;background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.save-status.saved{display:flex;align-items:center;gap:6px;background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.save-status.error{display:flex;align-items:center;gap:6px;background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.06em;opacity:0;transition:all .2s;z-index:9999;pointer-events:none;white-space:nowrap;border:.5px solid}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.info{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.spinner{width:12px;height:12px;border:1.5px solid rgba(255,255,255,.08);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+
+@media(max-width:580px){
+  .hero-stats{display:none}.sum-fields{grid-template-columns:1fr}.ff-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TOPBAR ═══════════ -->
+<div class="topbar">
+  <div class="nav-duo">
+    <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
+    <a class="nav-back" href="/admin/alm-atribuir-turmas">
+      <span class="nav-back-arrow">←</span>
+      <span class="nav-back-label">Assign</span>
+    </a>
+  </div>
+  <div class="brand">
+    <span class="brand-alm">ALM</span>
+    <span class="brand-yr" id="brand-yr">——</span>
+  </div>
+
+
+
+  <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-right:1px solid var(--b);height:100%;flex-shrink:0">
+    <div class="live-dot"></div>
+    <div class="tb-chip">Portal do Professor</div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="tb-pill neutral" id="kpi-ay">——</div>
+    <div class="tb-pill ok" id="kpi-turmas">— turmas</div>
+    <div class="tb-pill gold" id="kpi-alunos">— alunos</div>
+    <button class="tb-btn ok" onclick="boot()">↻ Recarregar</button>
+    <span class="tb-clock" id="clk">--:--:--</span>
+  </div>
+</div>
+
+<div class="shell">
+
+  <div class="status-banner">
+    <div class="sb-dot loading" id="sb-dot"></div>
+    <span class="sb-msg loading" id="sb-msg">A carregar…</span>
+    <button class="sb-reload" onclick="boot()">↻ Recarregar</button>
+  </div>
+
+  <div class="teacher-picker" id="teacher-picker" style="display:none">
+    <span class="tp-label">Professor</span>
+    <select class="tp-select" id="tp-select" onchange="switchTeacher(this.value)">
+      <option value="">Seleccionar professor…</option>
+    </select>
+  </div>
+
+  <div class="hero">
+    <div class="hero-av" id="hero-av" style="border-color:rgba(201,168,76,.3);color:var(--gold2);background:var(--gold4)">—</div>
+    <div class="hero-info">
+      <div class="hero-name" id="hero-name">A carregar…</div>
+      <div class="hero-meta" id="hero-meta"></div>
+    </div>
+    <div class="hero-stats">
+      <div class="hs-item"><div class="hs-v" id="stat-today">0</div><div class="hs-l">Hoje</div></div>
+      <div class="hs-item"><div class="hs-v" id="stat-week">0</div><div class="hs-l">Semana</div></div>
+      <div class="hs-item"><div class="hs-v" style="color:var(--green)" id="stat-students">0</div><div class="hs-l">Alunos</div></div>
+    </div>
+  </div>
+
+  <div class="today-strip">
+    <span class="ts-label">Hoje · <span id="today-label">—</span></span>
+    <div id="today-slots" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid-head">
+      <span class="gh-title">Grelha Semanal · Clique numa sessão para registar presenças ou sumário</span>
+      <div class="gh-legend">
+        <div class="gl-item"><div class="gl-sw" style="background:var(--band-adults-a);border-left:2px solid var(--acc-adults)"></div>Geral</div>
+        <div class="gl-item"><div class="gl-sw" style="background:var(--band-exam-a);border-left:2px solid var(--acc-exam)"></div>Exames</div>
+        <div class="gl-item"><div class="gl-sw" style="background:var(--band-kids-juv-a);border-left:2px solid var(--acc-kids-juv)"></div>Juvenil</div>
+        <div class="gl-item"><div class="gl-sw" style="background:var(--band-kids-a);border-left:2px solid var(--acc-kids)"></div>Infantil</div>
+      </div>
+    </div>
+    <div class="grid-scroll"><table class="grid-table" id="grid-table"></table></div>
+  </div>
+
+</div>
+
+<!-- ═══════════ ACTION MODAL ═══════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+  <div class="action-modal" onclick="event.stopPropagation()">
+    <div class="mh-hero">
+      <div class="mh-hero-bg" id="mh-hero-bg"></div>
+      <div class="mh-hero-scrim"></div>
+      <button class="mh-hero-close" onclick="closeModal()">✕</button>
+
+      <!-- top info row -->
+      <div class="mh-top-row">
+        <div class="mh-av-wrap"><div class="mh-av" id="mh-av">—</div></div>
+        <div class="mh-info">
+          <div class="mh-turma" id="mh-turma">—</div>
+          <div class="mh-slot">
+            <span class="mh-time-badge" id="mh-time">--:--</span>
+            <span class="mh-dept-badge" id="mh-dept-badge">—</span>
+            <span id="mh-lesson-num" style="display:none"></span>
+            <span class="mh-date-badge" id="mh-date-badge" style="display:none"></span>
+            <span class="mh-submit-badge" id="mh-submit-badge" style="display:none">✓ Submetido</span>
+            <a class="mh-cal-btn" id="mh-cal-btn" href="#" title="Ver no calendário">📅 Calendário</a>
+          </div>
+          <div style="margin-top:3px;font-size:9px;color:rgba(255,255,255,.4)" id="mh-day-full"></div>
+        </div>
+        <div class="mh-stats">
+          <div class="mh-att-counter" id="mh-att-num">0</div>
+          <div class="mh-att-label" id="mh-att-label">/ 0 presentes</div>
+          <div class="mh-att-bar"><div class="mh-att-fill" id="mh-att-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- config row: set once, then hidden behind ⚙ -->
+   <div class="mh-cfg" id="mh-cfg">
+  <span class="mhc-label">📅 Ano lectivo</span>
+  <span class="mhc-sep" style="font-size:8px;color:var(--t3)">Início</span>
+  <input class="mhc-inp" type="date" id="lbc-start" title="Data de início"/>
+  <span class="mhc-sep">→</span>
+  <input class="mhc-inp" type="date" id="lbc-end" title="Data de fim"/>
+  <span style="font-size:7.5px;color:var(--t3);flex-shrink:0">aplica-se a todos os professores</span>
+  <button class="mhc-btn" onclick="applyBarConfig()">✓ Guardar</button>
+  <button class="mhc-gear" onclick="toggleMhCfg()" title="Reconfigurar">⚙</button>
+   </div>
+        
+      <!-- bloomberg lesson bar -->
+      <div class="mh-bar-wrap">
+        <div class="mh-bar-fade-l"></div>
+        <div class="mh-bar-fade-r"></div>
+        <div class="mh-bar-track" id="lb-track"></div>
+        <div class="lb-progress" id="lb-progress" style="width:0%"></div>
+      </div>
+
+    </div>
+
+    <div class="modal-tabs">
+      <button class="mt-tab active" id="mt-presencas" onclick="switchTab('presencas',this)">
+        <div class="mt-tab-dot" style="background:var(--green)"></div>Presenças
+      </button>
+      <button class="mt-tab" id="mt-sumario" onclick="switchTab('sumario',this)">
+        <div class="mt-tab-dot" style="background:var(--gold)"></div>Sumário
+      </button>
+      <button class="mt-tab" id="mt-mensagem" onclick="switchTab('mensagem',this)">
+        <div class="mt-tab-dot" style="background:var(--blue)"></div>Mensagem
+      </button>
+      <button class="mt-tab" id="mt-fotoc" onclick="switchTab('fotoc',this)">
+        <div class="mt-tab-dot" style="background:var(--amber)"></div>Fotocópias
+      </button>
+      <button class="mt-tab" id="mt-recursos" onclick="switchTab('recursos',this)">
+        <div class="mt-tab-dot" style="background:var(--teal)"></div>Pág. Professor
+      </button>
+      <button class="mt-tab" id="mt-exames" onclick="switchTab('exames',this)">
+        <div class="mt-tab-dot" style="background:var(--purple)"></div>Exames &amp; Testes
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- TAB 1: PRESENÇAS -->
+      <div class="tab-pane active" id="tab-presencas">
+        <div class="att-header">
+          <div><div class="att-class" id="att-class">—</div><div class="att-count" id="att-count">0 / 0</div></div>
+          <div class="att-bulk">
+            <button class="ab-btn ab-all" onclick="markAll('present')">✓ Todos presentes</button>
+            <button class="ab-btn ab-none" onclick="markAll(null)">○ Limpar</button>
+            <button class="ab-btn ab-absent" onclick="markAll('absent')">✕ Todos faltam</button>
+          </div>
+        </div>
+        <div class="student-list" id="student-list"></div>
+      </div>
+
+      <!-- TAB 2: SUMÁRIO -->
+      <div class="tab-pane" id="tab-sumario">
+        <div class="tab-sec">Sumário da aula</div>
+        <textarea class="sum-textarea" id="sum-text" placeholder="Descreva os conteúdos abordados nesta aula…"></textarea>
+        <div class="sum-fields" style="margin-top:10px">
+          <div><div class="sf-label">Livro / Página</div><input class="sf-inp" id="sum-book" placeholder="ex: Headway U3B p.42" type="text"/></div>
+          <div><div class="sf-label">Competência principal</div>
+            <select class="sf-inp" id="sum-skill"><option value="">Selecionar…</option><option>Speaking</option><option>Listening</option><option>Reading</option><option>Writing</option><option>Grammar</option><option>Vocabulary</option><option>Pronunciation</option></select>
+          </div>
+          <div><div class="sf-label">Participação geral</div>
+            <select class="sf-inp" id="sum-part"><option value="">Selecionar…</option><option>Excelente</option><option>Boa</option><option>Satisfatória</option><option>Fraca</option></select>
+          </div>
+          <div><div class="sf-label">Observações</div><input class="sf-inp" id="sum-obs" placeholder="Notas para a direcção…" type="text"/></div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="tab-sec" style="margin-bottom:8px">TPC desta aula</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="tpc-chips">
+            <div class="chip" onclick="this.classList.toggle('active')">Exercícios livro</div>
+            <div class="chip" onclick="this.classList.toggle('active')">Composição</div>
+            <div class="chip" onclick="this.classList.toggle('active')">Leitura</div>
+            <div class="chip" onclick="this.classList.toggle('active')">Revisão gramática</div>
+            <div class="chip" onclick="this.classList.toggle('active')">Vocabulário</div>
+          </div>
+          <div class="ff-row">
+            <div><div class="sf-label">Referência TPC</div><input class="sf-inp" id="sum-tpc-ref" type="text" placeholder="p. 35, ex. 1-4"/></div>
+            <div><div class="sf-label">Entregar em</div><input class="sf-inp" id="sum-tpc-date" type="date"/></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: MENSAGEM -->
+      <div class="tab-pane" id="tab-mensagem">
+        <div class="tab-sec" style="margin-bottom:10px">Mensagem interna — escola</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+          <div><div class="sf-label">Para</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              <div class="chip" onclick="this.classList.toggle('active')">Direcção</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Secretaria</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Operacional</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Colega</div>
+            </div>
+          </div>
+          <div><div class="sf-label">Assunto</div><input class="sf-inp" type="text" placeholder="ex: Mudança de sala, material…"/></div>
+          <div><div class="sf-label">Mensagem</div><textarea class="sum-textarea" style="min-height:65px" placeholder="Escreva a sua mensagem…"></textarea></div>
+        </div>
+        <div class="tab-sec" style="margin-bottom:10px">Comunicação com encarregados &amp; alunos</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><div class="sf-label">Enviar para</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              <div class="chip" onclick="this.classList.toggle('active')">Todos os encarregados</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Todos os alunos</div>
+              <div class="chip" onclick="this.classList.toggle('active')">Aluno seleccionado</div>
+            </div>
+          </div>
+          <div><div class="sf-label">Assunto</div><input class="sf-inp" type="text" placeholder="ex: Falta injustificada, resultados…"/></div>
+          <div><div class="sf-label">Mensagem</div><textarea class="sum-textarea" style="min-height:65px" placeholder="Esta mensagem será enviada por email…"></textarea></div>
+          <div style="display:flex;gap:6px">
+            <button class="ab-btn" style="background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)" onclick="showToast('Email enviado ✓','ok')">✉ Enviar email</button>
+            <button class="ab-btn" style="background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="showToast('Notificação enviada ✓','ok')">✆ Notificação</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: FOTOCÓPIAS -->
+      <div class="tab-pane" id="tab-fotoc">
+        <div class="tab-sec">Pedido de fotocópias</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><div class="sf-label">Documento / Ficha</div>
+            <input class="sf-inp" id="fotoc-doc" type="text" placeholder="ex: Grammar test U3, Handout p.42…"/>
+          </div>
+          <div class="ff-row">
+            <div><div class="sf-label">Nº de cópias</div><input class="sf-inp" id="fotoc-copies" type="number" min="1" max="200" value="17"/></div>
+            <div><div class="sf-label">Frente / Verso</div>
+              <select class="sf-inp" id="fotoc-sides"><option>Só frente</option><option>Frente e verso</option></select>
+            </div>
+          </div>
+          <div><div class="sf-label">Urgência</div>
+            <div class="fotoc-urgency">
+              <div class="urg-btn on-normal" id="urg-normal" onclick="pickUrg('normal',this)">Normal (48h)</div>
+              <div class="urg-btn" id="urg-urgent" onclick="pickUrg('urgent',this)">Urgente (24h)</div>
+              <div class="urg-btn" id="urg-express" onclick="pickUrg('express',this)">Express (hoje)</div>
+            </div>
+          </div>
+          <div><div class="sf-label">Observações</div>
+            <textarea class="sum-textarea" id="fotoc-obs" style="min-height:50px" placeholder="Instruções especiais…"></textarea>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div style="font-size:8.5px;color:var(--t3)">📎 Anexar ficheiro</div>
+            <div style="font-size:8.5px;color:var(--t3);margin-left:auto">Sala de impressão: <strong style="color:var(--t2)">1º andar</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: PÁGINA DO PROFESSOR -->
+      <div class="tab-pane" id="tab-recursos">
+        <div class="tab-sec">Recursos pedagógicos</div>
+        <div class="resource-grid">
+          <div class="res-card rc-blue" onclick="showToast('A abrir…','info')"><span class="rc-icon">📖</span><div class="rc-title">Cambridge Teacher Resources</div><div class="rc-sub">Lesson plans, worksheets, assessment tools</div><span class="rc-tag">externo</span></div>
+          <div class="res-card rc-teal" onclick="showToast('A abrir…','info')"><span class="rc-icon">🎧</span><div class="rc-title">Listening Activities</div><div class="rc-sub">Graded audio tasks B1–C2, BBC Learning</div><span class="rc-tag">externo</span></div>
+          <div class="res-card rc-purple" onclick="showToast('A abrir…','info')"><span class="rc-icon">✍</span><div class="rc-title">Writing Prompts Bank</div><div class="rc-sub">FCE/CAE essays, reports, emails, reviews</div><span class="rc-tag">interno · INTUITY</span></div>
+          <div class="res-card rc-amber" onclick="showToast('A abrir…','info')"><span class="rc-icon">🗣</span><div class="rc-title">Speaking Frameworks</div><div class="rc-sub">Part 2 &amp; 3 templates, discourse markers</div><span class="rc-tag">interno · INTUITY</span></div>
+          <div class="res-card rc-green" onclick="showToast('A abrir…','info')"><span class="rc-icon">⊞</span><div class="rc-title">Grammar Bank</div><div class="rc-sub">Rules, practice, gap-fill — all levels</div><span class="rc-tag">interno · INTUITY</span></div>
+          <div class="res-card rc-gold" onclick="showToast('A abrir…','info')"><span class="rc-icon">💡</span><div class="rc-title">Activity Ideas Shared</div><div class="rc-sub">Curated by ALM teachers — add your own</div><span class="rc-tag">interno</span></div>
+        </div>
+        <div class="tab-sec" style="margin-top:4px">Links rápidos</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div class="chip" onclick="showToast('A abrir…','info')">📹 YouTube EDU</div>
+          <div class="chip" onclick="showToast('A abrir…','info')">📰 Guardian Weekly</div>
+          <div class="chip" onclick="showToast('A abrir…','info')">🎯 Quizlet</div>
+          <div class="chip" onclick="showToast('A abrir…','info')">🌐 British Council</div>
+          <div class="chip" onclick="showToast('A abrir…','info')">📊 Kahoot</div>
+          <div class="chip" onclick="showToast('A abrir…','info')">📝 Padlet</div>
+        </div>
+      </div>
+
+      <!-- TAB 6: EXAMES & TESTES -->
+      <div class="tab-pane" id="tab-exames">
+        <div class="tab-sec">Exames Cambridge desta turma</div>
+        <div class="exam-grid">
+          <div class="exam-card"><div class="ec-year">FCE 2024–2025</div><div class="ec-title">First Certificate</div><div class="ec-meta">Centro PT003 · 14 alunos</div><div class="ec-score">—</div></div>
+          <div class="exam-card"><div class="ec-year">FCE 2023–2024</div><div class="ec-title">First Certificate</div><div class="ec-meta">Centro PT003 · 11 alunos</div><div class="ec-score">—</div></div>
+          <div class="exam-card" style="background:var(--gold4);border-color:var(--b2)"><div class="ec-year">Novo</div><div class="ec-title">Criar teste</div><div class="ec-meta">Banco de questões ALM</div></div>
+        </div>
+        <div class="tab-sec" style="margin-top:4px">Avaliação contínua — esta turma</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="ff-row">
+            <div><div class="sf-label">Tipo de avaliação</div>
+              <select class="sf-inp"><option>Teste escrito</option><option>Oral</option><option>Portfólio</option><option>Participação</option><option>Projecto</option></select>
+            </div>
+            <div><div class="sf-label">Data</div><input class="sf-inp" type="date"/></div>
+          </div>
+          <div><div class="sf-label">Observações</div><input class="sf-inp" type="text" placeholder="ex: Teste gramática U4–U6"/></div>
+          <button class="ab-btn" style="width:fit-content;background:rgba(155,94,202,.12);border-color:rgba(155,94,202,.3);color:var(--purple)" onclick="showToast('Avaliação registada ✓','ok')">✓ Registar avaliação</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <div class="save-status" id="save-status"></div>
+      <span class="mf-saved" id="mf-saved">✓ Guardado</span>
+      <button class="mf-btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="mf-btn btn-green" id="btn-save" onclick="confirmAction()">✓ Guardar &amp; Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT DETAIL MODAL -->
+<div class="stu-modal-overlay" id="stu-modal-overlay" onclick="closeStuModal()">
+  <div class="stu-modal" onclick="event.stopPropagation()">
+    <div class="sm-header">
+      <div class="sm-av" id="sm-av">—</div>
+      <div><div class="sm-name" id="sm-name">—</div><div class="sm-meta" id="sm-meta">—</div></div>
+      <button class="sm-close" onclick="closeStuModal()">✕</button>
+    </div>
+    <div class="sm-body" id="sm-body"></div>
+    <div class="sm-footer">
+      <button class="sm-btn sm-btn-ghost" onclick="closeStuModal()">Fechar</button>
+      <button class="sm-btn sm-btn-gold" onclick="saveStuNote()">✓ Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════
+   SUPABASE CONFIG
+════════════════════════════════ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json'};
+
+/* ════════════════════════════════
+   ACADEMIC YEAR CONFIG
+════════════════════════════════ */
+let AY         = '';
+let YEAR_START = '';
+let YEAR_END   = '';
+
+// Holidays and breaks loaded from Supabase — never hardcoded
+let HOLIDAYS = new Set();
+let BREAKS   = [];
+
+function isTeachingDay(iso){
+  if(HOLIDAYS.has(iso)) return false;
+  return !BREAKS.some(([s,e]) => iso >= s && iso <= e);
+}
+
+async function loadCalendarData(){
+  // Load holidays from school_holidays table
+  try{
+    const rows = await sbGet('school_holidays','select=date&limit=500');
+    HOLIDAYS = new Set(rows.map(r => r.date));
+  }catch(e){ console.warn('school_holidays not found — no holidays excluded', e.message); }
+
+  // Load breaks from school_breaks table
+  try{
+    const rows = await sbGet('school_breaks','select=start_date,end_date&limit=100');
+    BREAKS = rows.map(r => [r.start_date, r.end_date]);
+  }catch(e){ console.warn('school_breaks not found — no breaks excluded', e.message); }
+}
+
+const DOW_MAP = {
+  'SEG':1,'TER':2,'QUA':3,'QUI':4,'SEX':5,'SAB':6,'SÁB':6,
+  'SEGUNDA':1,'TERCA':2,'TERÇA':2,'QUARTA':3,'QUINTA':4,'SEXTA':5,'MON':1,'TUE':2,'WED':3,'THU':4,'FRI':5,'SAT':6,
+};
+
+function buildLessonDates(dow){
+  const target = DOW_MAP[(dow||'').toUpperCase().trim()];
+  if(!target || !YEAR_START || !YEAR_END) return [];
+  const dates = [];
+  const d   = new Date(YEAR_START + 'T12:00:00');
+  const end = new Date(YEAR_END   + 'T12:00:00');
+  while(d <= end){
+    if(d.getDay() === target){
+      const iso = d.toISOString().slice(0,10);
+      if(isTeachingDay(iso)) dates.push(iso);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+function lessonNumber(dow, iso){
+  buildBarDates();
+  const idx = BAR_DATES.indexOf(iso);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+function totalLessons(dow){
+  buildBarDates();
+  return BAR_DATES.length;
+}
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+/* ════════════════════════════════
+   BLOOMBERG LESSON BAR — config-driven, set once per teacher
+════════════════════════════════ */
+
+// Config — loaded from localStorage / Supabase, no hardcoded dates
+let BAR_CFG   = { start:'', end:'', dows:[] };
+let BAR_DATES = [];
+let BAR_IDX   = 0;
+let BAR_BUILT = false;
+let cfgOpen   = false;  // config row visibility
+
+function buildBarDates(){
+  BAR_BUILT = false; BAR_DATES = [];
+  if(!YEAR_START || !YEAR_END) return;
+  // Get day from current slot, or fall back to all weekdays
+  const dow = currentSlot?.day
+    ? DOW_MAP[(currentSlot.day||'').toUpperCase().trim()]
+    : null;
+  if(!dow) return;
+  const d   = new Date(YEAR_START + 'T12:00:00');
+  const end = new Date(YEAR_END   + 'T12:00:00');
+  while(d <= end){
+    if(d.getDay() === dow){
+      const iso = d.toISOString().slice(0,10);
+      if(isTeachingDay(iso)) BAR_DATES.push(iso);
+    }
+    d.setDate(d.getDate()+1);
+  }
+  BAR_BUILT = true;
+}
+
+/* ── Config row toggle ── */
+function toggleBarConfig(){
+  cfgOpen = !cfgOpen;
+  const cfg = document.getElementById('mh-cfg');
+  if(cfg) cfg.classList.toggle('mh-cfg-hidden', !cfgOpen);
+}
+
+/* ── Apply config from inputs ── */
+async function applyBarConfig(){
+  const start = document.getElementById('lbc-start')?.value;
+  const end   = document.getElementById('lbc-end')?.value;
+  if(!start || !end){
+    showToast('Seleccione datas de início e fim','warn'); return;
+  }
+
+  // Update globals immediately
+  YEAR_START = start;
+  YEAR_END   = end;
+  AY         = start.slice(0,4) + '/' + end.slice(0,4);
+
+  // Cache locally
+  try{
+    localStorage.setItem('alm_school_cfg',
+      JSON.stringify({YEAR_START:start, YEAR_END:end, AY}));
+  }catch{}
+
+  // Save to school_config (global — applies to all teachers)
+  try{
+    await fetch(`${SB}/rest/v1/school_config`,{
+      method:'POST',
+      headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([
+        {key:'year_start_date', value:start},
+        {key:'year_end_date',   value:end},
+        {key:'academic_year',   value:AY},
+      ]),
+    });
+    showToast(`✓ Ano lectivo ${AY} guardado para todos os professores`,'ok');
+  }catch(e){
+    showToast('Datas guardadas localmente — erro Supabase: '+e.message,'warn');
+  }
+
+  // Rebuild bar with new dates
+  buildBarDates();
+  BAR_IDX = Math.max(0, BAR_DATES.findLastIndex(d => d <= todayISO()));
+  renderBar();
+
+  // Collapse config row
+  cfgOpen = false;
+  document.getElementById('mh-cfg')?.classList.add('mh-cfg-hidden');
+}
+/* ── Load config from storage ── */
+function barLoadConfig(){
+  try{
+    const s = localStorage.getItem('alm_school_cfg');
+    if(s){
+      const c = JSON.parse(s);
+      if(c.YEAR_START){ YEAR_START=c.YEAR_START; YEAR_END=c.YEAR_END; AY=c.AY; }
+    }
+  }catch{}
+  if(ME) barLoadFromSupabase();
+}
+async function barLoadFromSupabase(){
+  try{
+    const rows = await sbGet('teacher_lesson_config',
+      `teacher_id=eq.${encodeURIComponent(ME.id)}&limit=1`).catch(()=>[]);
+    if(rows && rows.length){
+      const r = rows[0];
+      BAR_CFG = {
+        start: r.start_date || '',
+        end:   r.end_date   || '',
+        dows:  Array.isArray(r.days_of_week) ? r.days_of_week : JSON.parse(r.days_of_week||'[]'),
+      };
+      try{ localStorage.setItem('alm_bar_cfg', JSON.stringify(BAR_CFG)); }catch{}
+      syncConfigUI();
+      buildBarDates();
+      BAR_IDX = Math.max(0, BAR_DATES.findLastIndex(d => d <= todayISO()));
+      renderBar();
+    }
+  }catch(e){ /* table may not exist; silent */ }
+}
+
+function syncConfigUI(){
+  if(BAR_CFG.start) { const el=document.getElementById('lbc-start'); if(el) el.value=BAR_CFG.start; }
+  if(BAR_CFG.end)   { const el=document.getElementById('lbc-end');   if(el) el.value=BAR_CFG.end;   }
+  document.querySelectorAll('.lbc-dow').forEach(c => {
+    c.classList.toggle('active', BAR_CFG.dows.includes(parseInt(c.dataset.dow)));
+  });
+  // hide the config gear button if already configured; show ⚙ toggle instead
+  // if already configured, hide the cfg row (show only bar)
+  const cfg = document.getElementById('mh-cfg');
+  if(cfg && BAR_CFG.start && BAR_CFG.dows.length)
+    cfg.classList.add('mh-cfg-hidden');
+}
+
+function renderBar(selectedDate){
+  const track  = document.getElementById('lb-track');
+  const today  = todayISO();
+  const total  = BAR_DATES.length;
+  // if a date is passed, select that lesson; otherwise keep BAR_IDX
+
+  if(!total){
+    // No config yet — show prompt in bar
+    if(track) track.innerHTML = '<div style="display:flex;align-items:center;height:100%;padding:0 14px;font-size:9px;color:rgba(215,193,145,.35);letter-spacing:.06em">Defina o início e fim do ano lectivo ↑</div>';
+    // keep config row visible
+    const cfg = document.getElementById('mh-cfg');
+    if(cfg) cfg.classList.remove('mh-cfg-hidden');
+    return;
+  }
+
+  // find today's index (or nearest past)
+  let todayIdx = BAR_DATES.findLastIndex(d => d <= today);
+  if(todayIdx < 0) todayIdx = 0;
+  // if a specific date was passed (slot opened), select that lesson
+  if(selectedDate){
+    const exact = BAR_DATES.indexOf(selectedDate);
+    BAR_IDX = exact >= 0 ? exact : BAR_DATES.findLastIndex(d => d <= selectedDate);
+    if(BAR_IDX < 0) BAR_IDX = todayIdx;
+  } else if(BAR_IDX === 0){
+    BAR_IDX = todayIdx;
+  }
+
+  track.innerHTML = BAR_DATES.map((iso, i) => {
+    const num   = i + 1;
+    const dt    = new Date(iso + 'T12:00:00');
+    const dd    = String(dt.getDate()).padStart(2,'0');
+    const mm    = String(dt.getMonth()+1).padStart(2,'0');
+    const DOW_ABBR = ['D','S','T','Q','Q','S','S'];
+    const label = `${DOW_ABBR[dt.getDay()]} ${dd}/${mm}`;
+    const isToday  = iso === today;
+    const isFuture = iso > today;
+    const isPast   = iso < today;
+    const isSel    = i === BAR_IDX;
+    const cls = [
+      'lb-cell',
+      isToday  ? 'today'      : '',
+      isFuture ? 'future'     : '',
+      isPast   ? 'past'       : '',
+      isSel    ? 'active-sel' : '',
+    ].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-idx="${i}" onclick="barSelect(${i})" title="${iso}">
+      <div class="lb-num">${String(num).padStart(2,'0')}</div>
+      <div class="lb-date">${label}</div>
+      <div class="lb-dot"></div>
+    </div>`;
+  }).join('');
+
+  // progress bar width
+  const pct = total ? Math.round((todayIdx + 1) / total * 100) : 0;
+  document.getElementById('lb-progress').style.width = pct + '%';
+
+  // scroll selected cell into view (centred)
+  setTimeout(() => barScrollTo(BAR_IDX), 0);
+}
+
+function barSelect(idx){
+  const today = todayISO();
+  if(BAR_DATES[idx] > today) return; // future — locked
+  BAR_IDX = idx;
+
+  // update active-sel class without full re-render
+  document.querySelectorAll('.lb-cell').forEach((el,i) => {
+    el.classList.toggle('active-sel', i === idx);
+  });
+  barScrollTo(idx);
+
+  // update currentSlot lesson info
+  if(currentSlot){
+    currentSlot.lessonNum   = idx + 1;
+    currentSlot.lessonTotal = BAR_DATES.length;
+    currentSlot.lessonDate  = BAR_DATES[idx];
+  }
+
+  // update header badges
+  const lNumEl = document.getElementById('mh-lesson-num');
+  if(lNumEl) lNumEl.textContent = `Aula ${String(idx+1).padStart(3,'0')} de ${BAR_DATES.length}`;
+
+  const dt = new Date(BAR_DATES[idx]+'T12:00:00');
+  const dateShort = dt.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const dateLong  = dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const dateBadge = document.getElementById('mh-date-badge');
+  if(dateBadge){ dateBadge.textContent = '📅 '+dateShort; dateBadge.title = dateLong; }
+  const dayFullEl = document.getElementById('mh-day-full');
+  if(dayFullEl && currentSlot) dayFullEl.textContent = dateLong
+    + (currentSlot.durationMin ? ' · '+currentSlot.durationMin+'min' : '')
+    + (currentSlot.sala ? ' · Sala '+currentSlot.sala : '');
+
+  // Clear forms then load this lesson's saved data from Supabase
+  clearLessonForms();
+  loadLessonData(idx);
+}
+
+/* ── Load lesson data for a given bar index ── */
+async function loadLessonData(idx){
+  if(!currentSlot) return;
+  const lessonNum  = idx + 1;
+  const lessonDate = BAR_DATES[idx];
+  const turmaCode  = currentSlot.turmaCode;
+
+  // Show loading state
+  const saveBtn = document.getElementById('btn-save');
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '⏳ A carregar…'; }
+
+  try{
+    // ── Load summary ──
+    const summaries = await sbGet('lesson_summaries',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&lesson_number=eq.${lessonNum}&limit=1`
+    ).catch(() => []);
+
+    // Try by date if lesson_number index not found
+    const sum = summaries[0] || (await sbGet('lesson_summaries',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&date=eq.${lessonDate}&limit=1`
+    ).catch(() => []))[0] || null;
+
+    // Populate summary tab
+    const setText = (id, val) => { const el=document.getElementById(id); if(el) el.value = val||''; };
+    setText('sum-text',    sum?.summary_text || sum?.summary || '');
+    setText('sum-book',    sum?.book_page    || '');
+    setText('sum-obs',     sum?.observations || sum?.notes  || '');
+    setText('sum-tpc-ref', sum?.tpc_ref      || '');
+    setText('sum-tpc-date',sum?.tpc_due      || '');
+    // dropdowns
+    const setSelect = (id, val) => { const el=document.getElementById(id); if(el) el.value = val||''; };
+    setSelect('sum-skill', sum?.skill);
+    setSelect('sum-part',  sum?.participation);
+    // TPC chips
+    const tpcActive = (sum?.tpc||'').split(',').map(s=>s.trim()).filter(Boolean);
+    document.querySelectorAll('#tpc-chips .chip').forEach(c => {
+      c.classList.toggle('active', tpcActive.includes(c.textContent.trim()));
+    });
+
+    // ── Load attendance for this lesson ──
+    const attRows = await sbGet('attendance',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&lesson_number=eq.${lessonNum}&select=student_ref,status&limit=500`
+    ).catch(() => []);
+
+    // Also try by date if lesson_number column not populated
+    const attByDate = attRows.length ? attRows : await sbGet('attendance',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&date=eq.${lessonDate}&select=student_ref,status&limit=500`
+    ).catch(() => []);
+
+    const attMap = {};
+    attByDate.forEach(r => { attMap[r.student_ref] = r.status; });
+
+    // Update studentState with loaded attendance
+    if(currentSlot.studentState){
+      currentSlot.studentState.forEach(stu => {
+        const raw = attMap[stu.ref] ?? null;
+        stu.present = raw==='present'||raw==='presente' ? true
+                    : raw==='late'||raw==='atraso'      ? 'late'
+                    : raw==='absent'||raw==='falta'     ? false
+                    : null;
+      });
+      buildStudentList();
+      updateAttHeader();
+    }
+
+    // Update submission badge
+    const hasSub = attByDate.length > 0 || !!sum;
+    document.getElementById('mh-submit-badge').style.display = hasSub ? 'inline-flex' : 'none';
+
+    showToast(`Aula ${String(lessonNum).padStart(3,'0')} · ${lessonDate}`,'info');
+
+  }catch(e){
+    console.error('loadLessonData error:', e);
+    showToast('Erro ao carregar aula','err');
+  }finally{
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = '✓ Guardar & Fechar'; }
+  }
+}
+
+function barScrollTo(idx){
+  const track = document.getElementById('lb-track');
+  const cell  = track.children[idx];
+  if(!cell || !track) return;
+  const cellLeft   = cell.offsetLeft;
+  const cellWidth  = cell.offsetWidth;
+  const trackWidth = track.offsetWidth;
+  track.scrollLeft = cellLeft - trackWidth / 2 + cellWidth / 2;
+}
+
+/* ── Modal config row toggle ── */
+function toggleMhCfg(){
+  const cfg = document.getElementById('mh-cfg');
+  if(cfg) cfg.classList.toggle('mh-cfg-hidden');
+}
+
+// drag-to-scroll + dow chip listeners
+(function(){
+  let isDragging = false, startX = 0, startScroll = 0;
+  document.addEventListener('DOMContentLoaded', () => {
+    // dow chips (in modal config row)
+    document.querySelectorAll('.lbc-dow').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('active'));
+    });
+    // drag scroll on modal bar
+    const track = document.getElementById('lb-track');
+    if(!track) return;
+    track.addEventListener('mousedown', e => {
+      isDragging = true; startX = e.pageX; startScroll = track.scrollLeft;
+    });
+    document.addEventListener('mousemove', e => {
+      if(!isDragging) return;
+      track.scrollLeft = startScroll - (e.pageX - startX);
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; });
+  });
+})();
+
+// Public accessors used by lessonNumber() references elsewhere
+function getCurrentBarIdx()  { return BAR_IDX; }
+function getCurrentBarDate() { return BAR_DATES[BAR_IDX] || todayISO(); }
+
+/* ════════════════════════════════
+   SUPABASE HELPERS
+════════════════════════════════ */
+async function sbGet(table, qs=''){
+  let all=[], page=0, ps=1000;
+  while(true){
+    const s=page*ps, e=s+ps-1;
+    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+      headers:{...H, Range:`${s}-${e}`, Prefer:'count=none'}
+    });
+    if(!r.ok){ const t=await r.text(); throw new Error(`${table} HTTP ${r.status}: ${t.slice(0,200)}`); }
+    const d = await r.json();
+    all = all.concat(d);
+    if(d.length < ps) break;
+    page++;
+    if(page > 9) break;
+  }
+  return all;
+}
+
+async function saveAttendanceRecords(records){
+  const results = await Promise.allSettled(records.map(row => saveOneRecord(row)));
+  const errors  = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason));
+  if(errors.length > 0) throw new Error(`${errors.length} erro(s): ${errors.slice(0,2).join('; ')}`);
+}
+
+async function saveOneRecord(row){
+  const filter = `turma_code=eq.${encodeURIComponent(row.turma_code)}&student_ref=eq.${encodeURIComponent(row.student_ref)}&date=eq.${encodeURIComponent(row.date)}`;
+  const patchBody = {
+    status:        row.status,
+    student_name:  row.student_name,
+    lesson_number: row.lesson_number,
+    recorded_by:   row.recorded_by,
+    recorded_at:   row.recorded_at,
+  };
+  const patch = await fetch(`${SB}/rest/v1/attendance?${filter}`, {
+    method:'PATCH',
+    headers:{...H, Prefer:'return=representation'},
+    body: JSON.stringify(patchBody),
+  });
+  if(patch.ok){
+    const patched = await patch.json();
+    if(patched && patched.length > 0) return;
+  } else if(patch.status !== 404 && patch.status !== 406){
+    const txt = await patch.text().catch(()=>'');
+    console.warn('PATCH failed with', patch.status, txt.slice(0,80), '— trying INSERT');
+  }
+  const post = await fetch(`${SB}/rest/v1/attendance`, {
+    method:'POST',
+    headers:{...H, Prefer:'return=minimal'},
+    body: JSON.stringify(row),
+  });
+  if(!post.ok){
+    const txt = await post.text().catch(()=>'');
+    if(txt.includes('23505') || txt.includes('duplicate')){
+      const patch2 = await fetch(`${SB}/rest/v1/attendance?${filter}`, {
+        method:'PATCH',
+        headers:{...H, Prefer:'return=minimal'},
+        body: JSON.stringify(patchBody),
+      });
+      if(!patch2.ok){
+        const t2 = await patch2.text().catch(()=>'');
+        throw new Error(`update conflict: ${patch2.status} ${t2.slice(0,80)}`);
+      }
+      return;
+    }
+    throw new Error(`insert: ${post.status} ${txt.slice(0,100)}`);
+  }
+}
+
+async function sbPost(table, body){
+  const r = await fetch(`${SB}/rest/v1/${table}`, {
+    method:'POST', headers:{...H, Prefer:'return=minimal'}, body:JSON.stringify(body),
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(`post ${table}: ${r.status} ${t.slice(0,120)}`); }
+}
+
+async function sbPatch(table, qs, body){
+  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+    method:'PATCH', headers:{...H, Prefer:'return=minimal'}, body:JSON.stringify(body),
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(`patch ${table}: ${r.status} ${t.slice(0,120)}`); }
+}
+
+async function sbUpsertSimple(table, rows){
+  if(!rows || !rows.length) return;
+  const r = await fetch(`${SB}/rest/v1/${table}`, {
+    method:'POST',
+    headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify(rows),
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(`upsert ${table}: ${r.status} ${t.slice(0,120)}`); }
+}
+
+/* ════════════════════════════════
+   CONSTANTS
+════════════════════════════════ */
+const DAYS    = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const MORNING = [8,9,10,11];
+const AFTERN  = [14,15,16,17,18,19,20];
+const ALL_HRS = [...MORNING, ...AFTERN];
+const DAY_JS  = [null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+const DAY_FULL= {SEG:'Segunda-feira',TER:'Terça-feira',QUA:'Quarta-feira',QUI:'Quinta-feira',SEX:'Sexta-feira','SÁB':'Sábado'};
+const FLAGS   = {EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+
+const DEPT_CONFIG = {
+  kids:    {label:'Infantil', color:'var(--c-inf)', slotClass:'sl-kids'},
+  kids_juv:{label:'Juvenil',  color:'var(--c-juv)', slotClass:'sl-kids_juv'},
+  adults:  {label:'Geral',    color:'var(--c-ger)', slotClass:'sl-adults'},
+  exam:    {label:'Exames',   color:'var(--c-exa)', slotClass:'sl-exam'},
+};
+const LEVEL_MAP = {
+  'PI1':{dept:'kids'},'PI2':{dept:'kids'},'PI3':{dept:'kids'},'PI4':{dept:'kids'},
+  'PJ1':{dept:'kids_juv'},'PJ2':{dept:'kids_juv'},'PJ3':{dept:'kids_juv'},
+  '1':{dept:'adults'},'2':{dept:'adults'},'3':{dept:'adults'},'4':{dept:'adults'},'5':{dept:'adults'},
+  'Portugues':{dept:'adults'},
+  '6':{dept:'exam'},'7':{dept:'exam'},'8':{dept:'exam'},
+};
+const DEPT_GRADS = {
+  kids:    'linear-gradient(145deg,#1A3A6A 0%,#0D2248 60%,#060D24 100%)',
+  kids_juv:'linear-gradient(145deg,#0D4A3A 0%,#062A20 60%,#021C16 100%)',
+  adults:  'linear-gradient(145deg,#3A2A10 0%,#201408 60%,#100800 100%)',
+  exam:    'linear-gradient(145deg,#3A1A3A 0%,#200D20 60%,#140820 100%)',
+};
+const DEPT_COLOURS = {kids:'var(--c-inf)',kids_juv:'var(--c-juv)',adults:'var(--c-ger)',exam:'var(--c-exa)'};
+const AV_POOL = [
+  {bg:'#49281f',t:'#cfb590'},{bg:'#564334',t:'#9e9a41'},
+  {bg:'#49281f',t:'#9e9a41'},{bg:'#564334',t:'#cfb590'},
+  {bg:'#49281f',t:'#758918'},{bg:'#3d2a1a',t:'#cfb590'},
+  {bg:'#564334',t:'#758918'},{bg:'#3d2a1a',t:'#9e9a41'},
+  {bg:'#49281f',t:'#b8a870'},{bg:'#564334',t:'#c8b878'},
+];
+function avCol(n){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+(n||'').charCodeAt(i))&0xffffffff; return AV_POOL[Math.abs(h)%AV_POOL.length]; }
+function avInit(n){ return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+
+/* ─── FIX-3: getDept — tolerates missing department column ───
+   Falls back to: group_key last segment → level_code map → 'adults'        */
+function getDept(c){
+  if(c.department) return c.department;
+  // try last segment of group_key e.g. "P-01-TER-08-exam" → "exam"
+  if(c.group_key){
+    const last = (c.group_key||'').split('-').pop().toLowerCase();
+    if(['kids','kids_juv','exam','adults'].includes(last)) return last;
+    if(last === 'juv') return 'kids_juv';
+  }
+  return LEVEL_MAP[(c.level_code||'').trim()]?.dept || 'adults';
+}
+
+function getDC(c){ return DEPT_CONFIG[getDept(c)] || DEPT_CONFIG.adults; }
+
+/* ════════════════════════════════
+   STATE
+════════════════════════════════ */
+let ALL_TEACHERS = [];
+let ME           = null;
+let MY_CLASSES   = [];
+let SCHEDULE     = {};
+let ENROL_BY_REF = {};
+let ATTEND_WEEK  = {};
+let currentSlot  = null;
+let currentStuIdx= null;
+let stuModalMode = null;
+let isSaving     = false;
+
+/* ════════════════════════════════
+   BOOT
+════════════════════════════════ */
+async function boot(){
+  // Load calendar data first (holidays, breaks) — everything depends on this
+  await loadCalendarData();
+
+  try{
+    const cfg = await sbGet('school_config','select=key,value&limit=20');
+    cfg.forEach(r=>{
+      if(r.key==='academic_year')   AY         = r.value;
+      if(r.key==='year_start_date') YEAR_START = r.value;
+      if(r.key==='year_end_date')   YEAR_END   = r.value;
+    });
+  }catch(e){ /* use defaults */ }
+  if (!YEAR_START) {
+  try {
+    const c = JSON.parse(localStorage.getItem('alm_school_cfg') || '{}');
+    if (c.YEAR_START) { YEAR_START = c.YEAR_START; YEAR_END = c.YEAR_END; AY = c.AY; }
+  } catch {}
+}
+
+  document.getElementById('brand-yr').textContent = AY;
+  document.getElementById('kpi-ay').textContent   = AY;
+
+  setSb('loading','A carregar professores…');
+  try{
+    const raw = await sbGet('teachers','select=id,code,name,lang,native,branch_primary,contract_hours_week&limit=200');
+    ALL_TEACHERS = raw.map(r=>({
+      id:r.id, code:r.code||'??', name:r.name||'—',
+      lang:(r.lang||'EN').toUpperCase().slice(0,2),
+      native:!!r.native, branch:r.branch_primary||'Funchal',
+      contractH:r.contract_hours_week||22,
+    }));
+  }catch(e){ setSb('err','Erro ao carregar professores: '+e.message); showToast(e.message,'err'); return; }
+
+  const params = new URLSearchParams(window.location.search);
+  const tp = params.get('teacher');
+  if(tp) ME = ALL_TEACHERS.find(t=>t.id===tp||t.code===tp) || null;
+
+  if(!ME){
+    populatePicker();
+    document.getElementById('teacher-picker').style.display = 'flex';
+    setSb('warn','Seleccione um professor para continuar');
+    renderHero();
+    barLoadConfig();
+    renderBar();
+    return;
+  }
+  barLoadConfig();
+  renderBar();
+  await loadTeacherData();
+}
+
+function populatePicker(){
+  const sel = document.getElementById('tp-select');
+  sel.innerHTML = '<option value="">Seleccionar professor…</option>' +
+    ALL_TEACHERS.map(t=>`<option value="${t.id}">${t.code} · ${t.name} · ${FLAGS[t.lang]||''} ${t.lang}</option>`).join('');
+}
+
+async function switchTeacher(id){
+  if(!id) return;
+  ME = ALL_TEACHERS.find(t=>t.id===id);
+  if(!ME) return;
+  document.getElementById('teacher-picker').style.display = 'none';
+  barLoadConfig();
+  renderBar();
+  await loadTeacherData();
+}
+
+/* ════════════════════════════════
+   LOAD TEACHER DATA
+════════════════════════════════ */
+async function loadTeacherData(){
+  setSb('loading',`A carregar turmas de ${ME.name}…`);
+  MY_CLASSES=[]; SCHEDULE={}; ENROL_BY_REF={}; ATTEND_WEEK={};
+  renderHero();
+
+  try{
+    /* ─── FIX-1: removed day_of_week & department from SELECT (columns don't exist yet).
+       We now fetch group_key and derive both from it as a fallback.              ─── */
+    // Try full select first; fall back to minimal if columns missing
+    let classes = [];
+    try{
+      classes = await sbGet('classes',
+        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${AY}`+
+        `&select=turma_code,teacher_id,lang,level_code,level_display,department,branch,group_key,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala`);
+    }catch(e1){
+      console.warn('Full select failed, retrying without optional columns:', e1.message);
+      classes = await sbGet('classes',
+        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${AY}`+
+        `&select=turma_code,teacher_id,lang,level_code,level_display,branch,group_key,hour,start_time,end_time,duration_min,student_refs,sala`);
+    }
+
+    if(!classes.length){
+      setSb('warn','Sem turmas atribuídas — contacte a secretaria');
+      buildGrid(); buildTodayStrip(); renderHeroStats(); return;
+    }
+
+    const allRefs = [...new Set(classes.flatMap(c=>{
+      if(Array.isArray(c.student_refs)) return c.student_refs;
+      try{ return JSON.parse(c.student_refs||'[]'); }catch{ return []; }
+    }))].filter(Boolean);
+
+    if(allRefs.length){
+      const CHUNK = 200;
+      for(let i=0;i<allRefs.length;i+=CHUNK){
+        const chunk = allRefs.slice(i,i+CHUNK);
+        try{
+          const enrols = await sbGet('enrolments',
+            `ref=in.(${chunk.join(',')})&select=ref,name,branch,lang&academic_year=eq.${AY}`);
+          enrols.forEach(e=>{ ENROL_BY_REF[e.ref]=e; });
+        }catch(e){ console.warn('enrolments chunk failed',e); }
+      }
+    }
+
+    const turmaCodes = classes.map(c=>c.turma_code).filter(Boolean);
+    if(turmaCodes.length){
+      const weekDates = currentWeekDates();
+      try{
+        const attRows = await sbGet('attendance',
+          `turma_code=in.(${turmaCodes.join(',')})&date=in.(${weekDates.join(',')})&select=turma_code,student_ref,status,date&limit=5000`);
+        attRows.forEach(row=>{
+          if(!ATTEND_WEEK[row.date])                            ATTEND_WEEK[row.date]={};
+          if(!ATTEND_WEEK[row.date][row.turma_code])            ATTEND_WEEK[row.date][row.turma_code]={};
+          ATTEND_WEEK[row.date][row.turma_code][row.student_ref] = row.status;
+        });
+      }catch(e){ console.warn('attendance week fetch failed',e); }
+    }
+
+    classes.forEach(cls=>{
+      let refs = [];
+      if(Array.isArray(cls.student_refs)) refs = cls.student_refs;
+      else try{ refs = JSON.parse(cls.student_refs||'[]'); }catch{}
+
+      /* ─── FIX-2: derive day_of_week from group_key when column absent ───
+         group_key examples: "P-01-TER-08", "MN-ANO5-QUI-08", "MN-ANO5-TER-08"
+         Strategy: split by '-', find first token matching a known day abbr.    */
+      const DAY_ABBRS = new Set(['SEG','TER','QUA','QUI','SEX','SAB','SÁB']);
+      let day = '';
+
+      // 1. Prefer day_of_week column if it came back from Supabase
+      if(cls.day_of_week){
+        day = cls.day_of_week.toUpperCase().replace('SAB','SÁB').trim();
+      }
+
+      // 2. Parse from group_key (e.g. "MN-ANO5-TER-08", "FUN-QUI-08")
+      if(!day && cls.group_key){
+        const gkUp  = (cls.group_key||'').toUpperCase()
+          .replace(/\bSAB\b/g,'SÁB').replace(/\bTHU\b/g,'QUI')
+          .replace(/\bTUE\b/g,'TER').replace(/\bMON\b/g,'SEG')
+          .replace(/\bWED\b/g,'QUA').replace(/\bFRI\b/g,'SEX');
+        const found = gkUp.split(/[-_\s]+/).find(p => DAY_ABBRS.has(p));
+        if(found) day = found;
+      }
+
+      // 3. Parse from turma_code itself (e.g. "FUN-08-TER")
+      if(!day && cls.turma_code){
+        const tcUp  = (cls.turma_code||'').toUpperCase().replace(/\bSAB\b/g,'SÁB');
+        const found = tcUp.split(/[-_\s]+/).find(p => DAY_ABBRS.has(p));
+        if(found) day = found;
+      }
+
+      // 4. Log resolution so we can diagnose any remaining issues
+      console.log('[day]', cls.turma_code, '→', day||'NOT FOUND — falling back to SEG');
+
+      if(!day) day = 'SEG';
+
+      const h   = typeof cls.hour==='number' ? cls.hour : parseInt(cls.hour,10)||9;
+
+      const iso         = todayISO();
+      const existingAtt = (ATTEND_WEEK[iso]||{})[cls.turma_code]||{};
+
+      const students = refs.map((ref,i)=>{
+        const enr = ENROL_BY_REF[ref]||{ref,name:ref};
+        const raw = existingAtt[ref] ?? null;
+        const present = raw==='present'||raw==='presente' ? true
+                      : raw==='late'||raw==='atraso'      ? 'late'
+                      : raw==='absent'||raw==='falta'     ? false
+                      : null;
+        return { id:i+1, ref, name:enr.name||ref, present, absences:0, grade:0, flagged:false, note:'' };
+      });
+
+      const classObj = {
+        turmaCode:cls.turma_code, lang:cls.lang,
+        level:cls.level_display||cls.level_code,
+        levelCode:cls.level_code,
+        dept:getDept(cls), branch:cls.branch, day, h,
+        start:cls.start_time, end:cls.end_time,
+        durationMin:cls.duration_min, sala:cls.sala,
+        groupKey:cls.group_key,
+        students,
+        hasSubmission: Object.keys(existingAtt).length > 0,
+      };
+      MY_CLASSES.push(classObj);
+      if(!SCHEDULE[day]) SCHEDULE[day]={};
+      SCHEDULE[day][h] = classObj;
+    });
+
+    const totalStu = MY_CLASSES.reduce((a,c)=>a+c.students.length,0);
+    document.getElementById('kpi-turmas').textContent = MY_CLASSES.length+' turmas';
+    document.getElementById('kpi-alunos').textContent = totalStu+' alunos';
+    setSb('ok',`${MY_CLASSES.length} turma${MY_CLASSES.length!==1?'s':''} · ${totalStu} alunos · Supabase ✓`);
+
+  }catch(e){
+    setSb('err','Erro Supabase: '+e.message);
+    showToast('Erro ao carregar turmas','err');
+    console.error(e);
+  }
+
+  renderHeroStats(); buildGrid(); buildTodayStrip();
+}
+
+function currentWeekDates(){
+  const now = new Date();
+  const dow = now.getDay() || 7;
+  const mon = new Date(now);
+  mon.setDate(now.getDate()-(dow-1));
+  const dates = [];
+  for(let i=0;i<6;i++){
+    const d = new Date(mon);
+    d.setDate(mon.getDate()+i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  return dates;
+}
+
+function dayDateMap(){
+  const map = {};
+  currentWeekDates().forEach(iso=>{
+    const dow = new Date(iso+'T12:00:00').getDay();
+    const key = DAY_JS[dow];
+    if(key) map[key] = iso;
+  });
+  return map;
+}
+
+/* ════════════════════════════════
+   HERO
+════════════════════════════════ */
+function renderHero(){
+  if(!ME) return;
+  const av = avCol(ME.name);
+  const el = document.getElementById('hero-av');
+  el.textContent = avInit(ME.name);
+  el.style.background  = av.bg;
+  el.style.borderColor = av.t+'66';
+  el.style.color       = av.t;
+  document.getElementById('hero-name').textContent = ME.name;
+  document.getElementById('hero-meta').innerHTML =
+    `<span class="h-badge hb-lang">${FLAGS[ME.lang]||''} ${ME.lang}</span>`+
+    `<span class="h-badge hb-gold">${ME.contractH}h contrato</span>`+
+    (ME.native?`<span class="h-badge hb-green">native</span>`:'')+
+    `<span style="font-size:9px;color:var(--t3)">${ME.branch}</span>`;
+}
+
+function renderHeroStats(){
+  const todayKey = DAY_JS[new Date().getDay()];
+  let todayCount = 0;
+  if(todayKey) ALL_HRS.forEach(h=>{ if(SCHEDULE[todayKey]?.[h]) todayCount++; });
+  const total = MY_CLASSES.reduce((a,c)=>a+c.students.length,0);
+  document.getElementById('stat-today').textContent    = todayCount;
+  document.getElementById('stat-week').textContent     = MY_CLASSES.length;
+  document.getElementById('stat-students').textContent = total;
+}
+
+/* ════════════════════════════════
+   TODAY STRIP
+════════════════════════════════ */
+function buildTodayStrip(){
+  const todayKey  = DAY_JS[new Date().getDay()];
+  const container = document.getElementById('today-slots');
+  const slots     = todayKey ? ALL_HRS.filter(h=>SCHEDULE[todayKey]?.[h]) : [];
+  const nowMin    = new Date().getHours()*60 + new Date().getMinutes();
+  const iso       = todayISO();
+
+  if(!slots.length){
+    let hint = '';
+    for(let d=1;d<=6;d++){
+      const check = new Date();
+      check.setDate(check.getDate()+d);
+      const key = DAY_JS[check.getDay()];
+      if(key && ALL_HRS.some(h=>SCHEDULE[key]?.[h])){
+        const next = ALL_HRS.find(h=>SCHEDULE[key]?.[h]);
+        const s    = SCHEDULE[key][next];
+        hint = `Próxima aula: ${DAY_FULL[key]||key} ${s.start||''}`;
+        break;
+      }
+    }
+    container.innerHTML =
+      `<span class="no-sessions">Sem sessões hoje.</span>`+
+      (hint?`<span class="next-lesson-hint">📅 ${hint}</span>`:'');
+    return;
+  }
+
+  container.innerHTML = slots.map(h=>{
+    const s = SCHEDULE[todayKey][h];
+    const [sh,sm] = (s.start||'9:00').split(':').map(Number);
+    const [eh,em] = (s.end||'10:30').split(':').map(Number);
+    const isNow  = nowMin >= sh*60+sm && nowMin < eh*60+em;
+    const isDone = Object.keys((ATTEND_WEEK[iso]||{})[s.turmaCode]||{}).length > 0;
+    const lNum   = lessonNumber(todayKey, iso);
+    const lStr   = lNum > 0 ? ` · Aula ${String(lNum).padStart(3,'0')}` : '';
+    return `<div class="today-slot${isNow?' now':''}${isDone?' submitted':''}" onclick="openSlot('${todayKey}',${h},'${iso}')">
+      ${isNow  ? '<span class="ts-now-badge">AGORA</span>' : ''}
+      ${isDone && !isNow ? '<span class="ts-done-badge">✓</span>' : ''}
+      <b>${s.start}–${s.end}</b>
+      <span style="font-size:8.5px;color:var(--t3)">${s.durationMin}min · ${s.level||''}${lStr}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ════════════════════════════════
+   GRID
+════════════════════════════════ */
+function buildGrid(){
+  const todayKey  = DAY_JS[new Date().getDay()];
+  const nowMin    = new Date().getHours()*60 + new Date().getMinutes();
+  const DDM       = dayDateMap();
+
+  let html = '<thead><tr><th class="th-day">Dia</th>';
+  MORNING.forEach(h => html += `<th style="min-width:56px">${h}h</th>`);
+  html += '<th class="th-break">·</th>';
+  AFTERN.forEach(h  => html += `<th style="min-width:56px">${h}h</th>`);
+  html += '</tr></thead><tbody>';
+
+  DAYS.forEach(day=>{
+    const isToday = day === todayKey;
+    const dayIso  = DDM[day] || '';
+    html += `<tr class="day-row"><td class="day-lbl"><div class="dl-wrap"><div class="dl-name">${day}</div>${isToday?'<div class="dl-today">HOJE</div>':''}</div></td>`;
+    MORNING.forEach(h => html += slotCell(day,h,nowMin,isToday,dayIso));
+    html += '<td class="slot-cell break-col"><div class="slot-inner break-inner"></div></td>';
+    AFTERN.forEach(h  => html += slotCell(day,h,nowMin,isToday,dayIso));
+    html += '</tr>';
+  });
+  document.getElementById('grid-table').innerHTML = html + '</tbody>';
+}
+
+function slotCell(day, h, nowMin, isToday, dayIso){
+  const s = SCHEDULE[day]?.[h];
+  if(s && s.start){
+    const [sh,sm] = (s.start||'9:00').split(':').map(Number);
+    const [eh,em] = (s.end||'10:30').split(':').map(Number);
+    const isNow  = isToday && nowMin >= sh*60+sm && nowMin < eh*60+em;
+    const isDone = dayIso && Object.keys((ATTEND_WEEK[dayIso]||{})[s.turmaCode]||{}).length > 0;
+    const dc       = getDC(s);
+    const av       = avCol(ME?.name||'?');
+    const shortCode= (s.turmaCode||'').replace(/^[^-]+-/,'');
+    const stuCount = s.students?.length || 0;
+    const lNum     = dayIso ? lessonNumber(day, dayIso) : 0;
+    const lTotal   = totalLessons(day);
+    const lNumStr  = lNum > 0
+      ? `<div class="slot-lesson-num">Aula ${String(lNum).padStart(3,'0')}/${lTotal}</div>`
+      : '';
+    return `<td class="slot-cell"><div class="slot-inner booked ${dc.slotClass}${isDone?' done-slot':''}" onclick="openSlot('${day}',${h},'${dayIso}')">
+      ${isNow && !isDone ? '<div class="slot-now-dot"></div>' : ''}
+      ${isDone           ? '<div class="slot-done-tick">✓</div>' : ''}
+      <div class="slot-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(ME?.name||'?')}</div>
+      <div class="slot-info">
+        <div class="slot-name">${s.level||''}</div>
+        <div class="slot-right">
+          <div class="slot-code" style="color:${av.t}">${shortCode}</div>
+          <div class="slot-n" style="color:${av.t}">${stuCount} alunos</div>
+          ${lNumStr}
+        </div>
+      </div>
+    </div></td>`;
+  }
+  return `<td class="slot-cell"><div class="slot-inner empty"></div></td>`;
+}
+
+/* ════════════════════════════════
+   OPEN SLOT
+════════════════════════════════ */
+function openSlot(day, h, dayIso){
+  const s = SCHEDULE[day]?.[h];
+  if(!s || !s.start) return;
+
+  const lessonDate    = dayIso || todayISO();
+  const existingAtt   = (ATTEND_WEEK[lessonDate]||{})[s.turmaCode] || {};
+  const hasSubmission = Object.keys(existingAtt).length > 0;
+  const lNum          = lessonNumber(day, lessonDate);
+  const lTotal        = totalLessons(day);
+
+  const studentState = s.students.map(stu=>{
+    const raw = existingAtt[stu.ref] ?? null;
+    const present = raw==='present'||raw==='presente' ? true
+                  : raw==='late'||raw==='atraso'      ? 'late'
+                  : raw==='absent'||raw==='falta'     ? false
+                  : null;
+    return {...stu, present};
+  });
+
+  currentSlot = {day, h, lessonDate, lessonNum:lNum, lessonTotal:lTotal, ...s, studentState, hasSubmission};
+
+  const dept = s.dept || 'adults';
+  const av   = avCol(ME?.name||'?');
+  const avEl = document.getElementById('mh-av');
+  avEl.textContent   = avInit(ME?.name||'?');
+  avEl.style.background  = av.bg;
+  avEl.style.borderColor = av.t+'66';
+  avEl.style.color       = av.t;
+  document.getElementById('mh-hero-bg').style.background = DEPT_GRADS[dept] || DEPT_GRADS.adults;
+  document.getElementById('mh-turma').textContent        = s.turmaCode || '—';
+  document.getElementById('mh-time').textContent         = (s.start||'') + '–' + (s.end||'');
+
+  const dBadge = document.getElementById('mh-dept-badge');
+  const col    = DEPT_COLOURS[dept] || 'var(--gold2)';
+  dBadge.textContent   = (DEPT_CONFIG[dept]?.label||'—') + ' · ' + (s.lang||'');
+  dBadge.style.background  = 'rgba(0,0,0,.25)';
+  dBadge.style.borderColor = col.replace('var(--','rgba(').replace(')',',.4)');
+  dBadge.style.color       = col;
+
+  const lNumEl = document.getElementById('mh-lesson-num');
+  if(lNum > 0){
+    lNumEl.textContent   = `Aula ${String(lNum).padStart(3,'0')} de ${lTotal}`;
+    lNumEl.style.display = 'inline-flex';
+  } else {
+    lNumEl.style.display = 'none';
+  }
+
+  const dtObj    = new Date(lessonDate + 'T12:00:00');
+  const datePT   = dtObj.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const dateShort= dtObj.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const dateBadge= document.getElementById('mh-date-badge');
+  dateBadge.textContent   = '📅 ' + dateShort;
+  dateBadge.title         = datePT;
+  dateBadge.style.display = 'inline-flex';
+
+  const dayFullEl = document.getElementById('mh-day-full');
+  dayFullEl.textContent   = datePT + (s.durationMin ? ' · '+s.durationMin+'min' : '') + (s.sala ? ' · Sala '+s.sala : '');
+  dayFullEl.style.fontSize= '9px';
+  dayFullEl.style.color   = 'rgba(255,255,255,.45)';
+  dayFullEl.style.marginTop= '3px';
+
+  document.getElementById('mh-submit-badge').style.display = hasSubmission ? 'inline-flex' : 'none';
+  document.getElementById('att-class').textContent = s.turmaCode || '—';
+
+  const calUrl  = `/admin/alm-calendario.html?teacher=${encodeURIComponent(ME?.id||'')}&date=${lessonDate}`;
+  const mhBtn   = document.getElementById('mh-cal-btn');
+  mhBtn.href    = calUrl;
+  mhBtn.style.display = 'inline-flex';
+
+  buildStudentList();
+  updateAttHeader();
+  clearSaveStatus();
+  switchTabById('presencas');
+  // Show or hide config row based on whether bar is configured
+  const mhCfg = document.getElementById('mh-cfg');
+  if(mhCfg){
+ const configured = !!YEAR_START;
+    mhCfg.classList.toggle('mh-cfg-hidden', !!configured);
+  }
+  // Render bar for this slot's date — this sets BAR_IDX
+  renderBar(lessonDate);
+  document.getElementById('modal-overlay').classList.add('open');
+  // Load saved data for the current lesson
+  loadLessonData(BAR_IDX);
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('mh-cal-btn').style.display = 'none';
+  // Always reset save state so button is never stuck disabled
+  isSaving = false;
+  const btn = document.getElementById('btn-save');
+  if(btn){ btn.disabled = false; btn.textContent = '✓ Guardar & Fechar'; }
+}
+
+function switchTab(id, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.mt-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id)?.classList.add('active');
+  btn.classList.add('active');
+}
+
+function switchTabById(id){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.mt-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id)?.classList.add('active');
+  document.getElementById('mt-'+id)?.classList.add('active');
+}
+
+/* ════════════════════════════════
+   STUDENT LIST
+════════════════════════════════ */
+function buildStudentList(){
+  const list  = document.getElementById('student-list');
+  const state = currentSlot?.studentState || [];
+  if(!state.length){
+    list.innerHTML = `<div style="padding:20px;text-align:center;font-size:10px;color:var(--t3)">Nenhum aluno encontrado para esta turma.</div>`;
+    document.getElementById('att-count').textContent = '0 / 0 presentes';
+    return;
+  }
+  list.innerHTML = state.map((s,i)=>{
+    const sc   = s.present===true?' present':s.present==='late'?' late':s.present===false?' absent':'';
+    const icon = s.present===true?'✓':s.present==='late'?'⏱':s.present===false?'✕':'·';
+    const st   = s.present===true?'PRESENTE':s.present==='late'?'ATRASO':s.present===false?'FALTA':'—';
+    const av   = avCol(s.name||s.ref||'?');
+    return `<div class="stu-row${sc}" id="stu-${i}">
+      <div class="stu-pres" title="Clique para alternar estado" onclick="toggleStudent(${i})">${icon}</div>
+      <div class="stu-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="stu-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}" onclick="stuAction(event,${i},'hist')">${avInit(s.name||s.ref||'?')}</div>
+      <div class="stu-mid" onclick="toggleStudent(${i})">
+        <div><div class="stu-name">${s.name||'—'}</div><div class="stu-ref">${s.ref||''}</div></div>
+        <div class="stu-status">${st}</div>
+      </div>
+      <div class="stu-actions">
+        <div class="sab sab-grade"  title="Notas e avaliação"     onclick="stuAction(event,${i},'grade')">⊞</div>
+        <div class="sab sab-office" title="Mensagem à secretaria" onclick="stuAction(event,${i},'office')">✉</div>
+        <div class="sab sab-parent" title="Contacto encarregado"  onclick="stuAction(event,${i},'parent')">✆</div>
+        <div class="sab sab-email"  title="Email ao aluno"        onclick="stuAction(event,${i},'email')">@</div>
+        <div class="sab sab-flag"   title="${s.flagged?'Alerta activo':'Marcar alerta'}" onclick="stuAction(event,${i},'flag')">${s.flagged?'🚩':'⚑'}</div>
+        <div class="sab sab-note"   title="Nota pessoal"          onclick="stuAction(event,${i},'note')">✎</div>
+      </div>
+    </div>`;
+  }).join('');
+  updateAttCount();
+}
+
+function toggleStudent(i){
+  if(!currentSlot?.studentState) return;
+  const s = currentSlot.studentState[i];
+  s.present = s.present===null||s.present===undefined ? true
+            : s.present===true  ? 'late'
+            : s.present==='late'? false
+            : null;
+  const row  = document.getElementById('stu-'+i);
+  const sc   = s.present===true?' present':s.present==='late'?' late':s.present===false?' absent':'';
+  row.className = 'stu-row'+sc;
+  const icon = s.present===true?'✓':s.present==='late'?'⏱':s.present===false?'✕':'·';
+  const st   = s.present===true?'PRESENTE':s.present==='late'?'ATRASO':s.present===false?'FALTA':'—';
+  row.querySelector('.stu-pres').textContent  = icon;
+  row.querySelector('.stu-status').textContent= st;
+  updateAttCount();
+}
+
+function markAll(v){
+  if(!currentSlot?.studentState) return;
+  currentSlot.studentState.forEach(s => s.present = v);
+  buildStudentList();
+}
+
+function updateAttCount(){
+  if(!currentSlot?.studentState) return;
+  const total = currentSlot.studentState.length;
+  const pres  = currentSlot.studentState.filter(s=>s.present===true).length;
+  const late  = currentSlot.studentState.filter(s=>s.present==='late').length;
+  const abs   = currentSlot.studentState.filter(s=>s.present===false).length;
+  let txt = `${pres+late} / ${total} presentes`;
+  if(late) txt += ` · ${late} atraso${late>1?'s':''}`;
+  if(abs)  txt += ` · ${abs} falta${abs>1?'s':''}`;
+  document.getElementById('att-count').textContent = txt;
+  updateAttHeader();
+}
+
+function updateAttHeader(){
+  if(!currentSlot?.studentState) return;
+  const total = currentSlot.studentState.length;
+  const pres  = currentSlot.studentState.filter(s=>s.present===true||s.present==='late').length;
+  document.getElementById('mh-att-num').textContent  = pres;
+  document.getElementById('mh-att-label').textContent= '/ '+total+' presentes';
+  const pct = total ? Math.round(pres/total*100) : 0;
+  document.getElementById('mh-att-fill').style.width = pct+'%';
+}
+
+function pickUrg(level, el){
+  el.parentElement.querySelectorAll('.urg-btn').forEach(c=>{ c.className='urg-btn'; });
+  el.classList.add('on-'+level);
+}
+
+/* ════════════════════════════════
+   SAVE ATTENDANCE
+════════════════════════════════ */
+async function saveAttendance(){
+  if(!currentSlot?.studentState) return;
+
+  const marked = currentSlot.studentState.filter(s => s.present !== null && s.present !== undefined);
+  if(!marked.length){
+    showToast('Seleccione pelo menos um aluno','warn');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const records = marked.map(s=>({
+    turma_code:    currentSlot.turmaCode,
+    student_ref:   s.ref,
+    student_name:  s.name,
+    date:          currentSlot.lessonDate,
+    lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot.lessonNum || null),
+    status:        s.present===true ? 'present' : s.present==='late' ? 'late' : 'absent',
+    recorded_by:   ME?.id || null,
+    recorded_at:   now,
+  }));
+
+  setSavingState(true);
+  showSaveStatus('saving', `A guardar ${records.length} registos…`);
+  setSb('loading', `A guardar presenças da Aula ${String(currentSlot.lessonNum||0).padStart(3,'0')}…`);
+
+  try{
+    await saveAttendanceRecords(records);
+
+    const ld = currentSlot.lessonDate;
+    if(!ATTEND_WEEK[ld])                       ATTEND_WEEK[ld]={};
+    if(!ATTEND_WEEK[ld][currentSlot.turmaCode]) ATTEND_WEEK[ld][currentSlot.turmaCode]={};
+    records.forEach(r=>{
+      ATTEND_WEEK[ld][currentSlot.turmaCode][r.student_ref] = r.status;
+    });
+
+    const cls = SCHEDULE[currentSlot.day]?.[currentSlot.h];
+    if(cls) cls.hasSubmission = true;
+    currentSlot.hasSubmission = true;
+
+    buildGrid();
+    buildTodayStrip();
+
+    const msg = `✓ ${records.length} presenças guardadas — Aula ${String(currentSlot.lessonNum||0).padStart(3,'0')} de ${currentSlot.lessonTotal||'?'} (${currentSlot.lessonDate})`;
+    setSb('ok', msg);
+    showToast(msg, 'ok');
+    showSaveStatus('saved', `✓ ${records.length} registos guardados`);
+    document.getElementById('mh-submit-badge').style.display = 'inline-flex';
+    flash();
+
+  }catch(e){
+    setSb('err','Erro ao guardar: '+e.message);
+    showToast('Erro: '+e.message, 'err');
+    showSaveStatus('error', '✕ '+e.message.slice(0,60));
+    console.error('saveAttendance error:', e);
+  }finally{
+    setSavingState(false);
+  }
+}
+
+/* ════════════════════════════════
+   STUDENT DETAIL MODAL
+════════════════════════════════ */
+function stuAction(event, idx, mode){
+  event.stopPropagation();
+  if(!currentSlot?.studentState) return;
+  const stu = currentSlot.studentState[idx];
+  currentStuIdx = idx; stuModalMode = mode;
+  const av = avCol(stu.name||stu.ref||'?');
+  const smAv = document.getElementById('sm-av');
+  smAv.textContent   = avInit(stu.name||stu.ref||'?');
+  smAv.style.background  = av.bg;
+  smAv.style.borderColor = av.t+'66';
+  smAv.style.color       = av.t;
+  document.getElementById('sm-name').textContent = stu.name||'—';
+  document.getElementById('sm-meta').textContent = (currentSlot.turmaCode||'—')+' · '+stu.ref+' · Nº '+String(idx+1).padStart(2,'0');
+
+  let body = '';
+  if(mode==='note'){
+    body = `<div class="sm-sec-title">✎ Nota pessoal</div>
+      <textarea class="sm-note-area" id="sm-note-text" placeholder="Nota privada sobre este aluno…">${stu.note||''}</textarea>
+      <div style="margin-top:6px;font-size:8.5px;color:var(--t3)">Esta nota é privada · não partilhada com encarregados.</div>`;
+  } else if(mode==='hist'){
+    body = `<div class="sm-sec-title">▣ Historial do aluno</div><div class="sm-grid">
+      <div class="sm-stat good"><div class="sm-stat-v" style="font-size:11px">${stu.ref||'—'}</div><div class="sm-stat-l">Ref. ALM</div></div>
+      <div class="sm-stat"><div class="sm-stat-v" style="font-size:11px">${currentSlot.turmaCode||'—'}</div><div class="sm-stat-l">Turma</div></div>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:var(--t2)">Nível: <strong style="color:var(--t)">${currentSlot.level||'—'}</strong> · Língua: <strong style="color:var(--t)">${currentSlot.lang||'—'}</strong></div>`;
+  } else if(mode==='grade'){
+    body = `<div class="sm-sec-title">⊞ Notas e avaliação</div>
+    <div class="sm-grid">
+      <div class="sm-stat"><div class="sm-stat-v">—</div><div class="sm-stat-l">Nota actual</div></div>
+      <div class="sm-stat"><div class="sm-stat-v" style="font-size:12px">—</div><div class="sm-stat-l">Classificação</div></div>
+    </div>
+    <div style="margin-top:10px"><div class="sf-label">Registar nova avaliação</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px">
+        <input class="sf-inp" type="number" min="0" max="100" placeholder="Nota (0–100)"/>
+        <select class="sf-inp"><option>Teste escrito</option><option>Oral</option><option>Participação</option><option>Projecto</option></select>
+      </div>
+    </div>`;
+  } else if(mode==='office'){
+    body = `<div class="sm-sec-title">✉ Mensagem à secretaria — ${stu.name?.split(' ')[0]||'aluno'}</div>
+      <input class="sf-inp" style="margin-bottom:8px" type="text" placeholder="Assunto…"/>
+      <textarea class="sm-note-area" placeholder="Mensagem para a secretaria ou direcção…"></textarea>`;
+  } else if(mode==='parent'){
+    body = `<div class="sm-sec-title">✆ Contacto com encarregado de educação</div>
+      <div style="padding:8px 10px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--t2)">Encarregado: <strong style="color:var(--t)">—</strong></div>
+        <div style="font-size:8.5px;color:var(--t3);margin-top:2px">Tel: — · Email: —</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="ab-btn" style="background:var(--green-a);border-color:var(--green-b);color:var(--green)" onclick="showToast('A ligar…','info')">✆ Ligar</button>
+        <button class="ab-btn" style="background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)" onclick="showToast('Email enviado ✓','ok')">✉ Email</button>
+      </div>
+      <div class="sf-label">Registo da comunicação</div>
+      <textarea class="sm-note-area" style="margin-top:5px" placeholder="Resumo do contacto efectuado…"></textarea>`;
+  } else if(mode==='email'){
+    body = `<div class="sm-sec-title">@ Email ao aluno — ${stu.name?.split(' ')[0]||'—'}</div>
+      <input class="sf-inp" style="margin-bottom:8px" type="text" placeholder="Assunto…"/>
+      <textarea class="sm-note-area" placeholder="Corpo do email…" style="min-height:80px"></textarea>
+      <button class="ab-btn" style="margin-top:8px;background:rgba(40,200,176,.1);border-color:rgba(40,200,176,.28);color:var(--teal)" onclick="showToast('Email enviado ✓','ok')">✉ Enviar email</button>`;
+  } else if(mode==='flag'){
+    body = `<div class="sm-sec-title">⚑ Alertas — ${stu.name?.split(' ')[0]||'—'}</div>
+      <div style="margin-bottom:8px;font-size:10px;color:var(--t2)">Estado: <strong style="color:${stu.flagged?'var(--red)':'var(--green)'}">${stu.flagged?'Alerta activo':'Sem alertas'}</strong></div>
+      <div class="flag-chips">
+        <div class="flag-chip${stu.flagged?' on':''}" onclick="this.classList.toggle('on')">Comportamento</div>
+        <div class="flag-chip" onclick="this.classList.toggle('on')">Pagamento</div>
+        <div class="flag-chip" onclick="this.classList.toggle('on')">Desempenho</div>
+        <div class="flag-chip" onclick="this.classList.toggle('on')">Excesso de faltas</div>
+        <div class="flag-chip" onclick="this.classList.toggle('on')">Nec. especial</div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="sm-btn" style="background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="toggleFlag(${idx})">${stu.flagged?'Remover alerta':'Activar alerta'}</button>
+      </div>`;
+  }
+  document.getElementById('sm-body').innerHTML = body;
+  document.getElementById('stu-modal-overlay').classList.add('open');
+}
+
+function closeStuModal(){ document.getElementById('stu-modal-overlay').classList.remove('open'); }
+
+async function saveStuNote(){
+  if(!currentSlot?.studentState || currentStuIdx===null) return;
+  const stu = currentSlot.studentState[currentStuIdx];
+  if(stuModalMode==='note'){
+    stu.note = document.getElementById('sm-note-text')?.value || '';
+    try{ await sbPatch('enrolments',`ref=eq.${encodeURIComponent(stu.ref)}`,{notes:stu.note}); }
+    catch(e){ console.warn('note save failed',e); }
+  }
+  showToast('Guardado ✓','ok');
+  closeStuModal();
+}
+
+async function toggleFlag(idx){
+  if(!currentSlot?.studentState) return;
+  const stu = currentSlot.studentState[idx];
+  stu.flagged = !stu.flagged;
+  showToast(stu.flagged?'Alerta activado':'Alerta removido ✓', stu.flagged?'err':'ok');
+  closeStuModal();
+}
+
+/* ════════════════════════════════
+   CONFIRM ACTION
+════════════════════════════════ */
+async function confirmAction(){
+  if(isSaving) return;
+  const activePane = document.querySelector('.tab-pane.active');
+  const id         = activePane?.id?.replace('tab-','');
+
+  if(id==='presencas'){
+    await saveAttendance();
+    return;
+  }
+
+  if(id==='sumario' && currentSlot?.turmaCode){
+    const tpcChips = [...document.querySelectorAll('#tpc-chips .chip.active')].map(c=>c.textContent).join(', ');
+    setSavingState(true);
+    showSaveStatus('saving','A guardar sumário…');
+    setSb('loading','A guardar sumário…');
+
+    /* ─── Upsert mapped to actual lesson_summaries schema:
+         DB col          ← code field
+         summary_text    ← sum-text  textarea
+         observations    ← sum-obs   input
+         teacher_id      ← ME.code   (text, not uuid — matches teacher_num/code pattern)
+         teacher_num     ← ME.code
+         lesson_date     ← lessonDate (date col is named lesson_date in DB)
+         Unique index:   (turma_code, lesson_date) or (turma_code, date)          ─── */
+    try{
+  const r = await fetch(`${SB}/rest/v1/lesson_summaries?on_conflict=turma_code,date`, {
+  method: 'POST',
+  headers: {...H, Prefer: 'resolution=merge-duplicates,return=minimal'},
+  body: JSON.stringify([{
+    turma_code:    currentSlot.turmaCode,
+    teacher_id:    ME?.code || ME?.id || null,
+    teacher_num:   ME?.code || null,
+    lesson_date:   BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
+    date:          BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
+    day:           currentSlot.day,
+    hour:          currentSlot.h,
+    lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot.lessonNum || null),
+    summary_text:  document.getElementById('sum-text')?.value||'',
+    book_page:     document.getElementById('sum-book')?.value||'',
+    skill:         document.getElementById('sum-skill')?.value||'',
+    participation: document.getElementById('sum-part')?.value||'',
+    observations:  document.getElementById('sum-obs')?.value||'',
+    notes:         document.getElementById('sum-obs')?.value||'',
+    summary:       document.getElementById('sum-text')?.value||'',
+    tpc:           tpcChips,
+    tpc_ref:       document.getElementById('sum-tpc-ref')?.value||'',
+    tpc_due:       document.getElementById('sum-tpc-date')?.value||null,
+    created_at:    new Date().toISOString(),
+  }]),
+});
+if(!r.ok){ const t=await r.text(); throw new Error(`upsert lesson_summaries: ${r.status} ${t.slice(0,120)}`); }
+      setSb('ok','Sumário guardado ✓');
+      showToast('Sumário guardado ✓','ok');
+      showSaveStatus('saved','✓ Sumário guardado');
+    }catch(e){
+      setSb('err','Erro sumário: '+e.message.slice(0,100));
+      showToast('Erro ao guardar sumário','err');
+      showSaveStatus('error','✕ '+e.message.slice(0,80));
+      console.error('lesson_summaries upsert failed:', e.message);
+    }finally{ setSavingState(false); }
+    flash(); return;
+  }
+
+  if(id==='fotoc' && ME?.id){
+    const urgEl   = document.querySelector('.urg-btn.on-normal,.urg-btn.on-urgent,.urg-btn.on-express');
+    const urgency = urgEl?.classList.contains('on-urgent')?'urgent':urgEl?.classList.contains('on-express')?'express':'normal';
+    setSavingState(true);
+    try{
+      await sbPost('teacher_requests',{
+        teacher_id:   ME.id, teacher_name:ME.name,
+        turma_code:   currentSlot?.turmaCode||null,
+        type:'foto',
+        document:     document.getElementById('fotoc-doc')?.value||'',
+        copies:       parseInt(document.getElementById('fotoc-copies')?.value)||1,
+        sides:        document.getElementById('fotoc-sides')?.value||'Só frente',
+        urgency,
+        observations: document.getElementById('fotoc-obs')?.value||'',
+        status:'pending', created_at:new Date().toISOString(),
+      });
+      showToast('Pedido de fotocópias enviado ✓','ok');
+      document.getElementById('fotoc-doc').value    = '';
+      document.getElementById('fotoc-obs').value    = '';
+      document.getElementById('fotoc-copies').value = '17';
+      document.querySelectorAll('.urg-btn').forEach(b=>b.className='urg-btn');
+      document.getElementById('urg-normal').classList.add('on-normal');
+    }catch(e){ showToast('Erro: '+e.message,'err'); }
+    finally{ setSavingState(false); }
+    flash(); return;
+  }
+
+  showToast('Guardado ✓','ok');
+  flash();
+}
+
+function setSavingState(on){
+  isSaving = on;
+  const btn = document.getElementById('btn-save');
+  if(btn){ btn.disabled = on; btn.textContent = on ? '⏳ A guardar…' : '✓ Guardar & Fechar'; }
+}
+
+function showSaveStatus(type, msg){
+  const el = document.getElementById('save-status');
+  el.className = 'save-status ' + type;
+  el.textContent = msg;
+  if(type === 'saved') setTimeout(()=>{ el.className='save-status'; }, 4000);
+}
+
+function clearSaveStatus(){
+  const el = document.getElementById('save-status');
+  el.className = 'save-status';
+  el.textContent = '';
+}
+
+function clearLessonForms(){
+  // Clear summary tab so switching lessons shows fresh/loaded data
+  const ids = ['sum-text','sum-book','sum-obs','sum-tpc-ref','sum-tpc-date'];
+  ids.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const sels = ['sum-skill','sum-part'];
+  sels.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.querySelectorAll('#tpc-chips .chip').forEach(c => c.classList.remove('active'));
+}
+
+function flash(){
+  const el = document.getElementById('mf-saved');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+/* ════════════════════════════════
+   UTILITIES
+════════════════════════════════ */
+function setSb(type, msg){
+  document.getElementById('sb-dot').className = 'sb-dot '+type;
+  const m = document.getElementById('sb-msg');
+  m.className   = 'sb-msg '+type;
+  m.textContent = msg;
+}
+
+function updateDate(){
+  const d = new Date();
+  const s = d.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('today-label').textContent = s;
+}
+
+function tick(){
+  const n=new Date(), p=x=>String(x).padStart(2,'0');
+  document.getElementById('clk').textContent = p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+}
+
+let toastT = null;
+function showToast(msg, type='info'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast '+type+' show';
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    if(document.getElementById('stu-modal-overlay').classList.contains('open')) closeStuModal();
+    else if(cfgOpen) toggleBarConfig();
+    else closeModal();
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter') confirmAction();
+});
+
+tick(); setInterval(tick, 1000);
+updateDate();
+boot();
+</script>
+</body>
+</html>
