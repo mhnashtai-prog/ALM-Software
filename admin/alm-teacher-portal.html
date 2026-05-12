@@ -1747,13 +1747,15 @@ async function confirmAction() {
 
   if (id==='presencas') { await saveAttendance(); return; }
 
-  if (id === 'mensagem' && ME?.id) {
-  // Determine which section is active (internal school vs parent/student)
-  const internalBody    = document.querySelector('#tab-mensagem .sum-textarea:nth-of-type(1)')?.value || '';
-  const parentBody      = document.querySelector('#tab-mensagem .sum-textarea:nth-of-type(2)')?.value || '';
-  const internalSubject = document.querySelectorAll('#tab-mensagem input[type=text]')[0]?.value || '';
-  const parentSubject   = document.querySelectorAll('#tab-mensagem input[type=text]')[1]?.value || '';
-  const internalTo      = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c => c.textContent).join(', ');
+if (id === 'mensagem' && ME?.id) {
+  // ── Internal school section ──
+  const internalTo   = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
+  const internalSubj = document.querySelectorAll('#tab-mensagem .sf-inp')[0]?.value || '';
+  const internalBody = document.querySelectorAll('#tab-mensagem .sum-textarea')[0]?.value || '';
+
+  // ── Parent/student section ──
+  const parentSubj   = document.querySelectorAll('#tab-mensagem .sf-inp')[1]?.value || '';
+  const parentBody   = document.querySelectorAll('#tab-mensagem .sum-textarea')[1]?.value || '';
 
   if (!internalBody.trim() && !parentBody.trim()) {
     showToast('Escreva uma mensagem primeiro', 'warn');
@@ -1761,10 +1763,11 @@ async function confirmAction() {
   }
 
   setSavingState(true);
+  showSaveStatus('saving', 'A guardar mensagem…');
   try {
     const base = {
       turma_code:    currentSlot?.turmaCode || null,
-      lesson_number: BAR_IDX + 1,
+      lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot?.lessonNum || null),
       lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
       academic_year: AY || null,
       teacher_id:    ME.id,
@@ -1776,36 +1779,54 @@ async function confirmAction() {
     const saves = [];
 
     if (internalBody.trim()) {
-      saves.push(sbPost('messages', {
-        ...base,
-        message_type:  'internal_school',
-        section:       'internal',
-        to_recipients: internalTo,
-        subject:       internalSubject,
-        body:          internalBody,
-      }));
+      saves.push(
+        fetch(`${SB}/rest/v1/messages`, {
+          method: 'POST',
+          headers: { ...H, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            ...base,
+            message_type:  'internal_school',
+            section:       'internal',
+            to_recipients: internalTo || 'Secretaria',
+            subject:       internalSubj,
+            body:          internalBody,
+          })
+        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(t.slice(0,100));}) })
+      );
     }
 
     if (parentBody.trim()) {
-      saves.push(sbPost('messages', {
-        ...base,
-        message_type:  'parent_contact',
-        section:       'parent',
-        to_recipients: 'Encarregados / Alunos',
-        subject:       parentSubject,
-        body:          parentBody,
-      }));
+      saves.push(
+        fetch(`${SB}/rest/v1/messages`, {
+          method: 'POST',
+          headers: { ...H, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            ...base,
+            message_type:  'parent_contact',
+            section:       'parent',
+            to_recipients: 'Encarregados / Alunos',
+            subject:       parentSubj,
+            body:          parentBody,
+          })
+        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(t.slice(0,100));}) })
+      );
     }
 
     await Promise.all(saves);
-    showToast(`${saves.length} mensagem(ns) guardada(s) ✓`, 'ok');
 
-    // Clear both sections
-    document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el => el.value = '');
+    // ✅ Only clear AFTER confirmed save
+    document.querySelectorAll('#tab-mensagem .sf-inp').forEach(el => el.value = '');
+    document.querySelectorAll('#tab-mensagem .sum-textarea').forEach(el => el.value = '');
     document.querySelectorAll('#tab-mensagem .chip').forEach(c => c.classList.remove('active'));
+
+    showSaveStatus('saved', `✓ ${saves.length} mensagem(ns) guardada(s)`);
+    showToast(`✓ Mensagem guardada`, 'ok');
     flash();
+
   } catch(e) {
-    showToast('Erro ao guardar mensagem: ' + e.message, 'err');
+    showSaveStatus('error', '✕ ' + e.message.slice(0, 80));
+    showToast('Erro: ' + e.message, 'err');
+    console.error('mensagem save error:', e);
   } finally {
     setSavingState(false);
   }
