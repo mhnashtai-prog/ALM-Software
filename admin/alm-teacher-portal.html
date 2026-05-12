@@ -1745,205 +1745,111 @@ async function confirmAction() {
   const activePane = document.querySelector('.tab-pane.active');
   const id = activePane?.id?.replace('tab-','');
 
-  if (id==='presencas') { await saveAttendance(); return; }
+  if (id === 'presencas') { await saveAttendance(); return; }
 
-if (id === 'mensagem' && ME?.id) {
-  const internalBody = document.querySelectorAll('#tab-mensagem .sum-textarea')[0]?.value || '';
-  const parentBody   = document.querySelectorAll('#tab-mensagem .sum-textarea')[1]?.value || '';
+  if (id === 'mensagem' && ME?.id) {
+    const internalTo   = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
+    const internalSubj = document.querySelectorAll('#tab-mensagem .sf-inp')[0]?.value || '';
+    const internalBody = document.querySelectorAll('#tab-mensagem .sum-textarea')[0]?.value || '';
+    const parentSubj   = document.querySelectorAll('#tab-mensagem .sf-inp')[1]?.value || '';
+    const parentBody   = document.querySelectorAll('#tab-mensagem .sum-textarea')[1]?.value || '';
 
-  console.log('=== MENSAGEM DEBUG ===');
-  console.log('internalBody:', JSON.stringify(internalBody));
-  console.log('parentBody:',   JSON.stringify(parentBody));
-  console.log('ME.id:', ME?.id);
-  console.log('currentSlot:', currentSlot);
-  console.log('AY:', AY);
-
-  if (!internalBody.trim() && !parentBody.trim()) {
-    console.log('GUARD TRIGGERED — both bodies empty, returning early');
-    showToast('Escreva uma mensagem primeiro', 'warn');
+    if (!internalBody.trim() && !parentBody.trim()) {
+      showToast('Escreva uma mensagem primeiro', 'warn'); return;
+    }
+    setSavingState(true);
+    showSaveStatus('saving', 'A guardar mensagem…');
+    try {
+      const base = {
+        turma_code:    currentSlot?.turmaCode || null,
+        lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot?.lessonNum || null),
+        lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
+        academic_year: AY || null,
+        teacher_id:    ME.id,
+        teacher_name:  ME.name,
+        status:        'pending',
+        created_at:    new Date().toISOString(),
+      };
+      const saves = [];
+      if (internalBody.trim()) {
+        saves.push(fetch(`${SB}/rest/v1/messages`, {
+          method:'POST', headers:{...H, Prefer:'return=minimal'},
+          body: JSON.stringify({...base, message_type:'internal_school', section:'internal',
+            to_recipients: internalTo || 'Secretaria', subject: internalSubj, body: internalBody})
+        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(`${r.status}: ${t.slice(0,100)}`)}); }));
+      }
+      if (parentBody.trim()) {
+        saves.push(fetch(`${SB}/rest/v1/messages`, {
+          method:'POST', headers:{...H, Prefer:'return=minimal'},
+          body: JSON.stringify({...base, message_type:'parent_contact', section:'parent',
+            to_recipients:'Encarregados / Alunos', subject: parentSubj, body: parentBody})
+        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(`${r.status}: ${t.slice(0,100)}`)}); }));
+      }
+      await Promise.all(saves);
+      document.querySelectorAll('#tab-mensagem .sf-inp').forEach(el => el.value = '');
+      document.querySelectorAll('#tab-mensagem .sum-textarea').forEach(el => el.value = '');
+      document.querySelectorAll('#tab-mensagem .chip').forEach(c => c.classList.remove('active'));
+      showSaveStatus('saved', `✓ ${saves.length} mensagem(ns) guardada(s)`);
+      showToast('✓ Mensagem guardada', 'ok'); flash();
+    } catch(e) {
+      showSaveStatus('error', '✕ ' + e.message.slice(0,80));
+      showToast('Erro: ' + e.message, 'err');
+    } finally { setSavingState(false); }
     return;
   }
 
-  const payload = {
-    turma_code:    currentSlot?.turmaCode || null,
-    lesson_number: BAR_DATES.length ? BAR_IDX + 1 : null,
-    lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
-    academic_year: AY || null,
-    teacher_id:    ME.id,
-    teacher_name:  ME.name,
-    message_type:  'internal_school',
-    section:       'internal',
-    to_recipients: 'Secretaria',
-    subject:       '',
-    body:          internalBody || parentBody,
-    status:        'pending',
-    created_at:    new Date().toISOString(),
-  };
-
-  console.log('Payload being sent:', JSON.stringify(payload, null, 2));
-
-  setSavingState(true);
-  try {
-    const r = await fetch(`${SB}/rest/v1/messages`, {
-      method: 'POST',
-      headers: { ...H, Prefer: 'return=minimal' },
-      body: JSON.stringify(payload),
-    });
-
-    const responseText = await r.text();
-    console.log('Supabase response status:', r.status);
-    console.log('Supabase response body:', responseText);
-
-    if (!r.ok) {
-      throw new Error(`HTTP ${r.status}: ${responseText.slice(0, 200)}`);
-    }
-
-    showToast('✓ Guardado com sucesso', 'ok');
-    showSaveStatus('saved', '✓ Guardado');
-    flash();
-
-  } catch(e) {
-    console.error('SAVE ERROR:', e);
-    showToast('ERRO: ' + e.message, 'err');
-    showSaveStatus('error', '✕ ' + e.message);
-  } finally {
-    setSavingState(false);
-  }
-  return;
-}
-  setSavingState(true);
-  showSaveStatus('saving', 'A guardar mensagem…');
-  try {
-    const base = {
-      turma_code:    currentSlot?.turmaCode || null,
-      lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot?.lessonNum || null),
-      lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
-      academic_year: AY || null,
-      teacher_id:    ME.id,
-      teacher_name:  ME.name,
-      status:        'pending',
-      created_at:    new Date().toISOString(),
-    };
-
-    const saves = [];
-
-    if (internalBody.trim()) {
-      saves.push(
-        fetch(`${SB}/rest/v1/messages`, {
-          method: 'POST',
-          headers: { ...H, Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            ...base,
-            message_type:  'internal_school',
-            section:       'internal',
-            to_recipients: internalTo || 'Secretaria',
-            subject:       internalSubj,
-            body:          internalBody,
-          })
-        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(t.slice(0,100));}) })
-      );
-    }
-
-    if (parentBody.trim()) {
-      saves.push(
-        fetch(`${SB}/rest/v1/messages`, {
-          method: 'POST',
-          headers: { ...H, Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            ...base,
-            message_type:  'parent_contact',
-            section:       'parent',
-            to_recipients: 'Encarregados / Alunos',
-            subject:       parentSubj,
-            body:          parentBody,
-          })
-        }).then(r => { if(!r.ok) return r.text().then(t=>{throw new Error(t.slice(0,100));}) })
-      );
-    }
-
-    await Promise.all(saves);
-
-    // ✅ Only clear AFTER confirmed save
-    document.querySelectorAll('#tab-mensagem .sf-inp').forEach(el => el.value = '');
-    document.querySelectorAll('#tab-mensagem .sum-textarea').forEach(el => el.value = '');
-    document.querySelectorAll('#tab-mensagem .chip').forEach(c => c.classList.remove('active'));
-
-    showSaveStatus('saved', `✓ ${saves.length} mensagem(ns) guardada(s)`);
-    showToast(`✓ Mensagem guardada`, 'ok');
-    flash();
-
-  } catch(e) {
-    showSaveStatus('error', '✕ ' + e.message.slice(0, 80));
-    showToast('Erro: ' + e.message, 'err');
-    console.error('mensagem save error:', e);
-  } finally {
-    setSavingState(false);
-  }
-  return;
-}
-  
-  if (id==='sumario' && currentSlot?.turmaCode) {
+  if (id === 'sumario' && currentSlot?.turmaCode) {
     const tpcChips = [...document.querySelectorAll('#tpc-chips .chip.active')].map(c=>c.textContent).join(', ');
-    setSavingState(true);
-    showSaveStatus('saving','A guardar sumário…');
-    setSb('loading','A guardar sumário…');
+    setSavingState(true); showSaveStatus('saving','A guardar sumário…'); setSb('loading','A guardar sumário…');
     try {
       const r = await fetch(`${SB}/rest/v1/lesson_summaries?on_conflict=turma_code,date`, {
-        method:'POST',
-        headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+        method:'POST', headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
         body: JSON.stringify([{
-          turma_code:    currentSlot.turmaCode,
-          teacher_id:    ME?.code||ME?.id||null,
-          teacher_num:   ME?.code||null,
-          lesson_date:   BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
-          date:          BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
-          day:           currentSlot.day,
-          hour:          currentSlot.h,
+          turma_code: currentSlot.turmaCode, teacher_id: ME?.code||ME?.id||null,
+          lesson_date: BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
+          date: BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
+          day: currentSlot.day, hour: currentSlot.h,
           lesson_number: BAR_DATES.length ? BAR_IDX+1 : (currentSlot.lessonNum||null),
-          summary_text:  document.getElementById('sum-text')?.value||'',
-          book_page:     document.getElementById('sum-book')?.value||'',
-          skill:         document.getElementById('sum-skill')?.value||'',
-          participation: document.getElementById('sum-part')?.value||'',
-          observations:  document.getElementById('sum-obs')?.value||'',
-          notes:         document.getElementById('sum-obs')?.value||'',
-          summary:       document.getElementById('sum-text')?.value||'',
-          tpc:           tpcChips,
-          tpc_ref:       document.getElementById('sum-tpc-ref')?.value||'',
-          tpc_due:       document.getElementById('sum-tpc-date')?.value||null,
-          created_at:    new Date().toISOString(),
+          summary_text: document.getElementById('sum-text')?.value||'',
+          summary:      document.getElementById('sum-text')?.value||'',
+          book_page:    document.getElementById('sum-book')?.value||'',
+          skill:        document.getElementById('sum-skill')?.value||'',
+          participation:document.getElementById('sum-part')?.value||'',
+          observations: document.getElementById('sum-obs')?.value||'',
+          notes:        document.getElementById('sum-obs')?.value||'',
+          tpc:          tpcChips,
+          tpc_ref:      document.getElementById('sum-tpc-ref')?.value||'',
+          tpc_due:      document.getElementById('sum-tpc-date')?.value||null,
+          created_at:   new Date().toISOString(),
         }]),
       });
-      if (!r.ok) { const t=await r.text(); throw new Error(`upsert lesson_summaries: ${r.status} ${t.slice(0,120)}`); }
-      setSb('ok','Sumário guardado ✓');
-      showToast('Sumário guardado ✓','ok');
+      if (!r.ok) { const t=await r.text(); throw new Error(`${r.status}: ${t.slice(0,120)}`); }
+      setSb('ok','Sumário guardado ✓'); showToast('Sumário guardado ✓','ok');
       showSaveStatus('saved','✓ Sumário guardado');
     } catch(e) {
-      setSb('err','Erro sumário: '+e.message.slice(0,100));
-      showToast('Erro ao guardar sumário','err');
+      setSb('err','Erro: '+e.message); showToast('Erro ao guardar sumário','err');
       showSaveStatus('error','✕ '+e.message.slice(0,80));
     } finally { setSavingState(false); }
     flash(); return;
   }
 
-  if (id==='fotoc' && ME?.id) {
-    const urgEl   = document.querySelector('.urg-btn.on-normal,.urg-btn.on-urgent,.urg-btn.on-express');
+  if (id === 'fotoc' && ME?.id) {
+    const urgEl = document.querySelector('.urg-btn.on-normal,.urg-btn.on-urgent,.urg-btn.on-express');
     const urgency = urgEl?.classList.contains('on-urgent')?'urgent':urgEl?.classList.contains('on-express')?'express':'normal';
     setSavingState(true);
     try {
       await sbPost('teacher_requests',{
-        teacher_id:ME.id, teacher_name:ME.name,
-        turma_code:currentSlot?.turmaCode||null,
-        type:'foto',
+        teacher_id: ME.id, teacher_name: ME.name,
+        turma_code: currentSlot?.turmaCode||null, type:'foto',
         document:     document.getElementById('fotoc-doc')?.value||'',
         copies:       parseInt(document.getElementById('fotoc-copies')?.value)||1,
         sides:        document.getElementById('fotoc-sides')?.value||'Só frente',
-        urgency,
-        observations: document.getElementById('fotoc-obs')?.value||'',
-        status:'pending', created_at:new Date().toISOString(),
+        urgency, observations: document.getElementById('fotoc-obs')?.value||'',
+        status:'pending', created_at: new Date().toISOString(),
       });
       showToast('Pedido de fotocópias enviado ✓','ok');
-      document.getElementById('fotoc-doc').value    = '';
-      document.getElementById('fotoc-obs').value    = '';
+      document.getElementById('fotoc-doc').value = '';
+      document.getElementById('fotoc-obs').value = '';
       document.getElementById('fotoc-copies').value = '17';
       document.querySelectorAll('.urg-btn').forEach(b => b.className='urg-btn');
       document.getElementById('urg-normal').classList.add('on-normal');
@@ -1952,9 +1858,9 @@ if (id === 'mensagem' && ME?.id) {
     flash(); return;
   }
 
-  showToast('Guardado ✓','ok');
-  flash();
+  showToast('Guardado ✓','ok'); flash();
 }
+  
 function setSavingState(on) {
   isSaving = on;
   const btn = document.getElementById('btn-save');
