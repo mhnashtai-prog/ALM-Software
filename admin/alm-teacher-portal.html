@@ -1553,31 +1553,6 @@ function buildStudentList() {
 }
 
 function toggleStudent(i) {
-  if (id==='mensagem' && ME?.id) {
-  const toChips = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
-  const subject = document.querySelector('#tab-mensagem input[type=text]')?.value||'';
-  const body    = document.querySelector('#tab-mensagem textarea')?.value||'';
-  if (!body.trim()) { showToast('Escreva uma mensagem primeiro','warn'); return; }
-  setSavingState(true);
-  try {
-    await sbPost('messages',{
-      turma_code:    currentSlot?.turmaCode||null,
-      lesson_number: BAR_IDX+1,
-      date:          BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
-      teacher_id:    ME.id,
-      teacher_name:  ME.name,
-      to_recipients: toChips,
-      subject,
-      body,
-      created_at:    new Date().toISOString(),
-    });
-    showToast('Mensagem guardada ✓','ok');
-    document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el=>el.value='');
-    document.querySelectorAll('#tab-mensagem .chip').forEach(c=>c.classList.remove('active'));
-  } catch(e) { showToast('Erro: '+e.message,'err'); }
-  finally { setSavingState(false); }
-  return;
-}
   if (!currentSlot?.studentState) return;
   const s = currentSlot.studentState[i];
   s.present = s.present===null||s.present===undefined?true:s.present===true?'late':s.present==='late'?false:null;
@@ -1765,15 +1740,38 @@ async function toggleFlag(idx) {
   closeStuModal();
 }
 
-/* ════════════════════════════════
-   CONFIRM ACTION
-════════════════════════════════ */
 async function confirmAction() {
   if (isSaving) return;
   const activePane = document.querySelector('.tab-pane.active');
   const id = activePane?.id?.replace('tab-','');
 
   if (id==='presencas') { await saveAttendance(); return; }
+
+  if (id==='mensagem' && ME?.id) {
+    const toChips = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
+    const subject = document.querySelector('#tab-mensagem input[type=text]')?.value||'';
+    const body    = document.querySelector('#tab-mensagem textarea')?.value||'';
+    if (!body.trim()) { showToast('Escreva uma mensagem primeiro','warn'); return; }
+    setSavingState(true);
+    try {
+      await sbPost('messages',{
+        turma_code:    currentSlot?.turmaCode||null,
+        lesson_number: BAR_IDX+1,
+        date:          BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
+        teacher_id:    ME.id,
+        teacher_name:  ME.name,
+        to_recipients: toChips,
+        subject,
+        body,
+        created_at:    new Date().toISOString(),
+      });
+      showToast('Mensagem guardada ✓','ok');
+      document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el=>el.value='');
+      document.querySelectorAll('#tab-mensagem .chip').forEach(c=>c.classList.remove('active'));
+    } catch(e) { showToast('Erro: '+e.message,'err'); }
+    finally { setSavingState(false); }
+    return;
+  }
 
   if (id==='sumario' && currentSlot?.turmaCode) {
     const tpcChips = [...document.querySelectorAll('#tpc-chips .chip.active')].map(c=>c.textContent).join(', ');
@@ -1848,7 +1846,6 @@ async function confirmAction() {
   showToast('Guardado ✓','ok');
   flash();
 }
-
 function setSavingState(on) {
   isSaving = on;
   const btn = document.getElementById('btn-save');
