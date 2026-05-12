@@ -455,23 +455,17 @@ select.sf-inp{cursor:pointer}
       </div>
 
       <!-- config row: set once, then hidden behind ⚙ -->
-      <div class="mh-cfg" id="mh-cfg">
-        <span class="mhc-label">Ano lectivo</span>
-        <input class="mhc-inp" type="date" id="lbc-start" title="Início"/>
-        <span class="mhc-sep">→</span>
-        <input class="mhc-inp" type="date" id="lbc-end" title="Fim"/>
-        <div class="mhc-dows">
-          <div class="lbc-dow" data-dow="1">S</div>
-          <div class="lbc-dow" data-dow="2">T</div>
-          <div class="lbc-dow" data-dow="3">Q</div>
-          <div class="lbc-dow" data-dow="4">Q</div>
-          <div class="lbc-dow" data-dow="5">S</div>
-          <div class="lbc-dow" data-dow="6">S</div>
-        </div>
-        <button class="mhc-btn" onclick="applyBarConfig()">✓ Guardar</button>
-        <button class="mhc-gear" onclick="toggleMhCfg()" title="Editar calendário">⚙</button>
-      </div>
-
+   <div class="mh-cfg" id="mh-cfg">
+  <span class="mhc-label">📅 Ano lectivo</span>
+  <span class="mhc-sep" style="font-size:8px;color:var(--t3)">Início</span>
+  <input class="mhc-inp" type="date" id="lbc-start" title="Data de início"/>
+  <span class="mhc-sep">→</span>
+  <input class="mhc-inp" type="date" id="lbc-end" title="Data de fim"/>
+  <span style="font-size:7.5px;color:var(--t3);flex-shrink:0">aplica-se a todos os professores</span>
+  <button class="mhc-btn" onclick="applyBarConfig()">✓ Guardar</button>
+  <button class="mhc-gear" onclick="toggleMhCfg()" title="Reconfigurar">⚙</button>
+   </div>
+        
       <!-- bloomberg lesson bar -->
       <div class="mh-bar-wrap">
         <div class="mh-bar-fade-l"></div>
@@ -768,16 +762,20 @@ let cfgOpen   = false;  // config row visibility
 
 function buildBarDates(){
   BAR_BUILT = false; BAR_DATES = [];
-  if(!BAR_CFG.start || !BAR_CFG.end || !BAR_CFG.dows.length) return;
-  const dowSet = new Set(BAR_CFG.dows);
-  const d   = new Date(BAR_CFG.start + 'T12:00:00');
-  const end = new Date(BAR_CFG.end   + 'T12:00:00');
+  if(!YEAR_START || !YEAR_END) return;
+  // Get day from current slot, or fall back to all weekdays
+  const dow = currentSlot?.day
+    ? DOW_MAP[(currentSlot.day||'').toUpperCase().trim()]
+    : null;
+  if(!dow) return;
+  const d   = new Date(YEAR_START + 'T12:00:00');
+  const end = new Date(YEAR_END   + 'T12:00:00');
   while(d <= end){
-    if(dowSet.has(d.getDay())){
+    if(d.getDay() === dow){
       const iso = d.toISOString().slice(0,10);
       if(isTeachingDay(iso)) BAR_DATES.push(iso);
     }
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate()+1);
   }
   BAR_BUILT = true;
 }
@@ -793,46 +791,57 @@ function toggleBarConfig(){
 async function applyBarConfig(){
   const start = document.getElementById('lbc-start')?.value;
   const end   = document.getElementById('lbc-end')?.value;
-  const dows  = [...document.querySelectorAll('.lbc-dow.active')].map(c=>parseInt(c.dataset.dow));
-  if(!start || !end || !dows.length){
-    showToast('Seleccione datas e pelo menos um dia da semana','warn'); return;
+  if(!start || !end){
+    showToast('Seleccione datas de início e fim','warn'); return;
   }
-  BAR_CFG = {start, end, dows};
-  try{ localStorage.setItem('alm_bar_cfg', JSON.stringify(BAR_CFG)); }catch{}
-  if(ME){
-    try{
-      await fetch(`${SB}/rest/v1/teacher_lesson_config`,{
-        method:'POST',
-        headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
-        body: JSON.stringify({
-          teacher_id:   ME.id,
-          start_date:   start,
-          end_date:     end,
-          days_of_week: JSON.stringify(dows),
-          updated_at:   new Date().toISOString(),
-        }),
-      });
-    }catch(e){ console.warn('bar config save:', e); }
+
+  // Update globals immediately
+  YEAR_START = start;
+  YEAR_END   = end;
+  AY         = start.slice(0,4) + '/' + end.slice(0,4);
+
+  // Cache locally
+  try{
+    localStorage.setItem('alm_school_cfg',
+      JSON.stringify({YEAR_START:start, YEAR_END:end, AY}));
+  }catch{}
+
+  // Save to school_config (global — applies to all teachers)
+  try{
+    await fetch(`${SB}/rest/v1/school_config`,{
+      method:'POST',
+      headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([
+        {key:'year_start_date', value:start},
+        {key:'year_end_date',   value:end},
+        {key:'academic_year',   value:AY},
+      ]),
+    });
+    showToast(`✓ Ano lectivo ${AY} guardado para todos os professores`,'ok');
+  }catch(e){
+    showToast('Datas guardadas localmente — erro Supabase: '+e.message,'warn');
   }
+
+  // Rebuild bar with new dates
   buildBarDates();
   BAR_IDX = Math.max(0, BAR_DATES.findLastIndex(d => d <= todayISO()));
   renderBar();
-  // collapse config row after saving
+
+  // Collapse config row
   cfgOpen = false;
   document.getElementById('mh-cfg')?.classList.add('mh-cfg-hidden');
-  showToast(`✓ ${BAR_DATES.length} aulas calculadas`,'ok');
 }
-
 /* ── Load config from storage ── */
 function barLoadConfig(){
   try{
-    const s = localStorage.getItem('alm_bar_cfg');
-    if(s){ BAR_CFG = JSON.parse(s); syncConfigUI(); buildBarDates(); }
+    const s = localStorage.getItem('alm_school_cfg');
+    if(s){
+      const c = JSON.parse(s);
+      if(c.YEAR_START){ YEAR_START=c.YEAR_START; YEAR_END=c.YEAR_END; AY=c.AY; }
+    }
   }catch{}
-  // also try Supabase
   if(ME) barLoadFromSupabase();
 }
-
 async function barLoadFromSupabase(){
   try{
     const rows = await sbGet('teacher_lesson_config',
@@ -1263,6 +1272,12 @@ async function boot(){
       if(r.key==='year_end_date')   YEAR_END   = r.value;
     });
   }catch(e){ /* use defaults */ }
+  if (!YEAR_START) {
+  try {
+    const c = JSON.parse(localStorage.getItem('alm_school_cfg') || '{}');
+    if (c.YEAR_START) { YEAR_START = c.YEAR_START; YEAR_END = c.YEAR_END; AY = c.AY; }
+  } catch {}
+}
 
   document.getElementById('brand-yr').textContent = AY;
   document.getElementById('kpi-ay').textContent   = AY;
@@ -1692,7 +1707,7 @@ function openSlot(day, h, dayIso){
   // Show or hide config row based on whether bar is configured
   const mhCfg = document.getElementById('mh-cfg');
   if(mhCfg){
-    const configured = BAR_CFG.start && BAR_CFG.dows.length;
+ const configured = !!YEAR_START;
     mhCfg.classList.toggle('mh-cfg-hidden', !!configured);
   }
   // Render bar for this slot's date — this sets BAR_IDX
