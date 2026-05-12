@@ -1747,32 +1747,71 @@ async function confirmAction() {
 
   if (id==='presencas') { await saveAttendance(); return; }
 
-  if (id==='mensagem' && ME?.id) {
-    const toChips = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
-    const subject = document.querySelector('#tab-mensagem input[type=text]')?.value||'';
-    const body    = document.querySelector('#tab-mensagem textarea')?.value||'';
-    if (!body.trim()) { showToast('Escreva uma mensagem primeiro','warn'); return; }
-    setSavingState(true);
-    try {
-      await sbPost('messages',{
-        turma_code:    currentSlot?.turmaCode||null,
-        lesson_number: BAR_IDX+1,
-        date:          BAR_DATES[BAR_IDX]||currentSlot.lessonDate,
-        teacher_id:    ME.id,
-        teacher_name:  ME.name,
-        to_recipients: toChips,
-        subject,
-        body,
-        created_at:    new Date().toISOString(),
-      });
-      showToast('Mensagem guardada ✓','ok');
-      document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el=>el.value='');
-      document.querySelectorAll('#tab-mensagem .chip').forEach(c=>c.classList.remove('active'));
-    } catch(e) { showToast('Erro: '+e.message,'err'); }
-    finally { setSavingState(false); }
+  if (id === 'mensagem' && ME?.id) {
+  // Determine which section is active (internal school vs parent/student)
+  const internalBody    = document.querySelector('#tab-mensagem .sum-textarea:nth-of-type(1)')?.value || '';
+  const parentBody      = document.querySelector('#tab-mensagem .sum-textarea:nth-of-type(2)')?.value || '';
+  const internalSubject = document.querySelectorAll('#tab-mensagem input[type=text]')[0]?.value || '';
+  const parentSubject   = document.querySelectorAll('#tab-mensagem input[type=text]')[1]?.value || '';
+  const internalTo      = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c => c.textContent).join(', ');
+
+  if (!internalBody.trim() && !parentBody.trim()) {
+    showToast('Escreva uma mensagem primeiro', 'warn');
     return;
   }
 
+  setSavingState(true);
+  try {
+    const base = {
+      turma_code:    currentSlot?.turmaCode || null,
+      lesson_number: BAR_IDX + 1,
+      lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
+      academic_year: AY || null,
+      teacher_id:    ME.id,
+      teacher_name:  ME.name,
+      status:        'pending',
+      created_at:    new Date().toISOString(),
+    };
+
+    const saves = [];
+
+    if (internalBody.trim()) {
+      saves.push(sbPost('messages', {
+        ...base,
+        message_type:  'internal_school',
+        section:       'internal',
+        to_recipients: internalTo,
+        subject:       internalSubject,
+        body:          internalBody,
+      }));
+    }
+
+    if (parentBody.trim()) {
+      saves.push(sbPost('messages', {
+        ...base,
+        message_type:  'parent_contact',
+        section:       'parent',
+        to_recipients: 'Encarregados / Alunos',
+        subject:       parentSubject,
+        body:          parentBody,
+      }));
+    }
+
+    await Promise.all(saves);
+    showToast(`${saves.length} mensagem(ns) guardada(s) ✓`, 'ok');
+
+    // Clear both sections
+    document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el => el.value = '');
+    document.querySelectorAll('#tab-mensagem .chip').forEach(c => c.classList.remove('active'));
+    flash();
+  } catch(e) {
+    showToast('Erro ao guardar mensagem: ' + e.message, 'err');
+  } finally {
+    setSavingState(false);
+  }
+  return;
+}
+  
   if (id==='sumario' && currentSlot?.turmaCode) {
     const tpcChips = [...document.querySelectorAll('#tpc-chips .chip.active')].map(c=>c.textContent).join(', ');
     setSavingState(true);
