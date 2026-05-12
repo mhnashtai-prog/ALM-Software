@@ -694,23 +694,31 @@ const H   = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'applicatio
 /* ════════════════════════════════
    ACADEMIC YEAR CONFIG
 ════════════════════════════════ */
-let AY         = '2026/2027';
-let YEAR_START = '2026-09-19';
-let YEAR_END   = '2027-06-25';
+let AY         = '';
+let YEAR_START = '';
+let YEAR_END   = '';
 
-const HOLIDAYS = new Set([
-  '2026-10-05','2026-11-01','2026-12-01','2026-12-08','2026-12-25',
-  '2027-01-01','2027-04-01','2027-04-02','2027-04-25','2027-05-01','2027-06-10',
-]);
-const BREAKS = [
-  ['2026-12-19','2027-01-04'],
-  ['2027-02-15','2027-02-21'],
-  ['2027-03-29','2027-04-11'],
-];
+// Holidays and breaks loaded from Supabase — never hardcoded
+let HOLIDAYS = new Set();
+let BREAKS   = [];
 
 function isTeachingDay(iso){
   if(HOLIDAYS.has(iso)) return false;
   return !BREAKS.some(([s,e]) => iso >= s && iso <= e);
+}
+
+async function loadCalendarData(){
+  // Load holidays from school_holidays table
+  try{
+    const rows = await sbGet('school_holidays','select=date&limit=500');
+    HOLIDAYS = new Set(rows.map(r => r.date));
+  }catch(e){ console.warn('school_holidays not found — no holidays excluded', e.message); }
+
+  // Load breaks from school_breaks table
+  try{
+    const rows = await sbGet('school_breaks','select=start_date,end_date&limit=100');
+    BREAKS = rows.map(r => [r.start_date, r.end_date]);
+  }catch(e){ console.warn('school_breaks not found — no breaks excluded', e.message); }
 }
 
 const DOW_MAP = {
@@ -720,7 +728,7 @@ const DOW_MAP = {
 
 function buildLessonDates(dow){
   const target = DOW_MAP[(dow||'').toUpperCase().trim()];
-  if(!target) return [];
+  if(!target || !YEAR_START || !YEAR_END) return [];
   const dates = [];
   const d   = new Date(YEAR_START + 'T12:00:00');
   const end = new Date(YEAR_END   + 'T12:00:00');
@@ -922,27 +930,115 @@ function barSelect(idx){
   const today = todayISO();
   if(BAR_DATES[idx] > today) return; // future — locked
   BAR_IDX = idx;
+
   // update active-sel class without full re-render
   document.querySelectorAll('.lb-cell').forEach((el,i) => {
     el.classList.toggle('active-sel', i === idx);
   });
   barScrollTo(idx);
-  // update currentSlot so saves use the correct lesson number
+
+  // update currentSlot lesson info
   if(currentSlot){
     currentSlot.lessonNum   = idx + 1;
     currentSlot.lessonTotal = BAR_DATES.length;
     currentSlot.lessonDate  = BAR_DATES[idx];
   }
-  // update lesson badge in modal header
+
+  // update header badges
   const lNumEl = document.getElementById('mh-lesson-num');
-  if(lNumEl){
-    lNumEl.textContent = `Aula ${String(idx+1).padStart(3,'0')} de ${BAR_DATES.length}`;
-  }
-  // update date badge
+  if(lNumEl) lNumEl.textContent = `Aula ${String(idx+1).padStart(3,'0')} de ${BAR_DATES.length}`;
+
+  const dt = new Date(BAR_DATES[idx]+'T12:00:00');
+  const dateShort = dt.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const dateLong  = dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const dateBadge = document.getElementById('mh-date-badge');
-  if(dateBadge){
-    const dt = new Date(BAR_DATES[idx]+'T12:00:00');
-    dateBadge.textContent = '📅 '+dt.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  if(dateBadge){ dateBadge.textContent = '📅 '+dateShort; dateBadge.title = dateLong; }
+  const dayFullEl = document.getElementById('mh-day-full');
+  if(dayFullEl && currentSlot) dayFullEl.textContent = dateLong
+    + (currentSlot.durationMin ? ' · '+currentSlot.durationMin+'min' : '')
+    + (currentSlot.sala ? ' · Sala '+currentSlot.sala : '');
+
+  // Clear forms then load this lesson's saved data from Supabase
+  clearLessonForms();
+  loadLessonData(idx);
+}
+
+/* ── Load lesson data for a given bar index ── */
+async function loadLessonData(idx){
+  if(!currentSlot) return;
+  const lessonNum  = idx + 1;
+  const lessonDate = BAR_DATES[idx];
+  const turmaCode  = currentSlot.turmaCode;
+
+  // Show loading state
+  const saveBtn = document.getElementById('btn-save');
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '⏳ A carregar…'; }
+
+  try{
+    // ── Load summary ──
+    const summaries = await sbGet('lesson_summaries',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&lesson_number=eq.${lessonNum}&limit=1`
+    ).catch(() => []);
+
+    // Try by date if lesson_number index not found
+    const sum = summaries[0] || (await sbGet('lesson_summaries',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&date=eq.${lessonDate}&limit=1`
+    ).catch(() => []))[0] || null;
+
+    // Populate summary tab
+    const setText = (id, val) => { const el=document.getElementById(id); if(el) el.value = val||''; };
+    setText('sum-text',    sum?.summary_text || sum?.summary || '');
+    setText('sum-book',    sum?.book_page    || '');
+    setText('sum-obs',     sum?.observations || sum?.notes  || '');
+    setText('sum-tpc-ref', sum?.tpc_ref      || '');
+    setText('sum-tpc-date',sum?.tpc_due      || '');
+    // dropdowns
+    const setSelect = (id, val) => { const el=document.getElementById(id); if(el) el.value = val||''; };
+    setSelect('sum-skill', sum?.skill);
+    setSelect('sum-part',  sum?.participation);
+    // TPC chips
+    const tpcActive = (sum?.tpc||'').split(',').map(s=>s.trim()).filter(Boolean);
+    document.querySelectorAll('#tpc-chips .chip').forEach(c => {
+      c.classList.toggle('active', tpcActive.includes(c.textContent.trim()));
+    });
+
+    // ── Load attendance for this lesson ──
+    const attRows = await sbGet('attendance',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&lesson_number=eq.${lessonNum}&select=student_ref,status&limit=500`
+    ).catch(() => []);
+
+    // Also try by date if lesson_number column not populated
+    const attByDate = attRows.length ? attRows : await sbGet('attendance',
+      `turma_code=eq.${encodeURIComponent(turmaCode)}&date=eq.${lessonDate}&select=student_ref,status&limit=500`
+    ).catch(() => []);
+
+    const attMap = {};
+    attByDate.forEach(r => { attMap[r.student_ref] = r.status; });
+
+    // Update studentState with loaded attendance
+    if(currentSlot.studentState){
+      currentSlot.studentState.forEach(stu => {
+        const raw = attMap[stu.ref] ?? null;
+        stu.present = raw==='present'||raw==='presente' ? true
+                    : raw==='late'||raw==='atraso'      ? 'late'
+                    : raw==='absent'||raw==='falta'     ? false
+                    : null;
+      });
+      buildStudentList();
+      updateAttHeader();
+    }
+
+    // Update submission badge
+    const hasSub = attByDate.length > 0 || !!sum;
+    document.getElementById('mh-submit-badge').style.display = hasSub ? 'inline-flex' : 'none';
+
+    showToast(`Aula ${String(lessonNum).padStart(3,'0')} · ${lessonDate}`,'info');
+
+  }catch(e){
+    console.error('loadLessonData error:', e);
+    showToast('Erro ao carregar aula','err');
+  }finally{
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = '✓ Guardar & Fechar'; }
   }
 }
 
@@ -1156,6 +1252,9 @@ let isSaving     = false;
    BOOT
 ════════════════════════════════ */
 async function boot(){
+  // Load calendar data first (holidays, breaks) — everything depends on this
+  await loadCalendarData();
+
   try{
     const cfg = await sbGet('school_config','select=key,value&limit=20');
     cfg.forEach(r=>{
@@ -1224,9 +1323,18 @@ async function loadTeacherData(){
   try{
     /* ─── FIX-1: removed day_of_week & department from SELECT (columns don't exist yet).
        We now fetch group_key and derive both from it as a fallback.              ─── */
-    const classes = await sbGet('classes',
-      `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}`+
-      `&select=turma_code,teacher_id,lang,level_code,level_display,branch,group_key,hour,start_time,end_time,duration_min,student_refs,sala`);
+    // Try full select first; fall back to minimal if columns missing
+    let classes = [];
+    try{
+      classes = await sbGet('classes',
+        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}`+
+        `&select=turma_code,teacher_id,lang,level_code,level_display,department,branch,group_key,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala`);
+    }catch(e1){
+      console.warn('Full select failed, retrying without optional columns:', e1.message);
+      classes = await sbGet('classes',
+        `teacher_id=eq.${encodeURIComponent(ME.id)}&academic_year=eq.${encodeURIComponent(AY)}`+
+        `&select=turma_code,teacher_id,lang,level_code,level_display,branch,group_key,hour,start_time,end_time,duration_min,student_refs,sala`);
+    }
 
     if(!classes.length){
       setSb('warn','Sem turmas atribuídas — contacte a secretaria');
@@ -1272,14 +1380,35 @@ async function loadTeacherData(){
       /* ─── FIX-2: derive day_of_week from group_key when column absent ───
          group_key examples: "P-01-TER-08", "MN-ANO5-QUI-08", "MN-ANO5-TER-08"
          Strategy: split by '-', find first token matching a known day abbr.    */
-      let day = (cls.day_of_week || '').toUpperCase().replace('SAB','SÁB');
-      if(!day && cls.group_key){
-        const DAY_ABBRS = new Set(['SEG','TER','QUA','QUI','SEX','SAB','SÁB']);
-        const gkParts   = (cls.group_key || '').toUpperCase().split('-');
-        const found     = gkParts.find(p => DAY_ABBRS.has(p.replace('SAB','SÁB')));
-        day = found ? found.replace('SAB','SÁB') : '';
+      const DAY_ABBRS = new Set(['SEG','TER','QUA','QUI','SEX','SAB','SÁB']);
+      let day = '';
+
+      // 1. Prefer day_of_week column if it came back from Supabase
+      if(cls.day_of_week){
+        day = cls.day_of_week.toUpperCase().replace('SAB','SÁB').trim();
       }
-      if(!day) day = 'SEG'; // safe fallback — will show in slot but may be wrong day
+
+      // 2. Parse from group_key (e.g. "MN-ANO5-TER-08", "FUN-QUI-08")
+      if(!day && cls.group_key){
+        const gkUp  = (cls.group_key||'').toUpperCase()
+          .replace(/\bSAB\b/g,'SÁB').replace(/\bTHU\b/g,'QUI')
+          .replace(/\bTUE\b/g,'TER').replace(/\bMON\b/g,'SEG')
+          .replace(/\bWED\b/g,'QUA').replace(/\bFRI\b/g,'SEX');
+        const found = gkUp.split(/[-_\s]+/).find(p => DAY_ABBRS.has(p));
+        if(found) day = found;
+      }
+
+      // 3. Parse from turma_code itself (e.g. "FUN-08-TER")
+      if(!day && cls.turma_code){
+        const tcUp  = (cls.turma_code||'').toUpperCase().replace(/\bSAB\b/g,'SÁB');
+        const found = tcUp.split(/[-_\s]+/).find(p => DAY_ABBRS.has(p));
+        if(found) day = found;
+      }
+
+      // 4. Log resolution so we can diagnose any remaining issues
+      console.log('[day]', cls.turma_code, '→', day||'NOT FOUND — falling back to SEG');
+
+      if(!day) day = 'SEG';
 
       const h   = typeof cls.hour==='number' ? cls.hour : parseInt(cls.hour,10)||9;
 
@@ -1566,9 +1695,11 @@ function openSlot(day, h, dayIso){
     const configured = BAR_CFG.start && BAR_CFG.dows.length;
     mhCfg.classList.toggle('mh-cfg-hidden', !!configured);
   }
-  // Render bar for this slot's date
+  // Render bar for this slot's date — this sets BAR_IDX
   renderBar(lessonDate);
   document.getElementById('modal-overlay').classList.add('open');
+  // Load saved data for the current lesson
+  loadLessonData(BAR_IDX);
 }
 
 function closeModal(){
@@ -1954,6 +2085,15 @@ function clearSaveStatus(){
   const el = document.getElementById('save-status');
   el.className = 'save-status';
   el.textContent = '';
+}
+
+function clearLessonForms(){
+  // Clear summary tab so switching lessons shows fresh/loaded data
+  const ids = ['sum-text','sum-book','sum-obs','sum-tpc-ref','sum-tpc-date'];
+  ids.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const sels = ['sum-skill','sum-part'];
+  sels.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.querySelectorAll('#tpc-chips .chip').forEach(c => c.classList.remove('active'));
 }
 
 function flash(){
