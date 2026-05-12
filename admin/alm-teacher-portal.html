@@ -2019,27 +2019,32 @@ async function confirmAction(){
          lesson_date     ← lessonDate (date col is named lesson_date in DB)
          Unique index:   (turma_code, lesson_date) or (turma_code, date)          ─── */
     try{
-      await sbUpsertSimple('lesson_summaries',[{
-        turma_code:    currentSlot.turmaCode,
-        teacher_id:    ME?.code || ME?.id || null,
-        teacher_num:   ME?.code || null,
-        lesson_date:   BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
-        date:          BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
-        day:           currentSlot.day,
-        hour:          currentSlot.h,
-        lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot.lessonNum || null),
-        summary_text:  document.getElementById('sum-text')?.value||'',
-        book_page:     document.getElementById('sum-book')?.value||'',
-        skill:         document.getElementById('sum-skill')?.value||'',
-        participation: document.getElementById('sum-part')?.value||'',
-        observations:  document.getElementById('sum-obs')?.value||'',
-        notes:         document.getElementById('sum-obs')?.value||'',
-        summary:       document.getElementById('sum-text')?.value||'',
-        tpc:           tpcChips,
-        tpc_ref:       document.getElementById('sum-tpc-ref')?.value||'',
-        tpc_due:       document.getElementById('sum-tpc-date')?.value||null,
-        created_at:    new Date().toISOString(),
-      }]);
+  const r = await fetch(`${SB}/rest/v1/lesson_summaries?on_conflict=turma_code,date`, {
+  method: 'POST',
+  headers: {...H, Prefer: 'resolution=merge-duplicates,return=minimal'},
+  body: JSON.stringify([{
+    turma_code:    currentSlot.turmaCode,
+    teacher_id:    ME?.code || ME?.id || null,
+    teacher_num:   ME?.code || null,
+    lesson_date:   BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
+    date:          BAR_DATES[BAR_IDX] || currentSlot.lessonDate,
+    day:           currentSlot.day,
+    hour:          currentSlot.h,
+    lesson_number: BAR_DATES.length ? BAR_IDX + 1 : (currentSlot.lessonNum || null),
+    summary_text:  document.getElementById('sum-text')?.value||'',
+    book_page:     document.getElementById('sum-book')?.value||'',
+    skill:         document.getElementById('sum-skill')?.value||'',
+    participation: document.getElementById('sum-part')?.value||'',
+    observations:  document.getElementById('sum-obs')?.value||'',
+    notes:         document.getElementById('sum-obs')?.value||'',
+    summary:       document.getElementById('sum-text')?.value||'',
+    tpc:           tpcChips,
+    tpc_ref:       document.getElementById('sum-tpc-ref')?.value||'',
+    tpc_due:       document.getElementById('sum-tpc-date')?.value||null,
+    created_at:    new Date().toISOString(),
+  }]),
+});
+if(!r.ok){ const t=await r.text(); throw new Error(`upsert lesson_summaries: ${r.status} ${t.slice(0,120)}`); }
       setSb('ok','Sumário guardado ✓');
       showToast('Sumário guardado ✓','ok');
       showSaveStatus('saved','✓ Sumário guardado');
