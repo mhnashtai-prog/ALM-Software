@@ -849,18 +849,27 @@ async function sbUpsertRequest(ref, payload) {
 //   the card stays green after the DB write.
 // ═══════════════════════════════════════════════════════════════
 async function sbInsertClass(box, refs) {
-  const students = box.students || [];
+  // v2 — each session gets a unique turma_code with A/B suffix.
+  // box.code ("FUN-40") stays in timetable_requests.assigned_turma.
+  // classes.turma_code: "FUN-40A" (first day), "FUN-40B" (second day).
+  const students    = box.students || [];
   const sampleEnrol = students.find(e => e) || {};
   const levelCode   = lk(sampleEnrol) || box.lk || '';
   const levelDisplay = box.meta?.label || levelCode;
   const dept        = box.dk || getLM(sampleEnrol).dept || 'adults';
   const isManha     = box.block === 'manha';
 
-  const days = [...new Set([box.pair?.aL, box.pair?.bL].filter(Boolean))];
+  const days     = [...new Set([box.pair?.aL, box.pair?.bL].filter(Boolean))];
+  const SUFFIXES = ['A', 'B', 'C', 'D'];
 
-  for (const day of days) {
+  for (let i = 0; i < days.length; i++) {
+    const day         = days[i];
+    const suffix      = SUFFIXES[i] || String(i + 1);
+    const sessionCode = box.code + suffix;
+
     const row = {
-      turma_code:    box.code,
+      turma_code:    sessionCode,
+      group_code:    box.code,
       academic_year: AY,
       lang:          sampleEnrol.lang || 'EN',
       level_code:    levelCode,
@@ -879,19 +888,20 @@ async function sbInsertClass(box, refs) {
 
     const r = await fetch(`${SB}/rest/v1/classes`, {
       method: 'POST',
-      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY,
+                 'Content-Type': 'application/json',
+                 Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify(row),
     });
 
     if (!r.ok) {
       const txt = await r.text();
-      return { ok: false, error: `${day}: HTTP ${r.status} ${txt.slice(0,120)}` };
+      return { ok: false, error: `${day} (${sessionCode}): HTTP ${r.status} ${txt.slice(0,120)}` };
     }
   }
 
   return { ok: true, error: null };
 }
-
 
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
