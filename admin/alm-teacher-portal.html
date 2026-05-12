@@ -1748,20 +1748,69 @@ async function confirmAction() {
   if (id==='presencas') { await saveAttendance(); return; }
 
 if (id === 'mensagem' && ME?.id) {
-  // ── Internal school section ──
-  const internalTo   = [...document.querySelectorAll('#tab-mensagem .chip.active')].map(c=>c.textContent).join(', ');
-  const internalSubj = document.querySelectorAll('#tab-mensagem .sf-inp')[0]?.value || '';
   const internalBody = document.querySelectorAll('#tab-mensagem .sum-textarea')[0]?.value || '';
-
-  // ── Parent/student section ──
-  const parentSubj   = document.querySelectorAll('#tab-mensagem .sf-inp')[1]?.value || '';
   const parentBody   = document.querySelectorAll('#tab-mensagem .sum-textarea')[1]?.value || '';
 
+  console.log('=== MENSAGEM DEBUG ===');
+  console.log('internalBody:', JSON.stringify(internalBody));
+  console.log('parentBody:',   JSON.stringify(parentBody));
+  console.log('ME.id:', ME?.id);
+  console.log('currentSlot:', currentSlot);
+  console.log('AY:', AY);
+
   if (!internalBody.trim() && !parentBody.trim()) {
+    console.log('GUARD TRIGGERED — both bodies empty, returning early');
     showToast('Escreva uma mensagem primeiro', 'warn');
     return;
   }
 
+  const payload = {
+    turma_code:    currentSlot?.turmaCode || null,
+    lesson_number: BAR_DATES.length ? BAR_IDX + 1 : null,
+    lesson_date:   BAR_DATES[BAR_IDX] || currentSlot?.lessonDate || null,
+    academic_year: AY || null,
+    teacher_id:    ME.id,
+    teacher_name:  ME.name,
+    message_type:  'internal_school',
+    section:       'internal',
+    to_recipients: 'Secretaria',
+    subject:       '',
+    body:          internalBody || parentBody,
+    status:        'pending',
+    created_at:    new Date().toISOString(),
+  };
+
+  console.log('Payload being sent:', JSON.stringify(payload, null, 2));
+
+  setSavingState(true);
+  try {
+    const r = await fetch(`${SB}/rest/v1/messages`, {
+      method: 'POST',
+      headers: { ...H, Prefer: 'return=minimal' },
+      body: JSON.stringify(payload),
+    });
+
+    const responseText = await r.text();
+    console.log('Supabase response status:', r.status);
+    console.log('Supabase response body:', responseText);
+
+    if (!r.ok) {
+      throw new Error(`HTTP ${r.status}: ${responseText.slice(0, 200)}`);
+    }
+
+    showToast('✓ Guardado com sucesso', 'ok');
+    showSaveStatus('saved', '✓ Guardado');
+    flash();
+
+  } catch(e) {
+    console.error('SAVE ERROR:', e);
+    showToast('ERRO: ' + e.message, 'err');
+    showSaveStatus('error', '✕ ' + e.message);
+  } finally {
+    setSavingState(false);
+  }
+  return;
+}
   setSavingState(true);
   showSaveStatus('saving', 'A guardar mensagem…');
   try {
