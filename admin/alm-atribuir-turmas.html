@@ -1220,12 +1220,13 @@ function qaAssign(e, turmaCode){
   const hasConflict=CLASSES.some(x=>x.teacher_id===QA_TEACHER&&x.day_of_week===c.day_of_week&&x.hour===c.hour&&x.turma_code!==turmaCode&&!x._virtual);
   if(hasConflict){showToast(`Conflito: ${t.code} já tem aula neste slot`,'err');return;}
   const prev={id:c.teacher_id,code:c.teacher_code};
-  CLASSES.filter(x=>x.turma_code===turmaCode).forEach(x=>{x.teacher_id=QA_TEACHER;x.teacher_code=t.code;});
-  sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
+  const groupCode=c.group_code||turmaCode;
+  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=QA_TEACHER;x.teacher_code=t.code;});
+  sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
   pushUndo(turmaCode,prev.id,prev.code,t.id,t.code);
-  renderAll();showToast(`${turmaCode} → ${t.code} ✓`,'ok');
+  renderAll();showToast(`${groupCode} (A+B) → ${t.code} ✓`,'ok');
 }
-
+  
 /* ════════════════════════════════════════════════
    CLASSROOM CONFLICT CHECK
 ════════════════════════════════════════════════ */
@@ -1437,29 +1438,31 @@ async function popConfirm(){
   const c=CLASSES.find(x=>x.turma_code===POP_TURMA&&!x._virtual);if(!c)return;
   const t=POP_SEL?TEACHERS.find(x=>x.id===POP_SEL):null;
   const prev={id:c.teacher_id,code:c.teacher_code,sala:c.sala};
-  CLASSES.filter(x=>x.turma_code===POP_TURMA).forEach(x=>{
+  const groupCode=c.group_code||POP_TURMA;
+  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{
     x.teacher_id=POP_SEL||null;x.teacher_code=(t&&t.code)||null;
     x.sala=POP_SALA||null;
   });
   try{
-    await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{
+    await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{
       teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null,
       sala:POP_SALA||null
     });
-    document.getElementById('bot-src').textContent='Guardado ✓';
+    document.getElementById('bot-src').textContent='Guardado ✓ (A+B)';
   }catch{document.getElementById('bot-src').textContent='Erro ao guardar';}
   if(POP_SEL)pushUndo(c.turma_code,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
-  showToast(t?`${c.turma_code} → ${t.code}${POP_SALA?' · S.'+POP_SALA:''} ✓`:'Professor removido','ok');
+  showToast(t?`${groupCode} (A+B) → ${t.code}${POP_SALA?' · S.'+POP_SALA:''} ✓`:'Professor removido','ok');
   closePopup();renderAll();
 }
 
 async function popRemove(){
   const c=CLASSES.find(x=>x.turma_code===POP_TURMA&&!x._virtual);if(!c)return;
   const prev={id:c.teacher_id,code:c.teacher_code};
-  CLASSES.filter(x=>x.turma_code===POP_TURMA).forEach(x=>{x.teacher_id=null;x.teacher_code=null;});
-  try{await sbPatch('classes',`turma_code=eq.${encodeURIComponent(c.turma_code)}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
+  const groupCode=c.group_code||POP_TURMA;
+  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=null;x.teacher_code=null;});
+  try{await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
   pushUndo(POP_TURMA,prev.id,prev.code,null,null);
-  closePopup();renderAll();showToast('Professor removido','info');
+  closePopup();renderAll();showToast('Professor removido (A+B)','info');
 }
 
 function closePopup(){document.getElementById('popup').classList.remove('open');POP_TURMA=null;POP_SEL=null;POP_SALA=null;}
