@@ -659,14 +659,10 @@ const DAYS_PT  = ['SEG','TER','QUA','QUI','SEX','SAB'];
 // ═══════════════════════════════════════════════════════════════
 let allE=[], allR=[], rByRef={};
 
-// ── FIX 3.3 / 3.4: DB-authoritative confirmed set ─────────────
-// _confirmedCodes is loaded from classes table on boot and updated
-// on every successful sbInsertClass. It stores the GROUP code
-// (e.g. "FUN-01"), not the session suffix code. This replaces the
-// localStorage seq-based boxId mechanism as the source of truth.
-// localStorage is kept as a fast UI cache only, and is always
-// validated against _confirmedCodes on renderAll().
-let _confirmedCodes = new Set(); // codes confirmed in DB this session
+// DB-authoritative confirmed set — loaded from classes table on boot,
+// updated on every successful sbInsertClass. Stores GROUP codes (e.g. "FUN-01").
+// Replaces the localStorage seq-based boxId mechanism as the source of truth.
+let _confirmedCodes = new Set();
 
 let activeLoc='FUNCHAL';
 let _boxes={}, _treeData={}, _brSeq={};
@@ -675,6 +671,10 @@ let _glBoxId=null;
 let _smHighlight=-1, _smItems=[], _smOpenSwap=null;
 let _mtRef=null, _mtSelectedBoxId=null, _mtSelectedCode=null, _mtSelectedFull=false, _mtMode='mudar';
 let _saving=new Set();
+
+// FIX: branch prefix → next available integer, loaded from DB on boot.
+// Prevents nextSeq() positional counter from colliding with existing DB codes.
+let _nextSeqBase = {};
 
 // ═══════════════════════════════════════════════════════════════
 // DEBUG LOG
@@ -721,7 +721,7 @@ function nextSeq(b) { if(!_brSeq[b]) _brSeq[b]=0; _brSeq[b]++; return String(_br
 function resetSeq() { _brSeq={}; }
 function elv(id,v)  { const n=document.getElementById(id); if(n&&v!==undefined) n.textContent=v; return n; }
 
-// ── FIX 3.3 / 3.4: isConfirmedByCode uses DB set, not localStorage ──
+// DB-authoritative confirmed check
 function isConfirmedByCode(groupCode) {
   return _confirmedCodes.has(groupCode);
 }
@@ -786,12 +786,39 @@ async function loadConfig() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// FIX: Load next available sequence numbers from DB
+// Prevents positional counter from colliding with existing codes
+// ═══════════════════════════════════════════════════════════════
+async function loadNextSeqBase() {
+  try {
+    const rows = await sbGet('classes',
+      `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
+    );
+    const maxByBranch = {};
+    rows.forEach(r => {
+      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
+      if (!m) return;
+      const [, prefix, num] = m;
+      const n = parseInt(num, 10);
+      if (!maxByBranch[prefix] || n > maxByBranch[prefix]) {
+        maxByBranch[prefix] = n;
+      }
+    });
+    Object.entries(maxByBranch).forEach(([prefix, max]) => {
+      _nextSeqBase[prefix] = max + 1;
+    });
+    dlog(`nextSeqBase loaded: ${JSON.stringify(_nextSeqBase)}`, 'ok');
+  } catch(e) {
+    dlog('loadNextSeqBase failed, falling back to counter: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SUPABASE WRITE — timetable_requests
 //
-// FIX 3.5: assigned_turma now stores the first session's suffixed
+// FIX 3.5: assigned_turma stores the first session's suffixed
 // turma_code (e.g. "FUN-01A") so timetable_requests.assigned_turma
-// matches classes.turma_code exactly. The caller passes the
-// primary session code.
+// matches classes.turma_code exactly.
 // ═══════════════════════════════════════════════════════════════
 async function sbUpsertRequest(ref, payload) {
   dlog(`sbUpsertRequest ${ref} → ${JSON.stringify(payload)}`, 'info');
@@ -845,22 +872,15 @@ async function sbUpsertRequest(ref, payload) {
 // ═══════════════════════════════════════════════════════════════
 // SUPABASE WRITE — classes
 //
-// FIX 3.18: Sync is no longer destructive.
-//   - Uses Prefer: resolution=merge-duplicates so existing rows
-//     are updated rather than replaced.
+// FIX 3.18: Sync is non-destructive.
+//   - Uses Prefer: resolution=merge-duplicates.
 //   - teacher_id, teacher_code, teacher_name, sala are EXCLUDED
-//     from the upsert body entirely. PostgREST merge-duplicates
-//     only updates the columns you send, leaving untouched columns
-//     as-is. Teacher assignments made in Step 5 survive re-sync.
+//     from the upsert body so teacher assignments survive re-sync.
 //
-// FIX 3.5: turma_code is the canonical identifier for each session
-//   (e.g. FUN-01A, FUN-01B). group_code stores the unsuffixed
-//   parent (FUN-01). timetable_requests.assigned_turma will be
-//   set to the first session code (FUN-01A) by the caller.
+// FIX 3.5: turma_code is the canonical session identifier.
+//   group_code stores the unsuffixed parent (FUN-01).
 //
-// FIX 3.2: start_time and end_time are derived from actual slot
-//   preferences where available, falling back to block defaults.
-//   hour is stored as an integer matching the slot start hour.
+// FIX 3.2: start_time and end_time derived from block, not hardcoded strings.
 // ═══════════════════════════════════════════════════════════════
 async function sbInsertClass(box, refs) {
   const students     = box.students || [];
@@ -869,10 +889,6 @@ async function sbInsertClass(box, refs) {
   const levelDisplay = box.meta?.label || levelCode;
   const dept         = box.dk || getLM(sampleEnrol).dept || 'adults';
 
-  // Derive actual hours from the pair — used for both start_time and hour column.
-  // Morning block: 09:00–10:30, Afternoon: 14:00–15:30 (school defaults).
-  // These are consistent with the slot algorithm; precise times require
-  // individual preference data which is not stored at group level.
   const isManha  = box.block === 'manha';
   const startHour = isManha ? 9 : 14;
   const endHour   = isManha ? 10 : 15;
@@ -881,21 +897,15 @@ async function sbInsertClass(box, refs) {
   const startStr  = `${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}`;
   const endStr    = `${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`;
 
-  // Each pair has two distinct days (e.g. SEG + QUA). We write one
-  // classes row per session, each with its own turma_code suffix.
-  // The two day labels come from the pair definition — these are
-  // normalised string codes, not display strings.
   const DAY_NORM = { SEG:'SEG', TER:'TER', QUA:'QUA', QUI:'QUI', SEX:'SEX', SAB:'SAB', SÁB:'SAB' };
   const sessions = [];
   const suffixes = ['A','B','C','D'];
 
-  // Build session list. For same-day pairs (Saturday exam groups),
-  // deduplicate to a single session.
   const rawDays = [box.pair?.aL, box.pair?.bL].filter(Boolean);
   const seenDays = new Set();
   rawDays.forEach((dayLabel, i) => {
     const normDay = DAY_NORM[dayLabel] || dayLabel;
-    if (seenDays.has(normDay)) return; // skip duplicate (Saturday pairs)
+    if (seenDays.has(normDay)) return;
     seenDays.add(normDay);
     sessions.push({ day: normDay, suffix: suffixes[i] || String(i+1) });
   });
@@ -903,24 +913,21 @@ async function sbInsertClass(box, refs) {
   const errors = [];
 
   for (const session of sessions) {
-    const sessionCode = box.code + session.suffix; // e.g. FUN-01A
+    const sessionCode = box.code + session.suffix;
 
-    // Only the scheduling/content columns are sent.
-    // teacher_id, teacher_code, teacher_name, sala are deliberately
-    // omitted so merge-duplicates leaves them untouched (FIX 3.18).
     const row = {
       turma_code:    sessionCode,
-      group_code:    box.code,          // FUN-01 — parent code
+      group_code:    box.code,
       academic_year: AY,
       lang:          sampleEnrol.lang || 'EN',
       level_code:    levelCode,
       level_display: levelDisplay,
       department:    dept,
       branch:        normB(activeLoc),
-      day_of_week:   session.day,       // normalised day code, e.g. "SEG"
-      hour:          startHour,         // integer, e.g. 9 or 14
-      start_time:    startStr,          // e.g. "09:00"
-      end_time:      endStr,            // e.g. "10:30"
+      day_of_week:   session.day,
+      hour:          startHour,
+      start_time:    startStr,
+      end_time:      endStr,
       duration_min:  90,
       student_refs:  JSON.stringify(refs),
       group_key:     box.lk || levelCode,
@@ -933,8 +940,6 @@ async function sbInsertClass(box, refs) {
         apikey: KEY,
         Authorization: 'Bearer ' + KEY,
         'Content-Type': 'application/json',
-        // merge-duplicates: update all sent columns on conflict,
-        // leave unsent columns (teacher_id etc.) unchanged.
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
       body: JSON.stringify(row),
@@ -950,32 +955,26 @@ async function sbInsertClass(box, refs) {
 
   if (errors.length) return { ok: false, error: errors.join(' | '), sessionCodes: [] };
 
-  // Return the first session's code — this is what we store in
-  // timetable_requests.assigned_turma (FIX 3.5).
   return { ok: true, error: null, primaryCode: box.code + (sessions[0]?.suffix || 'A') };
 }
 
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
 //
-// FIX 3.3 / 3.4: On load we query the classes table to find all
-// group_codes that already exist for this academic year. These
-// populate _confirmedCodes, making the DB — not localStorage —
-// the source of truth for confirmed state.
+// FIX 3.3 / 3.4: DB-authoritative confirmed set loaded from classes.
+// FIX: loadNextSeqBase() called here to seed collision-safe counter.
 // ═══════════════════════════════════════════════════════════════
 async function loadAll() {
   try {
     const [enrol, reqs, existingClasses] = await Promise.all([
       sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
       sbGet('timetable_requests', `select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
-      // Load only the group_code column from confirmed classes — lightweight.
       sbGet('classes', `select=group_code&academic_year=eq.${encodeURIComponent(AY)}&status=eq.confirmed&limit=2000`),
     ]);
 
     allE=enrol||[]; allR=reqs||[]; rByRef={};
     allR.forEach(r => { rByRef[r.ref] = r; });
 
-    // Populate DB-authoritative confirmed set from classes table.
     _confirmedCodes = new Set(
       (existingClasses||[])
         .map(c => c.group_code)
@@ -987,6 +986,9 @@ async function loadAll() {
     elv('st-total',tot); elv('st-com',tot-sem); elv('st-sem',sem);
     elv('pill-status','Supabase OK'); document.getElementById('pill-status').className='topbar-pill ok';
     dlog(`Loaded: ${tot} enrolments, ${allR.length} requests, ${_confirmedCodes.size} confirmed groups`, 'ok');
+
+    await loadNextSeqBase();
+
     initBranchTabs(); renderAll();
     showToast(`${tot} inscritos · ${_confirmedCodes.size} grupos confirmados`, 'ok');
   } catch(err) {
@@ -1017,14 +1019,10 @@ function buildProposals(levelKey, branch) {
   const withReq  = atLevel.filter(e=>!!rByRef[e.ref]);
   const dept     = (LEVEL_MAP[levelKey]||{}).dept||'adults';
 
-  // Groups already confirmed in the DB — reconstruct from timetable_requests.
-  // We no longer use localStorage for this; _confirmedCodes is the authority.
   const assignedGroups={}, alreadyAssigned=new Set();
   withReq.forEach(e=>{
     const r=rByRef[e.ref];
     if(r?.assigned_turma && normS(r.status)==='atribuido') {
-      // assigned_turma may be a suffixed code like "FUN-01A".
-      // Strip the suffix to get the group code for display.
       const groupCode = r.assigned_turma.replace(/[A-D]$/, '');
       if(!assignedGroups[groupCode]) assignedGroups[groupCode]=[];
       assignedGroups[groupCode].push(e);
@@ -1102,7 +1100,6 @@ function renderAll() {
 
     res.savedGroups.forEach(g=>{
       const code=g.code;
-      // Saved groups are confirmed iff their code is in _confirmedCodes (DB).
       const isConf = _confirmedCodes.has(code);
       const boxId=`${activeLoc}|${k}|SAVED|${code}`;
       _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:isConf,isLow:false,type:'group'};
@@ -1110,9 +1107,13 @@ function renderAll() {
 
     res.groups.forEach(g=>{
       const bCode=BC[activeLoc]||activeLoc.slice(0,3);
-      const seq=nextSeq(activeLoc);
+
+      // FIX: Use DB-seeded counter instead of positional nextSeq()
+      if (!_nextSeqBase[bCode]) _nextSeqBase[bCode] = 1;
+      const seqNum = _nextSeqBase[bCode]++;
+      const seq = String(seqNum).padStart(2, '0');
+
       const code=`${bCode}-${seq}`;
-      // FIX 3.4: confirmed state comes from DB set, not localStorage seq key.
       const isConf = _confirmedCodes.has(code);
       const boxId=`${activeLoc}|${k}|${g.pair.code}|${g.block}|${seq}`;
       _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:isConf,isLow:g.students.length<MIN_G,type:'group'};
@@ -1328,7 +1329,6 @@ async function quickConfirm(boxId) {
 
   const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
 
-  // Step 1: write classes rows (non-destructive upsert — FIX 3.18)
   const classResult = await sbInsertClass(box, refs).catch(e=>{
     dlog('sbInsertClass exception: '+e.message,'err');
     return { ok: false, error: e.message, primaryCode: null };
@@ -1344,15 +1344,13 @@ async function quickConfirm(boxId) {
     return;
   }
 
-  // Step 2: write timetable_requests.
-  // FIX 3.5: assigned_turma = primaryCode (e.g. "FUN-01A"), not the
-  // group code, so the join timetable_requests ↔ classes works cleanly.
+  // FIX 3.5: assigned_turma = primaryCode (e.g. "FUN-01A")
   const primaryCode = classResult.primaryCode;
   let reqErrors=0;
   if(refs.length && primaryCode) {
     const results = await Promise.all(
       refs.map(ref => sbUpsertRequest(ref, {
-        assigned_turma: primaryCode,   // ← suffixed session code, e.g. FUN-01A
+        assigned_turma: primaryCode,
         status: 'atribuido',
         pair_code: box.pair?.code||'SW',
         block: box.block||'tarde',
@@ -1362,13 +1360,11 @@ async function quickConfirm(boxId) {
     if(reqErrors) dlog(`${reqErrors}/${refs.length} timetable_request writes failed for ${box.code}`,'err');
   }
 
-  // Step 3: commit confirmed state — DB is now the source of truth.
   _saving.delete(boxId);
-  _confirmedCodes.add(box.code); // add group code to in-memory DB set
+  _confirmedCodes.add(box.code);
   box.confirmed = true;
   box._dbError  = null;
 
-  // Update local request cache so student dossiers reflect the change.
   refs.forEach(ref=>{
     if(rByRef[ref]) { rByRef[ref].assigned_turma=primaryCode; rByRef[ref].status='atribuido'; }
     else            { rByRef[ref]={ref,assigned_turma:primaryCode,status:'atribuido',academic_year:AY}; allR.push(rByRef[ref]); }
@@ -1405,11 +1401,7 @@ async function confirmAllVisible() {
 // ═══════════════════════════════════════════════════════════════
 // SYNC → STEP 5
 //
-// FIX 3.18: sbInsertClass already uses merge-duplicates and omits
-// teacher fields, so calling it again is safe — it only updates
-// scheduling columns, never teacher_id / sala.
-// This function now also shows a clear warning so admins understand
-// what will and won't be overwritten.
+// FIX 3.18: Non-destructive — teacher assignments are preserved.
 // ═══════════════════════════════════════════════════════════════
 async function syncAllToClasses() {
   const confirmed=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group'&&_boxes[id].confirmed);
@@ -1535,10 +1527,9 @@ function mtSelectTile(el,boxId,code,isFull){
 async function confirmMudar(){
   if(!_mtRef||!_mtSelectedCode) return;
   const targetBox=_boxes[_mtSelectedBoxId];
-  // FIX 3.5: use first session code for assigned_turma.
   const primaryCode = targetBox?.confirmed
-    ? (targetBox.code + 'A')   // group is already in DB; use session A
-    : _mtSelectedCode;         // not yet confirmed; use group code as placeholder
+    ? (targetBox.code + 'A')
+    : _mtSelectedCode;
   const btn=document.getElementById('mt-confirm'); btn.disabled=true; btn.textContent='A guardar…';
   const ok=await sbUpsertRequest(_mtRef,{assigned_turma:primaryCode,status:'atribuido'}).catch(e=>{dlog('confirmMudar: '+e.message,'err');return false;});
   if(ok){
@@ -1617,7 +1608,6 @@ async function dsConfirmMove(){
   const{boxId,code}=_dsSelectedGroup; const note=document.getElementById('ds-note')?.value?.trim()||'';
   const btn=document.getElementById('ds-btn-move'); btn.disabled=true; btn.textContent='A guardar…';
   const targetBox=_boxes[boxId];
-  // FIX 3.5: use session code if group is already confirmed.
   const primaryCode = targetBox?.confirmed ? (code + 'A') : code;
   const payload={assigned_turma:primaryCode,status:'atribuido'}; if(note) payload.notes=note;
   const ok=await sbUpsertRequest(_dsRef,payload).catch(e=>{dlog('dsConfirmMove: '+e.message,'err');return false;});
@@ -1711,7 +1701,6 @@ function findCurrentGroup(ref){
   for(const[boxId,box]of Object.entries(_boxes)){if(box.type!=='group')continue;if(box.students?.some(s=>s.ref===ref))return{boxId,box};}
   const req=rByRef[ref];
   if(req?.assigned_turma){
-    // assigned_turma may be suffixed (FUN-01A) — strip suffix to match box.code.
     const groupCode = req.assigned_turma.replace(/[A-D]$/, '');
     for(const[boxId,box]of Object.entries(_boxes)){
       if(box.type==='group'&&(box.code===groupCode||box.code===req.assigned_turma))return{boxId,box};
@@ -1869,6 +1858,6 @@ loadConfig()
   .then(() => loadAll())
   .then(() => { if(window._pendingRef){ setTimeout(()=>openDossier(window._pendingRef),200); delete window._pendingRef; } })
   .catch(err => dlog('Init error: ' + err.message, 'err'));
-</script>
+  </script>
 </body>
 </html>
