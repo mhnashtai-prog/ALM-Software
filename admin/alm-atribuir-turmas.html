@@ -759,9 +759,9 @@ let POP_TURMA=null, POP_SEL=null, POP_SALA=null;
 async function boot(){
   try{
     const [enrol, teachers, classes] = await Promise.all([
-      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
+      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code&academic_year=eq.${AY}&order=ref&limit=2000`),
       sbGet('teachers',   `select=id,code,name,lang,native,branch_primary,branches,contract_hours_week`),
-      sbGet('classes',    `select=turma_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
+      sbGet('classes',    `select=turma_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs,sala&academic_year=eq.${AY}&order=day_of_week,hour`),
     ]);
 
     ENROLMENTS = enrol||[];
@@ -782,8 +782,11 @@ async function boot(){
       else if(typeof c.student_refs==='string'&&c.student_refs){
         try{refs=JSON.parse(c.student_refs);}catch{refs=[];}
       }
+      
+     const derivedGroupCode = c.group_code || c.turma_code.replace(/[A-D]$/, '');
       return {
         ...c,
+        group_code:   derivedGroupCode,
         hour:         typeof c.hour==='number' ? c.hour : parseInt(c.hour,10)||9,
         day_of_week:  (c.day_of_week||'SEG').toUpperCase().replace('SAB','SÁB'),
         branch:       normB(c.branch||''),
@@ -791,6 +794,7 @@ async function boot(){
         sala:         c.sala||null,
         _virtual:     false,
       };
+      
     }).filter(c=>DAYS.includes(c.day_of_week)&&c.hour!=null);
 
     document.getElementById('bot-src').textContent=`Supabase · ${CLASSES.length} turmas`;
@@ -1222,7 +1226,7 @@ function qaAssign(e, turmaCode){
   const prev={id:c.teacher_id,code:c.teacher_code};
   const groupCode=c.group_code||turmaCode;
   CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=QA_TEACHER;x.teacher_code=t.code;});
-  sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
+  sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${AY}`,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code}).catch(()=>{});
   pushUndo(turmaCode,prev.id,prev.code,t.id,t.code);
   renderAll();showToast(`${groupCode} (A+B) → ${t.code} ✓`,'ok');
 }
@@ -1444,7 +1448,7 @@ async function popConfirm(){
     x.sala=POP_SALA||null;
   });
   try{
-    await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{
+    await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${AY}`,{
       teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null,
       sala:POP_SALA||null
     });
@@ -1460,7 +1464,7 @@ async function popRemove(){
   const prev={id:c.teacher_id,code:c.teacher_code};
   const groupCode=c.group_code||POP_TURMA;
   CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=null;x.teacher_code=null;});
-  try{await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
+  try{await sbPatch('classes',`group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${AY}`,{teacher_id:null,teacher_name:null,teacher_code:null});}catch{}
   pushUndo(POP_TURMA,prev.id,prev.code,null,null);
   closePopup();renderAll();showToast('Professor removido (A+B)','info');
 }
@@ -1497,7 +1501,7 @@ async function openDossier(ref){
   /* Fetch */
   const [enrols,reqs] = await Promise.all([
     sbGet1('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,phone,email,branch,lang,family,level_code,level_cefr,school,guardian_name,guardian_phone,notes,academic_year&limit=1`),
-    sbGet1('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,assigned_turma,sessions_per_week,day_preferences&limit=1`),
+    sbGet1('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,assigned_turma,sessions_per_week,day_preferences&limit=1`),
   ]);
   const enrol=enrols?.[0]||null;
   const req=reqs?.[0]||null;
