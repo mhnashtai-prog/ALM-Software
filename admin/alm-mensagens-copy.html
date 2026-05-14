@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Mensagens & Pedidos</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.18);--gold4:rgba(201,168,76,.08);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.16);--green-b:rgba(29,184,122,.38);--green-c:rgba(29,184,122,.07);
+  --red:#E8455A;--red-a:rgba(232,69,90,.13);--red-b:rgba(232,69,90,.32);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.14);--amber-b:rgba(232,160,32,.32);
+  --teal:#28C8B0;--blue:#4A8FF5;--purple:#9B5ECA;
+  --bg:#07060E;--bg2:#0E0C1A;--bg3:#161325;
+  --b:rgba(201,168,76,.09);--b2:rgba(201,168,76,.18);--b3:rgba(201,168,76,.32);
+  --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.65);--t3:rgba(215,193,145,.38);--t4:rgba(215,193,145,.14);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+  --c-inf:#4A8FF5;--c-juv:#2ECC8A;--c-ger:#C8943A;--c-exa:#A060D8;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;flex-direction:column}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(232,69,90,.5)}60%{box-shadow:0 0 0 5px rgba(232,69,90,0)}}
+@keyframes pulse-amber{0%,100%{box-shadow:0 0 0 0 rgba(232,160,32,.4)}60%{box-shadow:0 0 0 4px rgba(232,160,32,0)}}
+
+.topbar{flex-shrink:0;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2);z-index:200}
+.nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:54px}
+.nav-home{display:flex;align-items:center;justify-content:center;flex:1;padding:0 14px;text-decoration:none;transition:background .14s;border-bottom:.5px solid var(--b)}
+.nav-home:hover{background:var(--gold4)}
+.nav-back{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:0 10px;text-decoration:none;transition:background .14s}
+.nav-back:hover{background:var(--gold4)}
+.nav-home-icon{font-size:15px;color:var(--t2)}
+.nav-back-arrow{font-size:9px;color:var(--t3)}
+.nav-back-label{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.brand{display:flex;align-items:center;padding:0 18px;height:100%;border-right:1px solid var(--b);flex-shrink:0}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2);font-family:var(--display)}
+.brand-yr{font-size:8px;color:var(--t2);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+.topbar-mid{flex:1;display:flex;align-items:center;padding:0 16px;gap:8px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+.live-lbl{font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--green)}
+.tb-chip{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border:1px solid var(--b2);border-radius:2px;color:var(--t2)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
+.tb-pill{font-size:8px;font-weight:700;letter-spacing:.06em;padding:4px 11px;border:1px solid;border-radius:2px;white-space:nowrap}
+.tb-pill.warn{color:var(--amber);border-color:var(--amber-b);background:var(--amber-a)}
+.tb-pill.ok{color:var(--green);border-color:var(--green-b);background:var(--green-c)}
+.tb-pill.red{color:var(--red);border-color:var(--red-b);background:var(--red-a);animation:blink 1.8s infinite}
+.tb-pill.neutral{color:var(--t2);border-color:var(--b2);background:rgba(255,255,255,.02)}
+.tb-btn{padding:4px 11px;border:1px solid var(--green-b);font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;color:var(--green);border-radius:2px;transition:all .12s}
+.tb-btn:hover{background:var(--green-a)}
+.tb-clock{font-size:10px;color:var(--t3);letter-spacing:.04em;min-width:56px;text-align:right}
+.spinner{width:12px;height:12px;border:1.5px solid rgba(255,255,255,.08);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+
+.layout{flex:1;display:flex;overflow:hidden}
+
+/* LEFT PANEL */
+.left{width:340px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--b2);display:flex;flex-direction:column;overflow:hidden}
+.left-header{flex-shrink:0;padding:10px 12px 8px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.2)}
+.lh-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.filter-pills{display:flex;gap:3px;flex-wrap:wrap}
+.fp{padding:3px 8px;border-radius:2px;border:.5px solid var(--b);font-size:7.5px;font-weight:700;cursor:pointer;color:var(--t3);transition:all .12s;letter-spacing:.04em;font-family:var(--mono)}
+.fp:hover{color:var(--t2);border-color:var(--b2)}.fp.active{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.search-row{padding:7px 12px;border-bottom:.5px solid var(--b)}
+.search-inp{width:100%;padding:5px 9px;background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:3px;font-family:var(--mono);font-size:10px;color:var(--t);outline:none;transition:border-color .12s}
+.search-inp::placeholder{color:var(--t3)}.search-inp:focus{border-color:var(--gold)}
+.teacher-list{flex:1;overflow-y:auto}
+.t-row{display:flex;flex-direction:column;padding:8px 12px 7px;cursor:pointer;border-bottom:.5px solid rgba(255,255,255,.03);border-left:3px solid transparent;transition:all .12s;gap:5px}
+.t-row:hover{background:rgba(255,255,255,.025)}.t-row.active{background:var(--gold4);border-left-color:var(--gold)}
+.t-row-top{display:flex;align-items:center;gap:9px}
+.t-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.t-info{flex:1;min-width:0}
+.t-name{font-size:11px;font-weight:500;color:var(--t);line-height:1}
+.t-meta{font-size:8px;color:var(--t3);margin-top:2px}
+.t-icons{display:flex;align-items:center;gap:4px;padding-left:43px;flex-wrap:wrap}
+.t-icon{display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:2px;border:.5px solid;font-size:7.5px;font-weight:700;letter-spacing:.04em}
+.ti-pres-ok{background:var(--green-c);border-color:var(--green-b);color:var(--green)}
+.ti-pres-miss{background:var(--red-a);border-color:var(--red-b);color:var(--red);animation:blink 1.8s infinite}
+.ti-pres-none{background:rgba(255,255,255,.03);border-color:var(--b);color:var(--t4)}
+.ti-msg{background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.25);color:var(--blue)}
+.ti-foto{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.ti-alert{background:var(--red-a);border-color:var(--red-b);color:var(--red);animation:pulse-red 1.5s infinite}
+
+/* RIGHT */
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.no-teacher{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--t3)}
+.no-teacher-icon{font-size:32px;opacity:.2}
+.no-teacher-txt{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.4}
+.teacher-view{display:none;flex-direction:column;height:100%;overflow:hidden;animation:fadeIn .18s ease}
+.teacher-view.active{display:flex}
+.t-hero{flex-shrink:0;min-height:80px;display:flex;align-items:flex-end;padding:0 18px 0 0;position:relative;overflow:hidden}
+.t-hero-bg{position:absolute;inset:0;transition:background .3s}
+.t-hero-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05),rgba(0,0,0,.72))}
+.t-hero-av{position:relative;z-index:5;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;border:2px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35),0 4px 20px rgba(0,0,0,.6);margin:10px 14px 10px 18px}
+.t-hero-info{position:relative;z-index:5;flex:1;padding:12px 0 10px}
+.t-hero-name{font-family:var(--display);font-size:22px;letter-spacing:4px;color:#fff;line-height:1}
+.t-hero-meta{font-size:9px;color:rgba(255,255,255,.5);margin-top:3px}
+.t-hero-stats{position:relative;z-index:5;display:flex;gap:0;flex-shrink:0;padding:12px 0 10px}
+.ths{text-align:center;padding:0 12px;border-right:.5px solid rgba(255,255,255,.1)}
+.ths:last-child{border-right:none}
+.ths-v{font-family:var(--display);font-size:24px;color:#fff;line-height:1;letter-spacing:1px}
+.ths-l{font-size:7px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.view-tabs{flex-shrink:0;display:flex;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15);overflow-x:auto}
+.vt-tab{padding:8px 14px;font-size:8.5px;font-weight:700;cursor:pointer;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-.5px;white-space:nowrap;font-family:var(--mono);display:flex;align-items:center;gap:5px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;letter-spacing:.06em}
+.vt-tab:hover{color:var(--t2)}.vt-tab.active{color:var(--gold2);border-bottom-color:var(--gold)}
+.vt-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.view-body{flex:1;overflow-y:auto;padding:14px 18px 40px}
+.sec-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sec-title::after{content:'';flex:1;height:.5px;background:var(--b2)}
+.empty{padding:24px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;opacity:.5}
+
+/* CLASS CARDS */
+.classes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:16px}
+.class-card{background:var(--bg3);border:.5px solid var(--b2);border-radius:8px;overflow:hidden;transition:all .18s;position:relative;cursor:pointer}
+.class-card:hover{border-color:var(--b3);transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.class-card.alert-minor{border-color:rgba(232,69,90,.45);animation:pulse-red 2s infinite}
+.class-card.alert-adult{border-color:rgba(232,160,32,.45);animation:pulse-amber 2.5s infinite}
+.class-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.class-card.dept-adults::before{background:linear-gradient(90deg,#C8943A,#8A5A10)}
+.class-card.dept-exam::before{background:linear-gradient(90deg,#A060D8,#6A28A8)}
+.class-card.dept-kids_juv::before{background:linear-gradient(90deg,#2ECC8A,#0D8A5A)}
+.class-card.dept-kids::before{background:linear-gradient(90deg,#4A8FF5,#1A5FAA)}
+.cc-top{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 5px}
+.cc-code{font-family:var(--display);font-size:20px;letter-spacing:3px;line-height:1}
+.cc-badges{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.cc-sub-ok{font-size:7px;font-weight:700;padding:2px 6px;border-radius:2px;background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.cc-sub-miss{font-size:7px;font-weight:700;padding:2px 6px;border-radius:2px;background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.cc-alert-badge{font-size:7px;font-weight:700;padding:2px 6px;border-radius:2px;background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.cc-mid{padding:0 12px 8px}
+.cc-time{font-size:11px;font-weight:600;color:var(--teal)}
+.cc-level{font-size:8px;color:var(--t3);margin-top:2px}
+.cc-lesson{font-size:9px;color:var(--gold2);margin-top:2px;font-weight:700}
+.cc-foot{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-top:.5px solid rgba(255,255,255,.04);background:rgba(0,0,0,.2)}
+.cc-stu{font-size:9px;color:var(--t2)}
+
+/* EXPANDED CLASS */
+.class-expand{background:var(--bg2);border:.5px solid var(--b2);border-radius:6px;margin-bottom:14px;overflow:hidden;animation:fadeIn .15s ease}
+.ce-header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:.5px solid var(--b);flex-wrap:wrap}
+.ce-turma{font-family:var(--display);font-size:20px;letter-spacing:3px}
+.ce-lesson{font-size:9px;color:var(--teal);font-weight:700}
+.ce-time{font-size:9px;color:var(--t3)}
+.ce-date{font-size:9px;color:var(--gold2);font-weight:700}
+.ce-status-ok{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.ce-status-miss{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.ce-close{margin-left:auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.06);border:.5px solid var(--b);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--t2);flex-shrink:0}
+.ce-close:hover{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.ce-stats{display:flex;gap:0;padding:8px 14px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.ces{text-align:center;padding:0 12px;border-right:.5px solid var(--b)}
+.ces:last-child{border-right:none}
+.ces-v{font-family:var(--display);font-size:20px;line-height:1;letter-spacing:1px}
+.ces-l{font-size:7px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.ce-bar-wrap{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.ce-bar-fill{height:100%;border-radius:2px;background:var(--green);transition:width .4s}
+.ce-actions{display:flex;gap:6px;padding:8px 14px;border-bottom:.5px solid var(--b)}
+.ce-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:2px;font-size:8px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .12s}
+.ce-print{background:rgba(255,255,255,.03);border-color:var(--b2);color:var(--t2)}.ce-print:hover{border-color:var(--b3);color:var(--t)}
+.alert-banner{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--red-a);border-bottom:.5px solid var(--red-b);font-size:9px;color:var(--red);font-weight:700}
+.alert-banner.amber-alert{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+
+/* STUDENT LIST */
+.stu-list{display:flex;flex-direction:column;gap:2px;padding:8px 14px}
+.stu-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.04)}
+.stu-row.present{background:rgba(29,184,122,.07);border-color:rgba(29,184,122,.18)}
+.stu-row.late{background:rgba(232,160,32,.06);border-color:rgba(232,160,32,.18)}
+.stu-row.absent{background:rgba(232,69,90,.05);border-color:rgba(232,69,90,.14)}
+.stu-row.flagged-minor{border-color:rgba(232,69,90,.5)!important;background:rgba(232,69,90,.09)!important}
+.stu-row.flagged-adult{border-color:rgba(232,160,32,.5)!important;background:rgba(232,160,32,.07)!important}
+.stu-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35);flex-shrink:0}
+.stu-mid{flex:1;min-width:0}
+.stu-name{font-size:10px;font-weight:500;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stu-ref{font-size:7.5px;color:var(--t3)}
+.stu-badge{font-size:7px;font-weight:700;padding:1px 5px;border-radius:2px;flex-shrink:0}
+.stu-badge.present{background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.stu-badge.late{background:var(--amber-a);border:.5px solid var(--amber-b);color:var(--amber)}
+.stu-badge.absent{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.abs-chip{font-size:7px;font-weight:700;padding:1px 6px;border-radius:2px;flex-shrink:0;font-family:var(--mono)}
+.abs-green{background:rgba(29,184,122,.1);border:.5px solid rgba(29,184,122,.25);color:var(--green)}
+.abs-amber{background:var(--amber-a);border:.5px solid var(--amber-b);color:var(--amber)}
+.abs-red{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.abs-critical{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red);animation:blink 1s infinite}
+.stu-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.sab{width:24px;height:24px;border-radius:3px;border:.5px solid transparent;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;transition:all .12s;background:transparent;color:rgba(215,193,145,.2)}
+.sab:hover{transform:scale(1.15)}
+.sab-msg:hover{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)}
+.sab-call:hover{background:rgba(232,160,32,.1);border-color:rgba(232,160,32,.25);color:var(--amber)}
+.sab-email:hover{background:rgba(40,200,176,.1);border-color:rgba(40,200,176,.25);color:var(--teal)}
+.sab-flag:hover{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+
+/* ATT CARD (Presenças tab) */
+.att-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:10px}
+.att-card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.att-turma{font-family:var(--display);font-size:16px;letter-spacing:2px}
+.att-lesson{font-size:9px;color:var(--teal);font-weight:700}
+.att-time{font-size:9px;color:var(--t3)}
+.att-status{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;flex-shrink:0}
+.att-status.ok{background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.att-status.miss{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.att-bar-wrap{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:5px}
+.att-bar-fill{height:100%;border-radius:2px;background:var(--green);transition:width .4s}
+.att-detail{display:flex;justify-content:space-between;font-size:8.5px;color:var(--t3);margin-bottom:8px}
+.att-detail strong{color:var(--t2)}
+.att-actions{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:.5px solid var(--b)}
+.print-btn{display:flex;align-items:center;gap:5px;padding:4px 12px;border-radius:2px;font-size:8.5px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid var(--b2);background:rgba(255,255,255,.03);color:var(--t2);transition:all .12s}
+.print-btn:hover{border-color:var(--b3);color:var(--t)}
+
+/* MSG CARDS */
+.msg-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:6px;border-left:3px solid;animation:fadeIn .15s ease;transition:opacity .3s}
+.msg-card.mc-internal{border-left-color:var(--blue)}.msg-card.mc-parent{border-left-color:var(--purple)}
+.msg-card.mc-foto{border-left-color:var(--amber)}.msg-card.mc-read{opacity:.45;border-left-color:var(--green)}
+.mc-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.mc-type{font-size:7.5px;font-weight:700;padding:2px 7px;border-radius:2px;border:.5px solid;letter-spacing:.06em}
+.mct-internal{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.3);color:var(--blue)}
+.mct-parent{background:rgba(155,94,202,.12);border-color:rgba(155,94,202,.3);color:var(--purple)}
+.mct-foto{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.mct-read{background:var(--green-c);border-color:var(--green-b);color:var(--green)}
+.mc-turma{font-size:8px;font-weight:700;padding:2px 7px;border-radius:2px;background:var(--gold4);border:.5px solid var(--b2);color:var(--gold2)}
+.mc-lesson{font-size:8px;color:var(--teal)}
+.mc-time{font-size:8px;color:var(--t3);margin-left:auto}
+.mc-subject{font-size:11px;font-weight:600;color:var(--t);margin-bottom:4px}
+.mc-body{font-size:10px;color:var(--t2);line-height:1.6;font-family:var(--sans);margin-bottom:6px}
+.mc-actions{display:flex;gap:5px;margin-top:8px}
+.mc-btn{padding:4px 12px;border-radius:2px;font-size:8.5px;font-weight:700;cursor:pointer;font-family:var(--mono);border:.5px solid;transition:all .12s;letter-spacing:.04em}
+.mc-accept{background:var(--green-a);border-color:var(--green-b);color:var(--green)}.mc-accept:hover{background:rgba(29,184,122,.22)}
+.mc-reject{background:var(--red-a);border-color:var(--red-b);color:var(--red)}.mc-reject:hover{background:rgba(232,69,90,.2)}
+.mc-ghost{background:rgba(255,255,255,.04);border-color:var(--b2);color:var(--t3)}.mc-ghost:hover{color:var(--t2)}
+.mc-confirmed{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:8.5px;color:var(--green);font-weight:700;padding:4px 10px;background:var(--green-c);border:.5px solid var(--green-b);border-radius:2px;width:fit-content}
+.foto-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px}
+.foto-field{padding:5px 8px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:3px}
+.foto-lbl{font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
+.foto-val{font-size:9.5px;color:var(--t2)}
+.urg-badge{font-size:7.5px;font-weight:700;padding:2px 8px;border-radius:2px}
+.urg-normal{background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.urg-urgent{background:var(--amber-a);border:.5px solid var(--amber-b);color:var(--amber)}
+.urg-express{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.sum-card{padding:12px 14px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:4px;margin-bottom:8px}
+.sc-meta{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.sc-date{font-size:9px;color:var(--t3)}.sc-lesson{font-size:9px;color:var(--teal);font-weight:700}
+.sc-skill{font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:rgba(155,94,202,.12);border:.5px solid rgba(155,94,202,.3);color:var(--purple)}
+.sc-text{font-size:11px;color:var(--t);line-height:1.6;font-family:var(--sans);margin-bottom:6px}
+.sc-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:5px}
+.sc-field{padding:5px 8px;background:rgba(255,255,255,.02);border:.5px solid var(--b);border-radius:3px}
+.sc-field-l{font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
+.sc-field-v{font-size:9.5px;color:var(--t2)}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 16px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.06em;opacity:0;transition:all .2s;z-index:9999;pointer-events:none;white-space:nowrap;border:.5px solid;font-family:var(--mono)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast.info{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.botbar{flex-shrink:0;height:26px;display:flex;align-items:center;gap:10px;padding:0 14px;background:rgba(7,6,14,.98);border-top:1px solid var(--b);font-size:7.5px;color:var(--t3)}
+.bot-right{margin-left:auto}
+
+@media print{
+  body{background:#fff!important;color:#000!important;overflow:visible!important;font-family:Arial,sans-serif}
+  .topbar,.left,.view-tabs,.botbar,.att-actions,.print-btn,.ce-actions,.toast,.sab,.stu-actions{display:none!important}
+  .layout,.right,.teacher-view,.view-body{display:block!important;overflow:visible!important;height:auto!important}
+  .t-hero{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="nav-duo">
+    <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
+    <a class="nav-back" href="/admin/alm-painel-central"><span class="nav-back-arrow">←</span><span class="nav-back-label">Painel</span></a>
+  </div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr" id="brand-yr">——</span></div>
+  <div class="topbar-mid"><div class="live-dot"></div><span class="live-lbl">LIVE</span><div class="tb-chip">Secretaria · Mensagens & Pedidos</div></div>
+  <div class="topbar-right">
+    <div class="tb-pill red"  id="kpi-msgs">— msgs</div>
+    <div class="tb-pill warn" id="kpi-foto">— fotoc.</div>
+    <div class="tb-pill warn" id="kpi-miss">— sem pres.</div>
+    <div class="tb-pill red"  id="kpi-alerts">— alertas</div>
+    <div class="tb-pill ok"   id="kpi-ok">— submetidas</div>
+    <button class="tb-btn" onclick="boot()">↻</button>
+    <span class="tb-clock" id="clk">--:--:--</span>
+  </div>
+</div>
+<div class="layout">
+  <div class="left">
+    <div class="left-header">
+      <div class="lh-title">Professores · estado hoje</div>
+      <div class="filter-pills">
+        <div class="fp active" onclick="setFilter('all',this)">Todos</div>
+        <div class="fp" onclick="setFilter('miss',this)">Sem pres.</div>
+        <div class="fp" onclick="setFilter('alerts',this)">🚨 Alertas</div>
+        <div class="fp" onclick="setFilter('msgs',this)">Msgs</div>
+        <div class="fp" onclick="setFilter('foto',this)">Fotoc.</div>
+        <div class="fp" onclick="setFilter('ok',this)">OK</div>
+      </div>
+    </div>
+    <div class="search-row"><input class="search-inp" id="search-inp" type="text" placeholder="Pesquisar professor…" oninput="renderLeft()"/></div>
+    <div class="teacher-list" id="teacher-list"><div style="padding:20px;display:flex;align-items:center;gap:8px;color:var(--t3);font-size:9px"><div class="spinner"></div>A carregar…</div></div>
+  </div>
+  <div class="right">
+    <div class="no-teacher" id="no-teacher"><div class="no-teacher-icon">◈</div><div class="no-teacher-txt">← Seleccione um professor</div></div>
+    <div class="teacher-view" id="teacher-view">
+      <div class="t-hero">
+        <div class="t-hero-bg" id="th-bg"></div><div class="t-hero-scrim"></div>
+        <div class="t-hero-av" id="th-av">—</div>
+        <div class="t-hero-info"><div class="t-hero-name" id="th-name">—</div><div class="t-hero-meta" id="th-meta">—</div></div>
+        <div class="t-hero-stats">
+          <div class="ths"><div class="ths-v" id="ths-alerts" style="color:var(--red)">0</div><div class="ths-l">Alertas</div></div>
+          <div class="ths"><div class="ths-v" id="ths-msgs" style="color:var(--blue)">0</div><div class="ths-l">Msgs</div></div>
+          <div class="ths"><div class="ths-v" id="ths-foto" style="color:var(--amber)">0</div><div class="ths-l">Fotoc.</div></div>
+          <div class="ths"><div class="ths-v" id="ths-pres" style="color:var(--green)">0</div><div class="ths-l">Pres. hoje</div></div>
+          <div class="ths"><div class="ths-v" id="ths-turmas">0</div><div class="ths-l">Turmas</div></div>
+        </div>
+      </div>
+      <div class="view-tabs">
+        <button class="vt-tab active" id="vtt-turmas"    onclick="switchTab('turmas',this)"><div class="vt-dot" style="background:var(--teal)"></div>Turmas</button>
+        <button class="vt-tab" id="vtt-presencas" onclick="switchTab('presencas',this)"><div class="vt-dot" style="background:var(--green)"></div>Presenças</button>
+        <button class="vt-tab" id="vtt-msgs"      onclick="switchTab('msgs',this)"><div class="vt-dot" style="background:var(--blue)"></div>Mensagens</button>
+        <button class="vt-tab" id="vtt-foto"      onclick="switchTab('foto',this)"><div class="vt-dot" style="background:var(--amber)"></div>Fotocópias</button>
+        <button class="vt-tab" id="vtt-sumarios"  onclick="switchTab('sumarios',this)"><div class="vt-dot" style="background:var(--gold)"></div>Sumários</button>
+      </div>
+      <div class="view-body" id="view-body"></div>
+    </div>
+  </div>
+</div>
+<div class="botbar"><span>ALM · Secretaria · <span style="color:var(--green);font-weight:700">Supabase live</span></span><div class="bot-right"><span id="bot-src">A carregar…</span></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+
+async function sbGet(table,qs=''){
+  let all=[],page=0,ps=1000;
+  while(true){
+    const s=page*ps,e=s+ps-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
+    if(!r.ok){const t=await r.text();throw new Error(`${table} ${r.status}: ${t.slice(0,180)}`);}
+    const d=await r.json();all=all.concat(d);
+    if(d.length<ps)break;page++;if(page>9)break;
+  }
+  return all;
+}
+async function sbPatch(table,qs,body){
+  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok){const t=await r.text();throw new Error(`patch ${r.status}: ${t.slice(0,120)}`);}
+}
+
+/* CALENDAR */
+let AY='',YEAR_START='',YEAR_END='';
+let HOLIDAYS=new Set(),BREAKS=[];
+const DOW_MAP={SEG:1,TER:2,QUA:3,QUI:4,SEX:5,SAB:6,'SÁB':6,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
+function isTeachingDay(iso){if(HOLIDAYS.has(iso))return false;return!BREAKS.some(([s,e])=>iso>=s&&iso<=e);}
+function buildDatesForDow(dow){
+  if(!YEAR_START||!YEAR_END)return[];
+  const target=DOW_MAP[(dow||'').toUpperCase().trim()];if(!target)return[];
+  const dates=[],d=new Date(YEAR_START+'T12:00:00'),end=new Date(YEAR_END+'T12:00:00');
+  while(d<=end){if(d.getDay()===target){const iso=d.toISOString().slice(0,10);if(isTeachingDay(iso))dates.push(iso);}d.setDate(d.getDate()+1);}
+  return dates;
+}
+function getLessonInfo(dow,targetDate){
+  const useDate=targetDate||todayISO(),dates=buildDatesForDow(dow),idx=dates.indexOf(useDate);
+  return{lessonNum:idx>=0?idx+1:0,lessonTotal:dates.length,lessonDate:useDate};
+}
+function weekDateFor(dow){
+  const target=DOW_MAP[(dow||'').toUpperCase().trim()];if(!target)return todayISO();
+  const now=new Date(),todayDow=now.getDay()||7,d=new Date(now);
+  d.setDate(now.getDate()+(target-todayDow));return d.toISOString().slice(0,10);
+}
+function currentWeekDates(){
+  const now=new Date(),dow=now.getDay()||7,mon=new Date(now);
+  mon.setDate(now.getDate()-(dow-1));
+  const dates=[];for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);dates.push(d.toISOString().slice(0,10));}
+  return dates;
+}
+
+/* CONSTANTS */
+const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+const DAY_JS=[null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+const DAY_FULL={SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
+const DEPT_GRADS={kids:'linear-gradient(145deg,#1A3A6A,#0D2248)',kids_juv:'linear-gradient(145deg,#0D4A3A,#062A20)',adults:'linear-gradient(145deg,#3A2A10,#201408)',exam:'linear-gradient(145deg,#3A1A3A,#200D20)'};
+const DEPT_COLOURS={kids:'var(--c-inf)',kids_juv:'var(--c-juv)',adults:'var(--c-ger)',exam:'var(--c-exa)'};
+const DEPT_LABELS={kids:'Infantil',kids_juv:'Juvenil',adults:'Geral',exam:'Exames'};
+const LEVEL_MAP={'PI1':{dept:'kids'},'PI2':{dept:'kids'},'PI3':{dept:'kids'},'PI4':{dept:'kids'},'PJ1':{dept:'kids_juv'},'PJ2':{dept:'kids_juv'},'PJ3':{dept:'kids_juv'},'6':{dept:'exam'},'7':{dept:'exam'},'8':{dept:'exam'}};
+const AV_POOL=[{bg:'#49281f',t:'#cfb590'},{bg:'#564334',t:'#9e9a41'},{bg:'#49281f',t:'#9e9a41'},{bg:'#564334',t:'#cfb590'},{bg:'#49281f',t:'#758918'},{bg:'#3d2a1a',t:'#cfb590'},{bg:'#564334',t:'#758918'},{bg:'#3d2a1a',t:'#9e9a41'}];
+function avCol(n){let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
+function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function getDept(c){
+  if(c.department)return c.department;
+  if(c.group_key){const last=(c.group_key||'').split('-').pop().toLowerCase();if(['kids','kids_juv','exam','adults'].includes(last))return last;}
+  return LEVEL_MAP[(c.level_code||'').trim()]?.dept||'adults';
+}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function fmtDate(ts){if(!ts)return'—';try{return new Date(ts).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return ts;}}
+function fmtDT(ts){if(!ts)return'—';try{const d=new Date(ts);return d.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}catch{return ts;}}
+function normDay(raw){
+  const S=new Set(['SEG','TER','QUA','QUI','SEX','SAB','SÁB']);
+  let d=(raw||'').toUpperCase().replace(/\bSAB\b/g,'SÁB').replace(/\bMON\b/g,'SEG').replace(/\bTUE\b/g,'TER').replace(/\bWED\b/g,'QUA').replace(/\bTHU\b/g,'QUI').replace(/\bFRI\b/g,'SEX').trim();
+  if(S.has(d))return d;return d.split(/[-_\s]+/).find(p=>S.has(p))||'';
+}
+
+/* ABSENCE ENGINE */
+const MAX_ABS=12,ALERT_MINOR=2,ALERT_ADULT=3;
+let absCount={},isMinorMap={};
+function absClass(n){if(n<=4)return'abs-green';if(n<=8)return'abs-amber';if(n<=11)return'abs-red';return'abs-critical';}
+function absLabel(n){return`${n}/${MAX_ABS}`;}
+function isAlerted(ref){const n=absCount[ref]||0,m=isMinorMap[ref]??false;return m?n>=ALERT_MINOR:n>=ALERT_ADULT;}
+function alertLevel(ref){
+  const n=absCount[ref]||0,m=isMinorMap[ref]??false;
+  if(n>=MAX_ABS)return'critical';if(n>=9)return'red';
+  if(m&&n>=ALERT_MINOR)return'minor';if(!m&&n>=ALERT_ADULT)return'adult';return null;
+}
+
+/* STATE */
+let TEACHERS=[],TEACHER_MAP={},CLASSES=[],ENROL_MAP={},MESSAGES=[],ATTEND=[],SUMARIOS=[];
+let SEL_TEACHER=null,SEL_TAB='turmas',FILTER='all',EXPANDED_CLASS=null;
+
+/* BOOT */
+async function boot(){
+  setBotSrc('A carregar…');
+  try{
+    try{const cfg=await sbGet('school_config','select=key,value&limit=20');cfg.forEach(r=>{if(r.key==='academic_year')AY=r.value;if(r.key==='year_start_date')YEAR_START=r.value;if(r.key==='year_end_date')YEAR_END=r.value;});}catch(e){console.warn('school_config:',e.message);}
+    if(AY)document.getElementById('brand-yr').textContent=AY;
+    try{const rows=await sbGet('school_holidays','select=date&limit=500');HOLIDAYS=new Set(rows.map(r=>r.date));}catch(e){}
+    try{const rows=await sbGet('school_breaks','select=start_date,end_date&limit=100');BREAKS=rows.map(r=>[r.start_date,r.end_date]);}catch(e){}
+    const weekDates=currentWeekDates();
+    const yearStart=YEAR_START||weekDates[0],yearEnd=YEAR_END||weekDates[5];
+    const [teachers,classes,enrols,attend,absences,sumarios,messages,requests]=await Promise.all([
+      sbGet('teachers','select=*&limit=200'),
+      sbGet('classes','select=*&order=hour&limit=500').catch(()=>[]),
+      sbGet('enrolments','select=ref,name,lang,level_code,is_minor&limit=3000').catch(()=>[]),
+      sbGet('attendance',`select=*&date=in.(${weekDates.join(',')})&limit=5000`).catch(()=>[]),
+      sbGet('attendance',`select=student_ref&status=eq.absent&date=gte.${yearStart}&date=lte.${yearEnd}&limit=10000`).catch(()=>[]),
+      sbGet('lesson_summaries','select=*&order=date.desc&limit=1000').catch(()=>[]),
+      sbGet('messages','select=*&order=created_at.desc&limit=500').catch(()=>[]),
+      sbGet('teacher_requests','select=*&order=created_at.desc&limit=500').catch(()=>[]),
+    ]);
+    TEACHERS=(teachers||[]).map(r=>({id:r.id,code:r.code||'??',name:r.name||'—',lang:(r.lang||'EN').toUpperCase().slice(0,2),native:!!r.native,contractH:r.contract_hours_week||22,branch:r.branch_primary||'Funchal'}));
+    CLASSES=(classes||[]).map(c=>{
+      let refs=[];if(Array.isArray(c.student_refs))refs=c.student_refs;else if(c.student_refs){try{refs=JSON.parse(c.student_refs);}catch{}}
+      return{...c,day_of_week:normDay(c.day_of_week)||normDay(c.group_key)||normDay(c.turma_code)||'SEG',hour:parseInt(c.hour)||9,student_refs:refs};
+    });
+    ENROL_MAP={};(enrols||[]).forEach(e=>{ENROL_MAP[e.ref]=e;isMinorMap[e.ref]=!!e.is_minor;});
+    ATTEND=attend||[];SUMARIOS=sumarios||[];
+    absCount={};(absences||[]).forEach(r=>{absCount[r.student_ref]=(absCount[r.student_ref]||0)+1;});
+    MESSAGES=[
+      ...(messages||[]).map(m=>({id:m.id,source:'messages',teacher_id:m.teacher_id,teacher_name:m.teacher_name||'—',message_type:m.message_type||'internal_school',turma_code:m.turma_code,lesson_number:m.lesson_number,to:m.to_recipients||'—',subject:m.subject||'',body:m.body||'',status:m.status||'pending',created_at:m.created_at,document:'',copies:'',sides:'',urgency:'normal'})),
+      ...(requests||[]).map(r=>({id:r.id,source:'teacher_requests',teacher_id:r.teacher_id,teacher_name:r.teacher_name||'—',message_type:r.type==='foto'?'fotocopia':'internal_school',turma_code:r.turma_code||null,lesson_number:null,to:'Secretaria',subject:r.type==='foto'?`Fotocópias · ${r.document||'—'}`:'Mensagem',body:r.observations||'',status:r.status||'pending',created_at:r.created_at,document:r.document||'',copies:r.copies||'',sides:r.sides||'',urgency:r.urgency||'normal'})),
+    ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    buildTeacherMap();updateKPIs();renderLeft();
+    setBotSrc(`Supabase · ${TEACHERS.length} profs · ${CLASSES.length} turmas · ${MESSAGES.filter(m=>m.status==='pending').length} msgs pendentes`);
+    showToast(`${TEACHERS.length} professores carregados`,'ok');
+  }catch(e){console.error(e);setBotSrc('Erro: '+e.message);showToast('Erro: '+e.message,'err');}
+}
+
+function buildTeacherMap(){
+  const today=todayISO(),todayKey=DAY_JS[new Date().getDay()];
+  TEACHER_MAP={};
+  TEACHERS.forEach(t=>{
+    const myClasses=CLASSES.filter(c=>c.teacher_id===t.id);
+    const todaySlots=myClasses.filter(c=>c.day_of_week===todayKey);
+    const submissions={};
+    myClasses.forEach(slot=>{
+      const slotDate=weekDateFor(slot.day_of_week);
+      const info=getLessonInfo(slot.day_of_week,slotDate);
+      const records=ATTEND.filter(a=>a.turma_code===slot.turma_code&&(a.date===slotDate||(info.lessonNum>0&&a.lesson_number===info.lessonNum)));
+      if(records.length)submissions[slot.turma_code]={records,slotDate,lNum:info.lessonNum,lTotal:info.lessonTotal,isToday:slotDate===today,presentes:records.filter(r=>r.status==='present'||r.status==='late').length,total:records.length};
+    });
+    const alertedStudents=new Set();
+    myClasses.forEach(slot=>(slot.student_refs||[]).forEach(ref=>{if(isAlerted(ref))alertedStudents.add(ref);}));
+    const myMessages=MESSAGES.filter(m=>m.teacher_id===t.id);
+    TEACHER_MAP[t.id]={...t,myClasses,todaySlots,submissions,alertedStudents,alertCount:alertedStudents.size,
+      mySumarios:SUMARIOS.filter(s=>myClasses.some(c=>c.turma_code===s.turma_code)),
+      messages:myMessages,pendingMsgs:myMessages.filter(m=>m.status==='pending'&&m.message_type!=='fotocopia'),
+      pendingFoto:myMessages.filter(m=>m.status==='pending'&&m.message_type==='fotocopia')};
+  });
+}
+
+function updateKPIs(){
+  let msgs=0,foto=0,miss=0,ok=0,alerts=0;
+  TEACHERS.forEach(t=>{
+    const tm=TEACHER_MAP[t.id];if(!tm)return;
+    msgs+=tm.pendingMsgs.length;foto+=tm.pendingFoto.length;alerts+=tm.alertCount;
+    if(tm.todaySlots.length){const todaySub=tm.todaySlots.filter(s=>tm.submissions[s.turma_code]?.isToday).length;if(!todaySub)miss++;else ok++;}
+  });
+  const set=(id,txt,cls)=>{const el=document.getElementById(id);el.textContent=txt;el.className='tb-pill '+cls;};
+  set('kpi-msgs',msgs+' msgs',msgs>0?'red':'neutral');set('kpi-foto',foto+' fotoc.',foto>0?'warn':'neutral');
+  set('kpi-miss',miss+' sem pres.',miss>0?'warn':'ok');set('kpi-alerts',alerts+' alertas',alerts>0?'red':'neutral');
+  set('kpi-ok',ok+' submetidas','ok');
+}
+
+function teacherSt(tm){
+  if(!tm)return'grey';
+  if(tm.alertCount>0)return'alert';
+  if(tm.pendingMsgs.length||tm.pendingFoto.length)return'warn';
+  const todaySub=tm.todaySlots.filter(s=>tm.submissions?.[s.turma_code]?.isToday).length;
+  if(tm.todaySlots.length&&!todaySub)return'miss';
+  if(tm.todaySlots.length&&todaySub)return'ok';
+  return'grey';
+}
+function setFilter(f,btn){FILTER=f;document.querySelectorAll('.fp').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderLeft();}
+
+function renderLeft(){
+  const q=(document.getElementById('search-inp')?.value||'').toLowerCase();
+  let list=[...TEACHERS];
+  if(q)list=list.filter(t=>t.name.toLowerCase().includes(q)||t.code.toLowerCase().includes(q));
+  if(FILTER==='miss')list=list.filter(t=>teacherSt(TEACHER_MAP[t.id])==='miss');
+  if(FILTER==='alerts')list=list.filter(t=>(TEACHER_MAP[t.id]?.alertCount||0)>0);
+  if(FILTER==='msgs')list=list.filter(t=>(TEACHER_MAP[t.id]?.pendingMsgs||[]).length>0);
+  if(FILTER==='foto')list=list.filter(t=>(TEACHER_MAP[t.id]?.pendingFoto||[]).length>0);
+  if(FILTER==='ok')list=list.filter(t=>teacherSt(TEACHER_MAP[t.id])==='ok');
+  const order={alert:0,miss:1,warn:2,ok:3,grey:4};
+  list.sort((a,b)=>order[teacherSt(TEACHER_MAP[a.id])]-(order[teacherSt(TEACHER_MAP[b.id])]));
+  const el=document.getElementById('teacher-list');
+  if(!list.length){el.innerHTML='<div style="padding:16px;font-size:9px;color:var(--t3);text-align:center">Sem professores neste filtro</div>';return;}
+  el.innerHTML=list.map(t=>{
+    const tm=TEACHER_MAP[t.id]||{},st=teacherSt(tm),av=avCol(t.name);
+    const todaySub=tm.todaySlots?.filter(s=>tm.submissions?.[s.turma_code]?.isToday).length||0;
+    const presIcon=tm.todaySlots?.length
+      ?(todaySub?`<span class="t-icon ti-pres-ok">✓ ${todaySub} pres.</span>`:`<span class="t-icon ti-pres-miss">⚠ sem pres.</span>`)
+      :`<span class="t-icon ti-pres-none">sem aulas</span>`;
+    const alertIcon=(tm.alertCount||0)>0?`<span class="t-icon ti-alert">🚨 ${tm.alertCount}</span>`:'';
+    const msgIcon=(tm.pendingMsgs?.length||0)>0?`<span class="t-icon ti-msg">✉ ${tm.pendingMsgs.length}</span>`:'';
+    const fotoIcon=(tm.pendingFoto?.length||0)>0?`<span class="t-icon ti-foto">🖨 ${tm.pendingFoto.length}</span>`:'';
+    return`<div class="t-row${SEL_TEACHER===t.id?' active':''}" onclick="selectTeacher('${t.id}')">
+      <div class="t-row-top">
+        <div class="t-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(t.name)}</div>
+        <div class="t-info"><div class="t-name">${t.name}</div><div class="t-meta">${FLAGS[t.lang]||''} ${t.lang} · ${(tm.todaySlots||[]).length} aulas hoje</div></div>
+      </div>
+      <div class="t-icons">${presIcon}${alertIcon}${msgIcon}${fotoIcon}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectTeacher(id){
+  SEL_TEACHER=id;EXPANDED_CLASS=null;renderLeft();
+  const t=TEACHERS.find(x=>x.id===id);if(!t)return;
+  const tm=TEACHER_MAP[id]||{},av=avCol(t.name),dept=tm.myClasses?.[0]?getDept(tm.myClasses[0]):'adults';
+  document.getElementById('th-bg').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  const avEl=document.getElementById('th-av');avEl.textContent=avInit(t.name);avEl.style.background=av.bg;avEl.style.borderColor=av.t+'66';avEl.style.color=av.t;
+  document.getElementById('th-name').textContent=t.name;
+  document.getElementById('th-meta').textContent=`${FLAGS[t.lang]||''} ${t.lang}${t.native?' · nativo':''} · ${t.contractH}h · ${t.branch}`;
+  document.getElementById('ths-alerts').textContent=tm.alertCount||0;
+  document.getElementById('ths-msgs').textContent=(tm.pendingMsgs||[]).length;
+  document.getElementById('ths-foto').textContent=(tm.pendingFoto||[]).length;
+  document.getElementById('ths-pres').textContent=tm.todaySlots?.filter(s=>tm.submissions?.[s.turma_code]?.isToday).length||0;
+  document.getElementById('ths-turmas').textContent=(tm.myClasses||[]).length;
+  document.getElementById('no-teacher').style.display='none';
+  document.getElementById('teacher-view').classList.add('active');
+  switchTabById('turmas');
+}
+
+function switchTab(id,btn){SEL_TAB=id;EXPANDED_CLASS=null;document.querySelectorAll('.vt-tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');renderTab(id);}
+function switchTabById(id){SEL_TAB=id;document.querySelectorAll('.vt-tab').forEach(x=>x.classList.remove('active'));document.getElementById('vtt-'+id)?.classList.add('active');renderTab(id);}
+function renderTab(id){
+  if(!SEL_TEACHER)return;
+  const tm=TEACHER_MAP[SEL_TEACHER];if(!tm)return;
+  const body=document.getElementById('view-body');
+  if(id==='turmas')body.innerHTML=buildTurmas(tm);
+  else if(id==='presencas')body.innerHTML=buildPresencas(tm);
+  else if(id==='msgs')body.innerHTML=buildMsgs(tm);
+  else if(id==='foto')body.innerHTML=buildFoto(tm);
+  else if(id==='sumarios')body.innerHTML=buildSumarios(tm);
+}
+
+/* TURMAS TAB */
+function classAlertCount(slot){return(slot.student_refs||[]).filter(ref=>isAlerted(ref)).length;}
+function classAlertType(slot){
+  const refs=slot.student_refs||[];
+  const hasMinorAlert=refs.some(ref=>{const al=alertLevel(ref);return al==='minor'||al==='critical'||al==='red';});
+  const hasAdultAlert=refs.some(ref=>alertLevel(ref)==='adult');
+  return hasMinorAlert?'minor':hasAdultAlert?'adult':null;
+}
+
+function buildTurmas(tm){
+  const todayKey=DAY_JS[new Date().getDay()];
+  if(!(tm.myClasses||[]).length)return`<div class="sec-title">Turmas</div><div class="empty">Sem turmas atribuídas</div>`;
+  const todays=tm.myClasses.filter(c=>c.day_of_week===todayKey);
+  const others=tm.myClasses.filter(c=>c.day_of_week!==todayKey);
+  let html='';
+  if(EXPANDED_CLASS){const slot=tm.myClasses.find(c=>c.turma_code===EXPANDED_CLASS);if(slot)html+=buildExpandedClass(slot,tm);}
+  if(todays.length){html+=`<div class="sec-title">Hoje</div><div class="classes-grid">`;todays.forEach(c=>{if(c.turma_code!==EXPANDED_CLASS)html+=classCard(c,tm,true);});html+=`</div>`;}
+  if(others.length){html+=`<div class="sec-title">Esta semana</div><div class="classes-grid">`;others.forEach(c=>{if(c.turma_code!==EXPANDED_CLASS)html+=classCard(c,tm,false);});html+=`</div>`;}
+  return html;
+}
+
+function classCard(slot,tm,isToday){
+  const dept=getDept(slot),col=DEPT_COLOURS[dept]||'var(--gold2)',sub=tm.submissions[slot.turma_code];
+  const slotDate=weekDateFor(slot.day_of_week),info=getLessonInfo(slot.day_of_week,slotDate);
+  const ac=classAlertCount(slot),at=classAlertType(slot);
+  let cls=`class-card dept-${dept}`;if(at==='minor')cls+=' alert-minor';else if(at==='adult')cls+=' alert-adult';
+  return`<div class="${cls}" onclick="expandClass('${slot.turma_code}')">
+    <div class="cc-top"><div class="cc-code" style="color:${col}">${slot.turma_code}</div>
+      <div class="cc-badges">
+        ${isToday?(sub?.isToday?'<span class="cc-sub-ok">✓ submetido</span>':'<span class="cc-sub-miss">pendente</span>'):''}
+        ${ac>0?`<span class="cc-alert-badge">🚨 ${ac}</span>`:''}
+      </div>
+    </div>
+    <div class="cc-mid">
+      <div class="cc-time">${slot.start_time||slot.hour+'h'}–${slot.end_time||''}</div>
+      <div class="cc-level">${DAY_FULL[slot.day_of_week]||slot.day_of_week} · ${slot.level_display||slot.level_code||'—'} · ${DEPT_LABELS[dept]||dept}</div>
+      ${info.lessonNum>0?`<div class="cc-lesson">Aula ${String(info.lessonNum).padStart(3,'0')} / ${info.lessonTotal}</div>`:''}
+    </div>
+    <div class="cc-foot"><span class="cc-stu">${(slot.student_refs||[]).length} alunos</span></div>
+  </div>`;
+}
+
+function expandClass(tc){EXPANDED_CLASS=EXPANDED_CLASS===tc?null:tc;renderTab(SEL_TAB);if(EXPANDED_CLASS)setTimeout(()=>{document.querySelector('.class-expand')?.scrollIntoView({behavior:'smooth',block:'start'});},50);}
+
+function buildExpandedClass(slot,tm){
+  const dept=getDept(slot),col=DEPT_COLOURS[dept]||'var(--gold2)';
+  const slotDate=weekDateFor(slot.day_of_week),info=getLessonInfo(slot.day_of_week,slotDate);
+  const sub=tm.submissions[slot.turma_code],hasSub=!!sub;
+  const slotDateFmt=new Date(slotDate+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'});
+  const refs=slot.student_refs||[],alertedRefs=refs.filter(ref=>isAlerted(ref));
+  let html=`<div class="class-expand">`;
+  if(alertedRefs.length){
+    const hasMinor=alertedRefs.some(ref=>isMinorMap[ref]&&(absCount[ref]||0)>=ALERT_MINOR);
+    html+=`<div class="${hasMinor?'alert-banner':'alert-banner amber-alert'}">${hasMinor?`🚨 ${alertedRefs.length} aluno(s) menor(es) — ${ALERT_MINOR}+ faltas — contacto obrigatório`:`⚠ ${alertedRefs.length} aluno(s) adulto(s) — ${ALERT_ADULT}+ faltas — contacto recomendado`}</div>`;
+  }
+  html+=`<div class="ce-header">
+    <div class="ce-turma" style="color:${col}">${slot.turma_code}</div>
+    ${info.lessonNum>0?`<div class="ce-lesson">Aula ${String(info.lessonNum).padStart(3,'0')}/${info.lessonTotal}</div>`:''}
+    <div class="ce-time">${slot.start_time||slot.hour+'h'}–${slot.end_time||''} · ${slot.duration_min||90}min</div>
+    <div class="ce-date">${slotDateFmt}</div>
+    <span class="${hasSub?'ce-status-ok':'ce-status-miss'}">${hasSub?'✓ Submetido':'Não submetido'}</span>
+    <button class="ce-close" onclick="expandClass('${slot.turma_code}')">✕</button>
+  </div>`;
+  if(hasSub){
+    const pct=sub.total?Math.round(sub.presentes/sub.total*100):0;
+    html+=`<div class="ce-stats">
+      <div class="ces"><div class="ces-v" style="color:var(--green)">${sub.presentes}</div><div class="ces-l">Presentes</div></div>
+      <div class="ces"><div class="ces-v" style="color:var(--red)">${sub.total-sub.presentes}</div><div class="ces-l">Faltas</div></div>
+      <div class="ces"><div class="ces-v">${sub.total}</div><div class="ces-l">Total</div></div>
+      <div class="ces"><div class="ces-v" style="color:var(--teal)">${pct}%</div><div class="ces-l">Taxa</div></div>
+    </div><div class="ce-bar-wrap"><div class="ce-bar-fill" style="width:${pct}%"></div></div>`;
+  }
+  html+=`<div class="ce-actions"><button class="ce-btn ce-print" onclick="printAttendance('${slot.turma_code}','${slotDate}','${slot.start_time||slot.hour+':00'}','${slot.end_time||''}',${info.lessonNum},${info.lessonTotal})">🖨 Imprimir lista</button></div>`;
+  html+=`<div class="stu-list">`;
+  const recordsByRef={};if(hasSub)sub.records.forEach(r=>{recordsByRef[r.student_ref]=r;});
+  refs.forEach(ref=>{
+    const r=recordsByRef[ref],enr=ENROL_MAP[ref]||{name:r?.student_name||ref},av=avCol(enr.name||ref);
+    const sc=r?r.status==='present'?'present':r.status==='late'?'late':r.status==='absent'?'absent':'':'';
+    const lbl=r?r.status==='present'?'PRESENTE':r.status==='late'?'ATRASO':r.status==='absent'?'FALTA':'—':'—';
+    const absC=absCount[ref]||0,minor=isMinorMap[ref]??false,flagged=isAlerted(ref);
+    let rowCls=`stu-row ${sc}`;if(flagged)rowCls+=minor?' flagged-minor':' flagged-adult';
+    html+=`<div class="${rowCls}">
+      <div class="stu-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(enr.name)}</div>
+      <div class="stu-mid"><div class="stu-name">${enr.name||ref}</div><div class="stu-ref">${ref}${minor?' · menor':''}</div></div>
+      ${r?`<span class="stu-badge ${sc}">${lbl}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}
+      <span class="abs-chip ${absClass(absC)}" title="${absC} faltas este ano">${absLabel(absC)}</span>
+      <div class="stu-actions">
+        <div class="sab sab-msg"   title="Mensagem" onclick="stuContact(event,'${ref}','msg')">✉</div>
+        <div class="sab sab-call"  title="Contactar" onclick="stuContact(event,'${ref}','call')">✆</div>
+        <div class="sab sab-email" title="Email"     onclick="stuContact(event,'${ref}','email')">@</div>
+        <div class="sab sab-flag"  title="Alerta"    onclick="stuContact(event,'${ref}','flag')">⚑</div>
+      </div>
+    </div>`;
+  });
+  html+=`</div></div>`;return html;
+}
+
+function stuContact(event,ref,mode){
+  event.stopPropagation();
+  const enr=ENROL_MAP[ref]||{name:ref},absC=absCount[ref]||0,minor=isMinorMap[ref]??false;
+  const labels={msg:'Mensagem à secretaria',call:'Contactar encarregado',email:'Email ao aluno',flag:'Alerta registado'};
+  showToast(`${labels[mode]}: ${enr.name||ref} · ${absC} faltas · ${minor?'menor':'adulto'}`,'info');
+}
+
+/* PRESENCAS TAB */
+function buildPresencas(tm){
+  const today=todayISO(),todayKey=DAY_JS[new Date().getDay()];
+  const slotsToShow=[];
+  tm.todaySlots.forEach(slot=>slotsToShow.push({slot,isToday:true}));
+  tm.myClasses.filter(s=>s.day_of_week!==todayKey).forEach(slot=>{if(tm.submissions[slot.turma_code])slotsToShow.push({slot,isToday:false});});
+  if(!slotsToShow.length)return`<div class="sec-title">Presenças</div><div class="empty">Sem aulas esta semana</div>`;
+  const todayLabel=new Date().toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'});
+  let html=`<div class="sec-title">Presenças · ${todayLabel}</div>`;
+  slotsToShow.forEach(({slot,isToday})=>{
+    const slotDate=weekDateFor(slot.day_of_week),info=getLessonInfo(slot.day_of_week,slotDate);
+    const sub=tm.submissions[slot.turma_code],hasSub=!!sub;
+    const dept=getDept(slot),col=DEPT_COLOURS[dept]||'var(--gold2)';
+    const pct=hasSub&&sub.total?Math.round(sub.presentes/sub.total*100):0;
+    const slotDateFmt=new Date(slotDate+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'numeric'});
+    html+=`<div class="att-card"><div class="att-card-hdr">
+      <div class="att-turma" style="color:${col}">${slot.turma_code}</div>
+      ${info.lessonNum>0?`<div class="att-lesson">Aula ${String(info.lessonNum).padStart(3,'0')}/${info.lessonTotal}</div>`:''}
+      <div class="att-time">${slot.start_time||slot.hour+'h'}–${slot.end_time||''} · ${slotDateFmt}</div>
+      <span class="att-status ${hasSub?'ok':'miss'}">${hasSub?'✓ Submetido':'Não submetido'}</span>
+    </div>`;
+    if(hasSub){
+      html+=`<div class="att-bar-wrap"><div class="att-bar-fill" style="width:${pct}%"></div></div>
+        <div class="att-detail"><span><strong>${sub.presentes}</strong> presentes</span><span><strong>${sub.total-sub.presentes}</strong> faltas</span><span><strong>${sub.total}</strong> · <strong style="color:var(--green)">${pct}%</strong></span></div>
+        <div class="stu-list" style="padding:0">`;
+      sub.records.forEach(r=>{
+        const enr=ENROL_MAP[r.student_ref]||{name:r.student_name||r.student_ref},av=avCol(enr.name||r.student_ref);
+        const sc=r.status==='present'?'present':r.status==='late'?'late':r.status==='absent'?'absent':'';
+        const lbl=r.status==='present'?'PRESENTE':r.status==='late'?'ATRASO':r.status==='absent'?'FALTA':'—';
+        const absC=absCount[r.student_ref]||0;
+        html+=`<div class="stu-row ${sc}">
+          <div class="stu-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(enr.name)}</div>
+          <div style="flex:1"><div class="stu-name">${enr.name||r.student_ref}</div><div class="stu-ref">${r.student_ref}</div></div>
+          <span class="stu-badge ${sc}">${lbl}</span>
+          <span class="abs-chip ${absClass(absC)}" title="${absC} faltas este ano">${absLabel(absC)}</span>
+        </div>`;
+      });
+      html+=`</div><div class="att-actions"><button class="print-btn" onclick="printAttendance('${slot.turma_code}','${slotDate}','${slot.start_time||slot.hour+':00'}','${slot.end_time||''}',${info.lessonNum},${info.lessonTotal})">🖨 Imprimir lista</button></div>`;
+    }else{
+      html+=`<div style="font-size:9px;color:var(--red);padding:4px 0">Não submetido · ${(slot.student_refs||[]).length} alunos esperados</div>`;
+    }
+    html+=`</div>`;
+  });
+  return html;
+}
+
+/* PRINT */
+function printAttendance(turmaCode,slotDate,startTime,endTime,lessonNum,lessonTotal){
+  const tm=TEACHER_MAP[SEL_TEACHER];if(!tm)return;
+  const sub=tm.submissions[turmaCode],slot=tm.myClasses.find(c=>c.turma_code===turmaCode);
+  const refs=sub?sub.records.map(r=>r.student_ref):(slot?.student_refs||[]);
+  const dateFmt=new Date(slotDate+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const teacher=TEACHERS.find(t=>t.id===SEL_TEACHER);
+  const recordsByRef={};if(sub)sub.records.forEach(r=>{recordsByRef[r.student_ref]=r;});
+  const allRefs=sub?refs:[...(slot?.student_refs||[])];
+  const rows=allRefs.map((ref,i)=>{
+    const enr=ENROL_MAP[ref]||{name:recordsByRef[ref]?.student_name||ref},r=recordsByRef[ref];
+    const lbl=r?r.status==='present'?'PRESENTE':r.status==='late'?'ATRASO':r.status==='absent'?'FALTA':'—':'—';
+    const absC=absCount[ref]||0,minor=isMinorMap[ref]??false;
+    const bg=r?r.status==='present'?'#f0fff8':r.status==='late'?'#fffbf0':r.status==='absent'?'#fff5f5':'#fff':'#fff';
+    const warn=isAlerted(ref)?`<span style="color:${minor?'#c03030':'#a06010'};font-weight:700"> ⚠${absC}F</span>`:'';
+    return`<tr style="background:${bg}"><td style="padding:5pt 8pt;border-bottom:1pt solid #eee">${String(i+1).padStart(2,'0')}</td>
+      <td style="padding:5pt 8pt;border-bottom:1pt solid #eee;font-weight:500">${enr.name||ref}${warn}</td>
+      <td style="padding:5pt 8pt;border-bottom:1pt solid #eee;color:#666;font-size:9pt">${ref}${minor?' (m)':''}</td>
+      <td style="padding:5pt 8pt;border-bottom:1pt solid #eee;font-weight:700;color:${r?.status==='present'?'#1a8a5a':r?.status==='late'?'#a06010':'#c03030'}">${lbl}</td></tr>`;
+  }).join('');
+  const alertedRefs=allRefs.filter(ref=>isAlerted(ref));
+  const win=window.open('','_blank','width=800,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Presenças · ${turmaCode}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:20pt;font-size:11pt}
+    h1{font-size:18pt;margin-bottom:4pt}.meta{font-size:10pt;color:#444;margin-bottom:14pt;padding-bottom:8pt;border-bottom:2pt solid #000}
+    table{width:100%;border-collapse:collapse;border:1pt solid #ccc}th{background:#f5f5f5;padding:5pt 8pt;text-align:left;font-size:9pt;font-weight:700;border-bottom:2pt solid #ccc}
+    .sum{margin-top:10pt;font-size:9pt;color:#444;display:flex;gap:16pt}.sum strong{color:#000}
+    .alerts{margin-top:10pt;padding:8pt;background:#fff5f5;border:1pt solid #f0a0a0}
+    .alt{font-size:10pt;font-weight:700;color:#c03030;margin-bottom:5pt}
+    .ar{font-size:9pt;padding:2pt 0;border-bottom:.5pt solid #f0c0c0}
+    .foot{margin-top:16pt;padding-top:8pt;border-top:1pt solid #ccc;font-size:8pt;color:#888;display:flex;justify-content:space-between}
+    </style></head><body>
+    <h1>Registo de Presenças</h1>
+    <div class="meta"><strong style="font-size:14pt">${turmaCode}</strong> · ${dateFmt} · ${startTime}–${endTime}
+    ${lessonNum>0?` · Aula ${String(lessonNum).padStart(3,'0')}/${lessonTotal}`:''}
+    ${teacher?`<br/>Prof: <strong>${teacher.name}</strong>`:''}
+    </div>
+    <table><thead><tr><th style="width:28pt">Nº</th><th>Nome</th><th style="width:80pt">Ref.</th><th style="width:68pt">Estado</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    ${sub?`<div class="sum"><span>Presentes: <strong>${sub.presentes}</strong></span><span>Faltas: <strong>${sub.total-sub.presentes}</strong></span><span>Total: <strong>${sub.total}</strong></span><span>Taxa: <strong>${sub.total?Math.round(sub.presentes/sub.total*100):0}%</strong></span></div>`:''}
+    ${alertedRefs.length?`<div class="alerts"><div class="alt">⚠ Alunos com alertas de faltas</div>${alertedRefs.map(ref=>{const enr=ENROL_MAP[ref]||{name:ref},absC=absCount[ref]||0,minor=isMinorMap[ref]??false;return`<div class="ar">${enr.name||ref} · ${ref} · ${absC}/${MAX_ABS} faltas · ${minor?'menor':'adulto'}</div>`;}).join('')}</div>`:''}
+    <div class="foot"><span>ALM · ${AY||'2026/2027'}</span><span>${new Date().toLocaleString('pt-PT')}</span></div>
+  </body></html>`);
+  win.document.close();win.focus();setTimeout(()=>win.print(),400);
+}
+
+/* MSGS TAB */
+function buildMsgs(tm){
+  const msgs=tm.messages.filter(m=>m.message_type!=='fotocopia');
+  if(!msgs.length)return`<div class="sec-title">Mensagens</div><div class="empty">Sem mensagens</div>`;
+  const pending=msgs.filter(m=>m.status==='pending'),done=msgs.filter(m=>m.status!=='pending');
+  let html='';
+  if(pending.length){html+=`<div class="sec-title">Pendentes · ${pending.length}</div>`;html+=pending.map(msgCard).join('');}
+  if(done.length){html+=`<div class="sec-title" style="margin-top:16px">Lidas · ${done.length}</div>`;html+=done.map(msgCard).join('');}
+  return html;
+}
+function msgCard(m){
+  const isRead=m.status!=='pending',tc=m.message_type==='parent_contact'?'mc-parent':isRead?'mc-read':'mc-internal';
+  const tl=m.message_type==='parent_contact'?'ENCARREGADO':isRead?'✓ LIDO':'ESCOLA INTERNA';
+  const tb=m.message_type==='parent_contact'?'mct-parent':isRead?'mct-read':'mct-internal';
+  return`<div class="msg-card ${tc}" id="mc-${m.id}"><div class="mc-hdr">
+    <span class="mc-type ${tb}">${tl}</span>
+    ${m.turma_code?`<span class="mc-turma">${m.turma_code}</span>`:''}
+    ${m.lesson_number?`<span class="mc-lesson">Aula ${String(m.lesson_number).padStart(3,'0')}</span>`:''}
+    ${m.to&&m.to!=='—'?`<span style="font-size:8px;color:var(--t3)">→ ${m.to}</span>`:''}
+    <span class="mc-time">${fmtDT(m.created_at)}</span>
+  </div>
+  ${m.subject?`<div class="mc-subject">${m.subject}</div>`:''}
+  ${m.body?`<div class="mc-body">${m.body}</div>`:''}
+  ${!isRead?`<div class="mc-actions"><button class="mc-btn mc-accept" onclick="markMsg('${m.id}','${m.source}','read')">✓ Marcar lida</button><button class="mc-btn mc-ghost" onclick="markMsg('${m.id}','${m.source}','archived')">📁 Arquivar</button></div>`:''}
+  </div>`;
+}
+
+function buildFoto(tm){
+  const fotos=tm.messages.filter(m=>m.message_type==='fotocopia');
+  if(!fotos.length)return`<div class="sec-title">Fotocópias</div><div class="empty">Sem pedidos</div>`;
+  const pending=fotos.filter(m=>m.status==='pending'),done=fotos.filter(m=>m.status!=='pending');
+  let html='';
+  if(pending.length){html+=`<div class="sec-title">Pendentes · ${pending.length}</div>`;html+=pending.map(m=>fotoCard(m,false)).join('');}
+  if(done.length){html+=`<div class="sec-title" style="margin-top:16px">Concluídos · ${done.length}</div>`;html+=done.map(m=>fotoCard(m,true)).join('');}
+  return html;
+}
+function fotoCard(m,done){
+  const uc=m.urgency==='express'?'urg-express':m.urgency==='urgent'?'urg-urgent':'urg-normal';
+  const ul=m.urgency==='express'?'EXPRESS':m.urgency==='urgent'?'URGENTE (24h)':'NORMAL (48h)';
+  return`<div class="msg-card ${done?'mc-read':'mc-foto'}" id="mc-${m.id}"><div class="mc-hdr">
+    <span class="mc-type ${done?'mct-read':'mct-foto'}">${done?'✓ CONCLUÍDO':'FOTOCÓPIAS'}</span>
+    <span class="urg-badge ${uc}">${ul}</span>
+    ${m.turma_code?`<span class="mc-turma">${m.turma_code}</span>`:''}
+    <span class="mc-time">${fmtDT(m.created_at)}</span>
+  </div>
+  ${m.document?`<div class="mc-subject">${m.document}</div>`:''}
+  <div class="foto-grid">${m.copies?`<div class="foto-field"><div class="foto-lbl">Cópias</div><div class="foto-val">${m.copies}</div></div>`:''}${m.sides?`<div class="foto-field"><div class="foto-lbl">Frente/Verso</div><div class="foto-val">${m.sides}</div></div>`:''}</div>
+  ${m.body?`<div class="mc-body" style="margin-top:6px">${m.body}</div>`:''}
+  ${!done?`<div class="mc-actions"><button class="mc-btn mc-accept" onclick="markMsg('${m.id}','${m.source}','completed')">✓ Confirmar entrega</button><button class="mc-btn mc-reject" onclick="markMsg('${m.id}','${m.source}','rejected')">✕ Recusar</button></div>`:''}
+  </div>`;
+}
+
+function buildSumarios(tm){
+  const sums=tm.mySumarios||[];
+  if(!sums.length)return`<div class="sec-title">Sumários</div><div class="empty">Sem sumários</div>`;
+  let html=`<div class="sec-title">Sumários · ${sums.length} registos</div>`;
+  sums.forEach(s=>{
+    const text=s.summary_text||s.summary||'',notes=s.observations||s.notes||'';
+    html+=`<div class="sum-card"><div class="sc-meta">
+      <span class="sc-date">${fmtDate(s.date)}</span><span style="font-size:8.5px;color:var(--t2);font-weight:700">${s.turma_code||'—'}</span>
+      ${s.lesson_number?`<span class="sc-lesson">Aula ${String(s.lesson_number).padStart(3,'0')}</span>`:''}
+      ${s.skill?`<span class="sc-skill">${s.skill}</span>`:''}
+    </div>
+    ${text?`<div class="sc-text">${text}</div>`:'<div class="sc-text" style="color:var(--t3);font-style:italic">Sem texto.</div>'}
+    <div class="sc-fields">${s.book_page?`<div class="sc-field"><div class="sc-field-l">Página</div><div class="sc-field-v">${s.book_page}</div></div>`:''}${notes?`<div class="sc-field" style="grid-column:1/-1"><div class="sc-field-l">Observações</div><div class="sc-field-v">${notes}</div></div>`:''}</div></div>`;
+  });
+  return html;
+}
+
+async function markMsg(id,source,newStatus){
+  const table=source==='messages'?'messages':'teacher_requests';
+  const extra=newStatus==='read'?{read_at:new Date().toISOString()}:{};
+  try{
+    await sbPatch(table,`id=eq.${encodeURIComponent(id)}`,{status:newStatus,...extra});
+    const msg=MESSAGES.find(m=>m.id===id);if(msg)msg.status=newStatus;
+    const card=document.getElementById(`mc-${id}`);
+    if(card){
+      card.style.opacity='0.45';card.classList.add('mc-read');card.classList.remove('mc-internal','mc-parent','mc-foto');card.style.borderLeftColor='var(--green)';
+      const actions=card.querySelector('.mc-actions');
+      if(actions){const labels={read:'Marcada como lida',completed:'Entrega confirmada',rejected:'Recusado',archived:'Arquivada'};actions.outerHTML=`<div class="mc-confirmed">✓ ${labels[newStatus]||'Actualizado'}</div>`;}
+      const tb=card.querySelector('.mc-type');if(tb){tb.className='mc-type mct-read';tb.textContent='✓ LIDO';}
+    }
+    buildTeacherMap();updateKPIs();renderLeft();
+    showToast({read:'Marcada como lida ✓',completed:'Entrega confirmada ✓',rejected:'Pedido recusado',archived:'Arquivada'}[newStatus]||'Actualizado ✓','ok');
+  }catch(e){showToast('Erro: '+e.message,'err');}
+}
+
+function setBotSrc(txt){document.getElementById('bot-src').textContent=txt;}
+function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+tick();setInterval(tick,1000);
+setInterval(()=>{if(document.visibilityState==='visible'){const prev=SEL_TEACHER;boot().then(()=>{if(prev)selectTeacher(prev);});}},60000);
+let _tt=null;
+function showToast(msg,type='info'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(EXPANDED_CLASS){EXPANDED_CLASS=null;renderTab(SEL_TAB);return;}SEL_TEACHER=null;document.getElementById('teacher-view').classList.remove('active');document.getElementById('no-teacher').style.display='flex';renderLeft();}
+});
+boot();
+</script>
+</body>
+</html>
