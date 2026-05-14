@@ -173,7 +173,6 @@ body{display:flex;flex-direction:column}
 .gc-z3{display:flex;align-items:stretch;flex-shrink:0}
 .criar-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;background:rgba(201,168,76,.92);color:#09080F;transition:all .18s;height:40px;width:100%}
 .criar-btn:hover{background:#E8C97A}
-.criar-btn.armed{background:rgba(29,184,122,.85);color:#fff;animation:armPulse .4s ease}
 .criar-btn.saving{background:rgba(40,200,176,.7);color:#fff;cursor:not-allowed}
 .criar-btn:disabled{opacity:.5;cursor:not-allowed}
 @keyframes armPulse{0%{transform:scale(1)}40%{transform:scale(1.025)}100%{transform:scale(1)}}
@@ -654,20 +653,28 @@ let PAIRS = [
 
 const DAY_IDX  = { monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,segunda:0,terca:1,quarta:2,quinta:3,sexta:4,sabado:5,mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,seg:0,ter:1,qua:2,qui:3,sex:4,sab:5,SEG:0,TER:1,QUA:2,QUI:3,SEX:4,SAB:5 };
 const DAYS_PT  = ['SEG','TER','QUA','QUI','SEX','SAB'];
-const SK_CONF  = 'alm-dec-confirmed-2627';
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
 let allE=[], allR=[], rByRef={};
+
+// DB-authoritative confirmed set — loaded from classes table on boot,
+// updated on every successful sbInsertClass. Stores GROUP codes (e.g. "FUN-01").
+// Replaces the localStorage seq-based boxId mechanism as the source of truth.
+let _confirmedCodes = new Set();
+
 let activeLoc='FUNCHAL';
 let _boxes={}, _treeData={}, _brSeq={};
 let _dsRef=null, _dsSelectedGroup=null;
 let _glBoxId=null;
 let _smHighlight=-1, _smItems=[], _smOpenSwap=null;
-let _armedBox=null, _armTimer=null;
 let _mtRef=null, _mtSelectedBoxId=null, _mtSelectedCode=null, _mtSelectedFull=false, _mtMode='mudar';
 let _saving=new Set();
+
+// FIX: branch prefix → next available integer, loaded from DB on boot.
+// Prevents nextSeq() positional counter from colliding with existing DB codes.
+let _nextSeqBase = {};
 
 // ═══════════════════════════════════════════════════════════════
 // DEBUG LOG
@@ -694,8 +701,6 @@ function dlog(msg, type='info') {
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
-function getConf()  { try { return JSON.parse(localStorage.getItem(SK_CONF)||'{}'); } catch { return {}; } }
-function saveConf(o){ localStorage.setItem(SK_CONF, JSON.stringify(o)); }
 function normB(b)   { return (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim(); }
 function normS(s)   { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function lk(e)      { return (e.level_code || e.level_cefr || '').trim(); }
@@ -716,11 +721,11 @@ function nextSeq(b) { if(!_brSeq[b]) _brSeq[b]=0; _brSeq[b]++; return String(_br
 function resetSeq() { _brSeq={}; }
 function elv(id,v)  { const n=document.getElementById(id); if(n&&v!==undefined) n.textContent=v; return n; }
 
-// ═══════════════════════════════════════════════════════════════
-// ▶ FIX 1: sbGet — added Prefer: count=none to prevent Range
-//   header conflicts that caused "Failed to fetch" on some
-//   Supabase configurations.
-// ═══════════════════════════════════════════════════════════════
+// DB-authoritative confirmed check
+function isConfirmedByCode(groupCode) {
+  return _confirmedCodes.has(groupCode);
+}
+
 async function sbGet(table, qs) {
   let all=[], page=0, ps=1000;
   while(true) {
@@ -747,10 +752,10 @@ async function loadConfig() {
       if (map['academic_year'])  AY    = map['academic_year'];
       if (map['min_group_size']) MIN_G = parseInt(map['min_group_size']);
       if (map['max_group_size']) MAX_G = parseInt(map['max_group_size']);
-      dlog(`Config loaded from Supabase: AY=${AY} MIN=${MIN_G} MAX=${MAX_G}`, 'ok');
+      dlog(`Config loaded: AY=${AY} MIN=${MIN_G} MAX=${MAX_G}`, 'ok');
     }
   } catch(e) {
-    dlog(`alm_config table not found — using fallback constants (${e.message.slice(0,60)})`, 'info');
+    dlog(`alm_config not found — using fallback constants`, 'info');
   }
 
   try {
@@ -758,43 +763,66 @@ async function loadConfig() {
     if (brs && brs.length) {
       BL={}; BO=[]; BC={};
       brs.forEach(b => { BL[b.code]=b.label; BO.push(b.code); BC[b.code]=b.short_code||b.code.slice(0,3); });
-      dlog(`Branches loaded from Supabase: ${BO.join(', ')}`, 'ok');
     }
-  } catch(e) {
-    dlog(`alm_branches not found — using fallback branches`, 'info');
-  }
+  } catch(e) { dlog(`alm_branches not found — using fallback`, 'info'); }
 
   try {
     const lvls = await sbGet('alm_levels', `select=code,dept,label,color,display_order&order=display_order`);
     if (lvls && lvls.length) {
       LEVEL_MAP={};
       lvls.forEach(l => { LEVEL_MAP[l.code] = { dept:l.dept, label:l.label, color:l.color||'var(--t3)', order:l.display_order||99 }; });
-      dlog(`Levels loaded from Supabase: ${lvls.length} levels`, 'ok');
     }
-  } catch(e) {
-    dlog(`alm_levels not found — using fallback level map`, 'info');
-  }
+  } catch(e) { dlog(`alm_levels not found — using fallback`, 'info'); }
 
   try {
     const pairs = await sbGet('alm_pairs', `select=day_a,day_b,label_a,label_b,code,exam_only&order=display_order`);
     if (pairs && pairs.length) {
       PAIRS = pairs.map(p => ({ a:p.day_a, b:p.day_b, aL:p.label_a, bL:p.label_b, code:p.code, examOnly:!!p.exam_only }));
-      dlog(`Pairs loaded from Supabase: ${PAIRS.map(p=>p.code).join(', ')}`, 'ok');
     }
-  } catch(e) {
-    dlog(`alm_pairs not found — using fallback pairs`, 'info');
-  }
+  } catch(e) { dlog(`alm_pairs not found — using fallback`, 'info'); }
 
   elv('brand-yr', AY.slice(-4));
   elv('pill-ay', AY);
 }
 
 // ═══════════════════════════════════════════════════════════════
+// FIX: Load next available sequence numbers from DB
+// Prevents positional counter from colliding with existing codes
+// ═══════════════════════════════════════════════════════════════
+async function loadNextSeqBase() {
+  try {
+    const rows = await sbGet('classes',
+      `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
+    );
+    const maxByBranch = {};
+    rows.forEach(r => {
+      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
+      if (!m) return;
+      const [, prefix, num] = m;
+      const n = parseInt(num, 10);
+      if (!maxByBranch[prefix] || n > maxByBranch[prefix]) {
+        maxByBranch[prefix] = n;
+      }
+    });
+    Object.entries(maxByBranch).forEach(([prefix, max]) => {
+      _nextSeqBase[prefix] = max + 1;
+    });
+    dlog(`nextSeqBase loaded: ${JSON.stringify(_nextSeqBase)}`, 'ok');
+  } catch(e) {
+    dlog('loadNextSeqBase failed, falling back to counter: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SUPABASE WRITE — timetable_requests
+//
+// FIX 3.5: assigned_turma stores the first session's suffixed
+// turma_code (e.g. "FUN-01A") so timetable_requests.assigned_turma
+// matches classes.turma_code exactly.
 // ═══════════════════════════════════════════════════════════════
 async function sbUpsertRequest(ref, payload) {
   dlog(`sbUpsertRequest ${ref} → ${JSON.stringify(payload)}`, 'info');
-  const enrol = allE.find(e => e.ref === ref);
+  const enrol   = allE.find(e => e.ref === ref);
   const existing = rByRef[ref];
 
   if (existing) {
@@ -810,7 +838,7 @@ async function sbUpsertRequest(ref, payload) {
       return false;
     }
     const rows = await r.json();
-    dlog(`PATCH OK ${ref} — ${rows.length} row(s) updated`, 'ok');
+    dlog(`PATCH OK ${ref} — ${rows.length} row(s)`, 'ok');
     return rows.length > 0;
   } else {
     const body = {
@@ -836,36 +864,56 @@ async function sbUpsertRequest(ref, payload) {
       return false;
     }
     const rows = await r.json();
-    dlog(`POST timetable_requests OK ${ref} — ${rows.length} row(s) inserted`, 'ok');
+    dlog(`POST timetable_requests OK ${ref} — ${rows.length} row(s)`, 'ok');
     return rows.length > 0;
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // SUPABASE WRITE — classes
-// ▶ FIX 3: With resolution=merge-duplicates, Supabase returns
-//   0 rows when the row already exists (not an error — the
-//   class IS in the DB). We now treat 0 rows as success so
-//   the card stays green after the DB write.
+//
+// FIX 3.18: Sync is non-destructive.
+//   - Uses Prefer: resolution=merge-duplicates.
+//   - teacher_id, teacher_code, teacher_name, sala are EXCLUDED
+//     from the upsert body so teacher assignments survive re-sync.
+//
+// FIX 3.5: turma_code is the canonical session identifier.
+//   group_code stores the unsuffixed parent (FUN-01).
+//
+// FIX 3.2: start_time and end_time derived from block, not hardcoded strings.
 // ═══════════════════════════════════════════════════════════════
 async function sbInsertClass(box, refs) {
-  // v2 — each session gets a unique turma_code with A/B suffix.
-  // box.code ("FUN-40") stays in timetable_requests.assigned_turma.
-  // classes.turma_code: "FUN-40A" (first day), "FUN-40B" (second day).
-  const students    = box.students || [];
-  const sampleEnrol = students.find(e => e) || {};
-  const levelCode   = lk(sampleEnrol) || box.lk || '';
+  const students     = box.students || [];
+  const sampleEnrol  = students.find(e => e) || {};
+  const levelCode    = lk(sampleEnrol) || box.lk || '';
   const levelDisplay = box.meta?.label || levelCode;
-  const dept        = box.dk || getLM(sampleEnrol).dept || 'adults';
-  const isManha     = box.block === 'manha';
+  const dept         = box.dk || getLM(sampleEnrol).dept || 'adults';
 
-  const days     = [...new Set([box.pair?.aL, box.pair?.bL].filter(Boolean))];
-  const SUFFIXES = ['A', 'B', 'C', 'D'];
+  const isManha  = box.block === 'manha';
+  const startHour = isManha ? 9 : 14;
+  const endHour   = isManha ? 10 : 15;
+  const startMin  = 0;
+  const endMin    = 30;
+  const startStr  = `${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}`;
+  const endStr    = `${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`;
 
-  for (let i = 0; i < days.length; i++) {
-    const day         = days[i];
-    const suffix      = SUFFIXES[i] || String(i + 1);
-    const sessionCode = box.code + suffix;
+  const DAY_NORM = { SEG:'SEG', TER:'TER', QUA:'QUA', QUI:'QUI', SEX:'SEX', SAB:'SAB', SÁB:'SAB' };
+  const sessions = [];
+  const suffixes = ['A','B','C','D'];
+
+  const rawDays = [box.pair?.aL, box.pair?.bL].filter(Boolean);
+  const seenDays = new Set();
+  rawDays.forEach((dayLabel, i) => {
+    const normDay = DAY_NORM[dayLabel] || dayLabel;
+    if (seenDays.has(normDay)) return;
+    seenDays.add(normDay);
+    sessions.push({ day: normDay, suffix: suffixes[i] || String(i+1) });
+  });
+
+  const errors = [];
+
+  for (const session of sessions) {
+    const sessionCode = box.code + session.suffix;
 
     const row = {
       turma_code:    sessionCode,
@@ -875,11 +923,11 @@ async function sbInsertClass(box, refs) {
       level_code:    levelCode,
       level_display: levelDisplay,
       department:    dept,
-      branch:        activeLoc,
-      day_of_week:   day,
-      hour:          isManha ? 9 : 14,
-      start_time:    isManha ? '09:00' : '14:00',
-      end_time:      isManha ? '10:30' : '15:30',
+      branch:        normB(activeLoc),
+      day_of_week:   session.day,
+      hour:          startHour,
+      start_time:    startStr,
+      end_time:      endStr,
       duration_min:  90,
       student_refs:  JSON.stringify(refs),
       group_key:     box.lk || levelCode,
@@ -888,43 +936,61 @@ async function sbInsertClass(box, refs) {
 
     const r = await fetch(`${SB}/rest/v1/classes`, {
       method: 'POST',
-      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY,
-                 'Content-Type': 'application/json',
-                 Prefer: 'resolution=merge-duplicates,return=minimal' },
+      headers: {
+        apikey: KEY,
+        Authorization: 'Bearer ' + KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
       body: JSON.stringify(row),
     });
 
     if (!r.ok) {
       const txt = await r.text();
-      return { ok: false, error: `${day} (${sessionCode}): HTTP ${r.status} ${txt.slice(0,120)}` };
+      errors.push(`${session.day} (${sessionCode}): HTTP ${r.status} ${txt.slice(0,120)}`);
+    } else {
+      dlog(`classes upsert OK: ${sessionCode} day=${session.day} hour=${startHour}`, 'ok');
     }
   }
 
-  return { ok: true, error: null };
+  if (errors.length) return { ok: false, error: errors.join(' | '), sessionCodes: [] };
+
+  return { ok: true, error: null, primaryCode: box.code + (sessions[0]?.suffix || 'A') };
 }
 
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
-// ▶ FIX 2: Added &order=ref to both fetches so Supabase always
-//   returns rows in a deterministic order. Without this, the
-//   random row order caused group composition to vary between
-//   page loads, shifting the positional seq counter and breaking
-//   the localStorage boxId→confirmed mapping.
+//
+// FIX 3.3 / 3.4: DB-authoritative confirmed set loaded from classes.
+// FIX: loadNextSeqBase() called here to seed collision-safe counter.
 // ═══════════════════════════════════════════════════════════════
 async function loadAll() {
   try {
-    const [enrol, reqs] = await Promise.all([
+    const [enrol, reqs, existingClasses] = await Promise.all([
       sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr,phone,email&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
       sbGet('timetable_requests', `select=ref,student_name,branch,family,level_code,level_cefr,day_preferences,slots,status,assigned_turma,notes,pair_code,block&academic_year=eq.${encodeURIComponent(AY)}&order=ref&limit=2000`),
+      sbGet('classes', `select=group_code&academic_year=eq.${encodeURIComponent(AY)}&status=eq.confirmed&limit=2000`),
     ]);
+
     allE=enrol||[]; allR=reqs||[]; rByRef={};
     allR.forEach(r => { rByRef[r.ref] = r; });
+
+    _confirmedCodes = new Set(
+      (existingClasses||[])
+        .map(c => c.group_code)
+        .filter(Boolean)
+    );
+    dlog(`DB confirmed codes: ${_confirmedCodes.size}`, 'ok');
+
     const tot=allE.length, sem=allE.filter(e=>!rByRef[e.ref]).length;
     elv('st-total',tot); elv('st-com',tot-sem); elv('st-sem',sem);
     elv('pill-status','Supabase OK'); document.getElementById('pill-status').className='topbar-pill ok';
-    dlog(`Loaded: ${tot} enrolments, ${allR.length} requests`, 'ok');
+    dlog(`Loaded: ${tot} enrolments, ${allR.length} requests, ${_confirmedCodes.size} confirmed groups`, 'ok');
+
+    await loadNextSeqBase();
+
     initBranchTabs(); renderAll();
-    showToast(`${tot} inscritos · ${allR.length} pedidos`, 'ok');
+    showToast(`${tot} inscritos · ${_confirmedCodes.size} grupos confirmados`, 'ok');
   } catch(err) {
     dlog('loadAll ERROR: ' + err.message, 'err');
     elv('pill-status','Erro DB'); document.getElementById('pill-status').className='topbar-pill err';
@@ -957,8 +1023,9 @@ function buildProposals(levelKey, branch) {
   withReq.forEach(e=>{
     const r=rByRef[e.ref];
     if(r?.assigned_turma && normS(r.status)==='atribuido') {
-      if(!assignedGroups[r.assigned_turma]) assignedGroups[r.assigned_turma]=[];
-      assignedGroups[r.assigned_turma].push(e);
+      const groupCode = r.assigned_turma.replace(/[A-D]$/, '');
+      if(!assignedGroups[groupCode]) assignedGroups[groupCode]=[];
+      assignedGroups[groupCode].push(e);
       alreadyAssigned.add(e.ref);
     }
   });
@@ -1021,9 +1088,7 @@ function initBranchTabs() {
 function setLoc(loc,btn) { activeLoc=loc; document.querySelectorAll('.btab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); renderAll(); }
 
 function renderAll() {
-  resetSeq(); _boxes={}; _armedBox=null;
-  if(_armTimer){ clearTimeout(_armTimer); _armTimer=null; }
-  const conf=getConf();
+  resetSeq(); _boxes={};
   const students=allE.filter(e=>normB(e.branch)===activeLoc);
   const lkSet=[...new Set(students.map(e=>lk(e)).filter(k=>LEVEL_MAP[k]))];
   const td={};
@@ -1033,24 +1098,25 @@ function renderAll() {
     if(!td[dk]) td[dk]={};
     const res=buildProposals(k,activeLoc);
 
-    // ▶ FIX 4: Use stable code-based boxId for saved groups.
-    // Previously this did Object.keys(_boxes).find(...) which always
-    // returned undefined since _boxes={} at start of renderAll.
-    // The stable key `${activeLoc}|${k}|SAVED|${code}` is correct.
     res.savedGroups.forEach(g=>{
       const code=g.code;
+      const isConf = _confirmedCodes.has(code);
       const boxId=`${activeLoc}|${k}|SAVED|${code}`;
-      if(!conf[boxId]) { const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c); }
-      _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:true,isLow:false,type:'group'};
+      _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:isConf,isLow:false,type:'group'};
     });
 
     res.groups.forEach(g=>{
       const bCode=BC[activeLoc]||activeLoc.slice(0,3);
-      const seq=nextSeq(activeLoc);
+
+      // FIX: Use DB-seeded counter instead of positional nextSeq()
+      if (!_nextSeqBase[bCode]) _nextSeqBase[bCode] = 1;
+      const seqNum = _nextSeqBase[bCode]++;
+      const seq = String(seqNum).padStart(2, '0');
+
       const code=`${bCode}-${seq}`;
+      const isConf = _confirmedCodes.has(code);
       const boxId=`${activeLoc}|${k}|${g.pair.code}|${g.block}|${seq}`;
-      const isConfLS=!!conf[boxId];
-      _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:isConfLS,isLow:g.students.length<MIN_G,type:'group'};
+      _boxes[boxId]={code,lk:k,dk,pair:g.pair,block:g.block,students:g.students,meta,confirmed:isConf,isLow:g.students.length<MIN_G,type:'group'};
     });
 
     if(res.sinal.length) {
@@ -1062,7 +1128,7 @@ function renderAll() {
 
   _treeData=td;
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  const totalG=groups.length, confG=groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length;
+  const totalG=groups.length, confG=groups.filter(id=>_boxes[id]?.confirmed).length;
   elv('pill-total',`${totalG} grupos`); elv('pill-conf',`${confG} conf.`);
   elv('rp-loc',BL[activeLoc]||activeLoc);
   elv('rp-sub',`${totalG} grupos · ${confG} criados · ${totalG-confG} pendentes`);
@@ -1103,7 +1169,6 @@ function buildCardHTML(boxId, box, isConf) {
   const capCol=isConf?'var(--green)':isLow?'var(--red)':capPct>=80?'var(--amber)':accent;
   const fillCol=isConf?'var(--green)':isLow?'var(--red)':capPct>=80?'var(--amber)':'var(--teal)';
   const bl=box.block==='manha'?'Manhã':'Tarde', bc2=box.block==='manha'?'bk-manha':'bk-tarde';
-  const isArmed=_armedBox===boxId;
 
   const capHTML=`<div class="gc-cap"><div class="gc-cap-frac"><span class="gc-n" style="color:${capCol}">${n}</span><span class="gc-max">/${MAX_G}</span></div><div class="gc-cap-bar"><div class="gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div>`;
 
@@ -1114,7 +1179,7 @@ function buildCardHTML(boxId, box, isConf) {
     z3=`<div class="gc-z3"><button style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 12px;height:34px;background:#0D3D24;border:none;width:100%;cursor:pointer;font-family:var(--mono)" onclick="openGroupListDS('${boxId}')">
       <div style="display:flex;align-items:center;gap:7px">
         <div style="width:14px;height:14px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap:round;stroke-linejoin:round"><polyline points="2,6 5,9 10,3"/></svg>
+          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg>
         </div>
         <span style="font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--green)">TURMA CRIADA</span>
       </div>
@@ -1154,12 +1219,12 @@ function buildCardHTML(boxId, box, isConf) {
 // GRID & TRIAGE RENDER
 // ═══════════════════════════════════════════════════════════════
 function renderGrid(confG, totalG, branchStudents) {
-  const conf=getConf(), pct=totalG?Math.round(confG/totalG*100):0;
+  const pct=totalG?Math.round(confG/totalG*100):0;
   let html=`<div class="intent-banner">
     <span class="intent-icon">🏫</span>
     <div>
       <div class="intent-title">Criação de Turmas · ${BL[activeLoc]||activeLoc}</div>
-      <div class="intent-desc">1.º clique arma · 2.º clique guarda no Supabase · LOG abre automaticamente em caso de erro</div>
+      <div class="intent-desc">Estado confirmado lido da BD · Sync preserva atribuições de professores do Step 5</div>
     </div>
     <div class="intent-stats">
       <div class="is-item"><div class="is-v" style="color:var(--gold2)">${allE.length}</div><div class="is-l">Total inscr.</div></div>
@@ -1203,8 +1268,7 @@ function renderGrid(confG, totalG, branchStudents) {
         </div>
         <div class="box-grid">`;
       groupBoxes.forEach(([boxId,box])=>{
-        const isConf=box.confirmed||!!conf[boxId];
-        html+=buildCardHTML(boxId,box,isConf);
+        html+=buildCardHTML(boxId,box,box.confirmed);
       });
       if(hasSinal) html+=buildCardHTML(sinalBoxId,_boxes[sinalBoxId],false);
       html+=`</div></div>`;
@@ -1216,19 +1280,18 @@ function renderGrid(confG, totalG, branchStudents) {
 }
 
 function renderTriage(totalG, confG) {
-  const conf=getConf();
   const urgent=[], pending=[], done=[];
   Object.entries(_boxes).forEach(([id,box])=>{
     if(box.type==='sinal'&&box.sinal.length>0) urgent.push({id,label:`${box.meta.label}`,sub:`${box.sinal.length} aluno${box.sinal.length!==1?'s':''} sem grupo`,badge:`${box.sinal.length} SINAL`,cls:'tb-amber',tiCls:'ti-urgent',action:`openGroupListSinal('${id}')`});
   });
   Object.entries(_boxes).forEach(([id,box])=>{
-    if(box.type==='group'&&box.isLow&&!box.confirmed&&!conf[id]) urgent.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · inviável`,badge:'INVIÁVEL',cls:'tb-red',tiCls:'ti-low',action:`scrollToBox('${id}')`});
+    if(box.type==='group'&&box.isLow&&!box.confirmed) urgent.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · inviável`,badge:'INVIÁVEL',cls:'tb-red',tiCls:'ti-low',action:`scrollToBox('${id}')`});
   });
   Object.entries(_boxes).forEach(([id,box])=>{
-    if(box.type==='group'&&!box.isLow&&!box.confirmed&&!conf[id]) pending.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · ${box.pair?.aL||'—'}+${box.pair?.bL||'—'} · ${box.block==='manha'?'M':'T'} · ${box.meta?.label||'—'}`,badge:'Criar',cls:'tb-gray',tiCls:'ti-pending',action:`scrollToBox('${id}')`});
+    if(box.type==='group'&&!box.isLow&&!box.confirmed) pending.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · ${box.pair?.aL||'—'}+${box.pair?.bL||'—'} · ${box.block==='manha'?'M':'T'} · ${box.meta?.label||'—'}`,badge:'Criar',cls:'tb-gray',tiCls:'ti-pending',action:`scrollToBox('${id}')`});
   });
   Object.entries(_boxes).forEach(([id,box])=>{
-    if(box.type==='group'&&(box.confirmed||conf[id])) done.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · ${box.meta?.label||'—'}`,badge:'✓',cls:'tb-green',tiCls:'ti-ok',action:`scrollToBox('${id}')`});
+    if(box.type==='group'&&box.confirmed) done.push({id,label:box.code,sub:`${box.students.length}/${MAX_G} · ${box.meta?.label||'—'}`,badge:'✓',cls:'tb-green',tiCls:'ti-ok',action:`scrollToBox('${id}')`});
   });
   let html='';
   if(!urgent.length&&!pending.length&&!done.length) { document.getElementById('triage-panel').innerHTML=`<div class="tr-empty">Sem grupos para esta filial</div>`; return; }
@@ -1245,32 +1308,20 @@ function scrollToBox(boxId) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ARM / CONFIRM
+// CONFIRM
 // ═══════════════════════════════════════════════════════════════
-function armConfirm(boxId) {
-  if(_saving.has(boxId)) return;
-  if(_armedBox&&_armedBox!==boxId) { const prev=_armedBox; _armedBox=null; clearTimeout(_armTimer); _armTimer=null; updateCardInDOM(prev); }
-  _armedBox=boxId; updateCardInDOM(boxId); clearTimeout(_armTimer);
-  _armTimer=setTimeout(()=>{
-    if(_armedBox===boxId) { _armedBox=null; _armTimer=null; updateCardInDOM(boxId); }
-  }, 4000);
-}
-
 function updateCardInDOM(boxId) {
   const box=_boxes[boxId]; if(!box) return;
-  const conf=getConf(), isConf=box.confirmed||!!conf[boxId];
   const safeId=boxId.replace(/[|.\-]/g,'_');
   const el=document.getElementById('gcard-'+safeId);
-  if(el) el.outerHTML=buildCardHTML(boxId,box,isConf);
+  if(el) el.outerHTML=buildCardHTML(boxId,box,box.confirmed);
 }
 
 async function quickConfirm(boxId) {
   const box=_boxes[boxId]; if(!box||box.type!=='group') return;
-  const conf=getConf();
-  if(conf[boxId]||box.confirmed) { showToast(`${box.code} já criado`,'warn'); return; }
-  if(_saving.has(boxId)) { showToast('A guardar…','info'); return; }
 
-  _armedBox=null; clearTimeout(_armTimer); _armTimer=null;
+  if(box.confirmed) { showToast(`${box.code} já criado`,'warn'); return; }
+  if(_saving.has(boxId)) { showToast('A guardar…','info'); return; }
 
   _saving.add(boxId);
   box._dbError = null;
@@ -1278,12 +1329,28 @@ async function quickConfirm(boxId) {
 
   const refs=(box.students||[]).map(e=>e.ref).filter(Boolean);
 
-  // Step 1: write timetable_requests
+  const classResult = await sbInsertClass(box, refs).catch(e=>{
+    dlog('sbInsertClass exception: '+e.message,'err');
+    return { ok: false, error: e.message, primaryCode: null };
+  });
+
+  if (!classResult.ok) {
+    _saving.delete(boxId);
+    box._dbError = classResult.error || 'classes write failed';
+    updateCardInDOM(boxId);
+    showToast(`⚠ ${box.code}: ${(classResult.error||'DB error').slice(0,60)}`, 'err');
+    renderTriage(Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group').length,
+                 Object.keys(_boxes).filter(id=>_boxes[id]?.confirmed).length);
+    return;
+  }
+
+  // FIX 3.5: assigned_turma = primaryCode (e.g. "FUN-01A")
+  const primaryCode = classResult.primaryCode;
   let reqErrors=0;
-  if(refs.length) {
+  if(refs.length && primaryCode) {
     const results = await Promise.all(
       refs.map(ref => sbUpsertRequest(ref, {
-        assigned_turma: box.code,
+        assigned_turma: primaryCode,
         status: 'atribuido',
         pair_code: box.pair?.code||'SW',
         block: box.block||'tarde',
@@ -1293,43 +1360,26 @@ async function quickConfirm(boxId) {
     if(reqErrors) dlog(`${reqErrors}/${refs.length} timetable_request writes failed for ${box.code}`,'err');
   }
 
-  // Step 2: write classes table
-  const classResult = await sbInsertClass(box, refs).catch(e=>{
-    dlog('sbInsertClass exception: '+e.message,'err');
-    return { ok: false, error: e.message };
-  });
-
-  // Step 3: evaluate
   _saving.delete(boxId);
-
-  if (!classResult.ok) {
-    box._dbError = classResult.error || 'classes write failed';
-    updateCardInDOM(boxId);
-    showToast(`⚠ ${box.code}: ${(classResult.error||'DB error').slice(0,60)}`, 'err');
-    const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-    renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
-    return;
-  }
-
-  // Step 4: commit confirmed state only after successful DB write
-  const c=getConf(); c[boxId]=new Date().toISOString(); saveConf(c);
-  box.confirmed=true; box._dbError=null;
+  _confirmedCodes.add(box.code);
+  box.confirmed = true;
+  box._dbError  = null;
 
   refs.forEach(ref=>{
-    if(rByRef[ref]) { rByRef[ref].assigned_turma=box.code; rByRef[ref].status='atribuido'; }
-    else            { rByRef[ref]={ref,assigned_turma:box.code,status:'atribuido',academic_year:AY}; allR.push(rByRef[ref]); }
+    if(rByRef[ref]) { rByRef[ref].assigned_turma=primaryCode; rByRef[ref].status='atribuido'; }
+    else            { rByRef[ref]={ref,assigned_turma:primaryCode,status:'atribuido',academic_year:AY}; allR.push(rByRef[ref]); }
   });
 
   updateCardInDOM(boxId);
   if(_glBoxId===boxId) openGroupListDS(boxId);
   updateTopConf();
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
+  renderTriage(groups.length, groups.filter(id=>_boxes[id]?.confirmed).length);
 
   if(reqErrors > 0) {
     showToast(`${box.code} ✓ criado · ${reqErrors} req. falharam (ver LOG)`, 'warn');
   } else {
-    showToast(`${box.code} ✓ turma criada e guardada no Supabase!`, 'ok');
+    showToast(`${box.code} ✓ turma criada!`, 'ok');
   }
 }
 
@@ -1337,21 +1387,34 @@ function cancelGroup(boxId) { if(!confirm('Cancelar este grupo?')) return; showT
 
 async function confirmAllVisible() {
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  const conf=getConf(); let ct=0, failed=0;
+  let ct=0, failed=0;
   for(const boxId of groups) {
     const box=_boxes[boxId];
-    if(box&&!box.confirmed&&!conf[boxId]&&!box.isLow) {
+    if(box&&!box.confirmed&&!box.isLow) {
       await quickConfirm(boxId);
-      if(box.confirmed) ct++; else failed++;
+      if(_boxes[boxId]?.confirmed) ct++; else failed++;
     }
   }
   showToast(`${ct} criadas · ${failed} falharam`, failed?'warn':'ok');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SYNC → STEP 5
+//
+// FIX 3.18: Non-destructive — teacher assignments are preserved.
+// ═══════════════════════════════════════════════════════════════
 async function syncAllToClasses() {
-  const conf=getConf();
-  const confirmed=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group'&&(_boxes[id].confirmed||conf[id]));
+  const confirmed=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group'&&_boxes[id].confirmed);
   if(!confirmed.length) { showToast('Nenhum grupo confirmado para sincronizar','warn'); return; }
+
+  const proceed = confirm(
+    `Sync vai actualizar ${confirmed.length} turma(s) na BD.\n\n` +
+    `✓ Seguro: dados de horário e alunos serão actualizados.\n` +
+    `✓ Seguro: atribuições de professores e salas NÃO são alteradas.\n\n` +
+    `Continuar?`
+  );
+  if(!proceed) return;
+
   showToast(`A sincronizar ${confirmed.length} turmas…`,'info');
   let ok=0, fail=0;
   for(const boxId of confirmed) {
@@ -1364,9 +1427,8 @@ async function syncAllToClasses() {
 }
 
 function updateTopConf() {
-  const conf=getConf();
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  const n=groups.filter(id=>conf[id]||_boxes[id]?.confirmed).length, total=groups.length;
+  const n=groups.filter(id=>_boxes[id]?.confirmed).length, total=groups.length;
   elv('pill-conf',`${n} conf.`); elv('rp-sub',`${total} grupos · ${n} criados · ${total-n} pendentes`); updateProgress(n,total);
 }
 
@@ -1391,7 +1453,7 @@ function moveStudentBetweenBoxes(ref,targetBoxId) {
   else{rByRef[ref]={ref,assigned_turma:targetBox.code,status:'atribuido',academic_year:AY};allR.push(rByRef[ref]);}
   const sem=allE.filter(e=>!rByRef[e.ref]).length; elv('st-com',allE.length-sem); elv('st-sem',sem);
   const groups=Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group');
-  renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed||!!getConf()[id]).length);
+  renderTriage(groups.length,groups.filter(id=>_boxes[id]?.confirmed).length);
   if(_smItems.length) renderSmResults(_smItems);
   updateTopConf();
 }
@@ -1403,7 +1465,7 @@ function updateGlHeader(boxId) {
   const capPct=Math.round(n/MAX_G*100); const accent=DEPT_ACCENTS[box.dk]||DEPT_ACCENTS.adults;
   const fillEl=document.getElementById('gl-cap-fill-hdr');
   if(fillEl){fillEl.style.width=capPct+'%';fillEl.style.background=capPct>=80?'var(--amber)':accent;}
-  buildGroupListBody(box,box.confirmed||!!getConf()[boxId]);
+  buildGroupListBody(box,box.confirmed);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1431,7 +1493,7 @@ function openMudarModal(ref,mode){
     ${statusBadge}`;
   const lkey=lk(enrol);
   const options=Object.entries(_boxes).filter(([id,b])=>b.type==='group'&&b.lk===lkey).map(([id,b])=>{
-    const isCurrent=currentCode?b.code===currentCode:false;
+    const isCurrent=currentCode?b.code===currentCode||currentCode.startsWith(b.code):false;
     const full=(b.students?.length||0)>=MAX_G&&!isCurrent;
     return{id,code:b.code,pair:b.pair,block:b.block,n:b.students?.length||0,isCurrent,full,accent};
   }).sort((a,b)=>a.isCurrent?-1:b.isCurrent?1:a.full-b.full||a.n-b.n);
@@ -1464,8 +1526,12 @@ function mtSelectTile(el,boxId,code,isFull){
 
 async function confirmMudar(){
   if(!_mtRef||!_mtSelectedCode) return;
+  const targetBox=_boxes[_mtSelectedBoxId];
+  const primaryCode = targetBox?.confirmed
+    ? (targetBox.code + 'A')
+    : _mtSelectedCode;
   const btn=document.getElementById('mt-confirm'); btn.disabled=true; btn.textContent='A guardar…';
-  const ok=await sbUpsertRequest(_mtRef,{assigned_turma:_mtSelectedCode,status:'atribuido'}).catch(e=>{dlog('confirmMudar: '+e.message,'err');return false;});
+  const ok=await sbUpsertRequest(_mtRef,{assigned_turma:primaryCode,status:'atribuido'}).catch(e=>{dlog('confirmMudar: '+e.message,'err');return false;});
   if(ok){
     moveStudentBetweenBoxes(_mtRef,_mtSelectedBoxId);
     const enrol=allE.find(e=>e.ref===_mtRef); const enrolName=(enrol?.name||_mtRef).split(' ')[0];
@@ -1507,8 +1573,8 @@ function openDossier(ref){
   const placement=findCurrentGroup(ref); const mudarOrAtribuir=(!placement||!placement.box)?'atribuir':'mudar';
   let placementHTML='';
   if(placement?.box){
-    const{box,boxId}=placement;const isConf=box.confirmed||!!getConf()[boxId];
-    placementHTML=`<div class="m-placement m-pl-placed"><div class="m-pl-code">${box.code}</div><div><div class="m-pl-sched">${box.pair?.aL||'—'} + ${box.pair?.bL||'—'} · ${box.block==='manha'?'Manhã':'Tarde'}</div><div class="m-pl-meta">${meta.label} · ${box.students?.length||0} alunos · ${isConf?'turma criada':'aguarda criação'}</div></div><div class="m-pl-dot" style="background:${isConf?'var(--green)':'var(--amber)'}"></div></div>`;
+    const{box,boxId}=placement;
+    placementHTML=`<div class="m-placement m-pl-placed"><div class="m-pl-code">${box.code}</div><div><div class="m-pl-sched">${box.pair?.aL||'—'} + ${box.pair?.bL||'—'} · ${box.block==='manha'?'Manhã':'Tarde'}</div><div class="m-pl-meta">${meta.label} · ${box.students?.length||0} alunos · ${box.confirmed?'turma criada':'aguarda criação'}</div></div><div class="m-pl-dot" style="background:${box.confirmed?'var(--green)':'var(--amber)'}"></div></div>`;
   }else if(placement?.code){
     placementHTML=`<div class="m-placement m-pl-placed"><div class="m-pl-code">${placement.code}</div><div><div class="m-pl-sched">Turma na BD</div><div class="m-pl-meta">${meta.label}</div></div><div class="m-pl-dot" style="background:var(--green)"></div></div>`;
   }else if(st==='sem_pedido'){
@@ -1525,7 +1591,7 @@ function openDossier(ref){
   const groups=getCompatibleGroups(ref); const currentCode=placement?.box?.code||placement?.code||null; let reassignHTML='';
   if(groups.length){
     reassignHTML=`<div style="padding:0 14px 4px"><div class="m-sec-label" style="margin-left:0;margin-right:0">${mudarOrAtribuir==='atribuir'?'Atribuir a uma turma':'Mover para outra turma'}</div>`;
-    reassignHTML+=groups.map(g=>{const isCurrent=g.code===currentCode;return`<div class="m-group-opt${isCurrent?' current-group':''}" onclick="dsSelectGroup(this,'${g.id}','${g.code}')"><span class="m-go-code">${g.code}</span><span class="m-go-days">${g.pair?.aL||'—'}+${g.pair?.bL||'—'} · ${g.block==='manha'?'↑ M':'↓ T'}</span><span class="m-go-n">${g.n}/17</span><span class="m-go-tag ${isCurrent?'m-tag-current':g.isMatch?'m-tag-match':'m-tag-manual'}">${isCurrent?'actual':g.isMatch?'✓':'manual'}</span></div>`;}).join('');
+    reassignHTML+=groups.map(g=>{const isCurrent=g.code===currentCode||currentCode?.startsWith(g.code);return`<div class="m-group-opt${isCurrent?' current-group':''}" onclick="dsSelectGroup(this,'${g.id}','${g.code}')"><span class="m-go-code">${g.code}</span><span class="m-go-days">${g.pair?.aL||'—'}+${g.pair?.bL||'—'} · ${g.block==='manha'?'↑ M':'↓ T'}</span><span class="m-go-n">${g.n}/17</span><span class="m-go-tag ${isCurrent?'m-tag-current':g.isMatch?'m-tag-match':'m-tag-manual'}">${isCurrent?'actual':g.isMatch?'✓':'manual'}</span></div>`;}).join('');
     reassignHTML+=`<textarea class="m-note" id="ds-note" placeholder="Nota (opcional)…"></textarea></div>`;
   }else{reassignHTML=`<div style="padding:10px 14px;font-size:8px;color:var(--t3)">Sem turmas compatíveis.</div>`;}
   const enrollHTML=`<div class="m-acc"><div class="m-acc-hdr" onclick="this.classList.toggle('open')"><div class="m-acc-left"><span class="m-acc-icon">📋</span><span class="m-acc-label">Matrícula</span></div><span class="m-acc-chv">›</span></div><div class="m-acc-body">${[['Ref',ref,'hi'],['Nome',enrol.name||'—'],['Nível',meta.label],['Língua',enrol.lang||'EN'],['Filial',br],enrol.phone?['Tel.',enrol.phone]:null,req?['Estado',normS(req.status)||'—',st==='atribuido'?'ok':st==='sem_pedido'?'err':'warn']:null].filter(Boolean).map(([k,v,c])=>`<div class="m-acc-row"><span class="m-acc-k">${k}</span><span class="m-acc-v ${c||''}">${v}</span></div>`).join('')}</div></div>`;
@@ -1541,7 +1607,9 @@ async function dsConfirmMove(){
   if(!_dsRef||!_dsSelectedGroup) return;
   const{boxId,code}=_dsSelectedGroup; const note=document.getElementById('ds-note')?.value?.trim()||'';
   const btn=document.getElementById('ds-btn-move'); btn.disabled=true; btn.textContent='A guardar…';
-  const payload={assigned_turma:code,status:'atribuido'}; if(note) payload.notes=note;
+  const targetBox=_boxes[boxId];
+  const primaryCode = targetBox?.confirmed ? (code + 'A') : code;
+  const payload={assigned_turma:primaryCode,status:'atribuido'}; if(note) payload.notes=note;
   const ok=await sbUpsertRequest(_dsRef,payload).catch(e=>{dlog('dsConfirmMove: '+e.message,'err');return false;});
   if(ok){ moveStudentBetweenBoxes(_dsRef,boxId); const enrol=allE.find(e=>e.ref===_dsRef); showToast(`${enrol?.name||_dsRef} → ${code} ✓`,'ok'); openDossier(_dsRef); }
   else { showToast('Erro ao guardar — ver LOG','err'); btn.disabled=false; btn.textContent='✓ Confirmar'; }
@@ -1556,21 +1624,20 @@ function closeDossier(){ document.getElementById('ds-overlay').classList.remove(
 function openGroupListDS(boxId){
   const box=_boxes[boxId]; if(!box||box.type!=='group') return;
   _glBoxId=boxId;
-  const conf=getConf(), isConf=box.confirmed||!!conf[boxId];
   const accent=DEPT_ACCENTS[box.dk]||DEPT_ACCENTS.adults;
   document.getElementById('gl-hdr-bg').style.background=DEPT_GRADS[box.dk]||DEPT_GRADS.adults;
   elv('gl-hdr-code',box.code); document.getElementById('gl-hdr-code').style.color=accent;
-  elv('gl-hdr-meta',`${box.pair?.aL||'—'} + ${box.pair?.bL||'—'} · ${box.block==='manha'?'Manhã 08–11h':'Tarde 14–20h'} · ${box.meta?.label||'—'}`);
+  elv('gl-hdr-meta',`${box.pair?.aL||'—'} + ${box.pair?.bL||'—'} · ${box.block==='manha'?'Manhã 09–10:30h':'Tarde 14–15:30h'} · ${box.meta?.label||'—'}`);
   const n=box.students?.length||0; elv('gl-hdr-n',n); elv('gl-hdr-max','/'+MAX_G);
   const capPct=Math.round(n/MAX_G*100); const fillEl=document.getElementById('gl-cap-fill-hdr');
   if(fillEl){fillEl.style.width=capPct+'%';fillEl.style.background=capPct>=80?'var(--amber)':accent;}
   const statusEl=document.getElementById('gl-hdr-status');
-  if(isConf){statusEl.className='gl-hdr-status ok';statusEl.innerHTML='✓ Turma criada';}
+  if(box.confirmed){statusEl.className='gl-hdr-status ok';statusEl.innerHTML='✓ Turma criada';}
   else{statusEl.className='gl-hdr-status pending';statusEl.innerHTML='⏱ Aguarda criação';}
   const footerBtn=document.getElementById('gl-footer-btn');
-  if(isConf){footerBtn.className='gl-footer-btn already';footerBtn.innerHTML='<span style="font-size:16px">✓</span> TURMA JÁ CRIADA';}
+  if(box.confirmed){footerBtn.className='gl-footer-btn already';footerBtn.innerHTML='<span style="font-size:16px">✓</span> TURMA JÁ CRIADA';}
   else{footerBtn.className='gl-footer-btn confirm';footerBtn.innerHTML='<span style="font-size:16px">✦</span> CRIAR TURMA';}
-  buildGroupListBody(box,isConf);
+  buildGroupListBody(box,box.confirmed);
   document.getElementById('gl-overlay').classList.add('open');
 }
 
@@ -1624,17 +1691,22 @@ function buildGroupListBodyRaw(students,showTick,isConf,levelKey,isSinal){
 function glFooterAction(){
   if(!_glBoxId) return;
   const box=_boxes[_glBoxId]; if(!box||box.type!=='group') return;
-  const conf=getConf();
-  if(box.confirmed||conf[_glBoxId]){showToast('Turma já criada','warn');return;}
+  if(box.confirmed){showToast('Turma já criada','warn');return;}
   closeGroupList();
-  armConfirm(_glBoxId);
-  setTimeout(()=>quickConfirm(_glBoxId), 100);
+  setTimeout(()=>quickConfirm(_glBoxId), 50);
 }
 function closeGroupList(){ document.getElementById('gl-overlay').classList.remove('open'); _glBoxId=null; }
 
 function findCurrentGroup(ref){
   for(const[boxId,box]of Object.entries(_boxes)){if(box.type!=='group')continue;if(box.students?.some(s=>s.ref===ref))return{boxId,box};}
-  const req=rByRef[ref]; if(req?.assigned_turma){for(const[boxId,box]of Object.entries(_boxes)){if(box.type==='group'&&box.code===req.assigned_turma)return{boxId,box};}return{boxId:null,box:null,code:req.assigned_turma};}
+  const req=rByRef[ref];
+  if(req?.assigned_turma){
+    const groupCode = req.assigned_turma.replace(/[A-D]$/, '');
+    for(const[boxId,box]of Object.entries(_boxes)){
+      if(box.type==='group'&&(box.code===groupCode||box.code===req.assigned_turma))return{boxId,box};
+    }
+    return{boxId:null,box:null,code:req.assigned_turma};
+  }
   return null;
 }
 function getCompatibleGroups(ref){
@@ -1703,7 +1775,7 @@ function smOpenSwap(ref){
   const idx=_smItems.findIndex(e=>e.ref===ref); const rowEl=document.getElementById('smri-'+idx); if(!rowEl) return;
   const lkey=lk(enrol),req=rByRef[ref],currentCode=req?.assigned_turma||null;
   const options=Object.entries(_boxes).filter(([id,b])=>b.type==='group'&&b.lk===lkey)
-    .map(([id,b])=>({id,code:b.code,pair:b.pair,block:b.block,n:b.students?.length||0,isCurrent:b.code===currentCode,full:(b.students?.length||0)>=MAX_G&&b.code!==currentCode}))
+    .map(([id,b])=>({id,code:b.code,pair:b.pair,block:b.block,n:b.students?.length||0,isCurrent:currentCode&&(b.code===currentCode||currentCode.startsWith(b.code)),full:(b.students?.length||0)>=MAX_G&&!(currentCode&&(b.code===currentCode||currentCode.startsWith(b.code)))}))
     .sort((a,b)=>a.isCurrent?-1:b.isCurrent?1:a.n-b.n);
   if(!options.length){showToast('Sem turmas disponíveis','warn');_smOpenSwap=null;return;}
   const safeRef=ref.replace(/[^a-z0-9]/gi,'_');
@@ -1717,8 +1789,9 @@ async function smSwapConfirm(ref){
   const safeRef=ref.replace(/[^a-z0-9]/gi,'_'); const sel=document.getElementById('sm-swap-sel-'+safeRef); if(!sel) return;
   const targetBoxId=sel.value, targetBox=_boxes[targetBoxId]; if(!targetBox){showToast('Turma não encontrada','err');return;}
   const code=targetBox.code, enrol=allE.find(e=>e.ref===ref);
+  const primaryCode = targetBox.confirmed ? (code + 'A') : code;
   const btn=document.getElementById('sm-swap-btn-'+safeRef); if(btn){btn.disabled=true;btn.textContent='A guardar…';}
-  const ok=await sbUpsertRequest(ref,{assigned_turma:code,status:'atribuido'}).catch(e=>{dlog('smSwapConfirm: '+e.message,'err');return false;});
+  const ok=await sbUpsertRequest(ref,{assigned_turma:primaryCode,status:'atribuido'}).catch(e=>{dlog('smSwapConfirm: '+e.message,'err');return false;});
   if(ok){
     moveStudentBetweenBoxes(ref,targetBoxId);
     showToast(`${(enrol?.name||ref).split(' ')[0]} → ${code} ✓`,'ok');
@@ -1746,10 +1819,9 @@ function onSmKey(e){
 // ═══════════════════════════════════════════════════════════════
 function exportCSVAll(){
   const rows=['Código,Filial,Nível,Dias,Bloco,Alunos,Criado,Erro'];
-  const conf=getConf();
   Object.keys(_boxes).filter(id=>_boxes[id]?.type==='group').forEach(boxId=>{
     const box=_boxes[boxId];
-    rows.push(`${box.code},${activeLoc},${box.meta?.label||'—'},${box.pair?.aL||'—'}+${box.pair?.bL||'—'},${box.block==='manha'?'Manha':'Tarde'},${box.students?.length||0},${box.confirmed||conf[boxId]?'sim':'nao'},${box._dbError||''}`);
+    rows.push(`${box.code},${activeLoc},${box.meta?.label||'—'},${box.pair?.aL||'—'}+${box.pair?.bL||'—'},${box.block==='manha'?'Manha':'Tarde'},${box.students?.length||0},${box.confirmed?'sim':'nao'},${box._dbError||''}`);
   });
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'})); a.download=`ALM-Decision-${activeLoc}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
   showToast('CSV exportado','ok');
@@ -1773,7 +1845,6 @@ document.addEventListener('keydown',e=>{
     if(document.getElementById('ds-overlay').classList.contains('open')){closeDossier();return;}
     if(document.getElementById('search-modal-overlay').classList.contains('open')){closeSearchModal();return;}
     if(document.getElementById('gl-overlay').classList.contains('open')){closeGroupList();return;}
-    if(_armedBox){const b=_armedBox;_armedBox=null;clearTimeout(_armTimer);_armTimer=null;updateCardInDOM(b);}
   }
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearchModal();}
 });
@@ -1787,6 +1858,6 @@ loadConfig()
   .then(() => loadAll())
   .then(() => { if(window._pendingRef){ setTimeout(()=>openDossier(window._pendingRef),200); delete window._pendingRef; } })
   .catch(err => dlog('Init error: ' + err.message, 'err'));
-</script>
+  </script>
 </body>
 </html>
