@@ -430,7 +430,7 @@ function alertLevel(ref){
 let TEACHERS=[],TEACHER_MAP={},CLASSES=[],ENROL_MAP={},MESSAGES=[],ATTEND=[],SUMARIOS=[];
 let SEL_TEACHER=null,SEL_TAB='turmas',FILTER='all',EXPANDED_CLASS=null;
 
-/* ── CONNECTIVITY STATE (audit §3.4) ──────────────────────────────────── */
+/* CONNECTIVITY STATE */
 let _connFails=0;
 function setConnState(ok){
   const dot=document.querySelector('.live-dot');
@@ -478,55 +478,113 @@ async function boot(){
     ENROL_MAP={};(enrols||[]).forEach(e=>{ENROL_MAP[e.ref]=e;isMinorMap[e.ref]=!!e.is_minor;});
     ATTEND=attend||[];SUMARIOS=sumarios||[];
     absCount={};(absences||[]).forEach(r=>{absCount[r.student_ref]=(absCount[r.student_ref]||0)+1;});
+
+    /* ── BUILD MESSAGES: normalise both tables into one list ── */
     MESSAGES=[
-      ...(messages||[]).map(m=>({id:m.id,source:'messages',teacher_id:m.teacher_id,teacher_name:m.teacher_name||'—',message_type:m.message_type||'internal_school',turma_code:m.turma_code,lesson_number:m.lesson_number,to:m.to_recipients||'—',subject:m.subject||'',body:m.body||'',status:m.status||'pending',created_at:m.created_at,document:'',copies:'',sides:'',urgency:'normal'})),
-      ...(requests||[]).map(r=>({id:r.id,source:'teacher_requests',teacher_id:r.teacher_id,teacher_name:r.teacher_name||'—',message_type:r.type==='foto'?'fotocopia':'internal_school',turma_code:r.turma_code||null,lesson_number:null,to:'Secretaria',subject:r.type==='foto'?`Fotocópias · ${r.document||'—'}`:'Mensagem',body:r.observations||'',status:r.status||'pending',created_at:r.created_at,document:r.document||'',copies:r.copies||'',sides:r.sides||'',urgency:r.urgency||'normal'})),
+      ...(messages||[]).map(m=>({
+        id:m.id,source:'messages',
+        teacher_id:m.teacher_id,
+        teacher_name:m.teacher_name||'—',
+        message_type:m.message_type||'internal_school',
+        turma_code:m.turma_code,lesson_number:m.lesson_number,
+        to:m.to_recipients||'—',subject:m.subject||'',body:m.body||'',
+        status:m.status||'pending',created_at:m.created_at,
+        document:'',copies:'',sides:'',urgency:'normal',
+      })),
+      ...(requests||[]).map(r=>({
+        id:r.id,source:'teacher_requests',
+        teacher_id:r.teacher_id,          /* may be code ("P-14") or UUID */
+        teacher_name:r.teacher_name||'—',
+        message_type:r.type==='foto'?'fotocopia':'internal_school',
+        turma_code:r.turma_code||null,lesson_number:null,
+        to:'Secretaria',
+        subject:r.type==='foto'?`Fotocópias · ${r.document||'—'}`:'Mensagem',
+        body:r.observations||'',
+        status:r.status||'pending',created_at:r.created_at,
+        document:r.document||'',copies:r.copies||'',sides:r.sides||'',urgency:r.urgency||'normal',
+      })),
     ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
     buildTeacherMap();updateKPIs();renderLeft();
-    setConnState(true); /* ← audit §3.4 */
+    setConnState(true);
     setBotSrc(`Supabase · ${TEACHERS.length} profs · ${CLASSES.length} turmas · ${MESSAGES.filter(m=>m.status==='pending').length} msgs pendentes`);
     showToast(`${TEACHERS.length} professores carregados`,'ok');
   }catch(e){
     console.error(e);
-    setConnState(false); /* ← audit §3.4 */
+    setConnState(false);
     setBotSrc('Erro: '+e.message);
     showToast('Erro: '+e.message,'err');
   }
 }
 
+/* ── PATCHED buildTeacherMap ──
+   Matches messages on BOTH teacher UUID (t.id) AND teacher code (t.code)
+   because teacher_requests stores teacher_id as the code string ("P-14"). */
 function buildTeacherMap(){
   const today=todayISO(),todayKey=DAY_JS[new Date().getDay()];
   TEACHER_MAP={};
+
+  const isFotocopia=m=>m.message_type==='fotocopia'||m.message_type==='foto';
+
   TEACHERS.forEach(t=>{
     const myClasses=CLASSES.filter(c=>c.teacher_id===t.id);
     const todaySlots=myClasses.filter(c=>c.day_of_week===todayKey);
+
     const submissions={};
     myClasses.forEach(slot=>{
       const slotDate=weekDateFor(slot.day_of_week);
       const info=getLessonInfo(slot.day_of_week,slotDate);
-      const records=ATTEND.filter(a=>a.turma_code===slot.turma_code&&(a.date===slotDate||(info.lessonNum>0&&a.lesson_number===info.lessonNum)));
-      if(records.length)submissions[slot.turma_code]={records,slotDate,lNum:info.lessonNum,lTotal:info.lessonTotal,isToday:slotDate===today,presentes:records.filter(r=>r.status==='present'||r.status==='late').length,total:records.length};
+      const records=ATTEND.filter(
+        a=>a.turma_code===slot.turma_code&&
+           (a.date===slotDate||(info.lessonNum>0&&a.lesson_number===info.lessonNum))
+      );
+      if(records.length){
+        submissions[slot.turma_code]={
+          records,slotDate,
+          lNum:info.lessonNum,lTotal:info.lessonTotal,
+          isToday:slotDate===today,
+          presentes:records.filter(r=>r.status==='present'||r.status==='late').length,
+          total:records.length,
+        };
+      }
     });
+
     const alertedStudents=new Set();
     myClasses.forEach(slot=>(slot.student_refs||[]).forEach(ref=>{if(isAlerted(ref))alertedStudents.add(ref);}));
-    const myMessages=MESSAGES.filter(m=>m.teacher_id===t.id);
-    TEACHER_MAP[t.id]={...t,myClasses,todaySlots,submissions,alertedStudents,alertCount:alertedStudents.size,
+
+    /* Match on both id AND code */
+    const myMessages=MESSAGES.filter(m=>m.teacher_id===t.id||m.teacher_id===t.code);
+
+    TEACHER_MAP[t.id]={
+      ...t,myClasses,todaySlots,submissions,
+      alertedStudents,alertCount:alertedStudents.size,
       mySumarios:SUMARIOS.filter(s=>myClasses.some(c=>c.turma_code===s.turma_code)),
-      messages:myMessages,pendingMsgs:myMessages.filter(m=>m.status==='pending'&&m.message_type!=='fotocopia'),
-      pendingFoto:myMessages.filter(m=>m.status==='pending'&&m.message_type==='fotocopia')};
+      messages:myMessages,
+      pendingMsgs:myMessages.filter(m=>m.status==='pending'&&!isFotocopia(m)),
+      pendingFoto:myMessages.filter(m=>m.status==='pending'&&isFotocopia(m)),
+    };
   });
 }
 
+/* ── PATCHED updateKPIs ── */
 function updateKPIs(){
+  const isFotocopia=m=>m.message_type==='fotocopia'||m.message_type==='foto';
   let msgs=0,foto=0,miss=0,ok=0,alerts=0;
   TEACHERS.forEach(t=>{
     const tm=TEACHER_MAP[t.id];if(!tm)return;
-    msgs+=tm.pendingMsgs.length;foto+=tm.pendingFoto.length;alerts+=tm.alertCount;
-    if(tm.todaySlots.length){const todaySub=tm.todaySlots.filter(s=>tm.submissions[s.turma_code]?.isToday).length;if(!todaySub)miss++;else ok++;}
+    msgs+=(tm.pendingMsgs||[]).length;
+    foto+=(tm.pendingFoto||[]).length;
+    alerts+=tm.alertCount||0;
+    if(tm.todaySlots&&tm.todaySlots.length){
+      const todaySub=tm.todaySlots.filter(s=>tm.submissions[s.turma_code]?.isToday).length;
+      if(!todaySub)miss++;else ok++;
+    }
   });
-  const set=(id,txt,cls)=>{const el=document.getElementById(id);el.textContent=txt;el.className='tb-pill '+cls;};
-  set('kpi-msgs',msgs+' msgs',msgs>0?'red':'neutral');set('kpi-foto',foto+' fotoc.',foto>0?'warn':'neutral');
-  set('kpi-miss',miss+' sem pres.',miss>0?'warn':'ok');set('kpi-alerts',alerts+' alertas',alerts>0?'red':'neutral');
+  const set=(id,txt,cls)=>{const el=document.getElementById(id);if(!el)return;el.textContent=txt;el.className='tb-pill '+cls;};
+  set('kpi-msgs',msgs+' msgs',msgs>0?'red':'neutral');
+  set('kpi-foto',foto+' fotoc.',foto>0?'warn':'neutral');
+  set('kpi-miss',miss+' sem pres.',miss>0?'warn':'ok');
+  set('kpi-alerts',alerts+' alertas',alerts>0?'red':'neutral');
   set('kpi-ok',ok+' submetidas','ok');
 }
 
@@ -800,16 +858,18 @@ function printAttendance(turmaCode,slotDate,startTime,endTime,lessonNum,lessonTo
   win.document.close();win.focus();setTimeout(()=>win.print(),400);
 }
 
-/* MSGS TAB */
+/* ── PATCHED buildMsgs ── */
 function buildMsgs(tm){
-  const msgs=tm.messages.filter(m=>m.message_type!=='fotocopia');
-  if(!msgs.length)return`<div class="sec-title">Mensagens</div><div class="empty">Sem mensagens</div>`;
+  const isFotocopia=m=>m.message_type==='fotocopia'||m.message_type==='foto';
+  const msgs=(tm.messages||[]).filter(m=>!isFotocopia(m));
+  if(!msgs.length)return`<div class="sec-title">Mensagens</div><div class="empty">Sem mensagens registadas para este professor</div>`;
   const pending=msgs.filter(m=>m.status==='pending'),done=msgs.filter(m=>m.status!=='pending');
   let html='';
   if(pending.length){html+=`<div class="sec-title">Pendentes · ${pending.length}</div>`;html+=pending.map(msgCard).join('');}
-  if(done.length){html+=`<div class="sec-title" style="margin-top:16px">Lidas · ${done.length}</div>`;html+=done.map(msgCard).join('');}
+  if(done.length){html+=`<div class="sec-title" style="margin-top:16px">Lidas / arquivadas · ${done.length}</div>`;html+=done.map(msgCard).join('');}
   return html;
 }
+
 function msgCard(m){
   const isRead=m.status!=='pending',tc=m.message_type==='parent_contact'?'mc-parent':isRead?'mc-read':'mc-internal';
   const tl=m.message_type==='parent_contact'?'ENCARREGADO':isRead?'✓ LIDO':'ESCOLA INTERNA';
@@ -827,15 +887,18 @@ function msgCard(m){
   </div>`;
 }
 
+/* ── PATCHED buildFoto ── */
 function buildFoto(tm){
-  const fotos=tm.messages.filter(m=>m.message_type==='fotocopia');
-  if(!fotos.length)return`<div class="sec-title">Fotocópias</div><div class="empty">Sem pedidos</div>`;
+  const isFotocopia=m=>m.message_type==='fotocopia'||m.message_type==='foto';
+  const fotos=(tm.messages||[]).filter(m=>isFotocopia(m));
+  if(!fotos.length)return`<div class="sec-title">Fotocópias</div><div class="empty">Sem pedidos de fotocópias</div>`;
   const pending=fotos.filter(m=>m.status==='pending'),done=fotos.filter(m=>m.status!=='pending');
   let html='';
   if(pending.length){html+=`<div class="sec-title">Pendentes · ${pending.length}</div>`;html+=pending.map(m=>fotoCard(m,false)).join('');}
   if(done.length){html+=`<div class="sec-title" style="margin-top:16px">Concluídos · ${done.length}</div>`;html+=done.map(m=>fotoCard(m,true)).join('');}
   return html;
 }
+
 function fotoCard(m,done){
   const uc=m.urgency==='express'?'urg-express':m.urgency==='urgent'?'urg-urgent':'urg-normal';
   const ul=m.urgency==='express'?'EXPRESS':m.urgency==='urgent'?'URGENTE (24h)':'NORMAL (48h)';
