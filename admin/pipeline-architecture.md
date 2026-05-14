@@ -1,354 +1,324 @@
-# ALM · Pipeline Architecture Report
-### Academic Year 2026/2027 · Technical Audit
+# ALM Pipeline Report
+### Academia de Línguas da Madeira · Full-Stack Operational Audit
+**Date:** May 2026 · **Files reviewed:** 6 HTML modules · **Database:** Supabase (PostgreSQL)
 
 ---
 
-## 1. Pipeline Overview
+## Executive Summary
 
-The ALM system is a five-stage administrative pipeline that takes a school enrolment database and produces a fully staffed, timetabled set of English-language classes. Each stage feeds the next through a shared Supabase PostgreSQL backend.
-
-```
-[Step 1 — Enrolments DB]
-        ↓
-[Step 3 — Group Formation]   alm-group-formation
-        ↓
-[Step 4 — Decision]          alm-confirmar-turmas-criadas
-        ↓
-[Step 5 — Assign]            alm-atribuir-turmas
-        ↓
-[Step 6 — Teacher Portal]    Portal do Professor
-        ↓
-[Step 7 — Staff Dashboard]   Mensagens & Pedidos
-```
-
-### Tables involved
-
-| Table | Role |
-|---|---|
-| `enrolments` | Source of truth for every student |
-| `timetable_requests` | Student's submitted schedule preferences |
-| `classes` | Confirmed groups with schedule, teacher, room |
-| `teachers` | Staff roster |
-| `attendance` | Per-session presence records |
-| `lesson_summaries` | Teacher-submitted lesson notes |
-| `messages` | Internal school messages from teachers |
-| `teacher_requests` | Photocopy/resource requests |
-| `school_config` | Academic year dates |
-| `school_holidays` / `school_breaks` | Teaching-day calendar |
-| `alm_config` / `alm_levels` / `alm_branches` / `alm_pairs` | Optional pipeline configuration tables |
+The ALM system is a genuinely ambitious, purpose-built school operations platform. The six-step pipeline — Dashboard → Audit/Formation → Decision → Assign → Mensagens — covers the full lifecycle from student enrolment to classroom attendance. The visual ambition is evident: dark-gold branding, live data indicators, and multi-panel layouts. However, the system carries significant architectural debt. **Each file was built independently**, and this shows in divergent modal implementations, fragmented data contracts, aesthetic inconsistencies, and at least one file with hardcoded data. The risks compound at every hand-off point in the pipeline. This report catalogues what works, what needs refinement, and what is structurally missing.
 
 ---
 
-## 2. Stage-by-Stage Architecture
+## File-by-File Inventory
 
-### Stage 3 · Group Formation (`alm-group-formation`)
-Reads `enrolments` and `timetable_requests`. Groups students by level + branch + schedule compatibility using a pair-slot algorithm (e.g. Mon/Wed morning, Tue/Thu afternoon). Produces proposed groups in local memory only — nothing is written to the DB at this stage.
-
-### Stage 4 · Decision (`alm-confirmar-turmas-criadas`)
-Reads `enrolments` + `timetable_requests`. Re-runs the same grouping algorithm client-side. When the admin clicks "CRIAR TURMA," it writes to two tables simultaneously:
-- `timetable_requests` (sets `assigned_turma`, `status = 'atribuido'`)
-- `classes` (inserts one row per session per group, e.g. FUN-01A + FUN-01B for Mon/Wed)
-
-Confirmed state is also cached in `localStorage` (key `alm-dec-confirmed-2627`) so cards stay green across page reloads — but only on the same browser.
-
-### Stage 5 · Assign (`alm-atribuir-turmas`)
-Reads `classes` and `teachers`. Renders a weekly timetable grid. Admin clicks a band (class slot) to open a popup and assign a teacher. Writes `teacher_id`, `teacher_name`, `teacher_code` and optionally `sala` back to `classes`.
-
-### Stage 6 · Teacher Portal
-Reads `classes` filtered by `teacher_id`. Renders the teacher's weekly grid. Clicking a slot opens an action modal where the teacher submits attendance, a lesson summary, messages, or photocopy requests. Writes to `attendance`, `lesson_summaries`, `messages`, `teacher_requests`.
-
-### Stage 7 · Staff Dashboard (Mensagens & Pedidos)
-Reads all of the above in parallel for today. Renders a per-teacher view of attendance status, messages, summaries, and photocopy requests. Allows staff to mark messages as read/completed.
+| # | File | Role | Step |
+|---|------|------|------|
+| 1 | `dashboard.html` | Main hub, branch status, module navigation | Entry |
+| 2 | `alm-painel-central.html` | Timetable requests audit, overview, watchlist | Steps 1–2 |
+| 3 | `alm-confirmar-turmas-criadas.html` | Group proposals, group confirmation | Step 4 (Decision) |
+| 4 | `alm-atribuir-turmas.html` (v4) | Teacher assignment to confirmed groups | Step 5 |
+| 5 | `alm-atribuir-turmas.html` (v5) | Identical duplicate of v4 | Step 5 |
+| 6 | `alm-mensagens.html` | Teacher messages, attendance, photocopies | Step 6 |
 
 ---
 
-## 3. Exhaustive Flaw Register
+## Section 1 — What Works Well
 
-The flaws are grouped by the stage or cross-cutting concern they affect.
+### 1.1 Visual Language & Branding
+The dark purple-to-gold palette is cohesive and distinctive. The `Bebas Neue` display font for turma codes, the `IBM Plex Mono` for data, and the `IBM Plex Sans` for body copy form a deliberate typographic hierarchy. The gold shimmer (`#C9A84C / #E8C97A`) reads as premium. The branch status lights (healthy/viable/concerning/unviable) with animated flicker on warning states are immediately communicative.
 
----
+### 1.2 Supabase Integration Pattern
+The `sbGet()` pagination pattern (1000-row pages, up to 4–9 pages) is correct and defensive. Using `content-range` headers for counts is appropriate. The `Prefer: resolution=merge-duplicates` on class upserts is the right approach to prevent duplicates while preserving teacher assignments — this is the most operationally important design decision in the codebase and it is done correctly in the Decision file.
 
-### 3.1 · Data Contract — `classes` table structure is ambiguous
+### 1.3 Group Formation Algorithm (alm-painel-central.html)
+The `buildGroupProposals()` engine — bucketing by pair+block, singling out same-day conflicts, invalid time windows, and unplaceable students — is sophisticated and genuinely useful. The `SINALIZADO` panel with exportable CSV per group is a strong operational feature. The pair-block compatibility grid (SEG+QUA, TER+QUI, QUA+SEX, SÁB) maps directly to real scheduling constraints.
 
-**The `day_of_week` column is not reliably populated at write time.**
+### 1.4 Decision File (Step 4) — DB-Authoritative Confirmed State
+Loading `_confirmedCodes` from the `classes` table on boot (rather than localStorage) is correct. The `loadNextSeqBase()` fix preventing sequence collisions with existing DB codes is a meaningful safety measure. The non-destructive sync (`resolution=merge-duplicates` preserves teacher/room assignments) is the right contract between Step 4 and Step 5.
 
-Stage 4 writes two session rows per group (e.g. FUN-01A for Monday, FUN-01B for Wednesday) but the `day_of_week` value is derived from `box.pair.aL` / `box.pair.bL` — string labels like `"SEG"`, `"QUA"` — which are display strings, not normalised codes. If the label strings ever change (e.g. a branch uses `"SAB"` vs `"SÁB"`), Stage 5 and the Portal both silently fail to place the class on the correct grid row.
+### 1.5 Assign File (Step 5) — Teacher Ranking
+The `getRanked()` scoring function (lang match +4, no conflict +3, not over-hours +2, native speaker +1, minus load ratio) is a practical, explainable algorithm. The QA (Quick Assign) mode — double-click a teacher, then click bands — is an ergonomic power-user feature. The conflict detection (same day, same hour) is correct. The room conflict check (`checkSalaConflict`) extends this appropriately.
 
-Stage 5 (`alm-atribuir-turmas`) already has a defensive fallback chain in `normDay()` that tries `day_of_week`, then `group_key`, then `turma_code`. The Portal repeats this same heuristic. This means **the primary key of the visual grid is reverse-engineered from text patterns** rather than read from a clean column.
+### 1.6 Mensagens File (Step 6) — Absence Engine
+The absence threshold logic (minors: ≥2 absences → alert; adults: ≥3 absences) is school-policy-aware. The `alertLevel()` function returning `critical/red/minor/adult/null` provides graduated urgency. The print attendance sheet — generating a proper HTML print window with colour-coded rows, alert flags, and totals — is production-ready.
 
-**Impact:** Classes can appear on the wrong day or disappear from the grid entirely.
+### 1.7 Watchlist (alm-painel-central.html)
+The pin/unpin/resolve cycle with localStorage-backed notes is a clever low-cost CRM feature. The `resolved` flag and colour-coded card borders provide at-a-glance state. Notes carry timestamps.
 
----
-
-### 3.2 · Stage 4 → Stage 5 Disconnect: `start_time` / `end_time` not written
-
-Stage 4's `sbInsertClass()` writes `start_time` and `end_time` as fixed strings (`'09:00'` / `'10:30'` for morning, `'14:00'` / `'15:30'` for afternoon). These are hardcoded constants, not derived from the student's actual slot preferences. There is no mechanism to propagate the true scheduled time.
-
-Stage 5 uses `timeToBandPos()` to compute the pixel position of each band on the timetable. If `start_time` is missing or wrong, the band renders at the wrong position or not at all.
-
-**Impact:** The visual timetable in Stage 5 can show classes at the wrong hour, making teacher conflict detection meaningless.
-
----
-
-### 3.3 · Stage 4 · `localStorage` confirmation state is browser-local and ephemeral
-
-The `getConf()` / `saveConf()` mechanism stores which groups have been confirmed in `localStorage` under the key `alm-dec-confirmed-2627`. This means:
-
-- A group confirmed on Computer A is **not confirmed** when viewed on Computer B.
-- If the browser cache is cleared, all confirmation state is lost.
-- The `boxId` key format is `${activeLoc}|${lk}|${pair.code}|${block}|${seq}` — the `seq` component is generated positionally on every render. **If any new enrolment is added or the sort order of `enrolments` changes, all existing seq numbers shift, orphaning the localStorage keys.**
-
-The DB write to `classes` is the true confirmation. But the UI reads `localStorage` first and only falls back to the DB state indirectly (by checking if a `classes` row exists, which it does not re-query on load). The two sources of truth are never reconciled.
-
-**Impact:** Admin sees groups as "pending" that are already confirmed in the DB, or vice versa. Repeated clicks can attempt to re-insert already-existing `classes` rows.
+### 1.8 Topbar Navigation Consistency
+All files share the numbered tab strip (1 Painel → 2 Audit → 3 Formation → 4 Decision → 5 Assign → 6 Watch/Mensagens). The `tab-link` vs `tab` (active) distinction is consistently applied. The live dot + "LIVE" label sets correct expectations.
 
 ---
 
-### 3.4 · Stage 4 · Sequence counter drift breaks stable `boxId`
+## Section 2 — What Needs Refining
 
-The `nextSeq()` function increments a counter per branch on every `renderAll()` call. The counter resets on each render. The `boxId` therefore depends on the order in which groups are built, which depends on the order `buildProposals()` returns students, which depends on the order `enrolments` rows arrive from Supabase.
+### 2.1 🔴 CRITICAL: Five Different Student Modal/Dossier Implementations
 
-Although the fetch now includes `&order=ref` (FIX 2 in the code), any change to the underlying data — a new enrolment, a cancelled request, a status update — will shift group composition and therefore shift seq numbers.
+This is the most serious architectural flaw in the codebase. There are **five distinct implementations** of the student personal data card:
 
-**Impact:** Confirmed groups silently become "unconfirmed" in the UI after any data change. The admin must re-click "CRIAR TURMA" for groups that are already in the DB, generating duplicate `classes` rows or UPSERT conflicts.
+| File | Implementation | Style |
+|------|---------------|-------|
+| `alm-painel-central.html` | `openDossier()` — full V10 iOS-style sheet, 400+ lines | Dark glass, `DM Sans`, accordion sections |
+| `alm-confirmar-turmas-criadas.html` | `openDossier()` — inline modal, hero wave SVG, tiles | IBM Plex Mono, gold accent, drawer |
+| `alm-atribuir-turmas.html` (v4/v5) | `openDossier()` — `.ds-overlay` sheet, dept gradients | IBM Plex Mono, minimal, 3 accordion sections |
+| `alm-mensagens.html` | No student dossier — only inline row actions | No modal at all |
+| `dashboard.html` | No student dossier | Branch-level only |
 
----
+Each implementation fetches different columns, renders different sections, and has different save logic. A student's data can look completely different depending on which screen a staff member opens them from. This is **unacceptable in a production system** — it creates training confusion, inconsistent data edits, and maintenance nightmares.
 
-### 3.5 · Stage 4 → Stage 5 · `turma_code` format inconsistency
+**Required:** A single `ALMDossier` Web Component or shared JS module, injected via `<script src="/shared/dossier.js">`, with a consistent field set, save contract, and visual language.
 
-Stage 4 generates codes like `FUN-01`, and writes `classes` rows with `turma_code` values of `FUN-01A` and `FUN-01B` (session suffix). Stage 5 strips this suffix in the display (`turma_code.replace(/^[^-]+-/,'')`) but uses the full code for DB operations. The Teacher Portal also strips a prefix for display.
+### 2.2 🔴 CRITICAL: Files 4 and 5 Are Identical Duplicates
 
-Meanwhile `timetable_requests.assigned_turma` is set to the unsuffixed code `FUN-01`. So:
-- Stage 4 writes `assigned_turma = 'FUN-01'`
-- Stage 5's `classes` table has `turma_code = 'FUN-01A'` and `'FUN-01B'`
-- Stage 6 fetches `classes` by `teacher_id` and reads `turma_code` — there is no join back to `timetable_requests`
-- Stage 7 fetches `attendance` by `turma_code` and tries to match against `classes.turma_code`
+`alm-atribuir-turmas.html` appears twice in the document set (documents 4 and 5) with **identical code**. This means one of two things: either the file was accidentally duplicated, or two divergent versions exist in production with no clear canonical. Either scenario is dangerous — edits to one will not propagate to the other.
 
-**Impact:** Any query that tries to join `timetable_requests ↔ classes` on code will fail silently. The Staff Dashboard's "sem turma" counter is unreliable because assigned students (who have `assigned_turma = 'FUN-01'`) cannot be matched to their sessions (`FUN-01A`).
+**Required:** Immediately delete the duplicate. Establish a single canonical `alm-atribuir-turmas.html`.
 
----
+### 2.3 🔴 CRITICAL: Dashboard Has Hardcoded Branch Data
 
-### 3.6 · Stage 5 · Teacher loading assumes `branches` column, falls back silently
-
-`branchTeachers()` filters by `t.branches.includes(nb)`. The `teachers` table is loaded with `branches` parsed from `r.branches` — but the Supabase schema is never shown to contain this column. The boot query selects it but if it doesn't exist, each teacher gets `branches: [normB(branch_primary)]`, a single-element array.
-
-Multi-branch teachers (who could teach at Funchal and Câmara de Lobos) will always appear as single-branch. The teacher list for a given branch will be incomplete.
-
-**Impact:** Teachers may not appear in the Assign panel for branches where they are available, causing classes to go unassigned.
-
----
-
-### 3.7 · Stage 5 · Conflict detection is slot-level only, not duration-aware
-
-`getRanked()` detects conflicts by checking if a teacher has another class on the same `day_of_week` and same `hour`. But classes are 90 minutes long — a class at 9h occupies 9:00–10:30. A teacher with a 9h class cannot take a 10h class, but the system will not flag this.
-
-**Impact:** Double-booking teachers at adjacent hours. The visual grid will show two overlapping bands for the same teacher, but no warning is raised during assignment.
-
----
-
-### 3.8 · Stage 5 · `timeToBandPos()` depends on rendered DOM width
-
-The function iterates over `.gcell` elements and reads their `offsetWidth` at the moment of the call. If the grid is not yet fully laid out (e.g. during the initial render, or if fonts haven't loaded), `offsetWidth` returns 0 for all cells, and all bands collapse to `left: 0, width: 44`. The function is called inside `drawOneBand()` which is called from `drawBands()` inside a `requestAnimationFrame`, but no width-readiness check exists.
-
-**Impact:** On page load or after branch switch, all bands may briefly stack at position 0 before a forced repaint corrects them. In some browsers or slow connections this is permanent until manual interaction.
-
----
-
-### 3.9 · Stage 6 · Lesson number calculation is computed client-side from `school_config`
-
-The lesson number (e.g. "Aula 023 de 72") is computed in `lessonNumber()` by iterating every week from `YEAR_START` to `YEAR_END` and counting teaching days matching the class's `day_of_week`. This is done:
-- In the grid cell render
-- In the today strip
-- In the modal bar
-- In `barSelect()` when the admin navigates the lesson bar
-
-The calculation runs synchronously on the main thread, iterating up to ~300 dates per call, on every render of every slot. For a teacher with 6 classes, this is ~1800 date iterations per grid render.
-
-More critically, if `school_config` is not loaded (network error, missing table, first page load before the async fetch completes), `YEAR_START = ''` and `lessonNumber()` returns 0 for all slots — the lesson bar is blank, the lesson number badge disappears, and `attendance` records are written without `lesson_number`, making historical lookups impossible.
-
-**Impact:** Attendance records missing `lesson_number` can never be reliably queried by lesson. The lesson bar is non-functional on slow connections or if `school_config` is absent.
-
----
-
-### 3.10 · Stage 6 · `saveAttendanceRecords()` PATCH/POST race creates duplicate records
-
-The upsert strategy for attendance is: try PATCH, if it returns 0 rows try POST, if POST returns a 23505 (duplicate key) error try PATCH again. This is a three-step client-side upsert without a server-side `ON CONFLICT` clause.
-
-If two teachers or two browser tabs submit attendance for the same session simultaneously (e.g. a cover teacher and the regular teacher), both PATCHes will return 0 rows (the row doesn't exist yet), both will attempt POST, one will succeed and one will get 23505 and retry a PATCH — but by then the first insert has a `recorded_by` value that gets silently overwritten.
-
-Additionally, the catch branch for 23505 only catches the string `'23505'` or `'duplicate'` inside the response text. If Supabase changes its error format, the catch fails and throws a generic error, causing the entire batch to fail.
-
-**Impact:** Attendance records can be silently overwritten. Batch failures leave partial records with no indication of which students were saved.
-
----
-
-### 3.11 · Stage 6 · `lesson_summaries` upsert uses `on_conflict=turma_code,date` as a URL param
+`dashboard.html` defines `BRANCHES` as a JavaScript constant with hardcoded student counts, enrolment percentages, conflict counts, and health statuses:
 
 ```javascript
-const r = await fetch(`${SB}/rest/v1/lesson_summaries?on_conflict=turma_code,date`, {
-  headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-  ...
+const BRANCHES = [
+  { id:'funchal', label:'Funchal · Sede', status:'healthy', alunos:412, inscritos:'89%', turmas:38, dificeis:4 },
+  { id:'machico',  label:'Machico', status:'concerning', alunos:198, inscritos:'74%', turmas:14, dificeis:8 },
+  // ...
+];
 ```
 
-The `on_conflict` parameter in the URL works only if the `turma_code, date` combination has a `UNIQUE` constraint in Postgres. If this constraint doesn't exist, PostgREST ignores the param and performs a plain INSERT, creating duplicate summary rows for the same lesson.
+These numbers will never update. The dashboard's "health" indicator (`computeSchoolHealth()`) calculates from this static array. The enrolment count pill (`stat-alunos`) does fetch from Supabase via `loadEnrolmentCount()`, creating a visible contradiction: the pill shows a live total while the branch breakdown is frozen in time.
 
-There is also a mismatch: the insert body sets both `summary_text` and `summary` (duplicate), `observations` and `notes` (duplicate), `lesson_date` and `date` (duplicate). This suggests the schema has been through at least two revisions without cleanup, and queries in Stage 7 must try both field names:
+**Required:** Remove `BRANCHES` constant entirely. Fetch branch aggregates from Supabase using a view or RPC that computes counts, turma numbers, and conflict flags dynamically.
 
-```javascript
-const text = s.summary_text || s.summary || ''
-const notes = s.observations || s.notes || ''
+### 2.4 🟡 Supabase Data Contract Fragility
+
+The pipeline depends on several implicit contracts that are never validated:
+
+**`timetable_requests.assigned_turma` format ambiguity.** The Decision file stores `assigned_turma` as the primary session code (e.g. `FUN-01A`), but then strips the suffix (`replace(/[A-D]$/, '')`) to get the group code when needed. The Assign file derives `group_code` as `turma_code.replace(/[A-D]$/, '')`. If any code is ever generated without an alphabetic suffix (e.g. a Saturday double `FUN-01`), this regex silently corrupts. A dedicated `group_code` column should be the canonical reference, not a derived substring.
+
+**`day_of_week` normalisation is duplicated and inconsistent.** The string `'SÁB'` vs `'SAB'` is normalised differently across files:
+- `alm-painel-central.html`: `DAY_EN_TO_IDX` maps both `SAB` and `SÁB` to index 5
+- `alm-atribuir-turmas.html`: `normDay()` uses `.replace('SAB','SÁB')` on load
+- `alm-mensagens.html`: `normDay()` uses its own regex replace
+
+One database row with `day_of_week = 'SAB'` (no accent) will be handled differently by each file. **All normalisation must happen at write time, not read time.**
+
+**`student_refs` column is stringly typed.** It is stored as a JSON string in some rows and a native array in others. Every file handles this with its own try/catch JSON.parse block. This should be a native `jsonb[]` column with a NOT NULL default of `[]`.
+
+**`level_code` vs `level_cefr` dual-column ambiguity.** The Formation file uses `levelKey(e)` = `family|level_code` as a composite key. The Decision file uses `lk(e)` = `level_code || level_cefr`. The Assign file uses `getLM(c.level_code)`. If a row has `level_code = null` and `level_cefr = 'B1'`, three files will classify it differently.
+
+### 2.5 🟡 The `school_config` Table — Fragile Year Lifecycle
+
+`loadSchoolConfig()` in the dashboard fetches `year_start_date`, `year_end_date`, and `academic_year` from a `school_config` key-value table. The Formation and Mensagens files also call this. However:
+
+- If the table doesn't exist yet (new installation), the dashboard silently falls back to a hardcoded label — but other files (Mensagens) may crash on `YEAR_START` being empty, causing `buildDatesForDow()` to return an empty array, making every lesson number show as 0.
+- The year selection dropdown in the dashboard does not propagate to other open tabs. A staff member changing the year on the dashboard will see stale data in the Audit panel.
+
+### 2.6 🟡 The `_confirmedCodes` → `localStorage` Confusion in Decision File
+
+The Decision file correctly uses `_confirmedCodes` (a `Set` loaded from the DB) as the authoritative confirmed state. However, the comment history in the code references a previous `localStorage`-based mechanism, and the `school_config` table is still fetched from `alm_config` (a different table name) with a graceful fallback. If both tables exist simultaneously, the file silently ignores `alm_config` errors and uses hardcoded constants — meaning a production `alm_config` configuration is invisible to the system.
+
+### 2.7 🟡 QA Mode Conflict Check Is Incomplete
+
+In `alm-atribuir-turmas.html`, `qaAssign()` checks for teacher conflicts at `day_of_week === c.day_of_week && hour === c.hour`. But the actual class duration is 90 minutes. A teacher with a class at 9h and another at 10h has a real overlap (9:00–10:30 overlaps 10:00–11:30) that this check misses. The conflict detection should compare time ranges, not just hour integers.
+
+### 2.8 🟡 Watchlist Uses localStorage — Not Shared Between Devices
+
+The watchlist (`alm-watchlist`, `alm-watch-notes-{ref}`) is stored in `localStorage`. This means pins made on one device are invisible on another, and notes are lost when clearing browser storage. For a secretarial workflow where multiple staff share notes about a student, this is a significant limitation.
+
+### 2.9 🟡 `absCount` Calculation Window Is Incorrect
+
+In `alm-mensagens.html`, absences are fetched with:
 ```
-
-**Impact:** Multiple summary rows per lesson, duplicated fields, fragile reads. Stage 7 shows the wrong summary or the oldest one, not the latest.
-
----
-
-### 3.12 · Stage 7 · `buildTeacherMap()` defines "today's attendance" without lesson number
-
-Stage 7 considers a session "submitted" if there are attendance records matching `turma_code` AND (`lesson_number === info.lessonNum` OR `date === today`). The `date = today` fallback fires for every record ever written on this calendar date, regardless of which lesson number it corresponds to. A teacher who submitted attendance for a morning class will appear to have also submitted for their afternoon class.
-
-The `lessonNum` path depends on the same `getLessonInfo()` function with the same `school_config` dependency problem (flaw 3.9). If `YEAR_START` is empty, `lessonNum` is always 0, and the `lesson_number === 0` match is false for all real records, forcing the fallback — which as noted above produces false positives.
-
-**Impact:** The "submitted / not submitted" indicator in Stage 7 is unreliable in both directions: false positives (showing submitted when not) and false negatives (showing not submitted when it is). The red "sem pres." KPI count in the topbar is wrong.
-
----
-
-### 3.13 · Stage 7 · Messages and teacher_requests are merged into one array with an ad-hoc schema
-
-```javascript
-MESSAGES = [
-  ...(messages||[]).map(m => ({ ..., document: '', copies: '', sides: '', urgency: 'normal' })),
-  ...(requests||[]).map(r => ({ ..., message_type: r.type === 'foto' ? 'fotocopia' : 'internal_school', ... })),
-]
+date=gte.${yearStart}&date=lte.${yearEnd}
 ```
+But `yearStart` defaults to `weekDates[0]` (this Monday) if `school_config` hasn't loaded. This means if `school_config` fails, absence totals show **only this week's absences**, making every student look fine even if they have 11 cumulative absences. The alert system silently becomes inoperative.
 
-The `teacher_requests` table uses `type = 'foto'` to identify photocopy requests, but the `messages` table uses `message_type = 'fotocopia'`. These are different columns on different tables with different vocabularies, merged into a shared in-memory object. Filtering by `message_type === 'fotocopia'` works for both only because the merge step translates — but if a new request type is added to `teacher_requests`, the translation is not updated and it silently falls into the "internal_school" bucket.
+### 2.10 🟡 Missing Optimistic UI Feedback in Several Files
 
-The `markMsg()` function writes back to `messages` or `teacher_requests` based on `source`, but `status` field semantics differ: `messages` uses `'read'` / `'archived'`, `teacher_requests` uses `'completed'` / `'rejected'`. If the wrong status string is sent to the wrong table, PostgREST may accept it silently (if the column is a free-text field) or reject it (if it's a Postgres enum). No error handling distinguishes between these cases.
-
-**Impact:** Marking a photocopy request as "read" (instead of "completed") silently writes an invalid status. The request reappears as pending on the next reload, and the staff member must mark it again.
-
----
-
-### 3.14 · Cross-stage · `academic_year` filtering is inconsistent
-
-Stage 4 fetches `enrolments` with `academic_year=eq.2026/2027`. Stage 5 fetches `classes` with `academic_year=eq.2026/2027`. The Teacher Portal fetches `classes` with `academic_year=eq.${AY}` where `AY` is loaded from `school_config`.
-
-If `school_config` hasn't loaded before `loadTeacherData()` runs (it's awaited in `boot()` but via `Promise.all` together with `loadCalendarData()`), `AY` could be an empty string, making the filter `academic_year=eq.` which either returns all rows or zero rows depending on Supabase's handling of empty string equality.
-
-Stage 7 does not filter `classes` by academic year at all in its initial load. It fetches all classes for the teacher, across all years.
-
-**Impact:** Teachers see classes from previous years in their portal. Stage 7 attendance counts mix records from multiple academic years. KPIs are inflated.
+The Decision file shows a saving state on the "CRIAR TURMA" button (turns teal, says "A GUARDAR…"), which is correct. But in the Assign file, `popConfirm()` has no visual loading state — the user clicks "Atribuir" and nothing happens until the `sbPatch` resolves. On a slow connection this looks like a broken button. The same applies to `saveAll()`.
 
 ---
 
-### 3.15 · Cross-stage · No foreign key enforcement between `classes.teacher_id` and `teachers.id`
+## Section 3 — What Is Clearly Missing
 
-The schema is managed entirely through application code. There is no evidence of database-level foreign key constraints. A teacher can be deleted from `teachers` while still referenced in `classes`, `attendance` (`recorded_by`), `messages`, and `teacher_requests`. The portal would load zero teacher data for that `teacher_id` silently.
+### 3.1 No Shared Component Library
 
-Similarly, `attendance.student_ref` references `enrolments.ref` (a string, not a UUID), but there is no FK. If a student is deleted from enrolments, their attendance records remain and the Portal cannot resolve the name, showing the raw ref string instead.
+Every file reinvents: avatar colour generation (`avCol()`), avatar initials (`avInit()`), toast notifications (`showToast()`), badge rendering, and spinner HTML. These are copy-pasted with minor variations across all 6 files. A shared `alm-shared.js` (or a Web Component bundle) would:
+- Guarantee consistent avatar colours for the same student/teacher across all screens
+- Ensure toast messages have identical timing and style
+- Allow the student dossier to be fixed in one place
 
-**Impact:** Data integrity depends entirely on admin discipline, not database constraints. Deleting or updating a teacher or student cascades no cleanup.
+### 3.2 No Role-Based Access Control
 
----
+Every file loads with full read/write access using the anonymous Supabase key. There is no concept of:
+- Staff roles (secretária vs director vs professor)
+- Read-only vs read-write per module
+- Audit trail of who changed what
 
-### 3.16 · Cross-stage · The `group_key` / `level_code` / `level_display` triangle is unresolved
+The anon key is embedded in the HTML source, visible to any user who opens DevTools. For a production school system handling minor student data, this is a GDPR compliance risk.
 
-`classes` rows contain three overlapping level identifiers:
-- `level_code`: the canonical key (e.g. `'3'`, `'PJ2'`, `'Portugues'`)
-- `level_display`: a human label (e.g. `'Ano 3'`, `'PJ 2'`, `'Português'`)
-- `group_key`: a hyphen-separated composite (e.g. `'FUNCHAL-3-SW-tarde'`)
+### 3.3 No Error Recovery UI
 
-Stage 5's `getDept()` tries `department`, then parses `group_key` for known department strings, then falls back to `LEVEL_MAP[level_code]`. This triple fallback exists because Stage 4 doesn't always write `department` reliably — it derives it from `getLM(sampleEnrol).dept` where `sampleEnrol` is the first student in the group, which could be empty if `student_refs` is empty.
+When Supabase returns an error, files show a red toast or a text message in a container, but offer no retry mechanism. The user must manually reload the page. A standardised error boundary component with a "Tentar novamente" button and a "Contactar suporte" link would significantly reduce staff frustration.
 
-Stage 7 repeats this same three-step fallback. The Portal does as well. All three pages have slightly different fallback implementations, meaning the same class can be categorised as different departments on different pages.
+### 3.4 No Offline / Connection State Indicator
 
-**Impact:** Class colouring (the coloured left border and background) is inconsistent across pages. A "Geral" class in Stage 5 may appear as "Exames" in Stage 7.
+The "LIVE" dot always blinks green regardless of actual connectivity. If Supabase is unreachable, the user sees stale data with no visual warning. The dot should turn amber when the last fetch failed, and red when multiple fetches have failed in succession.
 
----
+### 3.5 No Data Validation Before Write
 
-### 3.17 · Stage 6 & 7 · `school_breaks` and `school_holidays` tables are optional but silently absent
+The Decision file writes to `classes` without validating:
+- That `student_refs` is non-empty before creating a class
+- That `start_time < end_time`
+- That the `level_code` in the class row matches what enrolments expect
+- That `branch` is a valid enum value
 
-Both the Portal and Stage 7 attempt to load `school_holidays` and `school_breaks`. If these tables don't exist, the `catch` block logs a warning and continues with empty sets. `isTeachingDay()` then returns `true` for every date, meaning public holidays and school breaks are counted as teaching days.
+A validation layer between the UI action and the Supabase write would prevent silent bad data from propagating downstream.
 
-This inflates `lessonTotal` — a class that runs on Mondays may show "Aula 023 de 72" when the real total excluding holidays is 68. The progress bar in the lesson modal reaches 100% at a later date than the actual year end. Teachers are asked to submit attendance for lessons that never happen.
+### 3.6 No Audit/Change Log
 
-**Impact:** Lesson numbering is wrong by approximately the number of holidays in the year. Attendance records are created for non-teaching days when the admin clicks a past date in the lesson bar.
+When a teacher is reassigned from one class to another in the Assign file, the old assignment is overwritten in the DB with no record of the change. When a student is moved between groups in the Decision file, the same. A `change_log` table with `{table, row_id, field, old_value, new_value, changed_by, changed_at}` is essential for any system that modifies student placements.
 
----
+### 3.7 The Mensagens File Has No Student Dossier Access
 
-### 3.18 · Stage 4 · "SYNC → Step 5" does not pass teacher or room data
+Staff in the Mensagens module can see a student's name, reference, and absence count inline in the attendance row, but cannot open a dossier to see their contact details, guardian info, notes, or timetable request. The only actions available are four icon buttons (message, call, email, flag) that currently just `showToast()` — they do not open any external link or modal. This is a dead end in the workflow.
 
-The "Sync → Step 5" button calls `syncAllToClasses()`, which iterates confirmed groups and calls `sbInsertClass()` for each. The insert body never includes `teacher_id`, `teacher_code`, `teacher_name`, or `sala`. These fields are `null` on all synced rows.
+### 3.8 No "Mensagens" Module Navigation from Other Files
 
-Stage 5 must then assign teachers to every class from scratch. If a teacher was already assigned in a previous sync, and then "Sync → Step 5" is run again (e.g. after adding students), the teacher assignment is overwritten with `null` due to the `resolution=merge-duplicates` upsert.
+The six-tab navigation strip in files 2–5 ends at tab 6 "Watch/Acompanhar". The Mensagens module (`alm-mensagens.html`) is not in this strip. Staff navigating the pipeline have no in-app link to the messages module from within the workflow — they must return to the dashboard and click the Mensagens tile from the modules grid.
 
-**Impact:** Syncing from Stage 4 destroys all teacher assignments made in Stage 5. The admin must re-assign all teachers after every sync. This is a destructive operation with no warning.
+### 3.9 No Real-Time Subscriptions
 
----
+All files use polling (the Mensagens file auto-refreshes every 60 seconds via `setInterval`). Supabase provides WebSocket-based real-time subscriptions via `supabase.channel()`. Attendance records submitted by a teacher via a separate teacher-facing app would not appear in the secretariat view until the next poll. For a live classroom environment, 60-second latency on attendance data is too slow.
 
-### 3.19 · Stage 4 · Min/Max group size is double-read: constants then DB
+### 3.10 No Mobile Layout for Operational Files
 
-`MIN_G` and `MAX_G` are initialised as constants (5 and 17) and optionally overridden from `alm_config`. However, `buildProposals()` uses the module-level `MIN_G` / `MAX_G` variables, and `buildCardHTML()` uses `MAX_G` for the capacity fraction display. If `alm_config` loads after the first `renderAll()` call (which it does, since `loadConfig()` → `loadAll()` → `renderAll()` is the sequence and config loads first), the first render uses the correct values.
+The dashboard has a responsive mobile breakpoint. Files 2–6 do not. The Assign file in particular (a weekly timeline grid with pixel-positioned bands) is completely unusable on a mobile or tablet screen. For a school where staff may walk between branches, this is a functional gap.
 
-But the `alm_config` fetch can fail silently (caught exception, logs info). If it fails, the fallback constants are used — and there is no visual indicator that the configuration is missing.
+### 3.11 No Student Photo
+Every student avatar is a generated colour-initial disc. The `has_id_photo` field exists in `timetable_requests` and is referenced in the dossier, but no file ever fetches or displays an actual photo. The `ds-av` element always shows initials. A 32px circular photo from a Supabase Storage bucket would dramatically improve staff recognition speed, especially in the attendance flow.
 
-**Impact:** If the school changes its group size policy (e.g. to 12 students max), and `alm_config` is unavailable, Stage 4 will propose and create groups of up to 17, and Stage 5's capacity display will show fractions against 17.
-
----
-
-### 3.20 · Stage 6 · `barSelect()` clears message and summary forms on navigation
-
-When the admin selects a past lesson in the bar, `barSelect()` explicitly clears:
-```javascript
-document.querySelectorAll('#tab-mensagem input[type=text], #tab-mensagem textarea').forEach(el => el.value = '');
-document.querySelectorAll('#tab-mensagem .chip').forEach(c => c.classList.remove('active'));
-```
-This is correct for messages (which are session-specific). But `loadLessonData()` is called afterward and repopulates the summary tab from the DB. If `loadLessonData()` fails (network error, missing `lesson_summaries` table), the summary tab is left blank — the teacher sees no previously submitted summary even though one exists.
-
-The save button is also disabled during `loadLessonData()` and re-enabled in `finally`. If the user navigates away (closes the modal, clicks another lesson) before the load completes, the modal closes with the button still disabled.
-
-**Impact:** Teachers lose access to their own submitted summaries when network conditions are poor. The save button can get stuck in a disabled state.
+### 3.12 No Teacher Portal Integration
+The entire pipeline assumes secretariat-side data entry. There is no indication of a teacher-facing interface for submitting sumários, attendance, or requesting photocopies programmatically. The `lesson_summaries`, `attendance`, and `teacher_requests` tables are read by the Mensagens file but the submission flow is opaque.
 
 ---
 
-## 4. Summary Matrix
+## Section 4 — Aesthetic & UX Recommendations
 
-| # | Stage | Severity | Type | Description |
-|---|---|---|---|---|
-| 3.1 | 4→5 | High | Data contract | `day_of_week` derived from display strings |
-| 3.2 | 4→5 | High | Data contract | `start_time`/`end_time` hardcoded, not derived |
-| 3.3 | 4 | High | State management | Confirmation state in browser-local localStorage |
-| 3.4 | 4 | High | State management | `boxId` sequence shifts on any data change |
-| 3.5 | 4→5→6→7 | High | Data contract | `turma_code` suffix mismatch (`FUN-01` vs `FUN-01A`) |
-| 3.6 | 5 | Medium | Data contract | `branches` column assumed, multi-branch filtering broken |
-| 3.7 | 5 | Medium | Logic | Conflict detection ignores class duration |
-| 3.8 | 5 | Low | Rendering | Band position depends on DOM width at render time |
-| 3.9 | 6 | High | Logic | Lesson numbers computed client-side, fail if config missing |
-| 3.10 | 6 | Medium | Reliability | Attendance upsert race condition, fragile duplicate detection |
-| 3.11 | 6 | Medium | Data contract | `lesson_summaries` upsert requires unverified UNIQUE constraint |
-| 3.12 | 7 | High | Logic | "Submitted" detection produces false positives and negatives |
-| 3.13 | 7 | Medium | Data contract | `messages` and `teacher_requests` merged with ad-hoc translation |
-| 3.14 | All | High | Data contract | `academic_year` filter absent or empty-string in several fetches |
-| 3.15 | All | Medium | Database | No FK constraints — deletes cascade silently |
-| 3.16 | All | Medium | Data contract | Three overlapping level identifiers resolved differently per page |
-| 3.17 | 6,7 | Medium | Logic | Holiday tables optional but absence inflates lesson count |
-| 3.18 | 4→5 | High | UX | Sync overwrites teacher assignments with null (destructive) |
-| 3.19 | 4 | Low | Config | Group size config failure is silent |
-| 3.20 | 6 | Low | UX | Lesson navigation clears forms, save button can freeze |
+### 4.1 The Winning Dossier Design
+
+The **V10 dossier in `alm-painel-central.html`** is the most sophisticated implementation. It has:
+- A colour-matched hero gradient per department
+- A contact strip with phone/email deep links
+- Collapsible accordion sections with smooth chevron animation
+- Per-year academic history with attendance bars
+- Flag chips for behavioural/payment notes
+- Watchlist pin integration
+
+This design should become the **single canonical dossier**, shared across all files. It needs one addition: a "Turma actual" section showing the confirmed group code, teacher, and schedule from the `classes` table.
+
+### 4.2 Dashboard — Replace Hardcoded Branch Cards with Live Tiles
+
+The branch row at the bottom of the dashboard should become a live data component: each branch tile shows a sparkline of enrolment over the past 4 weeks, the current pending/confirmed group ratio, and the number of unread messages. The health status should derive from actual DB aggregates, not a frozen constant array.
+
+### 4.3 Decision File — Card Size Inconsistency
+
+The group cards in the Decision file use `--card-w: 192px` (a fixed width in a `flex-wrap` grid). On wide screens this creates rows of 6–8 cards that are hard to scan. The cards should use a CSS Grid with `minmax(220px, 1fr)` to fill the available width responsively. The "CRIAR TURMA" button area at the bottom of each card is too small (34px height) for confident touch interaction — increase to 44px.
+
+### 4.4 Formation File — The Sinalizado Panel Needs Visual Rescue
+
+The `SINAL` block in the Formation overview is rendered in the same container as group cards, creating visual competition. It should be moved to a persistent sidebar or a dedicated modal — the orange pulsing border on "SINAL" cards in the Decision file is more effective at communicating urgency. The same signal design should apply here.
+
+### 4.5 Assign File — Band Labels Are Too Small for Real Use
+
+The timeline band labels (`cband-teacher` at 11px, `cband-code` at 13px) are readable only on high-DPI screens. On a standard 1080p monitor at 100% zoom, bands narrower than 80px show only the avatar disc, which is unidentifiable without hover. Consider a minimum band width of 90px, and for bands under 120px, show only the turma code (no teacher name).
+
+### 4.6 Mensagens File — Teacher List Is Underutilising the Left Panel
+
+The teacher list shows name, flag icons, and today's class count. It should also show:
+- An unread message badge count (already computed as `pendingMsgs.length`)
+- A colour-coded absence alert ring around the avatar (mirroring the Assign file's radial progress ring)
+- The next upcoming class time
+
+The right panel hero gradient is reused from the Assign file and looks identical. The Mensagens file should have a distinctly warmer, less monochrome hero — perhaps a richer gold tone to signify the communications context.
+
+### 4.7 Typography Consistency
+
+| File | Body font | Display font |
+|------|-----------|-------------|
+| Dashboard | `Inter` (system fallback) | — |
+| Painel Central | `IBM Plex Mono` + `IBM Plex Sans` + `DM Sans` | — |
+| Decision | `IBM Plex Mono` + `IBM Plex Sans` + `Bebas Neue` | Bebas Neue |
+| Assign | `IBM Plex Mono` + `IBM Plex Sans` + `Bebas Neue` | Bebas Neue |
+| Mensagens | `IBM Plex Mono` + `IBM Plex Sans` + `Bebas Neue` | Bebas Neue |
+
+The dashboard loads `Cinzel`, `JetBrains Mono`, and `Outfit` — none of which appear in any other file. This creates a jarring font jump when navigating from the dashboard to the pipeline. **Standardise on: `Bebas Neue` (display) + `IBM Plex Sans` (body) + `IBM Plex Mono` (data/code).** Drop Cinzel, JetBrains Mono, Outfit, Inter, and DM Sans.
 
 ---
 
-## 5. Root Causes
+## Section 5 — Data Pipeline Risk Map
 
-Three underlying architectural problems explain the majority of the specific flaws above.
+The following table maps every data hand-off point and its associated risk:
 
-**A. No server-side computed fields.** Things that should be stored columns (day of week as a normalised integer, lesson number, session start/end) are recomputed client-side on every render, by every page, with slightly different logic each time. The DB is a raw data store, not a schema that enforces meaning.
-
-**B. Two sources of truth for confirmation state.** The `classes` table is the DB record, but `localStorage` is the UI record. They diverge whenever the page is opened in a new browser, when data changes, or when the seq counter drifts. All UI state that matters should be stored in the DB.
-
-**C. The `turma_code` namespace is split.** Stage 4 assigns a code (`FUN-01`) and then writes suffixed session codes (`FUN-01A`, `FUN-01B`) to `classes`. But `timetable_requests` stores the unsuffixed code. No view or function joins these cleanly. Every downstream page has to guess which format to use.
+| Hand-off | From | To | Risk | Severity |
+|----------|------|----|------|----------|
+| Enrolment → Timetable Request | `enrolments.ref` | `timetable_requests.ref` | No FK enforcement visible; orphan refs possible | 🔴 High |
+| Timetable Request → Group | `timetable_requests.ref` in `student_refs[]` | `classes.student_refs` | JSON string vs array type mismatch | 🔴 High |
+| Group Proposal → Class Creation | Algorithm `buildProposals()` | `sbInsertClass()` | `level_code` not validated against enrolment | 🟡 Medium |
+| Class → Teacher Assignment | `classes.group_code` | PATCH by `group_code=eq.X` | Suffix-stripping regex can corrupt non-standard codes | 🔴 High |
+| Class → Attendance | `classes.turma_code` | `attendance.turma_code` | No referential integrity; mistyped code = lost attendance | 🔴 High |
+| Attendance → Absence Count | `attendance.student_ref` | `absCount` in memory | Defaults to current-week only if `school_config` absent | 🟡 Medium |
+| Absence Count → Alert | `absCount[ref]` | `isAlerted(ref)` | `isMinorMap[ref]` defaults to `false` if enrolment missing | 🟡 Medium |
+| Message → Resolution | `messages.status` | PATCH + UI update | No optimistic rollback on PATCH failure | 🟢 Low |
 
 ---
 
-*Report generated from code audit of: `alm-confirmar-turmas-criadas`, `alm-atribuir-turmas`, Portal do Professor, Mensagens & Pedidos. Date: 2026-05-13.*
+## Section 6 — Priority Action List
+
+### Immediate (Blocking)
+
+1. **Delete the duplicate `alm-atribuir-turmas.html` (document 5).** Confirm which is canonical.
+2. **Remove hardcoded `BRANCHES` array from dashboard.** Replace with a Supabase aggregation query.
+3. **Standardise `day_of_week` normalisation at write time.** Pick `'SÁB'` as the canonical form; enforce it in the DB with a CHECK constraint.
+4. **Fix `student_refs` column type.** Migrate to `jsonb` with `DEFAULT '[]'::jsonb`; remove all try/catch JSON.parse blocks.
+5. **Guard `absCount` against empty `YEAR_START`.** Add a hard fallback date (e.g. `'2026-09-01'`) and surface a warning banner when `school_config` is absent.
+
+### Short Term (High Impact)
+
+6. **Build the shared dossier component** based on the V10 implementation in `alm-painel-central.html`. Export as `window.ALMDossier.open(ref)`. Replace all 4 existing implementations.
+7. **Move watchlist to Supabase** (`watchlist` table with `ref, staff_id, pinned_at, resolved, notes[]`). Remove all `localStorage` usage.
+8. **Add a dedicated `group_code` column** to `classes`. Stop deriving it via regex from `turma_code`.
+9. **Add the Mensagens tab** to the six-step navigation strip in all pipeline files.
+10. **Implement time-range conflict detection** in the Assign file's QA mode.
+
+### Medium Term (Quality)
+
+11. Standardise typography to Bebas Neue + IBM Plex Sans + IBM Plex Mono across all files.
+12. Add loading states and disabled buttons during all async write operations.
+13. Replace the always-green "LIVE" dot with a real connectivity state indicator.
+14. Add a `change_log` table and write to it on every group/teacher/student placement change.
+15. Implement Supabase real-time subscriptions for attendance and messages.
+16. Add mobile breakpoints to files 2–5.
+
+### Longer Term (Strategic)
+
+17. Move the Supabase anon key to an environment variable or server-side proxy; implement row-level security policies per staff role.
+18. Build the teacher-facing submission portal for sumários, attendance, and photocopy requests so the Mensagens file receives real data.
+19. Add student photo support via Supabase Storage.
+20. Build a single `ALM_SHARED_CONFIG` object (fetched once on app load) containing `AY`, `YEAR_START`, `YEAR_END`, `BRANCHES`, `LEVELS`, `PAIRS` — shared across all files via `sessionStorage` or a service worker cache.
+
+---
+
+## Conclusion
+
+The ALM pipeline is a genuinely capable system with strong domain modelling and several excellent UX ideas. The group formation algorithm, the teacher ranking engine, the absence alert system, and the non-destructive sync pattern are all production-quality features. The visual identity is distinctive and appropriate for a professional school administration context.
+
+The critical risk is **fragmentation**: five modal implementations, six files that each independently fetch and interpret the same data, one file with hardcoded numbers, and no shared contract for the most important identifiers in the system (`group_code`, `day_of_week`, `student_refs`). In a pipeline where one file's output is another file's input, a silent data mismatch does not produce an error — it produces a wrong class, a wrong teacher assignment, or a missed absence alert.
+
+The immediate priority is consolidation: one dossier, one data normalisation layer, one source of truth for branch and level configuration, and one canonical copy of every file. From that stable foundation, the aesthetic and feature improvements will compound into a system the ALM secretariat can rely on with confidence.
+
+---
+
+*Report prepared May 2026 · ALM · Academia de Línguas da Madeira*
