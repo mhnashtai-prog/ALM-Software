@@ -41,8 +41,17 @@ body{display:flex;flex-direction:column}
 .brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2);font-family:var(--display)}
 .brand-yr{font-size:8px;color:var(--t2);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
 .topbar-mid{flex:1;display:flex;align-items:center;padding:0 16px;gap:8px}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
-.live-lbl{font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--green)}
+
+/* ── LIVE DOT — real connectivity state (audit §3.4) ── */
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);transition:background .4s}
+.live-dot.conn-ok{background:var(--green);animation:blink 2s infinite}
+.live-dot.conn-amber{background:var(--amber);animation:blink 1.2s infinite}
+.live-dot.conn-red{background:var(--red);animation:blink .8s infinite}
+.live-lbl{font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--green);transition:color .4s}
+.live-lbl.conn-ok{color:var(--green)}
+.live-lbl.conn-amber{color:var(--amber)}
+.live-lbl.conn-red{color:var(--red)}
+
 .tb-chip{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border:1px solid var(--b2);border-radius:2px;color:var(--t2)}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
 .tb-pill{font-size:8px;font-weight:700;letter-spacing:.06em;padding:4px 11px;border:1px solid;border-radius:2px;white-space:nowrap}
@@ -268,7 +277,11 @@ body{display:flex;flex-direction:column}
     <a class="nav-back" href="/admin/alm-painel-central"><span class="nav-back-arrow">←</span><span class="nav-back-label">Painel</span></a>
   </div>
   <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr" id="brand-yr">——</span></div>
-  <div class="topbar-mid"><div class="live-dot"></div><span class="live-lbl">LIVE</span><div class="tb-chip">Secretaria · Mensagens & Pedidos</div></div>
+  <div class="topbar-mid">
+    <div class="live-dot conn-ok"></div>
+    <span class="live-lbl conn-ok" id="live-lbl">LIVE</span>
+    <div class="tb-chip">Secretaria · Mensagens & Pedidos</div>
+  </div>
   <div class="topbar-right">
     <div class="tb-pill red"  id="kpi-msgs">— msgs</div>
     <div class="tb-pill warn" id="kpi-foto">— fotoc.</div>
@@ -321,7 +334,10 @@ body{display:flex;flex-direction:column}
     </div>
   </div>
 </div>
-<div class="botbar"><span>ALM · Secretaria · <span style="color:var(--green);font-weight:700">Supabase live</span></span><div class="bot-right"><span id="bot-src">A carregar…</span></div></div>
+<div class="botbar">
+  <span>ALM · Secretaria · <span id="bot-conn" style="color:var(--green);font-weight:700">Supabase live</span></span>
+  <div class="bot-right"><span id="bot-src">A carregar…</span></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -414,6 +430,26 @@ function alertLevel(ref){
 let TEACHERS=[],TEACHER_MAP={},CLASSES=[],ENROL_MAP={},MESSAGES=[],ATTEND=[],SUMARIOS=[];
 let SEL_TEACHER=null,SEL_TAB='turmas',FILTER='all',EXPANDED_CLASS=null;
 
+/* ── CONNECTIVITY STATE (audit §3.4) ──────────────────────────────────── */
+let _connFails=0;
+function setConnState(ok){
+  const dot=document.querySelector('.live-dot');
+  const lbl=document.getElementById('live-lbl');
+  const bc=document.getElementById('bot-conn');
+  if(ok){
+    _connFails=0;
+    dot.className='live-dot conn-ok';
+    if(lbl){lbl.className='live-lbl conn-ok';lbl.textContent='LIVE';}
+    if(bc){bc.style.color='var(--green)';bc.textContent='Supabase live';}
+  }else{
+    _connFails++;
+    const severe=_connFails>=3;
+    dot.className='live-dot '+(severe?'conn-red':'conn-amber');
+    if(lbl){lbl.className='live-lbl '+(severe?'conn-red':'conn-amber');lbl.textContent=severe?'SEM LIGAÇÃO':'INSTÁVEL';}
+    if(bc){bc.style.color=severe?'var(--red)':'var(--amber)';bc.textContent=severe?'Sem ligação':'Ligação instável';}
+  }
+}
+
 /* BOOT */
 async function boot(){
   setBotSrc('A carregar…');
@@ -447,9 +483,15 @@ async function boot(){
       ...(requests||[]).map(r=>({id:r.id,source:'teacher_requests',teacher_id:r.teacher_id,teacher_name:r.teacher_name||'—',message_type:r.type==='foto'?'fotocopia':'internal_school',turma_code:r.turma_code||null,lesson_number:null,to:'Secretaria',subject:r.type==='foto'?`Fotocópias · ${r.document||'—'}`:'Mensagem',body:r.observations||'',status:r.status||'pending',created_at:r.created_at,document:r.document||'',copies:r.copies||'',sides:r.sides||'',urgency:r.urgency||'normal'})),
     ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     buildTeacherMap();updateKPIs();renderLeft();
+    setConnState(true); /* ← audit §3.4 */
     setBotSrc(`Supabase · ${TEACHERS.length} profs · ${CLASSES.length} turmas · ${MESSAGES.filter(m=>m.status==='pending').length} msgs pendentes`);
     showToast(`${TEACHERS.length} professores carregados`,'ok');
-  }catch(e){console.error(e);setBotSrc('Erro: '+e.message);showToast('Erro: '+e.message,'err');}
+  }catch(e){
+    console.error(e);
+    setConnState(false); /* ← audit §3.4 */
+    setBotSrc('Erro: '+e.message);
+    showToast('Erro: '+e.message,'err');
+  }
 }
 
 function buildTeacherMap(){
