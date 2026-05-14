@@ -360,7 +360,12 @@ async function sbPatch(table,qs,body){
   const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(body)});
   if(!r.ok){const t=await r.text();throw new Error(`patch ${r.status}: ${t.slice(0,120)}`);}
 }
-
+function thirtyDaysAgo() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+  
 /* CALENDAR */
 let AY='',YEAR_START='',YEAR_END='';
 let HOLIDAYS=new Set(),BREAKS=[];
@@ -464,7 +469,7 @@ async function boot(){
       sbGet('teachers','select=*&limit=200'),
       sbGet('classes','select=*&order=hour&limit=500').catch(()=>[]),
       sbGet('enrolments','select=ref,name,lang,level_code,is_minor&limit=3000').catch(()=>[]),
-      sbGet('attendance',`select=*&date=in.(${weekDates.join(',')})&limit=5000`).catch(()=>[]),
+      sbGet('attendance', `select=*&date=gte.${thirtyDaysAgo()}&limit=10000`).catch(()=>[]),
       sbGet('attendance',`select=student_ref&status=eq.absent&date=gte.${yearStart}&date=lte.${yearEnd}&limit=10000`).catch(()=>[]),
       sbGet('lesson_summaries','select=*&order=date.desc&limit=1000').catch(()=>[]),
       sbGet('messages','select=*&order=created_at.desc&limit=500').catch(()=>[]),
@@ -526,28 +531,26 @@ function buildTeacherMap(){
 
   const isFotocopia=m=>m.message_type==='fotocopia'||m.message_type==='foto';
 
-  TEACHERS.forEach(t=>{
-    const myClasses=CLASSES.filter(c=>c.teacher_id===t.id);
-    const todaySlots=myClasses.filter(c=>c.day_of_week===todayKey);
+TEACHERS.forEach(t=>{
+  const myClasses=CLASSES.filter(c=>c.teacher_id===t.id);
+  const todaySlots=myClasses.filter(c=>c.day_of_week===todayKey);
+  const submissions={};
 
-    const submissions={};
-    myClasses.forEach(slot=>{
-      const slotDate=weekDateFor(slot.day_of_week);
-      const info=getLessonInfo(slot.day_of_week,slotDate);
-      const records=ATTEND.filter(
-        a=>a.turma_code===slot.turma_code&&
-           (a.date===slotDate||(info.lessonNum>0&&a.lesson_number===info.lessonNum))
-      );
-      if(records.length){
-        submissions[slot.turma_code]={
-          records,slotDate,
-          lNum:info.lessonNum,lTotal:info.lessonTotal,
-          isToday:slotDate===today,
-          presentes:records.filter(r=>r.status==='present'||r.status==='late').length,
-          total:records.length,
-        };
-      }
-    });
+  myClasses.forEach(slot=>{
+    const allForTurma=ATTEND.filter(a=>a.turma_code===slot.turma_code);
+    if(!allForTurma.length)return;
+    const latestDate=allForTurma.reduce((best,r)=>r.date>best?r.date:best,'');
+    const records=allForTurma.filter(a=>a.date===latestDate);
+    const isToday=latestDate===today;
+    const info=getLessonInfo(slot.day_of_week,latestDate);
+    submissions[slot.turma_code]={
+      records,slotDate:latestDate,
+      lNum:info.lessonNum,lTotal:info.lessonTotal,
+      isToday,
+      presentes:records.filter(r=>r.status==='present'||r.status==='late').length,
+      total:records.length,
+    };
+  });
 
     const alertedStudents=new Set();
     myClasses.forEach(slot=>(slot.student_refs||[]).forEach(ref=>{if(isAlerted(ref))alertedStudents.add(ref);}));
