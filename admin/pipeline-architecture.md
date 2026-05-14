@@ -321,4 +321,70 @@ The immediate priority is consolidation: one dossier, one data normalisation lay
 
 ---
 
+cat << 'SUMMARY'
+CHANGES SUMMARY — all 4 files
+═══════════════════════════════
+
+alm-confirmar-turmas-criadas.html (DONE ✓)
+  ✓ CSS: .box-grid flex-wrap → CSS Grid minmax(220px,1fr) — audit §4.3
+  ✓ CSS + JS: .criar-btn height 40px → 44px touch target — audit §4.3
+  ✓ Nav: tab 7 Mensagens added to pipeline strip — audit §3.8
+  ✓ day_of_week: SAB → SÁB canonical at write time — audit §2.4
+  ✓ student_refs: Array.isArray guard — audit §2.4
+  ✓ parseDp: hardened to reject non-array JSON — audit §2.4
+  ✓ Live dot: real connectivity state (amber/red/green) — audit §3.4
+  ✓ Error recovery: "Tentar novamente" retry button — audit §3.3
+
+alm-atribuir-turmas.html (TO DO)
+  → nav-home href="#" → "/admin/dashboard"
+  → Add tab 7 Mensagens to pipeline strip
+  → qaAssign: time-range conflict check (not hour equality) — audit §2.7
+  → Live dot: real connectivity state
+  → popConfirm: loading state on button — audit §2.10
+
+alm-ficha-professor.html / alm-mensagens.html (Teacher Portal) (TO DO)
+  → Live dot: add setConnState() call in loadTeacherData()
+  → Pipeline strip not present (portal is outside pipeline — correct)
+  → No other critical issues specific to this file
+
+alm-allocation-engine.html (TO DO)
+  → Fonts: Cinzel/JetBrains/Outfit → Bebas Neue/IBM Plex — audit §4.7
+  → CSS vars: --mono/--sans/--display updated
+  → nav href="/admin/dashboard.html" → "/admin/dashboard"
+  → Back button: history.back() → "/admin/alm-atribuir-turmas"
+
+
+Changes SUMMARY — all 4 files
+═══════════════════════════════
+
+alm-confirmar-turmas-criadas.html (DONE ✓)
+  ✓ CSS: .box-grid flex-wrap → CSS Grid minmax(220px,1fr) — audit §4.3
+  ✓ CSS + JS: .criar-btn height 40px → 44px touch target — audit §4.3
+  ✓ Nav: tab 7 Mensagens added to pipeline strip — audit §3.8
+  ✓ day_of_week: SAB → SÁB canonical at write time — audit §2.4
+  ✓ student_refs: Array.isArray guard — audit §2.4
+  ✓ parseDp: hardened to reject non-array JSON — audit §2.4
+  ✓ Live dot: real connectivity state (amber/red/green) — audit §3.4
+  ✓ Error recovery: "Tentar novamente" retry button — audit §3.3
+
+alm-atribuir-turmas.html (TO DO)
+  → nav-home href="#" → "/admin/dashboard"
+  → Add tab 7 Mensagens to pipeline strip
+  → qaAssign: time-range conflict check (not hour equality) — audit §2.7
+  → Live dot: real connectivity state
+  → popConfirm: loading state on button — audit §2.10
+
+alm-ficha-professor.html / alm-mensagens.html (Teacher Portal) (TO DO)
+  → Live dot: add setConnState() call in loadTeacherData()
+  → Pipeline strip not present (portal is outside pipeline — correct)
+  → No other critical issues specific to this file
+
+alm-allocation-engine.html (TO DO)
+  → Fonts: Cinzel/JetBrains/Outfit → Bebas Neue/IBM Plex — audit §4.7
+  → CSS vars: --mono/--sans/--display updated
+  → nav href="/admin/dashboard.html" → "/admin/dashboard"
+  → Back button: history.back() → "/admin/alm-atribuir-turmas"
+
+
+
 *Report prepared May 2026 · ALM · Ac
