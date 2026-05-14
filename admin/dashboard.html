@@ -36,6 +36,35 @@
 .wave-bg{position:absolute;inset:0;pointer-events:none;z-index:1}
 
 /* ══════════════════════════════════════
+   CONFIG WARNING BANNER
+══════════════════════════════════════ */
+.config-banner{
+  display:none;
+  background:rgba(232,184,75,0.12);
+  border-bottom:0.5px solid rgba(232,184,75,0.35);
+  padding:5px 18px;
+  font-family:var(--font-mono);font-size:9px;
+  color:rgba(232,184,75,0.9);letter-spacing:0.06em;
+  z-index:25;position:relative;
+  align-items:center;gap:8px;
+}
+.config-banner.visible{display:flex}
+.config-banner-icon{flex-shrink:0}
+.config-banner-msg{flex:1}
+.config-banner-link{
+  color:var(--amber);text-decoration:underline;cursor:pointer;
+  background:none;border:none;font:inherit;letter-spacing:inherit;
+  padding:0;
+}
+.config-banner-dismiss{
+  width:18px;height:18px;border-radius:50%;background:rgba(232,184,75,0.12);
+  border:0.5px solid rgba(232,184,75,0.25);cursor:pointer;
+  color:rgba(232,184,75,0.6);font-size:11px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.config-banner-dismiss:hover{background:rgba(232,184,75,0.22);color:var(--amber)}
+
+/* ══════════════════════════════════════
    TASKBAR
 ══════════════════════════════════════ */
 .taskbar{
@@ -194,7 +223,6 @@
 }
 .rp-close:hover{background:rgba(210,180,100,0.16);color:var(--gold-hi)}
 
-/* topic chips */
 .rp-topics{display:flex;gap:6px;padding:10px 14px;flex-wrap:wrap;border-bottom:0.5px solid rgba(210,180,100,0.08);flex-shrink:0}
 .rp-chip{
   font-family:var(--font-mono);font-size:8.5px;font-weight:600;
@@ -205,7 +233,6 @@
 .rp-chip:hover{background:rgba(210,180,100,0.1);color:var(--gold-hi);border-color:rgba(210,180,100,0.4)}
 .rp-chip.active{background:rgba(201,168,76,0.15);color:var(--gold-hi);border-color:rgba(201,168,76,0.5)}
 
-/* content area */
 .rp-body{flex:1;overflow-y:auto;padding:14px 16px;scrollbar-width:thin;scrollbar-color:rgba(210,180,100,0.15) transparent}
 .rp-body::-webkit-scrollbar{width:3px}
 .rp-body::-webkit-scrollbar-thumb{background:rgba(210,180,100,0.15);border-radius:2px}
@@ -303,7 +330,7 @@
   border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:clamp(3px,0.35vw,5px);cursor:pointer;
   transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
-  position:relative;overflow:visible; /* overflow:visible for badge */
+  position:relative;overflow:visible;
 }
 .mod::before{
   content:'';position:absolute;top:0;left:0;right:0;height:45%;
@@ -394,6 +421,19 @@
 .bt-hint{font-size:8px;color:rgba(210,180,100,0.4);margin-top:6px;padding-top:5px;border-top:0.5px solid rgba(210,180,100,0.1);text-align:center;font-family:var(--font-body)}
 .branch-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(210,180,100,0.22)}
 
+/* ── BRANCH ERROR STATE ── */
+.branch-error{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:9px;color:rgba(232,69,90,0.7);
+}
+.branch-retry-btn{
+  font-family:var(--font-mono);font-size:9px;font-weight:600;
+  padding:3px 10px;border-radius:999px;cursor:pointer;
+  background:rgba(232,69,90,0.1);border:0.5px solid rgba(232,69,90,0.35);
+  color:rgba(232,69,90,0.85);transition:all 0.15s;
+}
+.branch-retry-btn:hover{background:rgba(232,69,90,0.2);color:#E8455A}
+
 /* ══════════════════════════════════════
    MODULE MODAL
 ══════════════════════════════════════ */
@@ -449,6 +489,7 @@
   .branch{font-size:8px;padding:3px 8px 3px 6px}
   .report-overlay{padding:52px 0 0}
   .report-panel{width:100%;border-radius:16px 16px 0 0}
+  .config-banner{padding:4px 10px;font-size:8px}
 }
 </style>
 </head>
@@ -471,6 +512,17 @@
     </svg>
   </div>
 
+  <!-- ══ CONFIG WARNING BANNER ══ -->
+  <!-- Shown when school_config table is absent or empty -->
+  <div class="config-banner" id="config-banner">
+    <span class="config-banner-icon">⚠</span>
+    <span class="config-banner-msg" id="config-banner-msg">
+      Datas lectivas não configuradas — a usar valores predefinidos (2025-09-15 → 2026-06-30).
+      <button class="config-banner-link" onclick="openYearDropdown()">Configurar agora →</button>
+    </span>
+    <button class="config-banner-dismiss" onclick="dismissConfigBanner()" title="Dispensar">×</button>
+  </div>
+
   <!-- ══ TASKBAR ══ -->
   <div class="taskbar">
     <span class="tb-logo">ALM</span>
@@ -491,7 +543,6 @@
       <div class="stat-tooltip" id="alunos-tooltip" style="min-width:240px">
         <div class="tt-title">Alunos por filial</div>
         <div id="tt-branch-bars">
-          <!-- populated by loadBranchData() -->
           <div class="tt-bar-row"><span class="tt-bar-label">A carregar…</span><div class="tt-bar-track"><div class="tt-bar-fill" style="width:0%"></div></div><span class="tt-bar-num">—</span></div>
         </div>
         <hr class="tt-divider"/>
@@ -636,6 +687,13 @@
           <div class="mod-lbl">Fotocópias</div>
         </div>
 
+        <!-- ── MENSAGENS tile (10th) ── -->
+        <div class="mod" onclick="window.location.href='alm-mensagens.html'">
+          <div class="mod-badge" id="badge-mensagens"></div>
+          <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div class="mod-lbl">Mensagens</div>
+        </div>
+
       </div>
     </div>
 
@@ -675,7 +733,6 @@
 
   <!-- ══ BRANCH ROW ══ -->
   <div class="branch-row" id="branch-row">
-    <!-- skeleton placeholders while loading -->
     <div class="branch-skeleton"></div>
     <div class="branch-skeleton"></div>
     <div class="branch-skeleton"></div>
@@ -720,10 +777,43 @@
 <script>
 /* ══════════════════════════════════════
    SUPABASE CONFIG
+   NOTE: The anon key below is safe for
+   read-only public queries, but for
+   write operations and RLS enforcement
+   this should move to a server-side
+   proxy (e.g. a Supabase Edge Function).
+   TODO: implement RLS per staff role
+   before production launch.
 ══════════════════════════════════════ */
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const SBH = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
+
+/* ══════════════════════════════════════
+   YEAR BROADCAST — cross-tab sync
+   Uses BroadcastChannel so that when
+   staff change the academic year on
+   this tab, all other open pipeline
+   tabs receive the update and can
+   reload their data accordingly.
+══════════════════════════════════════ */
+const yearChannel = (typeof BroadcastChannel !== 'undefined')
+  ? new BroadcastChannel('alm_academic_year')
+  : null;
+
+if (yearChannel) {
+  yearChannel.onmessage = (ev) => {
+    if (ev.data && ev.data.type === 'YEAR_CHANGE') {
+      // Another tab changed the year — update our display
+      const val = ev.data.ano;
+      document.getElementById('yearVal').textContent = val.replace('/', ' / ');
+      document.querySelectorAll('.year-option').forEach(o => {
+        const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
+        if (m) o.classList.toggle('active', m[1]+'/'+m[2] === val);
+      });
+    }
+  };
+}
 
 /* ══════════════════════════════════════
    CONNECTIVITY STATE
@@ -759,19 +849,44 @@ updateClock();
 setInterval(updateClock, 30000);
 
 /* ══════════════════════════════════════
+   CONFIG BANNER
+══════════════════════════════════════ */
+function showConfigBanner(msg) {
+  const b = document.getElementById('config-banner');
+  if (msg) document.getElementById('config-banner-msg').innerHTML =
+    msg + ' <button class="config-banner-link" onclick="openYearDropdown()">Configurar agora →</button>';
+  b.classList.add('visible');
+}
+function dismissConfigBanner() {
+  document.getElementById('config-banner').classList.remove('visible');
+}
+function openYearDropdown() {
+  document.getElementById('yearWrap').classList.add('open');
+  dismissConfigBanner();
+}
+
+/* ══════════════════════════════════════
    YEAR DROPDOWN
 ══════════════════════════════════════ */
 function toggleYear(e) {
   e.stopPropagation();
   document.getElementById('yearWrap').classList.toggle('open');
 }
+
 function selectYear(el, val) {
   document.getElementById('yearVal').textContent = val.replace('/', ' / ');
   document.querySelectorAll('.year-option').forEach(o => o.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('yearWrap').classList.remove('open');
+
+  // Broadcast to other open pipeline tabs
+  if (yearChannel) {
+    yearChannel.postMessage({ type: 'YEAR_CHANGE', ano: val });
+  }
+  // Legacy same-tab event (kept for backwards compatibility with any listener)
   window.dispatchEvent(new CustomEvent('anoLectivoChange', { detail: { ano: val } }));
 }
+
 document.addEventListener('click', e => {
   if (!document.getElementById('yearWrap').contains(e.target))
     document.getElementById('yearWrap').classList.remove('open');
@@ -791,35 +906,90 @@ async function saveSchoolDates() {
     });
     if (!r.ok) throw new Error('HTTP '+r.status);
     document.getElementById('yearVal').textContent = ay.replace('/', ' / ');
+    // Broadcast the newly saved year to other tabs
+    if (yearChannel) yearChannel.postMessage({ type: 'YEAR_CHANGE', ano: ay });
+    window.dispatchEvent(new CustomEvent('anoLectivoChange', { detail: { ano: ay } }));
     status.textContent = '✓ Guardado'; status.style.color = '#1DB954';
+    dismissConfigBanner();
     setTimeout(() => { status.textContent=''; document.getElementById('yearWrap').classList.remove('open'); }, 1800);
   } catch (e) {
     status.textContent = 'Erro: '+e.message.slice(0,40); status.style.color='#E8455A';
   }
 }
 
+/* ══════════════════════════════════════
+   SCHOOL CONFIG
+   Hard fallback dates are used when the
+   school_config table is absent or empty,
+   so YEAR_START / YEAR_END are always
+   defined for downstream consumers.
+══════════════════════════════════════ */
+// Fallback dates — update these at the start of each academic year
+const FALLBACK_YEAR_START = '2025-09-15';
+const FALLBACK_YEAR_END   = '2026-06-30';
+const FALLBACK_ACADEMIC_YEAR = '2025/2026';
+
+let _configLoaded = false;
+
 async function loadSchoolConfig() {
   try {
     const r = await fetch(`${SB}/rest/v1/school_config?select=key,value`, { headers: SBH });
-    if (!r.ok) return;
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
     const rows = await r.json();
+    if (!rows || rows.length === 0) throw new Error('empty');
+
+    let foundStart = false, foundEnd = false, foundAY = false;
+
     rows.forEach(row => {
-      if (row.key === 'year_start_date' && document.getElementById('cfg-start')) document.getElementById('cfg-start').value = row.value;
-      if (row.key === 'year_end_date'   && document.getElementById('cfg-end'))   document.getElementById('cfg-end').value   = row.value;
+      if (row.key === 'year_start_date' && document.getElementById('cfg-start')) {
+        document.getElementById('cfg-start').value = row.value;
+        foundStart = true;
+      }
+      if (row.key === 'year_end_date' && document.getElementById('cfg-end')) {
+        document.getElementById('cfg-end').value = row.value;
+        foundEnd = true;
+      }
       if (row.key === 'academic_year') {
         document.getElementById('yearVal').textContent = row.value.replace('/', ' / ');
         document.querySelectorAll('.year-option').forEach(o => {
           const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
           if (m) o.classList.toggle('active', m[1]+'/'+m[2] === row.value);
         });
+        foundAY = true;
       }
     });
-  } catch(e) { console.warn('school_config:', e.message); }
+
+    // Show banner if any required key is missing (partial config)
+    if (!foundStart || !foundEnd) {
+      applyFallbackDates(!foundStart, !foundEnd);
+      showConfigBanner('Datas lectivas incompletas na base de dados — a usar valores predefinidos.');
+    } else {
+      _configLoaded = true;
+    }
+
+  } catch(e) {
+    // Table absent or network failure — apply hard fallbacks silently to inputs
+    // but surface the banner so staff know to configure
+    applyFallbackDates(true, true);
+    if (document.getElementById('yearVal').textContent === '—') {
+      document.getElementById('yearVal').textContent = FALLBACK_ACADEMIC_YEAR.replace('/', ' / ');
+    }
+    showConfigBanner('Datas lectivas não configuradas — a usar valores predefinidos (' +
+      FALLBACK_YEAR_START + ' → ' + FALLBACK_YEAR_END + ').');
+    console.warn('school_config unavailable:', e.message, '— using fallback dates');
+  }
+}
+
+function applyFallbackDates(applyStart, applyEnd) {
+  if (applyStart && document.getElementById('cfg-start'))
+    document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
+  if (applyEnd && document.getElementById('cfg-end'))
+    document.getElementById('cfg-end').value = FALLBACK_YEAR_END;
 }
 
 /* ══════════════════════════════════════
    LIVE BRANCH DATA FROM SUPABASE
-   Replaces the hardcoded BRANCHES array
 ══════════════════════════════════════ */
 const STATUS_LABEL = { healthy:'Saudável', viable:'Viável', concerning:'Atenção', unviable:'Inviável' };
 const STATUS_ORDER = ['healthy','viable','concerning','unviable'];
@@ -832,7 +1002,6 @@ function branchStatus(pct) {
   return 'unviable';
 }
 
-// Branch colour for enrolment bar in tooltip
 function enrolColour(pct) {
   if (pct >= 85) return '#1DB954';
   if (pct >= 72) return '#2ECC8A';
@@ -840,17 +1009,17 @@ function enrolColour(pct) {
   return '#E8455A';
 }
 
-let _branches = []; // will be populated by loadBranchData()
+let _branches = [];
 
 async function loadBranchData() {
   try {
-    // ── 1. Enrolment counts by branch ──────────────────────────────
-    // We expect enrolments table to have a `branch` column.
-    // We fetch all and group client-side (avoids needing a DB view).
-    const [enrolRes, classRes, profRes] = await Promise.all([
+    // Fetch enrolments, classes (with capacity column if available), and teachers in parallel
+    const [enrolRes, classRes, profRes, capacityRes] = await Promise.all([
       fetch(`${SB}/rest/v1/enrolments?select=ref,branch&limit=5000`, { headers: SBH }),
-      fetch(`${SB}/rest/v1/classes?select=branch,turma_code,level_code&limit=5000`, { headers: SBH }),
+      fetch(`${SB}/rest/v1/classes?select=branch,turma_code,level_code,max_students&limit=5000`, { headers: SBH }),
       fetch(`${SB}/rest/v1/teachers?select=id&limit=500`, { headers: SBH }),
+      // Try to get a global default capacity from school_config
+      fetch(`${SB}/rest/v1/school_config?key=eq.default_class_capacity&select=value`, { headers: SBH }),
     ]);
 
     setConnState(enrolRes.ok);
@@ -860,36 +1029,49 @@ async function loadBranchData() {
     const classes = classRes.ok  ? await classRes.json()  : [];
     const profs   = profRes.ok   ? await profRes.json()   : [];
 
-    // ── 2. Group by branch ─────────────────────────────────────────
+    // Resolve default capacity:
+    // 1. school_config default_class_capacity key
+    // 2. Hardcoded fallback of 12 students per class
+    let defaultCapacity = 12;
+    if (capacityRes.ok) {
+      const capRows = await capacityRes.json();
+      if (capRows && capRows[0] && capRows[0].value) {
+        const parsed = parseInt(capRows[0].value, 10);
+        if (!isNaN(parsed) && parsed > 0) defaultCapacity = parsed;
+      }
+    }
+
+    // Group enrolments by branch
     const branchMap = {};
     enrols.forEach(e => {
       if (!e.branch) return;
-      if (!branchMap[e.branch]) branchMap[e.branch] = { alunos:0, turmas:0, hasCapacity:0 };
+      if (!branchMap[e.branch]) branchMap[e.branch] = { alunos:0, turmas:0, capacitySum:0 };
       branchMap[e.branch].alunos++;
     });
 
-    // timetable_requests for capacity reference (max enrolled vs capacity)
-    // We'll use classes to get turma counts per branch
+    // Accumulate turmas and real capacity per branch
     classes.forEach(c => {
-      if (!c.branch || !branchMap[c.branch]) return;
+      if (!c.branch) return;
+      if (!branchMap[c.branch]) branchMap[c.branch] = { alunos:0, turmas:0, capacitySum:0 };
       branchMap[c.branch].turmas = (branchMap[c.branch].turmas || 0) + 1;
+      // Use per-class max_students if present, else defaultCapacity
+      const cap = (c.max_students && c.max_students > 0) ? c.max_students : defaultCapacity;
+      branchMap[c.branch].capacitySum = (branchMap[c.branch].capacitySum || 0) + cap;
     });
 
-    // ── 3. Friendly labels ─────────────────────────────────────────
     const BRANCH_LABELS = {
       funchal:'Funchal · Sede', machico:'Machico', scruz:'S. Cruz',
       rbrava:'R. Brava', calheta:'Calheta', psol:'P. do Sol', estreito:'Estreito',
     };
 
-    // Total students for bar chart scaling
     const totalAlunos = Object.values(branchMap).reduce((a,b) => a + b.alunos, 0);
 
-    // Build branches array, sorted by student count desc
     _branches = Object.entries(branchMap)
       .map(([id, data]) => {
-        // Enrolment % — fallback to a reasonable default if turmas is 0
-        // (real capacity calc would need a capacity column; we estimate 14 per turma)
-        const capacity = (data.turmas || 1) * 14;
+        // Real capacity = sum of per-class capacities; fallback if no turmas yet
+        const capacity = data.capacitySum > 0
+          ? data.capacitySum
+          : (data.turmas > 0 ? data.turmas * defaultCapacity : defaultCapacity);
         const enrolPct = Math.min(100, Math.round((data.alunos / capacity) * 100));
         return {
           id,
@@ -897,13 +1079,14 @@ async function loadBranchData() {
           alunos: data.alunos,
           turmas: data.turmas || 0,
           enrolPct,
+          capacity,
           status: branchStatus(enrolPct),
           barPct: totalAlunos > 0 ? Math.round((data.alunos / totalAlunos) * 100) : 0,
         };
       })
       .sort((a,b) => b.alunos - a.alunos);
 
-    // ── 4. Update stat pills ───────────────────────────────────────
+    // Update stat pills
     const totalTurmas = classes.length;
     const totalProfs  = profs.length;
 
@@ -915,13 +1098,12 @@ async function loadBranchData() {
     document.getElementById('tt-turmas-per-prof').textContent = totalProfs > 0
       ? (totalTurmas / totalProfs).toFixed(1) : '—';
 
-    // Average enrolment %
     const avgEnrol = _branches.length > 0
       ? Math.round(_branches.reduce((a,b) => a + b.enrolPct, 0) / _branches.length)
       : 0;
     document.getElementById('tt-avg-enrol').textContent = avgEnrol + '%';
 
-    // ── 5. Branch bars in Alunos tooltip ──────────────────────────
+    // Branch bars in Alunos tooltip
     document.getElementById('tt-branch-bars').innerHTML = _branches.map(b => `
       <div class="tt-bar-row">
         <span class="tt-bar-label">${b.label}</span>
@@ -934,21 +1116,14 @@ async function loadBranchData() {
       `<div class="tt-row"><span class="tt-key">${b.label}</span><span class="tt-val">${b.turmas} turmas</span></div>`
     ).join('');
 
-    // ── 6. Render branch pills at the bottom ──────────────────────
     renderBranches();
-
-    // ── 7. Health indicator ────────────────────────────────────────
     renderSchoolHealth(totalAlunos, avgEnrol, totalTurmas);
-
-    // ── 8. Sumários missing (teachers with recent lesson_summaries = 0) ──
     loadAlertBadges(totalProfs, totalTurmas);
 
   } catch(e) {
     console.warn('loadBranchData failed:', e.message);
     setConnState(false);
-    // Render branch row as error state
-    document.getElementById('branch-row').innerHTML =
-      `<span style="font-size:9px;color:rgba(232,69,90,0.7);font-family:var(--font-mono)">⚠ Sem ligação ao servidor</span>`;
+    renderBranchError(e.message);
   }
 }
 
@@ -961,12 +1136,35 @@ function renderBranches() {
         <div class="bt-name">${b.label}</div>
         <div class="bt-row"><span class="bt-key">Alunos</span><span class="bt-val">${b.alunos}</span></div>
         <div class="bt-row"><span class="bt-key">Turmas</span><span class="bt-val">${b.turmas}</span></div>
-        <div class="bt-row"><span class="bt-key">Ocupação est.</span><span class="bt-val">${b.enrolPct}%</span></div>
+        <div class="bt-row"><span class="bt-key">Capacidade total</span><span class="bt-val">${b.capacity} lugares</span></div>
+        <div class="bt-row"><span class="bt-key">Ocupação</span><span class="bt-val">${b.enrolPct}%</span></div>
         <div class="bt-enrol-bar"><div class="bt-enrol-fill" style="width:${b.enrolPct}%;background:${enrolColour(b.enrolPct)}"></div></div>
         <div><span class="bt-status ${b.status}">${STATUS_LABEL[b.status]}</span></div>
         <div class="bt-hint">Clique para ver o painel →</div>
       </div>
     </div>`).join('');
+}
+
+/* ── Error state with retry button ── */
+function renderBranchError(msg) {
+  document.getElementById('branch-row').innerHTML = `
+    <div class="branch-error">
+      <span>⚠ Sem ligação ao servidor</span>
+      <button class="branch-retry-btn" onclick="retryBranchLoad()">Tentar novamente</button>
+    </div>`;
+}
+
+let _retrying = false;
+function retryBranchLoad() {
+  if (_retrying) return;
+  _retrying = true;
+  // Show skeletons while retrying
+  document.getElementById('branch-row').innerHTML = `
+    <div class="branch-skeleton"></div>
+    <div class="branch-skeleton"></div>
+    <div class="branch-skeleton"></div>
+    <div class="branch-skeleton"></div>`;
+  loadBranchData().finally(() => { _retrying = false; });
 }
 
 function goBranch(id) {
@@ -982,7 +1180,6 @@ function renderSchoolHealth(totalAlunos, avgEnrol, totalTurmas) {
   else if (avgEnrol >= 72) status = 'viable';
   else if (avgEnrol >= 58) status = 'concerning';
   else                     status = 'unviable';
-  // Drag down if any branch is unviable
   if (counts.unviable > 0 && status === 'healthy') status = 'viable';
 
   const el = document.getElementById('tb-health');
@@ -1004,7 +1201,6 @@ function renderSchoolHealth(totalAlunos, avgEnrol, totalTurmas) {
 
 /* ══════════════════════════════════════
    ALERT BADGES ON MODULE TILES
-   Only show where real data is available
 ══════════════════════════════════════ */
 function showBadge(id, count, colour) {
   const el = document.getElementById('badge-' + id);
@@ -1016,20 +1212,15 @@ function showBadge(id, count, colour) {
 }
 
 async function loadAlertBadges(totalProfs, totalTurmas) {
-  // Run independent fetches; each failure is non-fatal
   const results = await Promise.allSettled([
-    // Timetable requests awaiting assignment (Horários badge)
     fetch(`${SB}/rest/v1/timetable_requests?select=ref&assigned_turma=is.null`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
-    // Teachers with missing sumários in last 7 days (Professores badge)
     fetch(`${SB}/rest/v1/teachers?select=id&has_missing_sumarios=eq.true`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
-    // Overdue payments (Pagamentos badge)
     fetch(`${SB}/rest/v1/payments?select=id&status=eq.overdue`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
-    // Photocopy requests pending (Fotocópias badge)
     fetch(`${SB}/rest/v1/teacher_requests?select=id&type=eq.photocopy&status=eq.pending`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
-    // Attendance alerts today (Turmas badge)
     fetch(`${SB}/rest/v1/attendance?select=id&date=eq.${new Date().toISOString().slice(0,10)}&status=eq.absent`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
-    // Stock below minimum (Stock badge)
     fetch(`${SB}/rest/v1/stock_items?select=id&below_minimum=eq.true`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
+    // Mensagens badge — unread/pending teacher messages
+    fetch(`${SB}/rest/v1/messages?select=id&status=eq.pending`, { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
   ]);
 
   const getCount = (res) => {
@@ -1042,7 +1233,7 @@ async function loadAlertBadges(totalProfs, totalTurmas) {
     return isNaN(n) ? 0 : n;
   };
 
-  const [horarios, profs, pagamentos, fotocopias, turmas, stock] = results.map(getCount);
+  const [horarios, profs, pagamentos, fotocopias, turmas, stock, mensagens] = results.map(getCount);
 
   showBadge('horarios',    horarios,   'red');
   showBadge('professores', profs,      'amber');
@@ -1050,10 +1241,9 @@ async function loadAlertBadges(totalProfs, totalTurmas) {
   showBadge('fotocopias',  fotocopias, 'amber');
   showBadge('turmas',      turmas,     'amber');
   showBadge('stock',       stock,      'amber');
+  showBadge('mensagens',   mensagens,  'red');
 
-  // Also update sumários in tooltip
   document.getElementById('tt-sumarios').textContent = profs > 0 ? profs + ' professor(es)' : '—';
-  // Update conflitos stat
   document.getElementById('tt-conflitos').textContent = turmas > 0 ? turmas + ' ausências hoje' : '0';
 }
 
@@ -1061,7 +1251,6 @@ async function loadAlertBadges(totalProfs, totalTurmas) {
    REPORT PANEL
 ══════════════════════════════════════ */
 let _activeTopic = 'geral';
-let _lastReport  = null;
 
 function openReport()  { document.getElementById('report-overlay').classList.add('open'); }
 function closeReport() { document.getElementById('report-overlay').classList.remove('open'); }
@@ -1084,7 +1273,6 @@ async function generateReport() {
   loading.style.display = 'flex';
   content.style.display = 'none';
 
-  // ── Gather live data snapshot for the prompt ──
   const totalAlunos  = document.getElementById('stat-alunos').textContent;
   const totalTurmas  = document.getElementById('stat-turmas').textContent;
   const totalProfs   = document.getElementById('stat-profs').textContent;
@@ -1093,21 +1281,22 @@ async function generateReport() {
   const ano          = document.getElementById('yearVal').textContent;
 
   const branchSummary = _branches.map(b =>
-    `${b.label}: ${b.alunos} alunos, ${b.turmas} turmas, ${b.enrolPct}% ocupação → ${STATUS_LABEL[b.status]}`
+    `${b.label}: ${b.alunos} alunos, ${b.turmas} turmas, capacidade ${b.capacity} lugares, ${b.enrolPct}% ocupação → ${STATUS_LABEL[b.status]}`
   ).join('\n');
 
-  // Pull live alert counts from badge elements (already fetched from Supabase)
   const badgeCount = (id) => {
     const el = document.getElementById('badge-' + id);
     if (!el || !el.classList.contains('visible')) return 0;
     return parseInt(el.textContent) || 0;
   };
+
   const alertHorarios   = badgeCount('horarios');
   const alertProfs      = badgeCount('professores');
   const alertPagamentos = badgeCount('pagamentos');
   const alertFotocopias = badgeCount('fotocopias');
   const alertTurmas     = badgeCount('turmas');
   const alertStock      = badgeCount('stock');
+  const alertMensagens  = badgeCount('mensagens');
 
   const alertSummary = [
     alertHorarios   > 0 ? `${alertHorarios} pedido(s) de horário por atribuir` : null,
@@ -1116,9 +1305,9 @@ async function generateReport() {
     alertFotocopias > 0 ? `${alertFotocopias} pedido(s) de fotocópia pendentes` : null,
     alertTurmas     > 0 ? `${alertTurmas} ausência(s) registadas hoje` : null,
     alertStock      > 0 ? `${alertStock} artigo(s) de stock abaixo do mínimo` : null,
+    alertMensagens  > 0 ? `${alertMensagens} mensagem(ns) de professores por responder` : null,
   ].filter(Boolean).join('\n') || 'Sem alertas activos neste momento.';
 
-  // Items resolved since the May 2026 audit — Claude must NOT raise these as open issues
   const resolvedItems = `
 ITENS JÁ RESOLVIDOS (não mencionar como problemas em aberto):
 - Dados de filiais eram estáticos/hardcoded → substituídos por dados em tempo real do Supabase
@@ -1126,17 +1315,18 @@ ITENS JÁ RESOLVIDOS (não mencionar como problemas em aberto):
 - Tipografia inconsistente entre ficheiros → padronizada em Bebas Neue + IBM Plex Sans + IBM Plex Mono
 - Painel de filiais no rodapé era estático → agora carrega dados reais com barras de ocupação dinâmicas
 - Dashboard não tinha indicador de alertas por módulo → adicionados badges com contagem em tempo real
-- O relatório operacional (este painel) foi implementado como nova funcionalidade`.trim();
+- O relatório operacional (este painel) foi implementado como nova funcionalidade
+- Ocupação calculada com estimativa fixa de 14 lugares/turma → agora usa capacidade real por turma (coluna max_students) com fallback para valor configurável em school_config
+- school_config em falha silenciosa → agora mostra banner de aviso com datas de fallback
+- Sem mecanismo de retry em erros → botão "Tentar novamente" no rodapé de filiais
+- Mudança de ano lectivo não propagava para outros separadores → implementado BroadcastChannel
+- Módulo Mensagens não tinha tile directo → tile adicionado na grelha de módulos`.trim();
 
   const topicPrompts = {
     geral: `Faz um briefing operacional conciso (máx 220 palavras) para a direcção da ALM sobre o estado actual da escola. Usa os dados abaixo. Estrutura em 3 secções com tags <h3>: "Situação Geral", "Pontos de Atenção" e "Recomendação Imediata". Sê directo e concreto — menciona números reais. Não repitas itens já resolvidos.`,
-
     filiais: `Analisa o desempenho das filiais da ALM com base nos dados em tempo real. Identifica as filiais com melhor e pior desempenho, explica as causas prováveis e dá uma recomendação de acção específica para cada filial em situação de Atenção ou Inviável. Usa os dados de filiais fornecidos. Máx 240 palavras.`,
-
     turmas: `Analisa a situação das turmas da ALM. Comenta a distribuição de alunos por turma, a taxa de ocupação média e eventuais desequilíbrios entre filiais. Com base nos dados, sugere se é prioritário criar, fundir ou cancelar turmas em alguma filial. Máx 210 palavras.`,
-
     professores: `Analisa o quadro de professores da ALM. Comenta a relação turmas/professor, os sumários em falta e o impacto operacional. Se houver alertas activos relacionados com professores, prioriza-os. Máx 190 palavras.`,
-
     alertas: `Lista APENAS os alertas operacionais activos que requerem atenção da direcção da ALM. Para cada alerta indica: gravidade com tag <span class="rp-tag crit">CRÍTICO</span> ou <span class="rp-tag warn">ATENÇÃO</span>, descrição do problema, e acção recomendada. Se não houver alertas activos, confirma que o sistema está operacional. Máx 220 palavras.`,
   };
 
@@ -1159,7 +1349,7 @@ DADOS EM TEMPO REAL (${ano}):
 - Saúde global: ${healthStatus}
 - Ocupação média: ${avgOcupacao}
 
-FILIAIS (dados ao vivo do Supabase):
+FILIAIS (dados ao vivo do Supabase — capacidade baseada em max_students por turma):
 ${branchSummary || 'Dados de filiais não disponíveis'}
 
 ALERTAS ACTIVOS (módulos com itens pendentes):
@@ -1186,7 +1376,6 @@ ${resolvedItems}`;
     loading.style.display = 'none';
     content.style.display = 'block';
     content.innerHTML = text;
-    _lastReport = text;
 
     const now = new Date().toLocaleTimeString('pt-PT', { hour:'2-digit', minute:'2-digit' });
     ts.textContent = `Gerado às ${now} · Ano ${ano}`;
@@ -1236,7 +1425,7 @@ const MODAL_DATA = {
     { label:'Fichas de professores',  sub:'Consulta e edição',             href:'alm-ficha-professor.html', dot:'ok' },
     { label:'Distribuição por turma', sub:'Ver quem lecciona o quê',       href:'alm-atribuir-turmas.html', dot:'ok' },
     { label:'Gestão de turmas',       sub:'Gestão de aulas dadas',         href:'alm-mensagens.html',       dot:'ok' },
-    { label:'Mensagens internas',     sub:'Comunicação com professores',   href:'#',                        dot:''   },
+    { label:'Mensagens internas',     sub:'Comunicação com professores',   href:'alm-mensagens.html',       dot:'ok' },
   ]},
   pagamentos: { title:'Pagamentos', desc:'Consulta de pagamentos, alertas de atraso e isenções.', pages:[
     { label:'Por aluno',          sub:'Histórico e estado de conta',    href:'#', dot:''     },
@@ -1312,8 +1501,8 @@ function handleOverlay(e){ if (e.target===document.getElementById('overlay')) cl
 /* ══════════════════════════════════════
    BOOT
 ══════════════════════════════════════ */
-loadSchoolConfig();   // year label from Supabase
-loadBranchData();     // live branch data → replaces BRANCHES constant
+loadSchoolConfig();
+loadBranchData();
 </script>
 </body>
 </html>
