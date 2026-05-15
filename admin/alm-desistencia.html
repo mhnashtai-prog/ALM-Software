@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Desistência de Aluno</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.18);--gold4:rgba(201,168,76,.08);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.16);--green-b:rgba(29,184,122,.38);--green-c:rgba(29,184,122,.07);
+  --red:#E8455A;--red-a:rgba(232,69,90,.13);--red-b:rgba(232,69,90,.32);--red-c:rgba(232,69,90,.06);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.14);--amber-b:rgba(232,160,32,.32);
+  --teal:#28C8B0;--blue:#4A8FF5;--purple:#9B5ECA;
+  --bg:#07060E;--bg2:#0E0C1A;--bg3:#161325;--bg4:#1C1930;
+  --b:rgba(201,168,76,.09);--b2:rgba(201,168,76,.18);--b3:rgba(201,168,76,.32);
+  --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.65);--t3:rgba(215,193,145,.38);--t4:rgba(215,193,145,.14);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(232,69,90,.5)}60%{box-shadow:0 0 0 6px rgba(232,69,90,0)}}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:200;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2)}
+.nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:54px}
+.nav-home{display:flex;align-items:center;justify-content:center;flex:1;padding:0 14px;text-decoration:none;transition:background .14s;border-bottom:.5px solid var(--b)}
+.nav-home:hover{background:var(--gold4)}
+.nav-back{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:0 10px;text-decoration:none;transition:background .14s}
+.nav-back:hover{background:var(--gold4)}
+.nav-home-icon{font-size:15px;color:var(--t2)}
+.nav-back-arrow{font-size:9px;color:var(--t3)}
+.nav-back-label{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.brand{display:flex;align-items:center;padding:0 18px;height:100%;border-right:1px solid var(--b);flex-shrink:0}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2);font-family:var(--display)}
+.brand-yr{font-size:8px;color:var(--t2);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+.topbar-mid{flex:1;display:flex;align-items:center;padding:0 16px;gap:8px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite;transition:background .3s}
+.tb-chip{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border:1px solid var(--red-b);background:var(--red-c);color:var(--red);border-radius:2px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 14px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
+.tb-clock{font-size:10px;color:var(--t3);letter-spacing:.04em}
+.spinner{width:12px;height:12px;border:1.5px solid rgba(255,255,255,.08);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+
+/* ── SHELL ── */
+.shell{max-width:960px;margin:0 auto;padding:20px 20px 60px}
+
+/* ── SEARCH BAR ── */
+.search-section{background:var(--bg2);border:.5px solid var(--b2);border-radius:6px;padding:14px 16px;margin-bottom:16px;animation:slideUp .2s ease}
+.ss-label{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.search-row{display:flex;gap:8px;align-items:center}
+.search-inp{flex:1;padding:8px 12px;background:rgba(255,255,255,.04);border:.5px solid var(--b2);border-radius:3px;font-family:var(--mono);font-size:11px;color:var(--t);outline:none;transition:border-color .12s}
+.search-inp::placeholder{color:var(--t3)}.search-inp:focus{border-color:var(--gold)}
+.search-btn{padding:8px 16px;border:.5px solid var(--b2);border-radius:3px;background:rgba(255,255,255,.04);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--t2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.search-btn:hover{border-color:var(--gold);color:var(--gold2)}
+.search-results{margin-top:10px;display:flex;flex-direction:column;gap:3px}
+.sr-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:4px;background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.04);cursor:pointer;transition:all .12s}
+.sr-row:hover{background:var(--gold4);border-color:var(--b2)}
+.sr-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;border:1px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35)}
+.sr-name{font-size:11px;font-weight:500;color:var(--t);flex:1}
+.sr-meta{font-size:8.5px;color:var(--t3)}
+.sr-turma{font-size:8px;font-weight:700;padding:2px 7px;border-radius:2px;background:var(--gold4);border:.5px solid var(--b2);color:var(--gold2)}
+
+/* ── STUDENT HERO ── */
+.student-hero{position:relative;background:var(--bg2);border:.5px solid var(--b2);border-radius:8px;overflow:hidden;margin-bottom:16px;animation:fadeIn .2s ease}
+.sh-bg{position:absolute;inset:0;opacity:.18}
+.sh-scrim{position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,.6) 0%,transparent 60%)}
+.sh-inner{position:relative;z-index:5;display:flex;align-items:center;gap:16px;padding:16px 20px}
+.sh-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;border:2px solid;box-shadow:inset 0 0 0 99px rgba(0,0,0,.35),0 4px 16px rgba(0,0,0,.5)}
+.sh-info{flex:1}
+.sh-name{font-family:var(--display);font-size:24px;letter-spacing:4px;color:#fff;line-height:1}
+.sh-meta{font-size:9px;color:rgba(255,255,255,.5);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+.sh-badge{padding:2px 8px;border-radius:2px;font-size:7.5px;font-weight:700;letter-spacing:.06em;border:.5px solid}
+.shb-turma{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.shb-minor{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.shb-adult{background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.25);color:var(--blue)}
+.sh-stats{display:flex;gap:0;flex-shrink:0;border-left:.5px solid rgba(255,255,255,.1);padding-left:16px}
+.shs{text-align:center;padding:0 14px;border-right:.5px solid rgba(255,255,255,.08)}
+.shs:last-child{border-right:none}
+.shs-v{font-family:var(--display);font-size:22px;color:#fff;line-height:1;letter-spacing:1px}
+.shs-l{font-size:7px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+
+/* ── WARNING BANNER ── */
+.warn-banner{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--red-a);border:.5px solid var(--red-b);border-radius:6px;margin-bottom:16px;animation:pulse-red 2s infinite}
+.wb-icon{font-size:16px;flex-shrink:0}
+.wb-text{font-size:10px;color:var(--red);font-weight:700;line-height:1.5}
+.wb-sub{font-size:9px;color:rgba(232,69,90,.7);font-weight:400}
+
+/* ── FORM GRID ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.form-grid.single{grid-template-columns:1fr}
+.form-grid.triple{grid-template-columns:1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:5px}
+.field-label{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)}
+.field-label .req{color:var(--red);margin-left:2px}
+.field-inp{padding:8px 10px;background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:3px;font-family:var(--mono);font-size:11px;color:var(--t);outline:none;transition:border-color .12s;-webkit-appearance:none}
+.field-inp:focus{border-color:var(--gold)}
+.field-inp::placeholder{color:var(--t3)}
+.field-inp option{background:var(--bg2)}
+select.field-inp{cursor:pointer}
+textarea.field-inp{resize:vertical;min-height:72px;line-height:1.6;font-family:var(--sans)}
+
+/* ── SECTION CARDS ── */
+.sec-card{background:var(--bg2);border:.5px solid var(--b2);border-radius:6px;overflow:hidden;margin-bottom:14px;animation:fadeIn .18s ease}
+.sec-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid var(--b);background:rgba(0,0,0,.18)}
+.sec-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sec-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;flex:1}
+.sec-badge{font-size:7.5px;font-weight:700;padding:2px 8px;border-radius:2px;border:.5px solid}
+.sec-body{padding:14px}
+
+/* ── REASON CHIPS ── */
+.reason-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.reason-chip{padding:10px 8px;border-radius:4px;border:.5px solid var(--b);background:rgba(255,255,255,.02);cursor:pointer;transition:all .15s;text-align:center}
+.reason-chip:hover{border-color:var(--b2);background:rgba(255,255,255,.04)}
+.reason-chip.active{background:var(--red-a);border-color:var(--red-b)}
+.rc-icon{font-size:16px;margin-bottom:4px}
+.rc-label{font-size:9px;font-weight:700;color:var(--t2);letter-spacing:.04em}
+.reason-chip.active .rc-label{color:var(--red)}
+
+/* ── LESSON TIMELINE ── */
+.lesson-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin:8px 0 4px}
+.lesson-fill{height:100%;border-radius:2px;background:var(--teal);transition:width .4s}
+.lesson-info{display:flex;justify-content:space-between;font-size:8.5px;color:var(--t3)}
+.lesson-info strong{color:var(--t2)}
+
+/* ── FINANCIAL ── */
+.fin-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;border:.5px solid var(--b);background:rgba(255,255,255,.02);cursor:pointer;transition:all .12s;margin-bottom:6px}
+.fin-row:hover{border-color:var(--b2)}
+.fin-row.active{background:var(--green-c);border-color:var(--green-b)}
+.fin-radio{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--b2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.fin-row.active .fin-radio{border-color:var(--green);background:var(--green)}
+.fin-radio-dot{width:5px;height:5px;border-radius:50%;background:#fff;opacity:0;transition:opacity .12s}
+.fin-row.active .fin-radio-dot{opacity:1}
+.fin-label{font-size:10px;font-weight:500;color:var(--t2);flex:1}
+.fin-row.active .fin-label{color:var(--green)}
+
+/* ── DOCUMENT UPLOAD ── */
+.upload-zone{border:.5px dashed var(--b2);border-radius:4px;padding:20px;text-align:center;cursor:pointer;transition:all .15s;position:relative}
+.upload-zone:hover{border-color:var(--gold);background:var(--gold4)}
+.upload-zone.has-file{border-color:var(--green-b);background:var(--green-c);border-style:solid}
+.uz-icon{font-size:24px;margin-bottom:6px;opacity:.5}
+.uz-label{font-size:9px;color:var(--t3);line-height:1.5}
+.uz-label strong{color:var(--t2);display:block;margin-bottom:2px}
+.uz-file-name{font-size:10px;color:var(--green);font-weight:700;margin-top:4px}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.camera-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border:.5px solid var(--b2);border-radius:3px;background:transparent;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t2);cursor:pointer;transition:all .12s;margin-top:8px;width:100%;justify-content:center}
+.camera-btn:hover{border-color:var(--b3);color:var(--t)}
+
+/* ── SIGNATURE ── */
+.sig-canvas-wrap{border:.5px solid var(--b2);border-radius:4px;overflow:hidden;background:rgba(255,255,255,.02);position:relative}
+canvas#sig-canvas{display:block;width:100%;height:120px;cursor:crosshair;touch-action:none}
+.sig-controls{display:flex;gap:6px;padding:6px 10px;border-top:.5px solid var(--b);background:rgba(0,0,0,.15)}
+.sig-clear{padding:3px 10px;border:.5px solid var(--b2);border-radius:2px;background:transparent;font-family:var(--mono);font-size:8.5px;color:var(--t3);cursor:pointer;transition:all .12s}
+.sig-clear:hover{border-color:var(--red-b);color:var(--red)}
+.sig-label{font-size:8px;color:var(--t3);margin-left:auto;align-self:center}
+
+/* ── CONSEQUENCES PANEL ── */
+.consequences{background:var(--red-c);border:.5px solid var(--red-b);border-radius:6px;padding:14px;margin-bottom:16px}
+.cons-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.cons-list{display:flex;flex-direction:column;gap:6px}
+.cons-item{display:flex;align-items:center;gap:8px;font-size:9.5px;color:var(--t2)}
+.cons-item.active{color:var(--t)}
+.cons-check{width:16px;height:16px;border-radius:2px;border:.5px solid var(--b2);background:rgba(255,255,255,.03);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--green)}
+.cons-item.active .cons-check{background:var(--green-c);border-color:var(--green-b)}
+
+/* ── SUBMIT ZONE ── */
+.submit-zone{background:var(--bg2);border:.5px solid var(--red-b);border-radius:6px;padding:16px;margin-top:20px}
+.sz-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+.sz-confirm{display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;cursor:pointer}
+.sz-check{width:16px;height:16px;border-radius:2px;border:.5px solid var(--b2);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.sz-check.on{background:var(--red-a);border-color:var(--red-b)}
+.sz-confirm-text{font-size:9.5px;color:var(--t2);line-height:1.6;font-family:var(--sans)}
+.sz-btn-row{display:flex;gap:8px;align-items:center}
+.btn-cancel{padding:9px 20px;border:.5px solid var(--b2);border-radius:3px;background:transparent;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--t3);cursor:pointer;transition:all .12s;letter-spacing:.06em}
+.btn-cancel:hover{border-color:var(--b3);color:var(--t2)}
+.btn-submit{padding:9px 24px;border:none;border-radius:3px;background:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;cursor:pointer;transition:all .12s;letter-spacing:.06em;margin-left:auto}
+.btn-submit:hover:not(:disabled){background:#c03048}
+.btn-submit:disabled{opacity:.4;cursor:not-allowed}
+.btn-submit.loading{opacity:.7;cursor:wait}
+
+/* ── SUCCESS STATE ── */
+.success-overlay{display:none;position:fixed;inset:0;background:rgba(7,6,14,.92);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.success-overlay.show{display:flex}
+.success-card{background:var(--bg2);border:.5px solid var(--green-b);border-radius:10px;padding:32px 40px;text-align:center;max-width:480px;animation:fadeIn .3s ease}
+.sc-icon{font-size:40px;margin-bottom:12px}
+.sc-title{font-family:var(--display);font-size:28px;letter-spacing:4px;color:var(--green);margin-bottom:8px}
+.sc-sub{font-size:10px;color:var(--t2);line-height:1.7;font-family:var(--sans);margin-bottom:20px}
+.sc-effects{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;text-align:left}
+.sc-effect{display:flex;align-items:center;gap:8px;font-size:9.5px;color:var(--t2)}
+.sc-effect-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sc-actions{display:flex;gap:8px;justify-content:center}
+.sc-btn{padding:8px 20px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.06em;transition:all .12s}
+.sc-btn-print{background:transparent;border:.5px solid var(--b2);color:var(--t2)}.sc-btn-print:hover{border-color:var(--b3);color:var(--t)}
+.sc-btn-home{background:var(--green);border:none;color:#07060E}.sc-btn-home:hover{background:#1aa36b}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);padding:6px 18px;border-radius:2px;font-size:9px;font-weight:700;letter-spacing:.06em;opacity:0;transition:all .2s;z-index:9999;pointer-events:none;white-space:nowrap;border:.5px solid;font-family:var(--mono)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast.info{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+
+/* ── HISTORY TABLE ── */
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:5px 8px;text-align:left;border-bottom:.5px solid var(--b)}
+.hist-table td{font-size:10px;color:var(--t2);padding:7px 8px;border-bottom:.5px solid rgba(255,255,255,.03)}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-table tr:hover td{background:rgba(255,255,255,.02)}
+.hist-status{font-size:7.5px;font-weight:700;padding:2px 6px;border-radius:2px}
+.hs-presente{background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)}
+.hs-falta{background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)}
+.hs-atraso{background:var(--amber-a);border:.5px solid var(--amber-b);color:var(--amber)}
+.empty-state{padding:24px;text-align:center;font-size:9px;color:var(--t4);letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="nav-duo">
+    <a class="nav-home" href="/admin/dashboard"><span class="nav-home-icon">⌂</span></a>
+    <a class="nav-back" href="/admin/alm-mensagens">
+      <span class="nav-back-arrow">←</span><span class="nav-back-label">Secretaria</span>
+    </a>
+  </div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr" id="brand-yr">——</span></div>
+  <div class="topbar-mid">
+    <div class="live-dot" id="live-dot"></div>
+    <div class="tb-chip">Desistência de Aluno</div>
+  </div>
+  <div class="topbar-right">
+    <span class="tb-clock" id="clk">--:--:--</span>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- SEARCH -->
+  <div class="search-section" id="search-section">
+    <div class="ss-label">Pesquisar aluno</div>
+    <div class="search-row">
+      <input class="search-inp" id="search-inp" type="text" placeholder="Nome, referência, ou turma…" oninput="onSearch()" autocomplete="off"/>
+      <button class="search-btn" onclick="doSearch()">Pesquisar</button>
+    </div>
+    <div class="search-results" id="search-results"></div>
+  </div>
+
+  <!-- STUDENT HERO (hidden until student selected) -->
+  <div class="student-hero" id="student-hero" style="display:none">
+    <div class="sh-bg" id="sh-bg"></div>
+    <div class="sh-scrim"></div>
+    <div class="sh-inner">
+      <div class="sh-av" id="sh-av">—</div>
+      <div class="sh-info">
+        <div class="sh-name" id="sh-name">—</div>
+        <div class="sh-meta">
+          <span id="sh-ref">—</span>
+          <span id="sh-branch">—</span>
+          <span id="sh-lang">—</span>
+        </div>
+        <div class="sh-meta" style="margin-top:5px" id="sh-badges"></div>
+      </div>
+      <div class="sh-stats">
+        <div class="shs"><div class="shs-v" id="shs-faltas" style="color:var(--red)">0</div><div class="shs-l">Faltas</div></div>
+        <div class="shs"><div class="shs-v" id="shs-aulas">0</div><div class="shs-l">Aulas</div></div>
+        <div class="shs"><div class="shs-v" id="shs-lesson" style="color:var(--teal)">—</div><div class="shs-l">Última aula</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WARNING (for minors) -->
+  <div class="warn-banner" id="minor-warn" style="display:none">
+    <div class="wb-icon">⚠</div>
+    <div class="wb-text">
+      Aluno menor de idade — assinatura do encarregado obrigatória
+      <div class="wb-sub">Preencha o campo de assinatura na secção "Autorização" antes de submeter.</div>
+    </div>
+  </div>
+
+  <!-- FORM (hidden until student selected) -->
+  <div id="form-area" style="display:none">
+
+    <!-- SECTION 1: Reason -->
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--red)"></div>
+        <div class="sec-title" style="color:var(--red)">Motivo da desistência</div>
+        <span class="sec-badge" style="background:var(--red-a);border-color:var(--red-b);color:var(--red)">Obrigatório</span>
+      </div>
+      <div class="sec-body">
+        <div class="reason-grid" id="reason-grid">
+          <div class="reason-chip" data-reason="medica" onclick="pickReason(this)">
+            <div class="rc-icon">🏥</div>
+            <div class="rc-label">Médica</div>
+          </div>
+          <div class="reason-chip" data-reason="financeira" onclick="pickReason(this)">
+            <div class="rc-icon">💳</div>
+            <div class="rc-label">Financeira</div>
+          </div>
+          <div class="reason-chip" data-reason="mudanca" onclick="pickReason(this)">
+            <div class="rc-icon">📦</div>
+            <div class="rc-label">Mudança</div>
+          </div>
+          <div class="reason-chip" data-reason="pessoal" onclick="pickReason(this)">
+            <div class="rc-icon">👤</div>
+            <div class="rc-label">Pessoal</div>
+          </div>
+          <div class="reason-chip" data-reason="transferencia" onclick="pickReason(this)">
+            <div class="rc-icon">🔄</div>
+            <div class="rc-label">Transferência</div>
+          </div>
+          <div class="reason-chip" data-reason="outro" onclick="pickReason(this)">
+            <div class="rc-icon">📝</div>
+            <div class="rc-label">Outro</div>
+          </div>
+        </div>
+        <div class="form-grid single" style="margin-top:12px">
+          <div class="field">
+            <div class="field-label">Justificação detalhada</div>
+            <textarea class="field-inp" id="reason-detail" placeholder="Descreva o motivo da saída do aluno…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Last lesson + dates -->
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--teal)"></div>
+        <div class="sec-title" style="color:var(--teal)">Data de saída</div>
+      </div>
+      <div class="sec-body">
+        <div class="form-grid triple">
+          <div class="field">
+            <div class="field-label">Data efectiva de saída<span class="req">*</span></div>
+            <input class="field-inp" id="exit-date" type="date"/>
+          </div>
+          <div class="field">
+            <div class="field-label">Última aula assistida</div>
+            <input class="field-inp" id="last-lesson-date" type="date"/>
+          </div>
+          <div class="field">
+            <div class="field-label">Número da última aula</div>
+            <input class="field-inp" id="last-lesson-num" type="number" min="1" placeholder="ex: 042"/>
+          </div>
+        </div>
+        <div style="margin-top:10px" id="lesson-progress-wrap" style="display:none">
+          <div class="lesson-bar"><div class="lesson-fill" id="lesson-fill" style="width:0%"></div></div>
+          <div class="lesson-info"><span>Aula <strong id="lp-num">—</strong> de <strong id="lp-total">—</strong></span><span id="lp-pct" style="color:var(--teal)">—%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: Financial settlement -->
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--amber)"></div>
+        <div class="sec-title" style="color:var(--amber)">Situação financeira</div>
+      </div>
+      <div class="sec-body">
+        <div class="fin-row" onclick="pickFin(this,'liquidado')">
+          <div class="fin-radio"><div class="fin-radio-dot"></div></div>
+          <div class="fin-label">Conta liquidada — sem valores em dívida</div>
+        </div>
+        <div class="fin-row" onclick="pickFin(this,'divida')">
+          <div class="fin-radio"><div class="fin-radio-dot"></div></div>
+          <div class="fin-label">Valor em dívida — prosseguir para cobrança</div>
+        </div>
+        <div class="fin-row" onclick="pickFin(this,'reembolso')">
+          <div class="fin-radio"><div class="fin-radio-dot"></div></div>
+          <div class="fin-label">Reembolso devido ao aluno</div>
+        </div>
+        <div class="fin-row" onclick="pickFin(this,'isencao')">
+          <div class="fin-radio"><div class="fin-radio-dot"></div></div>
+          <div class="fin-label">Isenção aplicada — caso social ou médico</div>
+        </div>
+        <div class="form-grid" style="margin-top:10px">
+          <div class="field">
+            <div class="field-label">Valor em questão (€)</div>
+            <input class="field-inp" id="fin-amount" type="number" min="0" step="0.01" placeholder="0.00"/>
+          </div>
+          <div class="field">
+            <div class="field-label">Nota financeira</div>
+            <input class="field-inp" id="fin-note" type="text" placeholder="Referência de pagamento, acordo, etc."/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 4: Document upload -->
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--blue)"></div>
+        <div class="sec-title" style="color:var(--blue)">Documentação</div>
+        <span class="sec-badge" style="background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.25);color:var(--blue)">Recomendado</span>
+      </div>
+      <div class="sec-body">
+        <div class="form-grid">
+          <div>
+            <div class="field-label" style="margin-bottom:6px">Documento justificativo</div>
+            <div class="upload-zone" id="doc-upload-zone">
+              <input type="file" id="doc-file" accept=".pdf,.jpg,.jpeg,.png" onchange="onDocFile(event)"/>
+              <div class="uz-icon">📎</div>
+              <div class="uz-label"><strong>Clique para anexar</strong>PDF, JPG ou PNG · máx 10MB</div>
+              <div class="uz-file-name" id="doc-file-name" style="display:none"></div>
+            </div>
+            <button class="camera-btn" onclick="openCamera()">📷 Fotografar documento</button>
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px">Tipo de documento</div>
+            <select class="field-inp" id="doc-type" style="margin-bottom:8px">
+              <option value="">Seleccionar tipo…</option>
+              <option>Declaração médica</option>
+              <option>Comprovativo de mudança</option>
+              <option>Carta do encarregado</option>
+              <option>Formulário de desistência assinado</option>
+              <option>Outro documento</option>
+            </select>
+            <div class="field-label" style="margin-bottom:5px">Observações sobre o documento</div>
+            <textarea class="field-inp" id="doc-obs" style="min-height:58px" placeholder="Data do documento, entidade emissora, etc."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: Guardian signature (minors only) -->
+    <div class="sec-card" id="sig-section" style="display:none">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--amber)"></div>
+        <div class="sec-title" style="color:var(--amber)">Autorização do encarregado de educação</div>
+        <span class="sec-badge" style="background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)">Obrigatório para menores</span>
+      </div>
+      <div class="sec-body">
+        <div class="form-grid">
+          <div class="field">
+            <div class="field-label">Nome do encarregado<span class="req">*</span></div>
+            <input class="field-inp" id="guardian-name" type="text" placeholder="Nome completo do encarregado"/>
+          </div>
+          <div class="field">
+            <div class="field-label">Contacto telefónico</div>
+            <input class="field-inp" id="guardian-phone" type="tel" placeholder="9xx xxx xxx"/>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="field-label" style="margin-bottom:6px">Assinatura do encarregado<span class="req">*</span></div>
+          <div class="sig-canvas-wrap">
+            <canvas id="sig-canvas" width="800" height="120"></canvas>
+            <div class="sig-controls">
+              <button class="sig-clear" onclick="clearSig()">Limpar</button>
+              <span class="sig-label" id="sig-state">Sem assinatura</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 6: Recent attendance history -->
+    <div class="sec-card" id="history-section">
+      <div class="sec-head">
+        <div class="sec-dot" style="background:var(--purple)"></div>
+        <div class="sec-title" style="color:var(--purple)">Historial de presenças recentes</div>
+        <span class="sec-badge" id="hist-badge" style="background:rgba(155,94,202,.1);border-color:rgba(155,94,202,.3);color:var(--purple)">A carregar…</span>
+      </div>
+      <div class="sec-body" style="padding:0">
+        <div id="hist-content"><div class="empty-state">Seleccione um aluno para ver o historial</div></div>
+      </div>
+    </div>
+
+    <!-- CONSEQUENCES -->
+    <div class="consequences">
+      <div class="cons-title">⚡ Acções automáticas ao confirmar</div>
+      <div class="cons-list">
+        <div class="cons-item active">
+          <div class="cons-check">✓</div>
+          Aluno removido da lista da turma em <strong id="cons-turma" style="color:var(--gold2)">—</strong>
+        </div>
+        <div class="cons-item active">
+          <div class="cons-check">✓</div>
+          Professor notificado automaticamente por alerta no portal
+        </div>
+        <div class="cons-item active">
+          <div class="cons-check">✓</div>
+          Alertas de faltas suspensos — ausências marcadas como justificadas
+        </div>
+        <div class="cons-item active">
+          <div class="cons-check">✓</div>
+          Registo de desistência criado com data, motivo e documentação
+        </div>
+        <div class="cons-item" id="cons-group-flag">
+          <div class="cons-check"></div>
+          <span style="color:var(--t3)">Turma sinalizada no Painel de Formação se ficar abaixo de 4 alunos</span>
+        </div>
+        <div class="cons-item" id="cons-fin">
+          <div class="cons-check"></div>
+          <span style="color:var(--t3)">Situação financeira registada para acompanhamento</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="submit-zone">
+      <div class="sz-title">Confirmação final</div>
+      <div class="sz-confirm" onclick="toggleConfirm()">
+        <div class="sz-check" id="sz-check"></div>
+        <div class="sz-confirm-text">
+          Confirmo que esta desistência foi comunicada pelo encarregado de educação ou pelo próprio aluno,
+          que a documentação necessária foi recolhida, e que esta acção é irreversível.
+          O aluno será removido imediatamente da turma e o professor será notificado.
+        </div>
+      </div>
+      <div class="sz-btn-row">
+        <button class="btn-cancel" onclick="cancelForm()">Cancelar</button>
+        <button class="btn-submit" id="btn-submit" disabled onclick="submitDesistencia()">
+          Registar desistência
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /form-area -->
+</div><!-- /shell -->
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-card">
+    <div class="sc-icon">✓</div>
+    <div class="sc-title">Desistência registada</div>
+    <div class="sc-sub" id="sc-sub">O registo foi criado com sucesso. As acções automáticas foram executadas.</div>
+    <div class="sc-effects" id="sc-effects"></div>
+    <div class="sc-actions">
+      <button class="sc-btn sc-btn-print" onclick="printWithdrawal()">🖨 Imprimir formulário</button>
+      <button class="sc-btn sc-btn-home" onclick="window.location.href='/admin/alm-mensagens'">Voltar à secretaria</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = {apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+
+let AY='',YEAR_START='',YEAR_END='';
+let SEL_STUDENT=null,SEL_CLASS=null,SEL_REASON='',SEL_FIN='',CONFIRMED=false;
+let TOTAL_LESSONS=0,SIG_HAS_DATA=false;
+let _connFails=0;
+
+function setConn(ok){
+  const d=document.getElementById('live-dot');
+  if(ok){_connFails=0;d.style.background='var(--green)';d.style.animation='blink 2s infinite';}
+  else{_connFails++;d.style.background=_connFails>2?'var(--red)':'var(--amber)';d.style.animation='none';}
+}
+
+async function sbGet(table,qs=''){
+  try{
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:'0-999',Prefer:'count=none'}});
+    if(!r.ok)throw new Error(r.status);
+    setConn(true);return await r.json();
+  }catch(e){setConn(false);throw e;}
+}
+
+async function sbPost(table,body){
+  const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok){const t=await r.text();throw new Error(`${r.status}: ${t.slice(0,120)}`);}
+  setConn(true);
+}
+
+async function sbPatch(table,qs,body){
+  const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok){const t=await r.text();throw new Error(`${r.status}: ${t.slice(0,120)}`);}
+  setConn(true);
+}
+
+const AV_POOL=[{bg:'#49281f',t:'#cfb590'},{bg:'#564334',t:'#9e9a41'},{bg:'#49281f',t:'#9e9a41'},{bg:'#564334',t:'#cfb590'},{bg:'#49281f',t:'#758918'},{bg:'#3d2a1a',t:'#cfb590'},{bg:'#564334',t:'#758918'},{bg:'#3d2a1a',t:'#9e9a41'}];
+function avCol(n){let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
+function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+const DEPT_GRADS={kids:'linear-gradient(145deg,#1A3A6A,#0D2248)',kids_juv:'linear-gradient(145deg,#0D4A3A,#062A20)',adults:'linear-gradient(145deg,#3A2A10,#201408)',exam:'linear-gradient(145deg,#3A1A3A,#200D20)'};
+const LEVEL_MAP={'PI1':'kids','PI2':'kids','PI3':'kids','PI4':'kids','PJ1':'kids_juv','PJ2':'kids_juv','PJ3':'kids_juv','6':'exam','7':'exam','8':'exam'};
+function getDept(lc){return LEVEL_MAP[(lc||'').trim()]||'adults';}
+const FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
+function todayISO(){return new Date().toISOString().slice(0,10);}
+
+async function boot(){
+  try{
+    const cfg=await sbGet('school_config','select=key,value&limit=20');
+    cfg.forEach(r=>{
+      if(r.key==='academic_year')AY=r.value;
+      if(r.key==='year_start_date')YEAR_START=r.value;
+      if(r.key==='year_end_date')YEAR_END=r.value;
+    });
+    if(AY)document.getElementById('brand-yr').textContent=AY;
+  }catch(e){console.warn('school_config:',e);}
+  document.getElementById('exit-date').value=todayISO();
+  initSigCanvas();
+  const params=new URLSearchParams(window.location.search);
+  const ref=params.get('ref');
+  if(ref){
+    document.getElementById('search-inp').value=ref;
+    await doSearch();
+    const results=document.querySelectorAll('.sr-row');
+    if(results.length===1)results[0].click();
+  }
+}
+
+/* ── SEARCH ── */
+let _searchTimer=null;
+function onSearch(){clearTimeout(_searchTimer);_searchTimer=setTimeout(doSearch,300);}
+
+async function doSearch(){
+  const q=(document.getElementById('search-inp').value||'').trim();
+  if(q.length<2){document.getElementById('search-results').innerHTML='';return;}
+  const res=document.getElementById('search-results');
+  res.innerHTML=`<div style="padding:8px 4px;font-size:9px;color:var(--t3);display:flex;align-items:center;gap:6px"><div class="spinner"></div>A pesquisar…</div>`;
+  try{
+    const enrols=await sbGet('enrolments',`or=(name.ilike.*${encodeURIComponent(q)}*,ref.ilike.*${encodeURIComponent(q)}*)&select=ref,name,lang,level_code,branch,is_minor&limit=12`);
+    if(!enrols.length){res.innerHTML=`<div style="padding:8px 4px;font-size:9px;color:var(--t3)">Sem resultados.</div>`;return;}
+    const refs=enrols.map(e=>e.ref).join(',');
+    const classes=await sbGet('classes',`student_refs=cs.["${enrols[0].ref}"]&select=turma_code,day_of_week,start_time,end_time,level_display,level_code,teacher_id&limit=50`).catch(()=>[]);
+    const classMap={};
+    classes.forEach(c=>{
+      let refs=[];try{refs=Array.isArray(c.student_refs)?c.student_refs:JSON.parse(c.student_refs||'[]');}catch{}
+    });
+    res.innerHTML=enrols.map(e=>{
+      const av=avCol(e.name),minor=!!e.is_minor;
+      return`<div class="sr-row" onclick="selectStudent(${JSON.stringify(JSON.stringify(e))})">
+        <div class="sr-av" style="background:${av.bg};border-color:${av.t}66;color:${av.t}">${avInit(e.name)}</div>
+        <div class="sr-name">${e.name}</div>
+        <div class="sr-meta">${e.ref}${minor?' · menor':''}</div>
+        <div class="sr-meta">${FLAGS[e.lang]||''} ${e.lang||'—'} · ${e.level_code||'—'}</div>
+        <div class="sr-turma">${(e.branch||'—').replace(/_/g,' ')}</div>
+      </div>`;
+    }).join('');
+  }catch(e){res.innerHTML=`<div style="padding:8px 4px;font-size:9px;color:var(--red)">Erro: ${e.message}</div>`;}
+}
+
+async function selectStudent(jsonStr){
+  const e=JSON.parse(jsonStr);
+  SEL_STUDENT=e;
+  document.getElementById('search-results').innerHTML='';
+  await loadStudentData(e);
+}
+
+async function loadStudentData(e){
+  const av=avCol(e.name),dept=getDept(e.level_code),minor=!!e.is_minor;
+  const avEl=document.getElementById('sh-av');
+  avEl.textContent=avInit(e.name);avEl.style.background=av.bg;avEl.style.borderColor=av.t+'66';avEl.style.color=av.t;
+  document.getElementById('sh-bg').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  document.getElementById('sh-name').textContent=e.name;
+  document.getElementById('sh-ref').textContent=e.ref;
+  document.getElementById('sh-branch').textContent=(e.branch||'—').replace(/_/g,' ');
+  document.getElementById('sh-lang').textContent=`${FLAGS[e.lang]||''} ${e.lang||'—'}`;
+  const badgesEl=document.getElementById('sh-badges');
+  let badges='';
+  if(minor)badges+=`<span class="sh-badge shb-minor">⚠ Menor de idade</span>`;
+  else badges+=`<span class="sh-badge shb-adult">Adulto</span>`;
+  badgesEl.innerHTML=badges;
+  document.getElementById('student-hero').style.display='block';
+  document.getElementById('minor-warn').style.display=minor?'flex':'none';
+  document.getElementById('sig-section').style.display=minor?'block':'none';
+  document.getElementById('form-area').style.display='block';
+  await Promise.all([loadAttendance(e),loadClass(e)]);
+}
+
+async function loadAttendance(e){
+  try{
+    const yearStart=YEAR_START||'2025-09-01',yearEnd=YEAR_END||'2026-06-30';
+    const rows=await sbGet('attendance',`student_ref=eq.${encodeURIComponent(e.ref)}&date=gte.${yearStart}&date=lte.${yearEnd}&select=status,date,turma_code,lesson_number&order=date.desc&limit=200`);
+    const faltas=rows.filter(r=>r.status==='absent').length;
+    const totalAulas=rows.length;
+    document.getElementById('shs-faltas').textContent=faltas;
+    document.getElementById('shs-aulas').textContent=totalAulas;
+    const lastRow=rows[0];
+    if(lastRow){
+      document.getElementById('shs-lesson').textContent=lastRow.lesson_number?`Aula ${String(lastRow.lesson_number).padStart(3,'0')}`:'—';
+      document.getElementById('last-lesson-date').value=lastRow.date||'';
+      document.getElementById('last-lesson-num').value=lastRow.lesson_number||'';
+    }
+    const histBadge=document.getElementById('hist-badge');
+    histBadge.textContent=`${totalAulas} registos`;
+    if(!rows.length){document.getElementById('hist-content').innerHTML=`<div class="empty-state">Sem registos de presenças</div>`;return;}
+    const recent=rows.slice(0,20);
+    document.getElementById('hist-content').innerHTML=`<table class="hist-table">
+      <thead><tr><th>Data</th><th>Turma</th><th>Aula</th><th>Estado</th></tr></thead>
+      <tbody>${recent.map(r=>{
+        const sc=r.status==='present'?'hs-presente':r.status==='absent'?'hs-falta':'hs-atraso';
+        const lbl=r.status==='present'?'PRESENTE':r.status==='absent'?'FALTA':'ATRASO';
+        const dt=new Date(r.date+'T12:00:00').toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+        return`<tr><td>${dt}</td><td style="color:var(--gold2);font-weight:700">${r.turma_code||'—'}</td><td style="color:var(--teal)">${r.lesson_number?`Aula ${String(r.lesson_number).padStart(3,'0')}`:'—'}</td><td><span class="hist-status ${sc}">${lbl}</span></td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+    updateLessonProgress();
+  }catch(err){console.warn('attendance load:',err);}
+}
+
+async function loadClass(e){
+  try{
+    const classes=await sbGet('classes',`select=turma_code,day_of_week,start_time,end_time,level_display,level_code,student_refs,teacher_id&limit=200`);
+    const myClass=classes.find(c=>{
+      let refs=[];try{refs=Array.isArray(c.student_refs)?c.student_refs:JSON.parse(c.student_refs||'[]');}catch{}
+      return refs.includes(e.ref);
+    });
+    if(myClass){
+      SEL_CLASS=myClass;
+      const tc=myClass.turma_code;
+      document.getElementById('sh-badges').innerHTML+=` <span class="sh-badge shb-turma">${tc}</span>`;
+      document.getElementById('cons-turma').textContent=tc;
+      let refs=[];try{refs=Array.isArray(myClass.student_refs)?myClass.student_refs:JSON.parse(myClass.student_refs||'[]');}catch{}
+      const remaining=refs.length-1;
+      const groupFlagEl=document.getElementById('cons-group-flag');
+      if(remaining<4){
+        groupFlagEl.classList.add('active');
+        groupFlagEl.querySelector('.cons-check').textContent='✓';
+        groupFlagEl.querySelector('span').style.color='var(--t)';
+        groupFlagEl.querySelector('span').textContent=`Turma ${tc} terá ${remaining} aluno(s) — sinalizada para revisão`;
+      }
+    }else{
+      document.getElementById('cons-turma').textContent='(turma não encontrada)';
+    }
+  }catch(err){console.warn('class load:',err);}
+}
+
+function updateLessonProgress(){
+  const num=parseInt(document.getElementById('last-lesson-num').value)||0;
+  const wrap=document.getElementById('lesson-progress-wrap');
+  if(num>0&&TOTAL_LESSONS>0){
+    wrap.style.display='block';
+    const pct=Math.round(num/TOTAL_LESSONS*100);
+    document.getElementById('lesson-fill').style.width=pct+'%';
+    document.getElementById('lp-num').textContent=String(num).padStart(3,'0');
+    document.getElementById('lp-total').textContent=TOTAL_LESSONS;
+    document.getElementById('lp-pct').textContent=pct+'%';
+  }else if(num>0){
+    wrap.style.display='block';
+    document.getElementById('lesson-fill').style.width='0%';
+    document.getElementById('lp-num').textContent=String(num).padStart(3,'0');
+    document.getElementById('lp-total').textContent='?';
+    document.getElementById('lp-pct').textContent='—';
+  }else{wrap.style.display='none';}
+}
+document.addEventListener('input',e=>{if(e.target.id==='last-lesson-num')updateLessonProgress();});
+
+/* ── REASON CHIPS ── */
+function pickReason(el){
+  document.querySelectorAll('.reason-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  SEL_REASON=el.dataset.reason;
+  checkSubmit();
+}
+
+/* ── FINANCIAL ── */
+function pickFin(el,val){
+  document.querySelectorAll('.fin-row').forEach(r=>r.classList.remove('active'));
+  el.classList.add('active');
+  SEL_FIN=val;
+  const finEl=document.getElementById('cons-fin');
+  finEl.classList.add('active');
+  finEl.querySelector('.cons-check').textContent='✓';
+  finEl.querySelector('span').style.color='var(--t)';
+  checkSubmit();
+}
+
+/* ── DOCUMENT UPLOAD ── */
+function onDocFile(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  if(file.size>10*1024*1024){showToast('Ficheiro demasiado grande (máx 10MB)','err');return;}
+  const zone=document.getElementById('doc-upload-zone');
+  const nameEl=document.getElementById('doc-file-name');
+  zone.classList.add('has-file');
+  nameEl.textContent=file.name;nameEl.style.display='block';
+  showToast('Ficheiro carregado ✓','ok');
+}
+
+function openCamera(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/*';input.capture='environment';
+  input.onchange=onDocFile;input.click();
+}
+
+/* ── SIGNATURE CANVAS ── */
+let sigCtx=null,sigDrawing=false,sigLastX=0,sigLastY=0;
+function initSigCanvas(){
+  const canvas=document.getElementById('sig-canvas');
+  sigCtx=canvas.getContext('2d');
+  sigCtx.strokeStyle='rgba(240,222,175,.9)';
+  sigCtx.lineWidth=2;sigCtx.lineCap='round';sigCtx.lineJoin='round';
+  canvas.addEventListener('mousedown',e=>{sigDrawing=true;[sigLastX,sigLastY]=getPos(canvas,e);});
+  canvas.addEventListener('mousemove',e=>{if(!sigDrawing)return;draw(canvas,e);});
+  canvas.addEventListener('mouseup',()=>{sigDrawing=false;SIG_HAS_DATA=true;document.getElementById('sig-state').textContent='Assinatura registada ✓';document.getElementById('sig-state').style.color='var(--green)';checkSubmit();});
+  canvas.addEventListener('mouseleave',()=>sigDrawing=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();sigDrawing=true;[sigLastX,sigLastY]=getPos(canvas,e.touches[0]);},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;draw(canvas,e.touches[0]);},{passive:false});
+  canvas.addEventListener('touchend',()=>{sigDrawing=false;SIG_HAS_DATA=true;document.getElementById('sig-state').textContent='Assinatura registada ✓';document.getElementById('sig-state').style.color='var(--green)';checkSubmit();});
+}
+function getPos(canvas,e){const r=canvas.getBoundingClientRect();return[(e.clientX-r.left)*(canvas.width/r.width),(e.clientY-r.top)*(canvas.height/r.height)];}
+function draw(canvas,e){
+  const[x,y]=getPos(canvas,e);
+  sigCtx.beginPath();sigCtx.moveTo(sigLastX,sigLastY);sigCtx.lineTo(x,y);sigCtx.stroke();
+  [sigLastX,sigLastY]=[x,y];
+}
+function clearSig(){
+  sigCtx.clearRect(0,0,800,120);SIG_HAS_DATA=false;
+  document.getElementById('sig-state').textContent='Sem assinatura';
+  document.getElementById('sig-state').style.color='';checkSubmit();
+}
+
+/* ── CONFIRM TOGGLE ── */
+function toggleConfirm(){
+  CONFIRMED=!CONFIRMED;
+  const el=document.getElementById('sz-check');
+  el.classList.toggle('on',CONFIRMED);
+  el.textContent=CONFIRMED?'✓':'';
+  checkSubmit();
+}
+
+function checkSubmit(){
+  const isMinor=!!SEL_STUDENT?.is_minor;
+  const exitDate=document.getElementById('exit-date').value;
+  const ok=SEL_STUDENT&&SEL_REASON&&exitDate&&CONFIRMED&&(!isMinor||(SIG_HAS_DATA&&document.getElementById('guardian-name').value.trim()));
+  document.getElementById('btn-submit').disabled=!ok;
+}
+
+/* ── SUBMIT ── */
+async function submitDesistencia(){
+  const btn=document.getElementById('btn-submit');
+  if(btn.disabled)return;
+  btn.disabled=true;btn.classList.add('loading');btn.textContent='A registar…';
+  const e=SEL_STUDENT,cls=SEL_CLASS;
+  const exitDate=document.getElementById('exit-date').value;
+  const lastDate=document.getElementById('last-lesson-date').value;
+  const lastNum=parseInt(document.getElementById('last-lesson-num').value)||null;
+  const now=new Date().toISOString();
+  try{
+    /* 1. Write desistencia record */
+    await sbPost('student_withdrawals',{
+      student_ref:e.ref,student_name:e.name,
+      turma_code:cls?.turma_code||null,teacher_id:cls?.teacher_id||null,
+      exit_date:exitDate,last_lesson_date:lastDate||null,last_lesson_number:lastNum,
+      reason:SEL_REASON,reason_detail:document.getElementById('reason-detail').value||null,
+      financial_status:SEL_FIN||null,
+      financial_amount:parseFloat(document.getElementById('fin-amount').value)||null,
+      financial_note:document.getElementById('fin-note').value||null,
+      document_type:document.getElementById('doc-type').value||null,
+      document_obs:document.getElementById('doc-obs').value||null,
+      guardian_name:document.getElementById('guardian-name')?.value||null,
+      is_minor:!!e.is_minor,
+      academic_year:AY||null,
+      created_at:now,status:'active',
+    }).catch(()=>{});/* table may not exist yet — graceful */
+
+    /* 2. Write justified absences for all pending absences */
+    await sbPost('justified_absences',{
+      student_ref:e.ref,turma_code:cls?.turma_code||null,
+      reason:'withdrawal',lesson_date:lastDate||exitDate,
+      lesson_number:lastNum,created_at:now,
+    }).catch(()=>{});
+
+    /* 3. Remove student from class student_refs */
+    if(cls){
+      let refs=[];try{refs=Array.isArray(cls.student_refs)?[...cls.student_refs]:JSON.parse(cls.student_refs||'[]');}catch{}
+      const newRefs=refs.filter(r=>r!==e.ref);
+      await sbPatch('classes',`turma_code=eq.${encodeURIComponent(cls.turma_code)}`,{student_refs:JSON.stringify(newRefs)}).catch(()=>{});
+    }
+
+    /* 4. Post internal notice to teacher */
+    await sbPost('messages',{
+      teacher_id:cls?.teacher_id||null,
+      message_type:'internal_school',
+      turma_code:cls?.turma_code||null,
+      subject:`Desistência · ${e.name}`,
+      body:`O aluno ${e.name} (${e.ref}) desistiu com efeito a ${exitDate}. Motivo: ${SEL_REASON}. ${document.getElementById('reason-detail').value||''}`,
+      status:'pending',created_at:now,
+    }).catch(()=>{});
+
+    /* 5. Show success */
+    setConn(true);
+    const effects=[];
+    effects.push(`${e.name} removido da turma ${cls?.turma_code||'—'}`);
+    effects.push('Professor notificado via portal');
+    effects.push('Alertas de faltas suspensos');
+    if(SEL_FIN)effects.push(`Situação financeira: ${SEL_FIN}`);
+    document.getElementById('sc-sub').textContent=`${e.name} · ${e.ref} · saída ${exitDate}`;
+    document.getElementById('sc-effects').innerHTML=effects.map(ef=>`<div class="sc-effect"><div class="sc-effect-dot"></div>${ef}</div>`).join('');
+    document.getElementById('success-overlay').classList.add('show');
+  }catch(err){
+    setConn(false);
+    showToast('Erro ao registar: '+err.message.slice(0,60),'err');
+    btn.disabled=false;btn.classList.remove('loading');btn.textContent='Registar desistência';
+  }
+}
+
+/* ── PRINT ── */
+function printWithdrawal(){
+  const e=SEL_STUDENT,cls=SEL_CLASS;
+  const exitDate=document.getElementById('exit-date').value;
+  const reason=SEL_REASON;
+  const detail=document.getElementById('reason-detail').value;
+  const fin=SEL_FIN;
+  const guardian=document.getElementById('guardian-name')?.value||'';
+  const dt=new Date(exitDate+'T12:00:00').toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const win=window.open('','_blank','width=700,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Formulário de Desistência · ${e?.name||'—'}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24pt;font-size:11pt;color:#000}
+  h1{font-size:20pt;margin-bottom:4pt;letter-spacing:2px}
+  .alm{font-size:28pt;font-weight:900;letter-spacing:4px;color:#4A3020;margin-bottom:2pt}
+  .sub{font-size:9pt;color:#666;margin-bottom:18pt;padding-bottom:10pt;border-bottom:2pt solid #000}
+  .section{margin-bottom:14pt}.sec-title{font-size:9pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#333;margin-bottom:6pt;padding-bottom:3pt;border-bottom:1pt solid #ccc}
+  .row{display:flex;justify-content:space-between;padding:4pt 0;border-bottom:.5pt solid #eee;font-size:10pt}
+  .label{color:#555;min-width:160pt}.value{font-weight:700;text-align:right}
+  .sig-box{height:60pt;border:1pt solid #999;border-radius:4pt;margin-top:8pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt}
+  .footer{margin-top:20pt;padding-top:8pt;border-top:1pt solid #ccc;display:flex;justify-content:space-between;font-size:8pt;color:#888}
+  .stamp-box{border:1pt solid #ccc;border-radius:4pt;padding:8pt;min-height:60pt;margin-top:8pt;color:#aaa;font-size:9pt;text-align:center}
+  </style></head><body>
+  <div class="alm">ALM</div>
+  <h1>Formulário de Desistência</h1>
+  <div class="sub">Academia de Línguas da Madeira · ${AY||'——'}</div>
+  <div class="section"><div class="sec-title">Dados do aluno</div>
+    <div class="row"><span class="label">Nome completo</span><span class="value">${e?.name||'—'}</span></div>
+    <div class="row"><span class="label">Referência</span><span class="value">${e?.ref||'—'}</span></div>
+    <div class="row"><span class="label">Turma</span><span class="value">${cls?.turma_code||'—'}</span></div>
+    <div class="row"><span class="label">Nível</span><span class="value">${e?.level_code||'—'}</span></div>
+    <div class="row"><span class="label">Menor de idade</span><span class="value">${e?.is_minor?'Sim':'Não'}</span></div>
+  </div>
+  <div class="section"><div class="sec-title">Desistência</div>
+    <div class="row"><span class="label">Data efectiva de saída</span><span class="value">${dt}</span></div>
+    <div class="row"><span class="label">Última aula</span><span class="value">${document.getElementById('last-lesson-date').value||'—'} · Aula ${document.getElementById('last-lesson-num').value||'—'}</span></div>
+    <div class="row"><span class="label">Motivo</span><span class="value">${reason||'—'}</span></div>
+    ${detail?`<div class="row"><span class="label">Justificação</span><span class="value" style="max-width:260pt;text-align:right">${detail}</span></div>`:''}
+  </div>
+  <div class="section"><div class="sec-title">Situação financeira</div>
+    <div class="row"><span class="label">Estado</span><span class="value">${fin||'Não especificado'}</span></div>
+    ${document.getElementById('fin-amount').value?`<div class="row"><span class="label">Valor</span><span class="value">${parseFloat(document.getElementById('fin-amount').value).toFixed(2)} €</span></div>`:''}
+    ${document.getElementById('fin-note').value?`<div class="row"><span class="label">Nota</span><span class="value">${document.getElementById('fin-note').value}</span></div>`:''}
+  </div>
+  ${e?.is_minor?`<div class="section"><div class="sec-title">Declaração do encarregado de educação</div>
+    <div class="row"><span class="label">Nome do encarregado</span><span class="value">${guardian||'—'}</span></div>
+    <p style="font-size:10pt;margin:8pt 0;line-height:1.5">Eu, abaixo assinado/a, encarregado/a de educação do aluno acima identificado, declaro que autorizo e confirmo a desistência do meu educando, tendo sido informado/a das consequências administrativas e financeiras desta decisão.</p>
+    <div class="sig-box">Assinatura do encarregado de educação</div>
+    <div class="row" style="margin-top:6pt"><span class="label">Data</span><span class="value">______ / ______ / __________</span></div>
+  </div>`:''}
+  <div class="section"><div class="sec-title">Uso exclusivo da secretaria</div>
+    <div class="row"><span class="label">Processado por</span><span class="value">____________________________</span></div>
+    <div class="row"><span class="label">Data de registo</span><span class="value">${new Date().toLocaleDateString('pt-PT')}</span></div>
+    <div class="stamp-box">Carimbo e assinatura da secretaria</div>
+  </div>
+  <div class="footer"><span>ALM · Academia de Línguas da Madeira · ${AY||'——'}</span><span>Gerado em ${new Date().toLocaleString('pt-PT')}</span></div>
+  </body></html>`);
+  win.document.close();win.focus();setTimeout(()=>win.print(),400);
+}
+
+function cancelForm(){window.history.back();}
+
+let _tt=null;
+function showToast(msg,type='info'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);}
+function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+tick();setInterval(tick,1000);
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('success-overlay').classList.contains('show'))document.getElementById('success-overlay').classList.remove('show');});
+document.getElementById('guardian-name')?.addEventListener('input',checkSubmit);
+boot();
+</script>
+</body>
+</html>
