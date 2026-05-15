@@ -845,15 +845,19 @@ async function loadNotices(){
     // Build OR filter — same logic as mensagens buildTeacherMap()
     const todayKey = DAY_JS[new Date().getDay()];
     const hasClassesToday = ALL_HRS.some(h => SCHEDULE[todayKey]?.[h]);
-    let orFilter = `teacher_id.eq.${ME.id},recipient.eq.all,recipient.eq.${ME.id}`;
-    if(hasClassesToday) orFilter += ',recipient.eq.today';
+    let orParts = [
+  `teacher_id.eq.${ME.id}`,
+  `recipient.eq.all`,
+  `recipient.eq.${ME.id}`
+];
+if(hasClassesToday) orParts.push('recipient.eq.today');
 
-    const rows = await sbGet('office_notices',
-      `or=(${orFilter})` +
-      `&order=created_at.desc` +
-      `&select=id,recipient,teacher_id,turma_code,urgency,subject,body,document_url,student_ref,read_at,created_at,status` +
-      `&limit=100`
-    );
+const rows = await sbGet('office_notices',
+  `or=(${orParts.join(',')})` +
+  `&order=created_at.desc` +
+  `&select=id,recipient,teacher_id,turma_code,urgency,subject,body,document_url,student_ref,read_at,created_at,status` +
+  `&limit=100`
+);
     NOTICES = rows || [];
 
     // Pre-fetch student names for any student_ref values
