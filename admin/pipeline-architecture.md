@@ -311,6 +311,58 @@ The following table maps every data hand-off point and its associated risk:
 
 ---
 
+3.13 No Student Desistência Workflow
+The pipeline has no mechanism to handle a student leaving mid-year. This is not an edge case — withdrawals happen continuously throughout the academic year, for medical, financial, and personal reasons. Currently the process is entirely paper-based: a note is written, a name is crossed off a physical class list, and the information propagates (or fails to propagate) by word of mouth.
+The consequences of this gap compound across the system. When a student stops attending without a formal digital withdrawal, the absence engine in alm-mensagens.html continues counting their absences against the MAX_ABS = 12 threshold. For a minor, the ALERT_MINOR = 2 threshold fires almost immediately — generating false alerts that staff must manually dismiss, eroding trust in the alert system. The student remains in classes.student_refs, inflating class sizes in the Formation and Decision views. The teacher receives no notification and may spend several lessons wondering why the student has disappeared. No financial settlement record is created.
+A dedicated desistência page must handle the following atomically:
+
+Reason for withdrawal (dropdown: médica, financeira, mudança, pessoal, transferência, outro) plus free-text justification
+Last active lesson date and lesson number, derived from the attendance ledger
+Document attachment — medical certificate, guardian letter, or justification scan via camera or file upload
+Guardian signature field for minors, with a timestamp
+Financial note — fees owed, refund due, or settled
+Automatic removal from classes.student_refs for the relevant turma
+A justified-absence record written to a new justified_absences table, clearing all pending absence alerts for that student
+Notification dispatch to the assigned teacher
+A printable withdrawal form in the same format as the existing printAttendance() function
+
+The page must also feed back to Step 3 of the pipeline. A withdrawal that reduces a group below a viable size (typically fewer than 4 students) should surface a flag in the Formation panel — the group may need to be merged or cancelled. This reverse dependency is the most architecturally significant gap the original audit did not capture: the pipeline was designed as a one-way flow from enrolment to classroom, but the classroom feeds back into enrolment.
+The desistência page should be accessible from three entry points: the student record in the Students module, the student row in alm-mensagens.html (replacing the currently non-functional flag icon action), and as a quick action from any expanded class card showing a student with an unexplained string of absences.
+Audit cross-references: §2.9 (absCount silent failure when school_config absent — a formal withdrawal with a dated record resolves the ambiguity), §3.5 (no validation before write — the withdrawal form is the validation layer), §3.6 (no change log — the withdrawal record is the most consequential change log entry in the system), §3.7 (no student dossier access from the mensagens module — the desistência action gives staff a reason to open it).
+
+3.14 No Office-to-Teacher Communication Channel
+Every school runs on informal notices. A student will not be in class today — doctor's appointment, guardian called ahead. A room has changed. A form needs to be signed before the end of the day. A payment has been received and the student's status is now clear. Currently every one of these communications happens on paper: a note left in a pigeonhole, a message written on the class register, a form clipped to a folder that the teacher may or may not see before walking in.
+The system has no digital equivalent. The alm-mensagens.html file receives messages flowing from teachers to the secretariat — attendance submissions, photocopy requests, internal messages. There is no reverse channel. The secretary has no way to reach a teacher through the system before a lesson begins.
+A dedicated office-to-teacher notices page must provide:
+
+Notice composition — recipient selection (individual teacher, teaching group, or all staff), subject, and body
+Urgency level: informativo (blue), urgente (amber), cancelamento (red) — the last triggering a distinct visual treatment in the teacher portal
+Document or photo attachment — the single most-requested paper workflow is attaching a scanned medical certificate or a form that needs a signature to the relevant class's digital register. This attachment must be viewable in the teacher portal and downloadable as a PDF
+Push notification to the teacher portal on submission, surfaced as a banner above the weekly grid before any other content
+Acknowledgement tracking — the secretary sees a ✓ read indicator per teacher, with timestamp. For urgent notices and cancellations, unacknowledged notices after 15 minutes trigger a repeat alert in the secretariat view
+Automatic linkage — notices can be pinned to a specific turma, lesson number, or student record, so they appear contextually in the expanded class card view
+Auto-archival after 48 hours for informativo notices; urgent and cancellation notices persist until manually resolved
+
+This page also provides the justified absence bridge described in §3.13. When a parent calls ahead to say their child will not attend, the secretary creates a notice linked to that student. The notice automatically writes a pre-justified absence entry for that lesson, so the teacher's attendance submission does not trigger a false alert and the absence is flagged as justified in the ledger from the moment it is recorded — not retrospectively.
+The teacher portal (alm-ficha-professor.html) requires a corresponding inbox panel. Unread notices should appear as a count badge on the portal's topbar and as a priority banner above the weekly timetable grid — styled distinctly from the existing today-strip, which shows the teacher's own schedule. A cancellation notice should visually strike through the relevant slot in the grid.
+The secretariat view in alm-mensagens.html should expose an outbox panel — the proposed command centre redesign (with its three-panel layout for attendance, messages, and photocopies) is the correct home for a fourth panel showing today's outgoing notices and their acknowledgement status.
+Audit cross-references: §3.7 (no student dossier access from the mensagens module — notices link directly to student records), §3.8 (mensagens not in the pipeline navigation strip — the notice system gives the secretariat page a distinct identity beyond the attendance view, justifying a permanent place in the strip), §3.9 (no real-time subscriptions — notices are the strongest argument for implementing Supabase real-time channels, since a 60-second polling delay on a room-cancellation notice is operationally unacceptable), §4.6 (teacher list underutilising the left panel — unread notice count is exactly the kind of per-teacher signal that belongs in that panel).
+
+Shared infrastructure note. Both §3.13 and §3.14 depend on a justified_absences table that does not currently exist. The schema is straightforward:
+sqlCREATE TABLE justified_absences (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_ref   text NOT NULL,
+  turma_code    text NOT NULL,
+  lesson_date   date NOT NULL,
+  lesson_number integer,
+  reason        text NOT NULL,  -- 'withdrawal' | 'medical' | 'family' | 'other'
+  document_url  text,
+  created_by    text,           -- staff id
+  created_at    timestamptz DEFAULT now(),
+  notice_id     uuid,           -- FK to office notices if pre-justified
+  desistencia_id uuid            -- FK to withdrawals if terminal
+);
+
 ## Conclusion
 
 The ALM pipeline is a genuinely capable system with strong domain modelling and several excellent UX ideas. The group formation algorithm, the teacher ranking engine, the absence alert system, and the non-destructive sync pattern are all production-quality features. The visual identity is distinctive and appropriate for a professional school administration context.
