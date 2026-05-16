@@ -867,20 +867,17 @@ async function sbUpsertRequest(ref, payload) {
 // FIX: student_refs always written as JSON array string
 // FIX: non-destructive sync — teacher fields excluded from upsert body
 // ═══════════════════════════════════════════════════════════════
-async function sbInsertClass(box, refs) {
+async function _sbInsertClassSingle(box, refs) {
   const students     = box.students || [];
   const sampleEnrol  = students.find(e => e) || {};
   const levelCode    = lk(sampleEnrol) || box.lk || '';
   const levelDisplay = box.meta?.label || levelCode;
   const dept         = box.dk || getLM(sampleEnrol).dept || 'adults';
-
   const isManha  = box.block === 'manha';
   const startHour = isManha ? 9 : 14;
   const endHour   = isManha ? 10 : 15;
   const startStr  = `${String(startHour).padStart(2,'0')}:00`;
   const endStr    = `${String(endHour).padStart(2,'0')}:30`;
-
-  // FIX: canonical day_of_week normalisation at write time — SÁB is the canonical form
   const DAY_NORM = { SEG:'SEG', TER:'TER', QUA:'QUA', QUI:'QUI', SEX:'SEX', SAB:'SÁB', SÁB:'SÁB' };
   const sessions = [];
   const suffixes = ['A','B','C','D'];
@@ -892,7 +889,6 @@ async function sbInsertClass(box, refs) {
     seenDays.add(normDay);
     sessions.push({ day: normDay, suffix: suffixes[i] || String(i+1) });
   });
-
   const errors = [];
   for (const session of sessions) {
     const sessionCode = box.code + session.suffix;
@@ -910,24 +906,20 @@ async function sbInsertClass(box, refs) {
       start_time:    startStr,
       end_time:      endStr,
       duration_min:  90,
-      // FIX: student_refs always a valid JSON array string
       student_refs:  JSON.stringify(Array.isArray(refs) ? refs : []),
       group_key:     box.lk || levelCode,
       status:        'confirmed',
     };
-
     const r = await fetch(`${SB}/rest/v1/classes`, {
       method: 'POST',
       headers: {
         apikey: KEY,
         Authorization: 'Bearer ' + KEY,
         'Content-Type': 'application/json',
-        // FIX: non-destructive — teacher/room assignments survive re-sync
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
       body: JSON.stringify(row),
     });
-
     if (!r.ok) {
       const txt = await r.text();
       errors.push(`${session.day} (${sessionCode}): HTTP ${r.status} ${txt.slice(0,120)}`);
@@ -935,11 +927,39 @@ async function sbInsertClass(box, refs) {
       dlog(`classes upsert OK: ${sessionCode} day=${session.day} hour=${startHour}`, 'ok');
     }
   }
-
-  if (errors.length) return { ok: false, error: errors.join(' | '), sessionCodes: [] };
+  if (errors.length) return { ok: false, error: errors.join(' | '), primaryCode: null };
   return { ok: true, error: null, primaryCode: box.code + (sessions[0]?.suffix || 'A') };
 }
 
+async function sbInsertClass(box, refs) {
+  const bCode = BC[activeLoc] || activeLoc.slice(0,3);
+  if (refs.length > MAX_G) {
+    dlog(`AUTO-SPLIT: ${box.code} has ${refs.length} students — splitting into chunks of ${MAX_G}`, 'info');
+    let remaining = [...refs];
+    const results = [];
+    while (remaining.length >= MIN_G) {
+      const chunk = remaining.slice(0, MAX_G);
+      remaining = remaining.slice(MAX_G);
+      if (remaining.length > 0 && remaining.length < MIN_G) {
+        chunk.push(...remaining);
+        remaining = [];
+      }
+      if (!_nextSeqBase[bCode]) _nextSeqBase[bCode] = 1;
+      const seqNum = _nextSeqBase[bCode]++;
+      const seq = String(seqNum).padStart(2, '0');
+      const splitCode = `${bCode}-${seq}`;
+      const splitBox = { ...box, code: splitCode };
+      dlog(`AUTO-SPLIT chunk: ${splitCode} · ${chunk.length} students`, 'info');
+      const r = await _sbInsertClassSingle(splitBox, chunk);
+      results.push({ ...r, groupCode: splitCode });
+    }
+    const failed = results.filter(r => !r.ok);
+    if (failed.length) return { ok: false, error: failed.map(r => r.error).join(' | '), primaryCode: null };
+    results.forEach(r => { if (r.groupCode) _confirmedCodes.add(r.groupCode); });
+    return { ok: true, error: null, primaryCode: results[0]?.primaryCode || null, splitCodes: results.map(r => r.groupCode) };
+  }
+  return _sbInsertClassSingle(box, refs);
+}
 // ═══════════════════════════════════════════════════════════════
 // DATA LOAD
 // ═══════════════════════════════════════════════════════════════
