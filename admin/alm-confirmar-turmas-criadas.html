@@ -720,6 +720,7 @@ function dlog(msg, type='info') {
 function normB(b)   { return (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim(); }
 function normS(s)   { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function lk(e)      { return (e.level_code || e.level_cefr || '').trim(); }
+function lkFull(e)  { return `${(e.family||'').toLowerCase()}|${lk(e)}`; }
 function getLM(e)   { return LEVEL_MAP[lk(e)] || { dept:(e.family||'adults'), label:(e.level_code||e.level_cefr||'—'), color:'var(--t3)', order:99 }; }
 // FIX: parseDp handles native arrays, JSON strings, and rejects non-array JSON
 function parseDp(raw){ if(!raw) return []; if(Array.isArray(raw)) return raw; if(typeof raw==='string'){ try { const p=JSON.parse(raw); return Array.isArray(p)?p:[]; } catch{} } return []; }
@@ -992,7 +993,7 @@ function analysePrefs(ref) {
 }
 
 function buildProposals(levelKey, branch) {
-  const atLevel  = allE.filter(e=>lk(e)===levelKey&&(branch==='all'||normB(e.branch)===branch));
+ const atLevel  = allE.filter(e=>(lk(e)===levelKey||lkFull(e)===levelKey)&&(branch==='all'||normB(e.branch)===branch));
   const withReq  = atLevel.filter(e=>!!rByRef[e.ref]);
   const dept     = (LEVEL_MAP[levelKey]||{}).dept||'adults';
 
