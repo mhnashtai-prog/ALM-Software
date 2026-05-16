@@ -166,20 +166,9 @@ html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono
 .tp-select{background:rgba(255,255,255,.03);border:.5px solid var(--b2);border-radius:3px;padding:5px 12px;font-family:var(--mono);font-size:10px;color:var(--t);outline:none;cursor:pointer;min-width:240px}
 .tp-select option{background:var(--bg2)}
 
-/* Status bar — connection only, compact */
-.status-bar{
-  display:flex;align-items:center;gap:8px;
-  padding:4px 16px;
-  background:rgba(0,0,0,.3);
-  border-bottom:1px solid var(--b);
-  font-size:8.5px;
-  min-height:24px;
-}
-.sb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-.sb-dot.ok{background:var(--green)}.sb-dot.loading{background:var(--amber);animation:blink 1s infinite}.sb-dot.err{background:var(--red)}.sb-dot.warn{background:var(--amber)}
-.sb-msg{color:var(--t3)}.sb-msg.ok{color:var(--green)}.sb-msg.loading,.sb-msg.warn{color:var(--amber)}.sb-msg.err{color:var(--red)}
-.sb-reload{margin-left:auto;padding:2px 7px;border:.5px solid var(--b);background:transparent;color:var(--t3);font-family:var(--mono);font-size:7.5px;cursor:pointer;border-radius:2px;transition:all .12s}
-.sb-reload:hover{color:var(--t2);border-color:var(--b2)}
+/* sb-msg in topbar */
+.sb-msg{color:rgba(215,193,145,.4);transition:color .2s}
+.sb-msg.ok{color:var(--green)}.sb-msg.loading,.sb-msg.warn{color:var(--amber)}.sb-msg.err{color:var(--red)}
 
 /* ════ SHELL — just today strip + grid ════ */
 .shell{padding:0 0 32px}
@@ -564,14 +553,18 @@ select.sf-inp{cursor:pointer}
 </head>
 <body>
 
-<!-- ═══ TOPBAR — ALM logo + live dot + clock only ═══ -->
+<!-- ═══ TOPBAR — ALM logo + live dot + status + clock ═══ -->
 <div class="topbar">
   <div class="brand">
     <span class="brand-alm">ALM</span>
     <span class="brand-yr" id="brand-yr"></span>
-    <div class="live-dot" id="live-dot" title="A verificar ligação…" style="margin-left:8px"></div>
+    <div class="live-dot" id="live-dot" title="A verificar ligação…" style="margin-left:10px"></div>
+    <span class="sb-msg loading" id="sb-msg" style="font-size:8px;letter-spacing:.06em;margin-left:6px">A carregar…</span>
   </div>
-  <span class="tb-clock" id="clk">--:--:--</span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="sb-reload" onclick="boot()" style="padding:2px 8px;border:.5px solid rgba(199,183,147,.2);background:transparent;color:rgba(215,193,145,.35);font-family:var(--mono);font-size:8px;cursor:pointer;border-radius:2px;transition:all .12s" onmouseover="this.style.color='var(--t2)'" onmouseout="this.style.color='rgba(215,193,145,.35)'">↻</button>
+    <span class="tb-clock" id="clk">--:--:--</span>
+  </div>
 </div>
 
 <!-- ═══ TEACHER PICKER (shown only when no teacher) ═══ -->
@@ -582,12 +575,6 @@ select.sf-inp{cursor:pointer}
   </select>
 </div>
 
-<!-- ═══ STATUS BAR — connection only ═══ -->
-<div class="status-bar">
-  <div class="sb-dot loading" id="sb-dot"></div>
-  <span class="sb-msg loading" id="sb-msg">A carregar…</span>
-  <button class="sb-reload" onclick="boot()">↻</button>
-</div>
 
 <!-- ═══ HERO BAND — single horizontal strip ═══ -->
 <div class="hero-band" id="hero-band">
@@ -1593,7 +1580,7 @@ function setSavingState(on){isSaving=on;const btn=document.getElementById('btn-s
 function showSaveStatus(type,msg){const el=document.getElementById('save-status');el.className='save-status '+type;el.textContent=msg;if(type==='saved')setTimeout(()=>{el.className='save-status';},4000);}
 function clearSaveStatus(){const el=document.getElementById('save-status');el.className='save-status';el.textContent='';}
 function flash(){const el=document.getElementById('mf-saved');el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
-function setSb(type,msg){document.getElementById('sb-dot').className='sb-dot '+type;const m=document.getElementById('sb-msg');m.className='sb-msg '+type;m.textContent=msg;}
+function setSb(type,msg){const m=document.getElementById('sb-msg');if(!m)return;m.className='sb-msg '+type;m.textContent=msg;}
 function updateDate(){document.getElementById('today-label').textContent=new Date().toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'});}
 function tick(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('clk').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
 let toastT=null;
