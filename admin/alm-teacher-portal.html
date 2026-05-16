@@ -63,7 +63,7 @@ html{border:1px solid #90844a;min-height:100vh}html,body{height:100%;background:
   border-radius:6px;
   height:120px;
   background:#90844a;
-  padding:0 24px;flex-shrink:0;overflow:hidden;
+  padding:0 24px;flex-shrink:0;
   position:relative;z-index:10;
   box-s w:0 4px 32px rgba(0,0,0,.45);
 }
@@ -161,7 +161,8 @@ html{border:1px solid #90844a;min-height:100vh}html,body{height:100%;background:
 
 /* Announcement panel dropdown */
 .notif-wrap .ann-panel-wrap{
-  position:absolute;top:calc(100% + 12px);right:0;left:auto;
+  position:fixed;
+  top:0;right:0;
   z-index:9999;width:360px;pointer-events:none;opacity:0;
   transform:translateY(-8px) scale(.97);
   transition:all .22s cubic-bezier(.32,.72,0,1);
@@ -957,7 +958,19 @@ async function markAllRead(){
 
 function toggleAnnouncements(){
   annPanelOpen=!annPanelOpen;
-  const wrap=document.getElementById('ann-panel-wrap');if(wrap)wrap.classList.toggle('open',annPanelOpen);
+  const wrap=document.getElementById('ann-panel-wrap');
+  if(wrap){
+    wrap.classList.toggle('open',annPanelOpen);
+    if(annPanelOpen){
+      const bell=document.getElementById('notif-wrap');
+      const r=bell?.getBoundingClientRect();
+      if(r){
+        wrap.style.top=(r.bottom+8)+'px';
+        wrap.style.left=Math.max(8,r.right-360)+'px';
+        wrap.style.right='auto';
+      }
+    }
+  }
   if(annPanelOpen)buildAnnItems();
 }
 function closeAnnouncements(){annPanelOpen=false;const wrap=document.getElementById('ann-panel-wrap');if(wrap)wrap.classList.remove('open');}
