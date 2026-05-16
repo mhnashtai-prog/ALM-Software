@@ -388,13 +388,13 @@ function parseDayPrefs(raw) {
 }
 function analysePrefs(ref) {
   const req = reqByRef[ref]; if (!req) return null;
-  const raw = parseDayPrefs(req.day_preferences);
-  const slots = raw.map(p => ({
-    dayIdx: normDay(p.day||p.weekday||p.dia||''),
-    block:  classifyBlock(p.session_start||p.start_time||''),
-    hour:   parseHour(p.session_start||p.start_time||''),
-    raw: p
-  })).filter(s => s.dayIdx !== null);
+ const raw = parseDayPrefs(req.slots||req.day_preferences);
+const slots = raw.map(p => ({
+  dayIdx: normDay(p.day||p.weekday||p.dia||p.day_code||''),
+  block:  classifyBlock(p.time||p.session_start||p.start_time||''),
+  hour:   parseHour(p.time||p.session_start||p.start_time||''),
+  raw: p
+})).filter(s => s.dayIdx !== null);
   const dayList = slots.map(s => s.dayIdx);
   const sameDay = dayList.length >= 2 && new Set(dayList).size < dayList.length;
   const validSlots = slots.filter(s => s.block !== null);
@@ -507,7 +507,7 @@ async function boot() {
   try {
     const [enrol, reqs] = await Promise.all([
      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
-    sbGet('timetable_requests', `select=ref,student_name,branch,lang,family,level_code,level_cefr,day_preferences,status,sessions_per_week&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
+   sbGet('timetable_requests', `select=ref,student_name,branch,lang,family,level_code,level_cefr,day_preferences,slots,status,sessions_per_week&academic_year=eq.${encodeURIComponent(AY)}&limit=2000`),
     ]);
     allEnrolments = enrol || [];
     allRequests   = reqs  || [];
