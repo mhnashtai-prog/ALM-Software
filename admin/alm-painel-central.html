@@ -1269,16 +1269,20 @@ function dsAvCol(name){
 }
 
 function dsParsePrefs(req){
-  if(!req?.day_preferences)return[];
+  if(!req)return[];
+  // Try new window-based slots format first
+  const rawSlots=req.slots||req.day_preferences;
+  if(!rawSlots)return[];
   try{
-    const dp=typeof req.day_preferences==='string'?JSON.parse(req.day_preferences):req.day_preferences;
+    const dp=typeof rawSlots==='string'?JSON.parse(rawSlots):rawSlots;
     if(!Array.isArray(dp))return[];
     return dp.map(p=>{
-      const rawDay=(p.day||p.weekday||p.dia||'').toString().toLowerCase().trim();
-      const day=DS_DAY_EN_TO_PT[rawDay]||DS_DAY_EN_TO_PT[parseInt(rawDay)]||null;
-      const start=p.session_start||p.start_time||(p.hour?`${p.hour}:00`:'—');
+      // New format: {day:"Monday", day_short:"SEG", from:"08:15", to:"10:30"}
+      const dayShort=p.day_short||(p.day||p.weekday||p.dia||'').toString();
+      const dayPt=DS_DAY_EN_TO_PT[dayShort.toLowerCase()]||dayShort.toUpperCase()||null;
+      const start=p.from||p.session_start||p.start_time||(p.hour?`${p.hour}:00`:'—');
       const h=parseInt((start+'').split(':')[0]);
-      return{day,start,h:isNaN(h)?null:h};
+      return{day:dayPt,start,h:isNaN(h)?null:h};
     }).filter(p=>p.day);
   }catch(e){return[]}
 }
