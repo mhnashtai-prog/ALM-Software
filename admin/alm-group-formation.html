@@ -404,20 +404,20 @@ function minsToTime(m) {
 function analysePrefs(ref) {
   const req = reqByRef[ref]; if (!req) return null;
   const raw = parseDayPrefs(req.slots || req.day_preferences);
-  if (!raw.length) return null;
-  
-// New format: {day_short, from, to} — use from/to directly
-const dayIdx = normDay(p.day_short || p.day || p.weekday || p.dia || '');
-if (dayIdx === null) return;
-const fromMins = timeToMins(p.from || p.time || p.session_start || p.start_time || '');
-const toMins = timeToMins(p.to || p.end_time || null);
-if (fromMins === null) return;
-if (!byDay[dayIdx]) {
-  byDay[dayIdx] = { dayIdx, earliest: fromMins, latest: toMins || fromMins };
-} else {
-  if (fromMins < byDay[dayIdx].earliest) byDay[dayIdx].earliest = fromMins;
-  if ((toMins||fromMins) > byDay[dayIdx].latest) byDay[dayIdx].latest = toMins||fromMins;
-}
+if (!raw.length) return null;
+  const byDay = {};
+  raw.forEach(function(p) {
+    var dayIdx = normDay(p.day_short || p.day || p.weekday || p.dia || '');
+    if (dayIdx === null) return;
+    var fromMins = timeToMins(p.from || p.time || p.session_start || p.start_time || '');
+    var toMins = timeToMins(p.to || p.end_time || null);
+    if (fromMins === null) return;
+    if (!byDay[dayIdx]) {
+      byDay[dayIdx] = { dayIdx: dayIdx, earliest: fromMins, latest: toMins || fromMins };
+    } else {
+      if (fromMins < byDay[dayIdx].earliest) byDay[dayIdx].earliest = fromMins;
+      if ((toMins||fromMins) > byDay[dayIdx].latest) byDay[dayIdx].latest = toMins||fromMins;
+    }
   });
 
   const windows = Object.values(byDay);
