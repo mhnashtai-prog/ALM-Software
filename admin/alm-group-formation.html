@@ -488,6 +488,7 @@ function countPairBlock(students, pair, block) {
 ═══════════════════════════════════════════════ */
 function buildGroupProposals(lk, branch) {
   const CLASS_DURATION = 90; // minutes
+  const SNAP = 30; // minutes — time window snap tolerance
 
   const all = allEnrolments.filter(e => {
     if (levelKey(e) !== lk) return false;
@@ -514,82 +515,125 @@ function buildGroupProposals(lk, branch) {
 
   const eligible = withReq.filter(e => !placed.has(e.ref));
 
-  // For each ALM pair, cluster by overlapping time windows
   ALM_PAIRS.forEach(pair => {
     if (pair.examOnly && dept !== 'exam') return;
 
-    // Get students who have windows on BOTH days of the pair
+    // Students who have windows on BOTH days of the pair
     const pairEligible = eligible.filter(e => {
       if (placed.has(e.ref)) return false;
       const a = analysePrefs(e.ref); if (!a) return false;
       const winA = a.windows.find(w => w.dayIdx === pair.a);
       const winB = a.windows.find(w => w.dayIdx === pair.b);
       if (!winA || !winB) return false;
-      // Each day window must be at least CLASS_DURATION wide
-      return (winA.latest - winA.earliest) >= CLASS_DURATION - 30
-          && (winB.latest - winB.earliest) >= CLASS_DURATION - 30;
+      return (winA.latest - winA.earliest) >= CLASS_DURATION - SNAP
+          && (winB.latest - winB.earliest) >= CLASS_DURATION - SNAP;
     });
 
-    if (pairEligible.length < MIN_GROUP) return;
+    if (!pairEligible.length) return;
 
-    // Sort by earliest time descending — most constrained first
+    // ── PASS 1: strict clustering by anchor start time ──────────────────
+    // Sort descending by earliest — most constrained first
     const sorted = [...pairEligible].sort((a, b) => {
       const aW = analysePrefs(a.ref).windows.find(w => w.dayIdx === pair.a);
       const bW = analysePrefs(b.ref).windows.find(w => w.dayIdx === pair.a);
-      return bW.earliest - aW.earliest; // highest earliest first
+      return bW.earliest - aW.earliest;
     });
 
-    // Greedy clustering: most constrained student defines class start time
+    const pass1Groups = []; // {startA, startB, endA, endB, students[]}
     const unplaced = [...sorted];
+
     while (unplaced.length >= MIN_GROUP) {
       const anchor = unplaced[0];
       const anchorPrefs = analysePrefs(anchor.ref);
       const anchorWinA  = anchorPrefs.windows.find(w => w.dayIdx === pair.a);
       const anchorWinB  = anchorPrefs.windows.find(w => w.dayIdx === pair.b);
 
-      // Class starts at anchor's earliest time
       const startA = anchorWinA.earliest;
       const startB = anchorWinB.earliest;
       const endA   = startA + CLASS_DURATION;
       const endB   = startB + CLASS_DURATION;
 
-      // Find all students whose windows contain [start, start+90] on both days
-  const FLEX = 30; // minutes tolerance
-const chunk = unplaced.filter(e => {
-  const a = analysePrefs(e.ref);
-  const wA = a.windows.find(w => w.dayIdx === pair.a);
-  const wB = a.windows.find(w => w.dayIdx === pair.b);
-  // Student must be available during the class window on both days
-  // AND their earliest must be within FLEX minutes of the anchor start
-  // This prevents early-available students being consumed into late groups
-  return wA.earliest >= startA - FLEX && wA.latest >= endA - FLEX
-      && wB.earliest >= startB - FLEX && wB.latest >= endB - FLEX;
-});
+      // Strict: student's earliest must be within SNAP of anchor
+      const chunk = unplaced.filter(e => {
+        const a = analysePrefs(e.ref);
+        const wA = a.windows.find(w => w.dayIdx === pair.a);
+        const wB = a.windows.find(w => w.dayIdx === pair.b);
+        if (!wA || !wB) return false;
+        return wA.earliest >= startA - SNAP
+            && wA.latest   >= endA   - SNAP
+            && wB.earliest >= startB - SNAP
+            && wB.latest   >= endB   - SNAP;
+      });
 
       if (chunk.length < MIN_GROUP) {
-        // Not enough students for this start time — remove anchor and try next
         unplaced.splice(0, 1);
         continue;
       }
 
-      // Take up to MAX_GROUP students
       const groupStudents = chunk.slice(0, MAX_GROUP);
       groupStudents.forEach(e => {
-        placed.add(e.ref);
-        const idx = unplaced.findIndex(u => u.ref === e.ref);
-        if (idx >= 0) unplaced.splice(idx, 1);
+        unplaced.splice(unplaced.findIndex(u => u.ref === e.ref), 1);
       });
+
+      pass1Groups.push({ startA, startB, endA, endB, students: groupStudents });
+    }
+
+    // ── PASS 2: fill remaining students into best-fit group ─────────────
+    // Students not placed in pass 1 but still eligible for this pair
+    const pass1Refs = new Set(pass1Groups.flatMap(g => g.students.map(e => e.ref)));
+    const remaining = pairEligible.filter(e =>
+      !pass1Refs.has(e.ref) && !placed.has(e.ref)
+    );
+
+    remaining.forEach(e => {
+      const a = analysePrefs(e.ref);
+      const wA = a.windows.find(w => w.dayIdx === pair.a);
+      const wB = a.windows.find(w => w.dayIdx === pair.b);
+      if (!wA || !wB) return;
+
+      // Find the group whose start time this student can cover
+      let bestGroup = null;
+      let bestOverlap = -1;
+
+      pass1Groups.forEach(g => {
+        if (g.students.length >= MAX_GROUP) return;
+        // Student can attend if their window covers the class slot on both days
+        const overlapA = Math.min(wA.latest, g.endA) - Math.max(wA.earliest, g.startA);
+        const overlapB = Math.min(wB.latest, g.endB) - Math.max(wB.earliest, g.startB);
+        const overlap  = Math.min(overlapA, overlapB);
+        if (overlap >= CLASS_DURATION - SNAP && overlap > bestOverlap) {
+          bestOverlap = overlap;
+          bestGroup = g;
+        }
+      });
+
+      if (bestGroup) {
+        bestGroup.students.push(e);
+        placed.add(e.ref);
+      }
+    });
+
+    // ── Commit groups to output ──────────────────────────────────────────
+    pass1Groups.forEach(g => {
+      // Mark all pass1 students as placed
+      g.students.forEach(e => placed.add(e.ref));
+
+      if (g.students.length < MIN_GROUP) return; // skip if pass2 didn't help
 
       groups.push({
         pair,
-        block: startA < 720 ? 'manha' : 'tarde',
-        startTime: minsToTime(startA),
-        endTime:   minsToTime(endA),
-        startMins: startA,
-        students:  groupStudents,
+        block:     g.startA < 720 ? 'manha' : 'tarde',
+        startTime: minsToTime(g.startA),
+        endTime:   minsToTime(g.endA),
+        startMins: g.startA,
+        students:  g.students,
       });
-    }
+    });
   });
+
+  const sameDayCt    = sameDayBucket.length;
+  const invalidWinCt = invalidBucket.length;
+  const noGroupCt    = eligible.filter(e => !placed.has(e.ref)).length;
 
   const sinalizados = [
     ...sameDayBucket.map(e => ({ e, reason: 'same-day' })),
@@ -602,6 +646,7 @@ const chunk = unplaced.filter(e => {
     total:       all.length,
     withRequest: withReq.length,
     placed:      groups.reduce((s, g) => s + g.students.length, 0),
+    sameDayCt, invalidWinCt, noGroupCt,
   };
 }
   
