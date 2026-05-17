@@ -554,13 +554,17 @@ function buildGroupProposals(lk, branch) {
       const endB   = startB + CLASS_DURATION;
 
       // Find all students whose windows contain [start, start+90] on both days
-      const chunk = unplaced.filter(e => {
-        const a = analysePrefs(e.ref);
-        const wA = a.windows.find(w => w.dayIdx === pair.a);
-        const wB = a.windows.find(w => w.dayIdx === pair.b);
-        return wA.earliest <= startA && wA.latest >= endA - 30
-            && wB.earliest <= startB && wB.latest >= endB - 30;
-      });
+  const FLEX = 30; // minutes tolerance
+const chunk = unplaced.filter(e => {
+  const a = analysePrefs(e.ref);
+  const wA = a.windows.find(w => w.dayIdx === pair.a);
+  const wB = a.windows.find(w => w.dayIdx === pair.b);
+  // Student must be available during the class window on both days
+  // AND their earliest must be within FLEX minutes of the anchor start
+  // This prevents early-available students being consumed into late groups
+  return wA.earliest >= startA - FLEX && wA.latest >= endA - FLEX
+      && wB.earliest >= startB - FLEX && wB.latest >= endB - FLEX;
+});
 
       if (chunk.length < MIN_GROUP) {
         // Not enough students for this start time — remove anchor and try next
