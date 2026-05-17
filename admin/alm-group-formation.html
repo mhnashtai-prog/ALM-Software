@@ -209,7 +209,7 @@ body{display:flex;flex-direction:column}
 /* colour scale applied via inline style on the band */
 
 /* ── PIN CELL STYLE — pins stand on the cell floor ── */
-.sg-cell.pin-cell{height:auto;min-height:52px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;padding:4px 2px 4px;gap:3px;cursor:default;border-radius:4px}
+.sg-cell.pin-cell{height:auto;min-height:60px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;padding:4px 2px 6px;gap:3px;cursor:default;border-radius:4px}
 .sg-cell.pin-cell.has-pins{cursor:pointer}
 .sg-cell.pin-cell.group-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pin-cell.group-dim{opacity:.12}
@@ -217,16 +217,33 @@ body{display:flex;flex-direction:column}
 .sg-cell.pair-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pair-dim{opacity:.16}
 
-/* ── PINS — teardrop city-map style ── */
-.pin-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer;flex-shrink:0;animation:pinDrop .28s cubic-bezier(.34,1.56,.64,1) both;position:relative;transition:transform .15s,filter .15s}
-.pin-wrap:hover{transform:translateY(-4px) scale(1.12);filter:brightness(1.18);z-index:20}
-.pin-head{width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.25);flex-shrink:0}
-.pin-letter{transform:rotate(45deg);font-size:8px;font-weight:700;color:#fff;font-family:var(--mono);line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.4)}
-.pin-pole{width:1.5px;height:10px;background:rgba(255,255,255,.25);flex-shrink:0;margin-top:-1px}
-.pin-foot{width:5px;height:2px;background:rgba(0,0,0,.35);border-radius:50%;flex-shrink:0;margin-top:1px}
-.pin-wrap:hover .pin-pole{background:rgba(255,255,255,.45)}
-/* shadow on hover for depth */
-.pin-wrap:hover .pin-head{box-shadow:0 6px 20px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.3)}
+/* ── PINS — glossy SVG teardrop (city-map style) ── */
+.pin-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  cursor:pointer;flex-shrink:0;
+  animation:pinDrop .32s cubic-bezier(.34,1.56,.64,1) both;
+  position:relative;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),filter .15s;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.55));
+}
+.pin-wrap:hover{
+  transform:translateY(-6px) scale(1.18);
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.75));
+  z-index:20;
+}
+.pin-svg{display:block;flex-shrink:0;overflow:visible}
+.pin-shadow{
+  width:10px;height:4px;
+  background:radial-gradient(ellipse,rgba(0,0,0,.45) 0%,transparent 70%);
+  border-radius:50%;
+  flex-shrink:0;
+  margin-top:-2px;
+  transition:opacity .18s,transform .18s;
+}
+.pin-wrap:hover .pin-shadow{
+  opacity:.6;
+  transform:scaleX(.8);
+}
 
 /* ── INLINE DOSSIER SHEET ── */
 .ds-overlay{display:none;position:fixed;inset:0;z-index:1500;background:rgba(2,1,10,.72);backdrop-filter:blur(22px) saturate(180%);align-items:center;justify-content:center;padding:20px}
@@ -927,10 +944,12 @@ function buildSchoolGrid(mode, students, result) {
     result.groups.forEach((g, idx) => {
       const h = Math.floor(g.startMins / 60);
       const days = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
-      days.forEach(dayIdx => {
+      days.forEach((dayIdx, sessionIdx) => {
         const key = `${dayIdx}|${h}`;
         if (!cellGroups[key]) cellGroups[key] = [];
-        cellGroups[key].push({ idx, group: g });
+        /* sessionLetter: A for first day, B for second — matches school naming */
+        const sessionLetter = sessionIdx === 0 ? 'A' : 'B';
+        cellGroups[key].push({ idx, group: g, sessionLetter });
       });
     });
   }
@@ -939,7 +958,7 @@ function buildSchoolGrid(mode, students, result) {
   const maxPins = mode === 'pins'
     ? Math.max(1, ...Object.values(cellGroups).map(a => a.length))
     : 1;
-  const ROW_H = mode === 'pins' ? Math.max(52, Math.ceil(maxPins / 3) * 30 + 16) : 34;
+  const ROW_H = mode === 'pins' ? Math.max(68, Math.ceil(maxPins / 3) * 46 + 18) : 34;
 
   /* ── Day label column ── */
   let dayColHTML = `<div class="sg-day-col" style="padding-top:22px">`;
@@ -987,20 +1006,61 @@ function buildSchoolGrid(mode, students, result) {
       const cgs = cellGroups[key] || [];
       const hasPins = cgs.length > 0;
       let pins = '';
-      cgs.slice(0, 6).forEach(({ idx, group }) => {
-        const col = GROUP_COLORS[idx % GROUP_COLORS.length];
-        const letter = String.fromCharCode(65 + idx);
-        const delay = (idx * 40) + 'ms';
-        pins += `<div class="pin-wrap" style="animation-delay:${delay}" title="Turma ${letter} · ${group.pair.aL}+${group.pair.bL} · ${group.startTime}–${group.endTime} · ${group.students.length} alunos" onclick="event.stopPropagation();openGroupModal(${idx})">
-          <div class="pin-head" style="background:${col};box-shadow:0 3px 10px ${col}99,inset 0 1px 0 rgba(255,255,255,.28)">
-            <span class="pin-letter">${letter}</span>
-          </div>
-          <div class="pin-pole"></div>
-          <div class="pin-foot" style="background:${col}55;width:6px;height:2px;border-radius:50%;filter:blur(1px)"></div>
+      cgs.slice(0, 6).forEach(({ idx, group, sessionLetter }) => {
+        const col         = GROUP_COLORS[idx % GROUP_COLORS.length];
+        const groupNum    = idx + 1;
+        const pinLabel    = groupNum + sessionLetter;
+        const delay       = (idx * 45) + 'ms';
+        const tipLabel    = `Turma ${groupNum} · Sessão ${sessionLetter} · ${group.pair.aL}+${group.pair.bL} · ${group.startTime}–${group.endTime} · ${group.students.length} alunos`;
+
+        /* Derive lighter and darker shades from the base colour for the gradient */
+        const gId = `pg${idx}${di}${h}`;   /* unique gradient id per pin */
+
+        pins += `<div class="pin-wrap" style="animation-delay:${delay}" title="${tipLabel}" onclick="event.stopPropagation();openGroupModal(${idx})">
+          <svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- Body gradient: rich colour top-left, darker bottom-right -->
+              <radialGradient id="bg${gId}" cx="38%" cy="32%" r="68%">
+                <stop offset="0%"   stop-color="${col}" stop-opacity="1"/>
+                <stop offset="55%"  stop-color="${col}" stop-opacity=".82"/>
+                <stop offset="100%" stop-color="#000"   stop-opacity=".45"/>
+              </radialGradient>
+              <!-- Glossy highlight: white sphere, top-left -->
+              <radialGradient id="hl${gId}" cx="34%" cy="28%" r="52%">
+                <stop offset="0%"   stop-color="#ffffff" stop-opacity=".92"/>
+                <stop offset="40%"  stop-color="#ffffff" stop-opacity=".38"/>
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+              </radialGradient>
+              <!-- Drop shadow filter -->
+              <filter id="sh${gId}" x="-30%" y="-20%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${col}" flood-opacity=".55"/>
+              </filter>
+            </defs>
+            <!-- Teardrop body — classic map-pin shape -->
+            <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z"
+              fill="url(#bg${gId})" filter="url(#sh${gId})"/>
+            <!-- Inner rim — subtle dark ring around sphere area -->
+            <circle cx="14" cy="14" r="7.5" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+            <!-- Sphere base — slightly translucent white -->
+            <circle cx="14" cy="14" r="7" fill="rgba(255,255,255,.15)"/>
+            <!-- Glossy highlight — the pearl effect -->
+            <ellipse cx="11.5" cy="10.5" rx="4.5" ry="3.5" fill="url(#hl${gId})"/>
+            <!-- Group label -->
+            <text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace"
+              font-size="7" font-weight="700" fill="#fff"
+              style="text-shadow:0 1px 2px rgba(0,0,0,.6)">${pinLabel}</text>
+          </svg>
+          <div class="pin-shadow"></div>
         </div>`;
       });
       const overflow = cgs.length > 6
-        ? `<div class="pin-wrap" style="animation-delay:${cgs.length*40}ms" onclick="event.stopPropagation();openGroupModal(${cgs[6].idx})"><div class="pin-head" style="background:rgba(255,255,255,.1);box-shadow:0 2px 6px rgba(0,0,0,.5)"><span class="pin-letter" style="color:var(--t3)">+${cgs.length-6}</span></div><div class="pin-pole" style="background:rgba(255,255,255,.1)"></div><div class="pin-foot"></div></div>`
+        ? `<div class="pin-wrap" style="animation-delay:${cgs.length*45}ms;opacity:.7" onclick="event.stopPropagation();openGroupModal(${cgs[6].idx})">
+            <svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.2)" stroke-width=".8"/>
+              <text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="7" font-weight="700" fill="rgba(210,188,140,.6)">+${cgs.length-6}</text>
+            </svg>
+            <div class="pin-shadow" style="opacity:.3"></div>
+          </div>`
         : '';
       const borderAlpha  = hasPins ? '0.35' : '0.05';
       const bgStyle      = hasPins ? ';background:rgba(' + rgb + ',.05)' : '';
@@ -1061,11 +1121,14 @@ function buildSchoolGrid(mode, students, result) {
   if (mode === 'pins' && result?.groups?.length) {
     pinLegendHTML = `<div style="padding:10px 0 4px;display:flex;flex-wrap:wrap;gap:5px;border-top:.5px solid var(--b2);margin-top:8px">`;
     result.groups.forEach((g, i) => {
-      const col = GROUP_COLORS[i % GROUP_COLORS.length];
-      const letter = String.fromCharCode(65 + i);
-      pinLegendHTML += `<span style="display:inline-flex;align-items:center;gap:5px;font-size:7.5px;padding:3px 9px;border:1px solid ${col}55;border-radius:2px;cursor:pointer;color:var(--t2)" onclick="openGroupModal(${i})">
-        <span style="width:9px;height:9px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span>
-        T${letter} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime} · ${g.students.length}al
+      const col      = GROUP_COLORS[i % GROUP_COLORS.length];
+      const groupNum = i + 1;
+      pinLegendHTML += `<span style="display:inline-flex;align-items:center;gap:6px;font-size:7.5px;padding:3px 10px;border:1px solid ${col}44;border-radius:2px;cursor:pointer;color:var(--t2)" onclick="openGroupModal(${i})">
+        <svg width="10" height="14" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+          <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="${col}"/>
+          <circle cx="11" cy="11" rx="4" ry="3" fill="rgba(255,255,255,.45)"/>
+        </svg>
+        Turma ${groupNum} · ${groupNum}A ${g.pair.aL} + ${groupNum}B ${g.pair.bL} · ${g.startTime} · ${g.students.length}al
       </span>`;
     });
     pinLegendHTML += `</div>`;
@@ -1156,17 +1219,17 @@ function openGroupModal(idx) {
   if (!g) return;
   _modalGroup = { idx, group: g };
 
-  const col    = GROUP_COLORS[idx % GROUP_COLORS.length];
-  const letter = String.fromCharCode(65 + idx);
-  const meta   = LEVEL_MAP[activeLevelKey] || {};
-  const dc     = DEPT_CFG[(meta.dept||'adults')] || {};
-  const capPct = Math.round(g.students.length / MAX_G * 100);
+  const col     = GROUP_COLORS[idx % GROUP_COLORS.length];
+  const groupNum = idx + 1;
+  const meta    = LEVEL_MAP[activeLevelKey] || {};
+  const dc      = DEPT_CFG[(meta.dept||'adults')] || {};
+  const capPct  = Math.round(g.students.length / MAX_G * 100);
 
   const grad = DEPT_GRADS[meta.dept||'adults'] || DEPT_GRADS.adults;
   document.getElementById('gm-hero-bg').style.background = grad;
-  document.getElementById('gm-code').textContent  = `T${letter}`;
+  document.getElementById('gm-code').textContent  = `Turma ${groupNum}`;
   document.getElementById('gm-code').style.color  = col;
-  document.getElementById('gm-slot').textContent  = `${g.pair.aL} + ${g.pair.bL}`;
+  document.getElementById('gm-slot').textContent  = `${groupNum}A · ${g.pair.aL}  +  ${groupNum}B · ${g.pair.bL}`;
   document.getElementById('gm-time').textContent  = `${g.startTime} – ${g.endTime} · ${meta.label||activeLevelKey} · ${dc.label||''}`;
   document.getElementById('gm-n').textContent     = g.students.length;
   document.getElementById('gm-cap-fill').style.width      = capPct + '%';
@@ -1199,9 +1262,9 @@ function closeModal() { document.getElementById('gm-overlay').classList.remove('
 function exportModalCSV() {
   if (!_modalGroup) return;
   const { idx, group: g } = _modalGroup;
-  const letter = String.fromCharCode(65 + idx);
-  const meta   = LEVEL_MAP[activeLevelKey] || {};
-  const rows   = [`ALM · ${meta.label||activeLevelKey} · Turma ${letter} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime}`, `Total: ${g.students.length}`, '', 'Nome,Ref,Filial,Estado'];
+  const groupNum = idx + 1;
+  const meta     = LEVEL_MAP[activeLevelKey] || {};
+  const rows     = [`ALM · ${meta.label||activeLevelKey} · Turma ${groupNum} · ${groupNum}A ${g.pair.aL} + ${groupNum}B ${g.pair.bL} · ${g.startTime}–${g.endTime}`, `Total: ${g.students.length}`, '', 'Nome,Ref,Filial,Estado'];
   g.students.forEach(e => {
     const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem pedido';
     const br = BRANCH_LABELS[normB(e.branch)] || e.branch || '—';
@@ -1209,7 +1272,7 @@ function exportModalCSV() {
   });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }));
-  a.download = `ALM-T${letter}-${g.pair.aL}${g.pair.bL}.csv`;
+  a.download = ('ALM-Turma' + groupNum + '-' + g.pair.aL + g.pair.bL).replace(/\s/g,'_') + '.csv';
   a.click();
   showToast(`CSV exportado · ${g.students.length} alunos`, 'ok');
 }
@@ -1243,8 +1306,8 @@ function openDossierExt(ref) {
   if (_lastResult) {
     _lastResult.groups.forEach((g, i) => {
       if (g.students.find(s => s.ref === ref)) {
-        const letter = String.fromCharCode(65 + i);
-        groupInfo = `T${letter} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime}`;
+        const groupNum = i + 1;
+        groupInfo = `Turma ${groupNum} · ${groupNum}A ${g.pair.aL} + ${groupNum}B ${g.pair.bL} · ${g.startTime}–${g.endTime}`;
       }
     });
   }
@@ -1348,15 +1411,15 @@ function renderLevelContent() {
     html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${grpPlural} · ${_lastResult.placed} alunos alocados</div>`;
     html += `<div class="group-list">`;
     _lastResult.groups.forEach((g, i) => {
-      const col    = GROUP_COLORS[i % GROUP_COLORS.length];
-      const letter = String.fromCharCode(65 + i);
-      const dept   = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
-          const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
-          const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
+      const col      = GROUP_COLORS[i % GROUP_COLORS.length];
+      const groupNum = i + 1;
+      const dept     = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
+      const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+      const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
       html += `<div class="gcard" id="gcard-${i}">
         <div class="gc-hdr" style="border-left-color:${col}" onclick="toggleGCard(${i})">
-          <div class="gc-letter" style="color:${col}">T${letter}</div>
-          <div class="gc-slot">${g.pair.aL} + ${g.pair.bL}</div>
+          <div class="gc-letter" style="color:${col}">Turma ${groupNum}</div>
+          <div class="gc-slot">${groupNum}A · ${g.pair.aL} &nbsp;+&nbsp; ${groupNum}B · ${g.pair.bL}</div>
           <div class="gc-time">${g.startTime} – ${g.endTime}</div>
           <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
           <div class="gc-n" style="color:${col}">${g.students.length}</div>
@@ -1463,10 +1526,10 @@ function toggleSinal() {
 
 function exportGroup(idx) {
   if (!_lastResult?.groups[idx]) return;
-  const g      = _lastResult.groups[idx];
-  const letter = String.fromCharCode(65 + idx);
-  const meta   = LEVEL_MAP[activeLevelKey] || {};
-  const rows   = [`ALM · ${meta.label||activeLevelKey} · T${letter} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime}`, `Total: ${g.students.length}`, '', 'Nome,Ref,Filial,Estado'];
+  const g        = _lastResult.groups[idx];
+  const groupNum = idx + 1;
+  const meta     = LEVEL_MAP[activeLevelKey] || {};
+  const rows     = [`ALM · ${meta.label||activeLevelKey} · Turma ${groupNum} · ${groupNum}A ${g.pair.aL} + ${groupNum}B ${g.pair.bL} · ${g.startTime}–${g.endTime}`, `Total: ${g.students.length}`, '', 'Nome,Ref,Filial,Estado'];
   g.students.forEach(e => {
     const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem pedido';
     const br = BRANCH_LABELS[normB(e.branch)] || e.branch || '—';
@@ -1474,9 +1537,9 @@ function exportGroup(idx) {
   });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8;' }));
-  a.download = `ALM-T${letter}-${meta.label||''}.csv`.replace(/\s/g,'_');
+  a.download = ('ALM-Turma' + groupNum + '-' + (meta.label||'')).replace(/\s/g,'_') + '.csv';
   a.click();
-  showToast(`CSV T${letter} exportado`, 'ok');
+  showToast(`CSV Turma ${groupNum} exportado`, 'ok');
 }
 
 /* ══════════════════════════════════════════════
