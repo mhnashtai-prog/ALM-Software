@@ -1282,16 +1282,20 @@ function dsParsePrefs(req){
       const dayPt=DS_DAY_EN_TO_PT[dayShort.toLowerCase()]||dayShort.toUpperCase()||null;
       const start=p.from||p.session_start||p.start_time||(p.hour?`${p.hour}:00`:'—');
       const end=p.to||p.end_time||null;
-      const hFrom=parseInt((start+'').split(':')[0]);
-      const hTo=end?parseInt((end+'').split(':')[0])+1:hFrom+1;
-       return{day:dayPt,start,h:isNaN(hFrom)?null:hFrom,hFrom:isNaN(hFrom)?null:hFrom,hTo};
+   const hFrom=parseInt((start+'').split(':')[0]);
+   const mFrom=parseInt((start+'').split(':')[1]||'0');
+   const hTo=end?parseInt((end+'').split(':')[0]):hFrom+1;
+   const mTo=end?parseInt((end+'').split(':')[1]||'0'):0;
+   const fromMins=hFrom*60+mFrom;
+   const toMins=hTo*60+mTo;
+   return{day:dayPt,start,h:isNaN(hFrom)?null:hFrom,hFrom,hTo,fromMins,toMins};
     }).filter(p=>p.day);
   }catch(e){return[]}
-}
+ }
 
-function dsRow(k,v,c){return`<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`}
+  function dsRow(k,v,c){return`<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`}
 
-function dsSec(id,icon,title,meta,content){
+  function dsSec(id,icon,title,meta,content){
   return`<div class="ds-section" id="${id}">
     <div class="ds-section-hdr">
       <div class="ds-section-title"><span class="ds-section-icon">${icon}</span>${title}</div>
@@ -1399,11 +1403,10 @@ async function dsLoadTimetable(){
     h+=`<div></div>`;
     DS_HRS_AFT.forEach(hr=>h+=`<div class="ds-ag-h">${hr}</div>`);
     DS_DAYS.forEach(day=>{
-      h+=`<div class="ds-ag-day">${day}</div>`;
-      DS_HRS_MORN.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.hFrom<=hr&&hr<p.hTo);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
-      h+=`<div></div>`;
-      DS_HRS_AFT.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.hFrom<=hr&&hr<p.hTo);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
-    });
+    h+=`<div class="ds-ag-day">${day}</div>`;
+    DS_HRS_MORN.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.fromMins<(hr+1)*60&&p.toMins>hr*60);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
+    h+=`<div></div>`;
+    DS_HRS_AFT.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.fromMins<(hr+1)*60&&p.toMins>hr*60);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
     grid.innerHTML=h;
   }
 }
