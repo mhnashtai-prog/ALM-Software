@@ -188,6 +188,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 .gcell:hover:not(.gc-gap):not(.locked){border-color:rgba(46,204,138,.4);background:rgba(46,204,138,.08)}
 .gc-gap{background:transparent;border-color:transparent;cursor:default;pointer-events:none;flex:0 0 12px}
 .gcell.painted{background:rgba(46,204,138,.26);border-color:rgba(46,204,138,.5)}
+.gcell.pending{background:rgba(232,184,75,.35);border-color:rgba(232,184,75,.7);}
 .gcell.locked{opacity:.3;cursor:not-allowed;pointer-events:none}
 .grid-row[data-di="0"] .gcell.painted{background:rgba(74,143,245,.26);border-color:rgba(74,143,245,.5)}
 .grid-row[data-di="1"] .gcell.painted{background:rgba(155,110,202,.26);border-color:rgba(155,110,202,.5)}
@@ -543,8 +544,8 @@ let painted=Array.from({length:6},()=>({}));
 let sliderState=Array.from({length:6},()=>({enabled:false,from_h:14,to_h:20}));
 let photoData=null,schoolData=null;
 let camStream=null,camFacing='environment',camTarget='photo';
-let isDragging=false,dragMode=null,dragDi=null,acTimer=null;
-
+let pendingStart=null; // {di, h} waiting for second click
+let acTimer=null;
 function pad(n){return String(n).padStart(2,'0')}
 function isKid(){return student&&KID_FAM.includes((student.family||'').toLowerCase())}
 
@@ -570,24 +571,56 @@ function buildGrid(){
   });
   const cr=document.getElementById('coverage-row');
   cr.innerHTML=DAY_SHORT.map((d,di)=>`<div class="cov-pill" id="cov-${di}" style="color:rgba(${DAY_RGB[di]},.9);border-color:rgba(${DAY_RGB[di]},.35)">${d}</div>`).join('');
-  gr.addEventListener('mousedown',onCellDown);
-  gr.addEventListener('mouseover',onCellOver);
-  document.addEventListener('mouseup',()=>{isDragging=false;dragMode=null;dragDi=null;});
-  gr.addEventListener('touchstart',onTouchStart,{passive:false});
-  gr.addEventListener('touchmove',onTouchMove,{passive:false});
-  document.addEventListener('touchend',()=>{isDragging=false;dragMode=null;dragDi=null;});
+gr.addEventListener('click', e => {
+  if(!student || isLocked) return;
+  const c = e.target.closest('.gcell');
+  if(!c || c.classList.contains('gc-gap') || c.classList.contains('locked')) return;
+  const di = +c.dataset.di, h = +c.dataset.h;
+
+  // click on painted cell → clear entire band on that row
+  if(painted[di][h]){
+    HOURS.forEach(hh => { if(hh!==null) painted[di][hh]=false; });
+    if(pendingStart && pendingStart.di===di) pendingStart=null;
+    clearPending();
+    syncGridFromPainted();
+    updateAll();
+    return;
+  }
+
+  // no pending start → this is the first click
+  if(!pendingStart){
+    pendingStart={di, h};
+    c.classList.add('pending');
+    return;
+  }
+
+  // pending start exists on different row → cancel, start fresh
+  if(pendingStart.di !== di){
+    clearPending();
+    pendingStart={di, h};
+    c.classList.add('pending');
+    return;
+  }
+
+  // second click on same row → fill from start to end
+  const from = Math.min(pendingStart.h, h);
+  const to   = Math.max(pendingStart.h, h);
+  HOURS.forEach(hh => {
+    if(hh !== null && hh >= from && hh <= to) painted[di][hh] = true;
+  });
+  
+  clearPending();
+  syncGridFromPainted();
+  updateAll();
+});
 }
 function getCell(e){const el=e.target.closest('.gcell');if(!el||el.classList.contains('gc-gap')||el.classList.contains('locked'))return null;return el;}
 function getCellXY(x,y){const el=document.elementFromPoint(x,y);if(!el)return null;const c=el.closest('.gcell');if(!c||c.classList.contains('gc-gap')||c.classList.contains('locked'))return null;return c;}
-function onCellDown(e){if(!student||isLocked)return;const c=getCell(e);if(!c)return;e.preventDefault();isDragging=true;const di=+c.dataset.di,h=+c.dataset.h;dragMode=painted[di][h]?'erase':'paint';dragDi=di;toggleCell(di,h);}
-function onCellOver(e){if(!isDragging||!student||isLocked)return;const c=getCell(e);if(!c)return;const di=+c.dataset.di,h=+c.dataset.h;if(di!==dragDi)return;if(dragMode==='paint'&&!painted[di][h])toggleCell(di,h);if(dragMode==='erase'&&painted[di][h])toggleCell(di,h);}
-function onTouchStart(e){if(!student||isLocked)return;const t=e.touches[0];const c=getCellXY(t.clientX,t.clientY);if(!c)return;e.preventDefault();isDragging=true;const di=+c.dataset.di,h=+c.dataset.h;dragMode=painted[di][h]?'erase':'paint';dragDi=di;toggleCell(di,h);}
-function onTouchMove(e){if(!isDragging||!student||isLocked)return;e.preventDefault();const t=e.touches[0];const c=getCellXY(t.clientX,t.clientY);if(!c)return;const di=+c.dataset.di,h=+c.dataset.h;if(di!==dragDi)return;if(dragMode==='paint'&&!painted[di][h])toggleCell(di,h);if(dragMode==='erase'&&painted[di][h])toggleCell(di,h);}
-function toggleCell(di,h){painted[di][h]=!painted[di][h];const c=document.querySelector(`#row-${di} [data-h="${h}"]`);if(c)c.classList.toggle('painted',painted[di][h]);syncSliderFromGrid(di);updateAll();}
 function setAllLocked(lock){document.querySelectorAll('.gcell:not(.gc-gap)').forEach(c=>{if(lock)c.classList.add('locked');else c.classList.remove('locked');});document.querySelectorAll('.day-card-body input').forEach(inp=>inp.disabled=lock);}
+function clearPending(){pendingStart=null;document.querySelectorAll('.gcell.pending').forEach(c=>c.classList.remove('pending'));}
 function syncGridFromPainted(){DAYS_PT.forEach((_,di)=>{HOURS.forEach(h=>{if(h===null)return;const c=document.querySelector(`#row-${di} [data-h="${h}"]`);if(c)c.classList.toggle('painted',!!painted[di][h]);});});}
 
-/* ══ MOBILE DAY CARDS ══ */
+  /* ══ MOBILE DAY CARDS ══ */
 function buildDayCards(){
   const container=document.getElementById('day-cards');container.innerHTML='';
   DAYS_PT.forEach((_,di)=>{
