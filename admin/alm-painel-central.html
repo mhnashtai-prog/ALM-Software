@@ -679,15 +679,36 @@ function normDay(str){
   if(!isNaN(n)&&n>=1&&n<=6)return n-1;
   return DAY_EN_TO_IDX[(str+'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')]??null;
 }
- function analysePrefs(ref){
+  function timeToMins(t){
+  if(!t)return null;
+  const parts=(t+'').trim().split(':');
+  const h=parseInt(parts[0],10),m=parseInt(parts[1]||'0',10);
+  if(isNaN(h))return null;
+  return h*60+m;
+}
+function minsToTime(m){
+  const h=Math.floor(m/60),min=m%60;
+  return`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+  
+function analysePrefs(ref){
   const req=reqByRef[ref];if(!req)return null;
   const raw=parseDayPrefs(req.slots||req.day_preferences);
-  const filtered=Array.isArray(raw)?raw.filter(p=>p.available!==false):raw;
- const slots=filtered.map(p=>({dayIdx:normDay(p.day_code||p.day||p.weekday||p.dia||''),block:classifyBlock(p.time||p.session_start||p.start_time||''),hour:parseHour(p.time||p.session_start||p.start_time||''),raw:p})).filter(s=>s.dayIdx!==null);
- const dayIdxSet=[...new Set(slots.map(s=>s.dayIdx))];
-  const sameDay=dayIdxSet.length===1&&slots.length>=2;
-  const validSlots=slots.filter(s=>s.block!==null);
- return{prefs:slots,sameDay,validSlots,invalidSlots:slots.filter(s=>s.block===null),hasManha:validSlots.some(s=>s.block==='manha'),hasTarde:validSlots.some(s=>s.block==='tarde'),dayIdxs:dayIdxSet};
+  if(!raw.length)return null;
+  const byDay={};
+  raw.forEach(p=>{
+    const dayIdx=normDay(p.day||p.weekday||p.dia||p.day_code||'');
+    if(dayIdx===null)return;
+    const mins=timeToMins(p.time||p.session_start||p.start_time||'');
+    if(mins===null)return;
+    if(!byDay[dayIdx])byDay[dayIdx]={dayIdx,earliest:mins,latest:mins};
+    else{if(mins<byDay[dayIdx].earliest)byDay[dayIdx].earliest=mins;if(mins>byDay[dayIdx].latest)byDay[dayIdx].latest=mins;}
+  });
+  const windows=Object.values(byDay);
+  const dayIdxs=windows.map(w=>w.dayIdx);
+  const sameDay=new Set(dayIdxs).size===1;
+  const validSlots=windows.map(w=>({dayIdx:w.dayIdx,block:w.earliest<720?'manha':'tarde',hour:Math.floor(w.earliest/60),startMins:w.earliest,endMins:w.latest}));
+  return{windows,dayIdxs,sameDay,validSlots,prefs:validSlots,hasManha:validSlots.some(s=>s.block==='manha'),hasTarde:validSlots.some(s=>s.block==='tarde'),invalidSlots:[]};
 }
 
 /* ══ LEFT PANEL SEARCH ══ */
@@ -750,42 +771,74 @@ document.addEventListener('click', e => {
 
 /* ══ GROUPING ENGINE ══ */
 function buildGroupProposals(lk,branch){
-  const allAtLevel=allEnrolments.filter(e=>{if(levelKey(e)!==lk)return false;if(branch!=='all'&&normBranch(e.branch)!==branch)return false;return true});
-  const withRequest=allAtLevel.filter(e=>!!reqByRef[e.ref]);
+  const CLASS_DURATION=90,SLOT_STEP=30,MIN_START=8*60,MAX_START=20*60;
+  const all=allEnrolments.filter(e=>{if(levelKey(e)!==lk)return false;if(branch!=='all'&&normBranch(e.branch)!==branch)return false;return true});
+  const withReq=all.filter(e=>!!reqByRef[e.ref]);
   const dept=(LEVEL_MAP[lk]||{}).dept||'adults';
   const placed=new Set(),groups=[];
-  const sameDayBucket=withRequest.filter(e=>{const a=analysePrefs(e.ref);return a&&a.sameDay});
+  const sameDayBucket=withReq.filter(e=>{const a=analysePrefs(e.ref);return a&&a.sameDay});
   sameDayBucket.forEach(e=>placed.add(e.ref));
-  const invalidWindowBucket=withRequest.filter(e=>{if(placed.has(e.ref))return false;const a=analysePrefs(e.ref);return a&&a.validSlots.length===0});
-  invalidWindowBucket.forEach(e=>placed.add(e.ref));
-  const eligible=withRequest.filter(e=>!placed.has(e.ref));
+  const invalidBucket=withReq.filter(e=>{if(placed.has(e.ref))return false;const a=analysePrefs(e.ref);return!a||a.windows.length===0});
+  invalidBucket.forEach(e=>placed.add(e.ref));
+  const eligible=withReq.filter(e=>!placed.has(e.ref));
+
+  function countAt(pool,dayIdx,startMins){
+    const endMins=startMins+CLASS_DURATION;
+    return pool.filter(e=>{
+      if(placed.has(e.ref))return false;
+      const a=analysePrefs(e.ref);if(!a)return false;
+      const w=a.windows.find(w=>w.dayIdx===dayIdx);if(!w)return false;
+      return Math.min(w.latest,endMins)-Math.max(w.earliest,startMins)>=CLASS_DURATION-30;
+    }).length;
+  }
+  function getStudents(pool,pair,startA,startB){
+    const endA=startA+CLASS_DURATION,endB=startB+CLASS_DURATION;
+    return pool.filter(e=>{
+      if(placed.has(e.ref))return false;
+      const a=analysePrefs(e.ref);if(!a)return false;
+      const wA=a.windows.find(w=>w.dayIdx===pair.a);
+      const wB=a.windows.find(w=>w.dayIdx===pair.b);
+      if(!wA||!wB)return false;
+      return Math.min(wA.latest,endA)-Math.max(wA.earliest,startA)>=CLASS_DURATION-30
+          && Math.min(wB.latest,endB)-Math.max(wB.earliest,startB)>=CLASS_DURATION-30;
+    });
+  }
+
   ALM_PAIRS.forEach(pair=>{
     if(pair.examOnly&&dept!=='exam')return;
-    ['manha','tarde'].forEach(block=>{
-      const forPairBlock=eligible.filter(e=>{
-        if(placed.has(e.ref))return false;
-        const a=analysePrefs(e.ref);if(!a)return false;
-        if(pair.a===pair.b)return a.validSlots.filter(s=>s.dayIdx===pair.a&&s.block===block).length>=2;
-        return a.validSlots.some(s=>s.dayIdx===pair.a&&s.block===block)&&a.validSlots.some(s=>s.dayIdx===pair.b&&s.block===block);
-      });
-      if(forPairBlock.length<MIN_GROUP)return;
-      let remaining=[...forPairBlock];
-      while(remaining.length>=MIN_GROUP){
-        const chunk=remaining.slice(0,MAX_GROUP);remaining=remaining.slice(MAX_GROUP);
-        chunk.forEach(e=>placed.add(e.ref));
-        groups.push({pair,block,students:chunk,overflow:remaining.length>=MIN_GROUP?[]:remaining});
-      }
+    const pairPool=eligible.filter(e=>{
+      if(placed.has(e.ref))return false;
+      const a=analysePrefs(e.ref);if(!a)return false;
+      return a.windows.find(w=>w.dayIdx===pair.a)&&a.windows.find(w=>w.dayIdx===pair.b);
     });
+    if(pairPool.length<MIN_GROUP)return;
+    let remaining=[...pairPool];
+    while(remaining.length>=MIN_GROUP){
+      let bestStart=null,bestCount=0;
+      for(let t=MIN_START;t<=MAX_START-CLASS_DURATION;t+=SLOT_STEP){
+        const count=Math.min(countAt(remaining,pair.a,t),countAt(remaining,pair.b,t));
+        if(count>bestCount){bestCount=count;bestStart=t;}
+      }
+      if(!bestStart||bestCount<MIN_GROUP)break;
+      const candidates=getStudents(remaining,pair,bestStart,bestStart);
+      if(candidates.length<MIN_GROUP)break;
+      const groupStudents=candidates.slice(0,MAX_GROUP);
+      groupStudents.forEach(e=>{placed.add(e.ref);remaining=remaining.filter(r=>r.ref!==e.ref)});
+      groups.push({pair,block:bestStart<720?'manha':'tarde',startTime:minsToTime(bestStart),endTime:minsToTime(bestStart+CLASS_DURATION),startMins:bestStart,students:groupStudents});
+    }
   });
-  const unplaced=eligible.filter(e=>!placed.has(e.ref));
-  return{groups,sinalizados:[...sameDayBucket.map(e=>({e,reason:'same-day'})),...invalidWindowBucket.map(e=>({e,reason:'invalid-window'})),...unplaced.map(e=>({e,reason:'no-group'}))],sameDayCt:sameDayBucket.length,invalidWinCt:invalidWindowBucket.length,noGroupCt:unplaced.length,total:allAtLevel.length,withRequest:withRequest.length,placed:groups.reduce((s,g)=>s+g.students.length,0)};
-}
 
+  const sameDayCt=sameDayBucket.length,invalidWinCt=invalidBucket.length;
+  const noGroupCt=eligible.filter(e=>!placed.has(e.ref)).length;
+  const sinalizados=[...sameDayBucket.map(e=>({e,reason:'same-day'})),...invalidBucket.map(e=>({e,reason:'invalid-window'})),...eligible.filter(e=>!placed.has(e.ref)).map(e=>({e,reason:'no-group'}))];
+  return{groups,sinalizados,sameDayCt,invalidWinCt,noGroupCt,total:all.length,withRequest:withReq.length,placed:groups.reduce((s,g)=>s+g.students.length,0)};
+}
+     
 function renderGroupProposals(lk,branch,meta){
   const result=_lastProposals;if(!result)return'';
   const{groups,sinalizados}=result;if(!groups.length&&!sinalizados.length)return'';
   const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const blockLabel=b=>b==='manha'?'Manhã 08–11h':'Tarde 14–20h';
+  const blockLabel=(b,g)=>g.startTime?`${g.startTime}–${g.endTime}`:(b==='manha'?'Manhã 08–11h':'Tarde 14–20h');
   let html=`<div class="sec" style="margin-top:4px">Turmas propostas</div><div class="groups-master">`;
   groups.forEach((g,i)=>{
     const letter=letters[i]||(i+1);
@@ -793,7 +846,7 @@ function renderGroupProposals(lk,branch,meta){
       <div class="group-card-hdr">
         <div class="group-letter">T${letter}</div>
         <div class="group-slot">${g.pair.aLbl} + ${g.pair.bLbl}</div>
-        <div class="group-block-tag ${g.block==='manha'?'block-manha':'block-tarde'}">${blockLabel(g.block)}</div>
+       <div class="group-block-tag ${g.block==='manha'?'block-manha':'block-tarde'}">${blockLabel(g.block,g)}</div>   
         <div class="group-count-wrap"><div class="group-count">${g.students.length}</div><div class="group-count-lbl">alunos</div>${g.overflow?.length?`<div class="group-overflow-tag">+${g.overflow.length} overflow</div>`:''}</div>
         <div class="group-arrow">▼</div>
       </div>
