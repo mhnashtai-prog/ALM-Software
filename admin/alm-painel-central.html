@@ -1281,8 +1281,10 @@ function dsParsePrefs(req){
       const dayShort=p.day_short||(p.day||p.weekday||p.dia||'').toString();
       const dayPt=DS_DAY_EN_TO_PT[dayShort.toLowerCase()]||dayShort.toUpperCase()||null;
       const start=p.from||p.session_start||p.start_time||(p.hour?`${p.hour}:00`:'—');
-      const h=parseInt((start+'').split(':')[0]);
-      return{day:dayPt,start,h:isNaN(h)?null:h};
+      const end=p.to||p.end_time||null;
+      const hFrom=parseInt((start+'').split(':')[0]);
+      const hTo=end?parseInt((end+'').split(':')[0])+1:hFrom+1;
+       return{day:dayPt,start,h:isNaN(hFrom)?null:hFrom,hFrom:isNaN(hFrom)?null:hFrom,hTo};
     }).filter(p=>p.day);
   }catch(e){return[]}
 }
@@ -1393,9 +1395,9 @@ async function dsLoadTimetable(){
   if(prefs.length){
     const grid=document.getElementById('ds-avail-grid-inner');if(!grid)return;
     let h=`<div></div>`;
-    DS_HRS_MORN.forEach(hr=>h+=`<div class="ds-ag-h">${hr}</div>`);
-    h+=`<div></div>`;
-    DS_HRS_AFT.forEach(hr=>h+=`<div class="ds-ag-h">${hr}</div>`);
+    DS_HRS_MORN.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.hFrom<=hr&&hr<p.hTo);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
+   h+=`<div></div>`;
+   DS_HRS_AFT.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.hFrom<=hr&&hr<p.hTo);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
     DS_DAYS.forEach(day=>{
       h+=`<div class="ds-ag-day">${day}</div>`;
       DS_HRS_MORN.forEach(hr=>{const iR=prefs.some(p=>p.day===day&&p.h===hr);h+=`<div class="ds-ag-cell${iR?' req':''}"></div>`});
