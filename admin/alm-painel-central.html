@@ -1385,42 +1385,51 @@ async function dsLoadTimetable(){
   if(_ttLoaded2)return;_ttLoaded2=true;
   const el=document.getElementById('ds-tt-content');if(!el)return;
   const prefs=dsParsePrefs(DS_REQ);
-  const DAY_START=480,DAY_END=1230,DAY_SPAN=750;
-  const HOUR_MARKS=[8,9,10,11,14,15,16,17,18,19,20];
-  const DS_DAY_ORDER=['SEG','TER','QUA','QUI','SEX','SAB'];
+  const DAY_LABEL=36;
+  const HOURS=[8,9,10,11,12,13,14,15,16,17,18,19,20];
+  const TOTAL_MINS=(20-8)*60;
+  function pct(mins){return((mins-480)/TOTAL_MINS*100).toFixed(2)+'%';}
   let bandHtml='';
   if(prefs.length){
     const byDay={};
     prefs.forEach(function(p){if(!byDay[p.day])byDay[p.day]=[];byDay[p.day].push(p);});
-    let markers='<div style="position:relative;height:16px;margin-bottom:2px;margin-left:32px">';
-    HOUR_MARKS.forEach(function(hr){
-      var pct=((hr*60-DAY_START)/DAY_SPAN*100).toFixed(1);
-      markers+='<span style="position:absolute;left:'+pct+'%;font-size:7px;color:var(--label-d);transform:translateX(-50%)">'+hr+'</span>';
+    // Hour ruler
+    var ruler='<div style="display:flex;margin-left:'+DAY_LABEL+'px;position:relative;height:14px;margin-bottom:1px">';
+    HOURS.forEach(function(hr){
+      var l=((hr-8)/12*100).toFixed(2);
+      ruler+='<div style="position:absolute;left:'+l+'%;font-size:7px;color:var(--label-d);transform:translateX(-50%)">'+hr+'</div>';
     });
-    markers+='</div>';
-    let rows='';
-    DS_DAY_ORDER.forEach(function(day){
+    ruler+='</div>';
+    // Rows
+    var rows='';
+    ['SEG','TER','QUA','QUI','SEX','SAB'].forEach(function(day){
       var windows=byDay[day]||[];
       var hasData=windows.length>0;
       var dayColor=hasData?'var(--amber-d)':'var(--label-d)';
+      // Grid lines
+      var gridLines='';
+      HOURS.forEach(function(hr){
+        var l=((hr-8)/12*100).toFixed(2);
+        gridLines+='<div style="position:absolute;left:'+l+'%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.06)"></div>';
+      });
+      // Bands
       var bands='';
       windows.forEach(function(p){
-        var left=((p.fromMins-DAY_START)/DAY_SPAN*100).toFixed(1);
-        var width=((p.toMins-p.fromMins)/DAY_SPAN*100).toFixed(1);
-        bands+='<div style="position:absolute;left:'+left+'%;width:'+width+'%;top:1px;bottom:1px;background:var(--amber-d);opacity:.85;border-radius:2px;display:flex;align-items:center;padding:0 4px;overflow:hidden">'
-          +'<span style="font-size:7px;color:#000;white-space:nowrap;font-weight:600">'+p.start+' – '+p.endTime+'</span>'
+        var left=pct(p.fromMins);
+        var width=((p.toMins-p.fromMins)/TOTAL_MINS*100).toFixed(2)+'%';
+        bands+='<div style="position:absolute;left:'+left+';width:'+width+';top:2px;bottom:2px;background:var(--amber-d);border-radius:2px;display:flex;align-items:center;padding:0 5px;overflow:hidden">'
+          +'<span style="font-size:7px;color:#1a1a00;white-space:nowrap;font-weight:700">'+p.start+' – '+p.endTime+'</span>'
           +'</div>';
       });
-      rows+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
-        +'<div style="width:26px;font-size:8px;font-weight:700;color:'+dayColor+';flex-shrink:0;text-align:right">'+day+'</div>'
-        +'<div style="flex:1;position:relative;height:18px;background:var(--bg3-d);border-radius:2px">'+bands+'</div>'
+      rows+='<div style="display:flex;align-items:center;gap:0;margin-bottom:2px">'
+        +'<div style="width:'+DAY_LABEL+'px;font-size:8px;font-weight:700;color:'+dayColor+';flex-shrink:0;text-align:right;padding-right:6px">'+day+'</div>'
+        +'<div style="flex:1;position:relative;height:20px;background:var(--bg3-d);border-radius:2px;overflow:hidden">'+gridLines+bands+'</div>'
         +'</div>';
     });
     bandHtml='<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:.5px solid var(--sep2-d)">'
       +'<div class="ds-avail-label">Disponibilidade · Pedido</div>'
-      +markers
-      +'<div style="margin-left:32px">'+rows+'</div>'
-      +'<div class="ds-avail-leg" style="margin-left:32px">'
+      +ruler+rows
+      +'<div class="ds-avail-leg" style="margin-top:6px;margin-left:'+DAY_LABEL+'px">'
       +'<div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--amber-d)"></div>Pedido</div>'
       +'<div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--green-d)"></div>Confirmado</div>'
       +'</div></div>';
