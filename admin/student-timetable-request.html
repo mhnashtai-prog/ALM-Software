@@ -685,17 +685,36 @@ function updateSubmitState(){const wins=getWindows();const ud=new Set(wins.map(w
 function setMode(mode){
   currentMode=mode;
   ['marcar','mudanca','anular'].forEach(m=>{const p=document.getElementById('pill-'+m);if(p)p.className=`mode-pill mp-${m}`+(m===mode?' active':'');});
-  document.getElementById('submit-wrap').style.display=mode==='marcar'?'':'none';
-  const showChange=mode==='mudanca'&&currentStatus==='atribuido';
-  document.getElementById('change-wrap').classList.toggle('show',showChange);
-  if(showChange)setTimeout(()=>document.getElementById('change-wrap').scrollIntoView({behavior:'smooth',block:'start'}),100);
+
+  // reset all action areas first
+  document.getElementById('submit-wrap').style.display='none';
+  document.getElementById('change-wrap').classList.remove('show');
   document.getElementById('confirm-wrap').classList.remove('show');
-  if(mode==='anular'){confirmAnnul();return;}
-  if(mode==='marcar'&&currentStatus==='atribuido'){showWarn('A turma já está atribuída. Use MUDANÇA para pedir alteração.');}
-  else{document.getElementById('warn-msg').classList.remove('show');}
-  updateSubmitState();
+  document.getElementById('warn-msg').classList.remove('show');
+
+  if(mode==='anular'){
+    confirmAnnul();
+    return;
+  }
+
+  if(mode==='marcar'){
+    document.getElementById('submit-wrap').style.display='';
+    if(currentStatus==='atribuido'){
+      showWarn('A turma já está atribuída. Use MUDANÇA para pedir alteração.');
+    }
+    updateSubmitState();
+    return;
+  }
+
+  if(mode==='mudanca'){
+    if(currentStatus==='atribuido'){
+      document.getElementById('change-wrap').classList.add('show');
+      setTimeout(()=>document.getElementById('change-wrap').scrollIntoView({behavior:'smooth',block:'start'}),100);
+    }
+    return;
+  }
 }
-function updateModePills(){
+  function updateModePills(){
   const pills=document.getElementById('mode-pills');
   if(!student){pills.classList.remove('show');return;}
   pills.classList.add('show');
@@ -704,6 +723,7 @@ function updateModePills(){
   document.getElementById('pill-mudanca').disabled=(!s||s==='novo'||s==='anulado'||s==='alteracao');
   document.getElementById('pill-anular').disabled=(!s||s==='novo'||s==='anulado'||s==='alteracao');
 }
+  
 function updateBarStatus(){
   const map={null:{c:'var(--t3)',t:'—'},novo:{c:'var(--blue)',t:'NOVO'},pendente:{c:'var(--amber)',t:'PENDENTE'},atribuido:{c:'var(--green)',t:'ATRIBUÍDO'},alteracao:{c:'var(--purple)',t:'ALTERAÇÃO'},anulado:{c:'var(--red)',t:'ANULADO'}};
   const m=map[currentStatus]||map[null];
