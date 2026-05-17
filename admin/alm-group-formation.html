@@ -386,21 +386,57 @@ function parseDayPrefs(raw) {
   if (Array.isArray(raw)) return raw;
   try { const p=JSON.parse(raw); return Array.isArray(p)?p:[]; } catch { return []; }
 }
-function analysePrefs(ref) {
-  const req = reqByRef[ref]; if (!req) return null;
- const raw = parseDayPrefs(req.slots||req.day_preferences);
-const slots = raw.map(p => ({
-  dayIdx: normDay(p.day||p.weekday||p.dia||p.day_code||''),
-  block:  classifyBlock(p.time||p.session_start||p.start_time||''),
-  hour:   parseHour(p.time||p.session_start||p.start_time||''),
-  raw: p
-})).filter(s => s.dayIdx !== null);
-  const dayList = slots.map(s => s.dayIdx);
-  const sameDay = new Set(dayList).size === 1;
-  const validSlots = slots.filter(s => s.block !== null);
-  return { prefs:slots, sameDay, validSlots, dayIdxs:[...new Set(slots.map(s=>s.dayIdx))] };
+  function timeToMins(t) {
+  if (!t) return null;
+  const parts = (t + '').trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1] || '0', 10);
+  if (isNaN(h)) return null;
+  return h * 60 + m;
 }
 
+function minsToTime(m) {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+  
+function analysePrefs(ref) {
+  const req = rByRef[ref]; if (!req) return null;
+  const raw = parseDayPrefs(req.slots || req.day_preferences);
+  if (!raw.length) return null;
+
+  // Build time window per day from raw slots
+  const byDay = {};
+  raw.forEach(p => {
+    const dayIdx = normDay(p.day || p.weekday || p.dia || '');
+    if (dayIdx === null) return;
+    const mins = timeToMins(p.time || p.session_start || p.start_time || '');
+    if (mins === null) return;
+    if (!byDay[dayIdx]) {
+      byDay[dayIdx] = { dayIdx, earliest: mins, latest: mins };
+    } else {
+      if (mins < byDay[dayIdx].earliest) byDay[dayIdx].earliest = mins;
+      if (mins > byDay[dayIdx].latest)   byDay[dayIdx].latest   = mins;
+    }
+  });
+
+  const windows = Object.values(byDay);
+  const dayIdxs = windows.map(w => w.dayIdx);
+  const sameDay = new Set(dayIdxs).size === 1;
+
+  // Legacy compatibility — validSlots and prefs still needed by heatmap
+  const validSlots = windows.map(w => ({
+    dayIdx: w.dayIdx,
+    block: w.earliest < 720 ? 'manha' : 'tarde',
+    hour: Math.floor(w.earliest / 60),
+    startMins: w.earliest,
+    endMins: w.latest,
+  }));
+
+  return { windows, dayIdxs, sameDay, validSlots, prefs: validSlots };
+}
+  
 function avColor(name) {
   let h=0; for(let i=0;i<(name||'?').length;i++) h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;
   const p=[{bg:'#3A2244',text:'#C8A0E0'},{bg:'#1E2E50',text:'#7AABEE'},{bg:'#1A3A2A',text:'#5EC888'},{bg:'#3A2A14',text:'#D4944A'},{bg:'#3A1A1A',text:'#E07878'},{bg:'#1A2A3A',text:'#5A9EC8'},{bg:'#282838',text:'#9898D8'},{bg:'#2A3820',text:'#80B850'}];
@@ -412,15 +448,26 @@ function avColor(name) {
    Returns a { day → { hour → count } } map
 ═══════════════════════════════════════════════ */
 function buildHeatmap(students) {
-  // students = enrolment rows filtered to a level (+ branch if not 'all')
+  // Count UNIQUE students per day — not slot entries
+  // Each student contributes 1 to every hour within their window on that day
   const map = {};
-  DAYS_PT.forEach(d => { map[d] = {}; [...HOURS_MORN,...HOURS_AFT].forEach(h => map[d][h]=0); });
+  DAYS_PT.forEach(d => {
+    map[d] = {};
+    [...HOURS_MORN, ...HOURS_AFT].forEach(h => map[d][h] = 0);
+  });
+
   students.forEach(e => {
     const a = analysePrefs(e.ref); if (!a) return;
-    a.prefs.forEach(s => {
-      if (s.dayIdx === null || s.hour === null) return;
-      const day = DAYS_PT[s.dayIdx];
-      if (map[day] && map[day][s.hour] !== undefined) map[day][s.hour]++;
+    a.windows.forEach(w => {
+      const day = DAYS_PT[w.dayIdx]; if (!day) return;
+      // Mark every hour within the student's window — but only once per hour per student
+      const startHour = Math.floor(w.earliest / 60);
+      const endHour   = Math.floor(w.latest   / 60);
+      for (let h = startHour; h <= endHour; h++) {
+        if (map[day] && map[day][h] !== undefined) {
+          map[day][h]++;
+        }
+      }
     });
   });
   return map;
@@ -440,64 +487,120 @@ function countPairBlock(students, pair, block) {
    GROUPING ENGINE — exact port from File 1
 ═══════════════════════════════════════════════ */
 function buildGroupProposals(lk, branch) {
+  const CLASS_DURATION = 90; // minutes
+
   const all = allEnrolments.filter(e => {
     if (levelKey(e) !== lk) return false;
     if (branch !== 'all' && normBranch(e.branch) !== branch) return false;
     return true;
   });
-  const withReq   = all.filter(e => !!reqByRef[e.ref]);
-  const dept      = (LEVEL_MAP[lk]||{}).dept || 'adults';
-  const placed    = new Set(), groups = [];
 
-  const sameDayBucket = withReq.filter(e => { const a=analysePrefs(e.ref); return a&&a.sameDay; });
+  const withReq  = all.filter(e => !!reqByRef[e.ref]);
+  const dept     = (LEVEL_MAP[lk] || {}).dept || 'adults';
+  const placed   = new Set();
+  const groups   = [];
+
+  // Bucket students with no valid windows or only one day
+  const sameDayBucket = withReq.filter(e => {
+    const a = analysePrefs(e.ref); return a && a.sameDay;
+  });
   sameDayBucket.forEach(e => placed.add(e.ref));
 
   const invalidBucket = withReq.filter(e => {
     if (placed.has(e.ref)) return false;
-    const a = analysePrefs(e.ref); return a && a.validSlots.length === 0;
+    const a = analysePrefs(e.ref); return !a || a.windows.length === 0;
   });
   invalidBucket.forEach(e => placed.add(e.ref));
 
   const eligible = withReq.filter(e => !placed.has(e.ref));
 
+  // For each ALM pair, cluster by overlapping time windows
   ALM_PAIRS.forEach(pair => {
     if (pair.examOnly && dept !== 'exam') return;
-    ['manha','tarde'].forEach(block => {
-      const sub = eligible.filter(e => {
-        if (placed.has(e.ref)) return false;
-        const a = analysePrefs(e.ref); if (!a) return false;
-        if (pair.a === pair.b)
-          return a.validSlots.filter(s => s.dayIdx===pair.a && s.block===block).length >= 2;
-        return a.validSlots.some(s => s.dayIdx===pair.a && s.block===block)
-            && a.validSlots.some(s => s.dayIdx===pair.b && s.block===block);
-      });
-      if (sub.length < MIN_GROUP) return;
-      let rem = [...sub];
-      while (rem.length >= MIN_GROUP) {
-        const chunk = rem.slice(0, MAX_GROUP); rem = rem.slice(MAX_GROUP);
-        chunk.forEach(e => placed.add(e.ref));
-        groups.push({ pair, block, students: chunk });
-      }
+
+    // Get students who have windows on BOTH days of the pair
+    const pairEligible = eligible.filter(e => {
+      if (placed.has(e.ref)) return false;
+      const a = analysePrefs(e.ref); if (!a) return false;
+      const winA = a.windows.find(w => w.dayIdx === pair.a);
+      const winB = a.windows.find(w => w.dayIdx === pair.b);
+      if (!winA || !winB) return false;
+      // Each day window must be at least CLASS_DURATION wide
+      return (winA.latest - winA.earliest) >= CLASS_DURATION - 30
+          && (winB.latest - winB.earliest) >= CLASS_DURATION - 30;
     });
+
+    if (pairEligible.length < MIN_GROUP) return;
+
+    // Sort by earliest time descending — most constrained first
+    const sorted = [...pairEligible].sort((a, b) => {
+      const aW = analysePrefs(a.ref).windows.find(w => w.dayIdx === pair.a);
+      const bW = analysePrefs(b.ref).windows.find(w => w.dayIdx === pair.a);
+      return bW.earliest - aW.earliest; // highest earliest first
+    });
+
+    // Greedy clustering: most constrained student defines class start time
+    const unplaced = [...sorted];
+    while (unplaced.length >= MIN_GROUP) {
+      const anchor = unplaced[0];
+      const anchorPrefs = analysePrefs(anchor.ref);
+      const anchorWinA  = anchorPrefs.windows.find(w => w.dayIdx === pair.a);
+      const anchorWinB  = anchorPrefs.windows.find(w => w.dayIdx === pair.b);
+
+      // Class starts at anchor's earliest time
+      const startA = anchorWinA.earliest;
+      const startB = anchorWinB.earliest;
+      const endA   = startA + CLASS_DURATION;
+      const endB   = startB + CLASS_DURATION;
+
+      // Find all students whose windows contain [start, start+90] on both days
+      const chunk = unplaced.filter(e => {
+        const a = analysePrefs(e.ref);
+        const wA = a.windows.find(w => w.dayIdx === pair.a);
+        const wB = a.windows.find(w => w.dayIdx === pair.b);
+        return wA.earliest <= startA && wA.latest >= endA - 30
+            && wB.earliest <= startB && wB.latest >= endB - 30;
+      });
+
+      if (chunk.length < MIN_GROUP) {
+        // Not enough students for this start time — remove anchor and try next
+        unplaced.splice(0, 1);
+        continue;
+      }
+
+      // Take up to MAX_GROUP students
+      const groupStudents = chunk.slice(0, MAX_GROUP);
+      groupStudents.forEach(e => {
+        placed.add(e.ref);
+        const idx = unplaced.findIndex(u => u.ref === e.ref);
+        if (idx >= 0) unplaced.splice(idx, 1);
+      });
+
+      groups.push({
+        pair,
+        block: startA < 720 ? 'manha' : 'tarde',
+        startTime: minsToTime(startA),
+        endTime:   minsToTime(endA),
+        startMins: startA,
+        students:  groupStudents,
+      });
+    }
   });
 
   const sinalizados = [
-    ...sameDayBucket.map(e => ({ e, reason:'same-day' })),
-    ...invalidBucket.map(e => ({ e, reason:'invalid-window' })),
-    ...eligible.filter(e => !placed.has(e.ref)).map(e => ({ e, reason:'no-group' })),
+    ...sameDayBucket.map(e => ({ e, reason: 'same-day' })),
+    ...invalidBucket.map(e => ({ e, reason: 'invalid-window' })),
+    ...eligible.filter(e => !placed.has(e.ref)).map(e => ({ e, reason: 'no-group' })),
   ];
 
   return {
     groups, sinalizados,
-    total:      all.length,
+    total:       all.length,
     withRequest: withReq.length,
-    placed:     groups.reduce((s,g) => s+g.students.length, 0),
-    sameDayCt:  sameDayBucket.length,
-    invalidWinCt: invalidBucket.length,
-    noGroupCt:  eligible.filter(e => !placed.has(e.ref)).length,
+    placed:      groups.reduce((s, g) => s + g.students.length, 0),
   };
 }
-
+  
 /* ═══════════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════════ */
