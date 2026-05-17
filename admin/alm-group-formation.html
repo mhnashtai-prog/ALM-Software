@@ -947,7 +947,8 @@ function buildSchoolGrid(mode, students, result) {
     const hasData = mode === 'heatmap'
       ? ALL_HOURS.some(h => (heatmap[day]?.[h] || 0) > 0)
       : Object.keys(cellGroups).some(k => k.startsWith(`${di}|`));
-    dayColHTML += `<div class="sg-day-lbl${hasData?' has-data':''}" data-di="${di}" style="height:${ROW_H}px">${DAYS_PT[di]}</div>`;
+    const hasDataCls = hasData ? ' has-data' : '';
+    dayColHTML += `<div class="sg-day-lbl${hasDataCls}" data-di="${di}" style="height:${ROW_H}px">${DAYS_PT[di]}</div>`;
   });
   dayColHTML += `</div>`;
 
@@ -975,7 +976,8 @@ function buildSchoolGrid(mode, students, result) {
       const countHTML = n > 0
         ? `<div class="hm-count" style="color:rgba(${rgb},${Math.min(1,(+alpha+0.4).toFixed(2))})">${n}</div><div class="hm-sub">al</div>`
         : '';
-      return `<div class="sg-cell" data-day="${di}" data-h="${h}" title="${day} ${h}h · ${n} aluno${n!==1?'s':''}" style="border-color:rgba(${rgb},${borderAlpha})">
+      const plural = n !== 1 ? 's' : '';
+      return `<div class="sg-cell" data-day="${di}" data-h="${h}" title="${day} ${h}h · ${n} aluno${plural}" style="border-color:rgba(${rgb},${borderAlpha})">
         <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha});border-radius:3px 3px 0 0">${countHTML}</div>
       </div>`;
     };
@@ -1000,8 +1002,11 @@ function buildSchoolGrid(mode, students, result) {
       const overflow = cgs.length > 6
         ? `<div class="pin-wrap" style="animation-delay:${cgs.length*40}ms" onclick="event.stopPropagation();openGroupModal(${cgs[6].idx})"><div class="pin-head" style="background:rgba(255,255,255,.1);box-shadow:0 2px 6px rgba(0,0,0,.5)"><span class="pin-letter" style="color:var(--t3)">+${cgs.length-6}</span></div><div class="pin-pole" style="background:rgba(255,255,255,.1)"></div><div class="pin-foot"></div></div>`
         : '';
-      const borderAlpha = hasPins ? '0.35' : '0.05';
-      return `<div class="sg-cell pin-cell${hasPins?' has-pins':''}" data-day="${di}" data-h="${h}" style="border-color:rgba(${rgb},${borderAlpha})${hasPins?';background:rgba('+rgb+',.05)':''}" onclick="${hasPins?'handleCellClick('+di+','+h+')':''}">${pins}${overflow}</div>`;
+      const borderAlpha  = hasPins ? '0.35' : '0.05';
+      const bgStyle      = hasPins ? ';background:rgba(' + rgb + ',.05)' : '';
+      const clickHandler = hasPins ? 'handleCellClick(' + di + ',' + h + ')' : '';
+      const hasPinsCls   = hasPins ? ' has-pins' : '';
+      return `<div class="sg-cell pin-cell${hasPinsCls}" data-day="${di}" data-h="${h}" style="border-color:rgba(${rgb},${borderAlpha})${bgStyle}" onclick="${clickHandler}">${pins}${overflow}</div>`;
     };
 
     HOURS_AM.forEach(h => {
@@ -1319,7 +1324,7 @@ function renderLevelContent() {
       <div class="lh-stat"><div class="lh-v" style="color:var(--red)">${noReq}</div><div class="lh-l">Sem pedido</div></div>
       ${_lastResult ? `<div class="lh-stat"><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length?Math.round(placed/withReq.length*100):0}%;background:var(--teal)"></div></div></div>` : ''}
       ${_lastResult ? `<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${sinal}</div><div class="lh-l">Sinalizados</div></div>` : ''}
-      <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
+      <div class="lh-stat"><div class="lh-v" style="color:${capPct > 80 ? 'var(--amber)' : 'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
     </div>`;
 
   document.getElementById('view-toggle-bar').style.display = withReq.length ? 'flex' : 'none';
@@ -1340,18 +1345,21 @@ function renderLevelContent() {
 
   /* Group proposals list */
   if (_lastResult && _lastResult.groups.length) {
-    html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''} · ${_lastResult.placed} alunos alocados</div>`;
+    const grpPlural = _lastResult.groups.length !== 1 ? 's' : '';
+    html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${grpPlural} · ${_lastResult.placed} alunos alocados</div>`;
     html += `<div class="group-list">`;
     _lastResult.groups.forEach((g, i) => {
       const col    = GROUP_COLORS[i % GROUP_COLORS.length];
       const letter = String.fromCharCode(65 + i);
       const dept   = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
+          const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+          const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
       html += `<div class="gcard" id="gcard-${i}">
         <div class="gc-hdr" style="border-left-color:${col}" onclick="toggleGCard(${i})">
           <div class="gc-letter" style="color:${col}">T${letter}</div>
           <div class="gc-slot">${g.pair.aL} + ${g.pair.bL}</div>
           <div class="gc-time">${g.startTime} – ${g.endTime}</div>
-          <div class="gc-block-tag ${g.startMins < 720 ? 'bk-manha':'bk-tarde'}">${g.startMins < 720 ? 'Manhã':'Tarde'}</div>
+          <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
           <div class="gc-n" style="color:${col}">${g.students.length}</div>
           <div class="gc-n-lbl">/ ${MAX_G}</div>
           <div class="gc-arrow">▼</div>
@@ -1403,8 +1411,10 @@ function renderLevelContent() {
               return `<span class="slot-tag slot-ok">${d} ${minsToT(w.earliest)}</span>`;
             }).join('');
             const br = BRANCH_LABELS[normB(e.branch)] || e.branch || '—';
+            const reasonCls = k === 'same-day' ? 'sr-sd' : k === 'invalid-window' ? 'sr-iv' : 'sr-ng';
+            const reasonLbl = k === 'same-day' ? 'SD' : k === 'invalid-window' ? 'IV' : 'NG';
             return `<div class="sinal-stu">
-              <span class="sinal-reason ${k==='same-day'?'sr-sd':k==='invalid-window'?'sr-iv':'sr-ng'}">${k==='same-day'?'SD':k==='invalid-window'?'IV':'NG'}</span>
+              <span class="sinal-reason ${reasonCls}">${reasonLbl}</span>
               <div style="flex:1;min-width:0">
                 <div style="font-size:9px;color:var(--t);cursor:pointer" onclick="openDossierExt('${e.ref}')">${e.name||'—'}</div>
                 <div style="font-size:7px;color:var(--t3);margin-bottom:3px">${e.ref} · ${br}</div>
