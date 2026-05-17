@@ -532,7 +532,8 @@ let _modalGroup = null;
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-const normB   = b  => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();
+// Normalise branch: handles "Funchal", "FUNCHAL", "Camara_Lobos", "CAMARA_LOBOS", "Camara Lobos"
+const normB   = b  => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
 const normS   = s  => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const lk      = e  => `${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`;
 const getLM   = e  => LEVEL_MAP[lk(e)] || { dept:(e.family||'adults'), label:(e.level_code||e.level_cefr||'—'), color:'var(--t3)', order:99, maxCap:60 };
@@ -592,8 +593,13 @@ function parseSlot(p) {
 function analysePrefs(ref) {
   const req = rByRef[ref];
   if (!req) return null;
+  // slots can be a JSON string, a parsed array, or null; day_preferences is the fallback
   const raw = parseDayPrefs(req.slots || req.day_preferences);
-  if (!raw.length) return null;
+  if (!raw.length) {
+    // Surface in console so we can diagnose missing slot data
+    if (req.slots || req.day_preferences) console.warn('[ALM] Empty slots after parse for', ref, req.slots);
+    return null;
+  }
 
   // Aggregate windows per day: earliest from → latest to
   const byDay = {};
