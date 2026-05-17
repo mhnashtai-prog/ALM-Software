@@ -1288,7 +1288,8 @@ function dsParsePrefs(req){
    const mTo=end?parseInt((end+'').split(':')[1]||'0'):0;
    const fromMins=hFrom*60+mFrom;
    const toMins=hTo*60+mTo;
-   return{day:dayPt,start,h:isNaN(hFrom)?null:hFrom,hFrom,hTo,fromMins,toMins};
+   const endTime=p.to||p.end_time||null;
+   return{day:dayPt,start,endTime,h:isNaN(hFrom)?null:hFrom,hFrom,hTo,fromMins,toMins};
     }).filter(p=>p.day);
   }catch(e){return[]}
  }
@@ -1384,18 +1385,49 @@ async function dsLoadTimetable(){
   if(_ttLoaded2)return;_ttLoaded2=true;
   const el=document.getElementById('ds-tt-content');if(!el)return;
   const prefs=dsParsePrefs(DS_REQ);
-  let gridHtml='';
+  const DAY_START=480,DAY_END=1230,DAY_SPAN=750;
+  const HOUR_MARKS=[8,9,10,11,14,15,16,17,18,19,20];
+  const DS_DAY_ORDER=['SEG','TER','QUA','QUI','SEX','SAB'];
+  let bandHtml='';
   if(prefs.length){
-    gridHtml=`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:.5px solid var(--sep2-d)">
-      <div class="ds-avail-label">Disponibilidade · Pedido</div>
-      <div class="ds-avail-grid" id="ds-avail-grid-inner"></div>
-      <div class="ds-avail-leg">
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--amber-d)"></div>Pedido</div>
-        <div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--green-d)"></div>Confirmado</div>
-      </div>
-    </div>`;
+    const byDay={};
+    prefs.forEach(function(p){if(!byDay[p.day])byDay[p.day]=[];byDay[p.day].push(p);});
+    let markers='<div style="position:relative;height:16px;margin-bottom:2px;margin-left:32px">';
+    HOUR_MARKS.forEach(function(hr){
+      var pct=((hr*60-DAY_START)/DAY_SPAN*100).toFixed(1);
+      markers+='<span style="position:absolute;left:'+pct+'%;font-size:7px;color:var(--label-d);transform:translateX(-50%)">'+hr+'</span>';
+    });
+    markers+='</div>';
+    let rows='';
+    DS_DAY_ORDER.forEach(function(day){
+      var windows=byDay[day]||[];
+      var hasData=windows.length>0;
+      var dayColor=hasData?'var(--amber-d)':'var(--label-d)';
+      var bands='';
+      windows.forEach(function(p){
+        var left=((p.fromMins-DAY_START)/DAY_SPAN*100).toFixed(1);
+        var width=((p.toMins-p.fromMins)/DAY_SPAN*100).toFixed(1);
+        bands+='<div style="position:absolute;left:'+left+'%;width:'+width+'%;top:1px;bottom:1px;background:var(--amber-d);opacity:.85;border-radius:2px;display:flex;align-items:center;padding:0 4px;overflow:hidden">'
+          +'<span style="font-size:7px;color:#000;white-space:nowrap;font-weight:600">'+p.start+' – '+p.endTime+'</span>'
+          +'</div>';
+      });
+      rows+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
+        +'<div style="width:26px;font-size:8px;font-weight:700;color:'+dayColor+';flex-shrink:0;text-align:right">'+day+'</div>'
+        +'<div style="flex:1;position:relative;height:18px;background:var(--bg3-d);border-radius:2px">'+bands+'</div>'
+        +'</div>';
+    });
+    bandHtml='<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:.5px solid var(--sep2-d)">'
+      +'<div class="ds-avail-label">Disponibilidade · Pedido</div>'
+      +markers
+      +'<div style="margin-left:32px">'+rows+'</div>'
+      +'<div class="ds-avail-leg" style="margin-left:32px">'
+      +'<div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--amber-d)"></div>Pedido</div>'
+      +'<div class="ds-leg-item"><div class="ds-leg-dot" style="background:var(--green-d)"></div>Confirmado</div>'
+      +'</div></div>';
   }
-  el.innerHTML=gridHtml+dsRequestSlotsHtml();
+  el.innerHTML=bandHtml+dsRequestSlotsHtml();
+}
+  
   if(prefs.length){
     const grid=document.getElementById('ds-avail-grid-inner');if(!grid)return;
     let h=`<div></div>`;
