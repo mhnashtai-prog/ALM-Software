@@ -187,10 +187,14 @@ body{display:flex;flex-direction:column}
 .sg-cell .hm-sub{font-size:6px;color:rgba(255,255,255,.5);letter-spacing:.04em;margin-top:1px}
 .sg-cell.pair-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pair-dim{opacity:.14}
-.sg-cell.pin-cell{height:auto;min-height:60px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;padding:4px 2px 6px;gap:3px;cursor:default;border-radius:4px}
+/* Pin cells keep a FIXED height — inner .pin-inner overflows visually upward */
+.sg-cell.pin-cell{overflow:visible;cursor:default;border-radius:4px;position:relative}
 .sg-cell.pin-cell.has-pins{cursor:pointer}
 .sg-cell.pin-cell.group-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pin-cell.group-dim{opacity:.12}
+/* Inner container — sits at cell bottom, pins grow upward */
+.pin-inner{position:absolute;bottom:4px;left:0;right:0;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:3px;padding:0 2px;pointer-events:none}
+.pin-inner .pin-wrap{pointer-events:all}
 
 /* ── PINS ── */
 .pin-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer;flex-shrink:0;animation:pinDrop .32s cubic-bezier(.34,1.56,.64,1) both;position:relative;transition:transform .18s cubic-bezier(.34,1.56,.64,1),filter .15s;filter:drop-shadow(0 4px 6px rgba(0,0,0,.55))}
@@ -391,7 +395,39 @@ body{display:flex;flex-direction:column}
 /* turma assignment badge inside dossier */
 .ds-turma-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:5px;background:rgba(29,184,122,.1);border:1px solid rgba(29,184,122,.25);color:var(--green-d)}
 
-/* ── SPINNER / TOAST / UTILS ── */
+/* ── GROUP CREATION CONFIRM MODAL ── */
+.confirm-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.72);backdrop-filter:blur(20px);align-items:center;justify-content:center;padding:20px}
+.confirm-overlay.open{display:flex;animation:fadeIn .18s ease}
+.confirm-card{width:min(460px,94vw);background:#0D0B1A;border-radius:20px;border:.5px solid rgba(255,255,255,.1);overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.95);animation:modalIn .24s cubic-bezier(.32,.72,0,1)}
+.confirm-hero{position:relative;padding:28px 24px 20px;overflow:hidden}
+.confirm-hero-bg{position:absolute;inset:0}
+.confirm-hero-scrim{position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.1),rgba(0,0,0,.55))}
+.confirm-hero-content{position:relative;z-index:5}
+.confirm-turma-code{font-family:var(--display);font-size:38px;letter-spacing:6px;line-height:1;margin-bottom:6px}
+.confirm-turma-sub{font-size:11px;color:rgba(255,255,255,.6);font-family:var(--mono)}
+.confirm-body{padding:18px 24px 14px;border-top:.5px solid rgba(255,255,255,.07)}
+.confirm-stat-row{display:flex;gap:16px;margin-bottom:16px}
+.confirm-stat{display:flex;flex-direction:column;gap:3px}
+.confirm-stat-v{font-size:24px;font-weight:700;line-height:1}
+.confirm-stat-l{font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:rgba(210,188,140,.45)}
+.confirm-warning{padding:10px 14px;background:rgba(232,160,32,.1);border:1px solid rgba(232,160,32,.28);font-size:9px;color:var(--amber);margin-bottom:14px;line-height:1.55}
+.confirm-footer{display:flex;gap:8px;padding:12px 24px 18px}
+.confirm-btn{flex:1;height:48px;border-radius:10px;border:none;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;cursor:pointer;transition:all .15s;text-transform:uppercase}
+.confirm-btn-ok{background:var(--green);color:#07060E;box-shadow:0 4px 24px rgba(29,184,122,.4)}
+.confirm-btn-ok:hover{background:#22d48c;box-shadow:0 6px 32px rgba(29,184,122,.6)}
+.confirm-btn-ok:disabled{opacity:.5;cursor:default}
+.confirm-btn-cancel{background:rgba(255,255,255,.05);color:rgba(210,188,140,.6);border:.5px solid rgba(255,255,255,.08)}
+.confirm-btn-cancel:hover{background:rgba(255,255,255,.1)}
+/* Created card state */
+.gcard.created{border-color:rgba(29,184,122,.45)!important;background:rgba(29,184,122,.04)}
+.gcard.created .gc-hdr{background:rgba(29,184,122,.05)}
+.gc-created-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--green);padding:3px 12px;background:var(--green-a);border:1px solid var(--green-b);border-radius:2px;flex-shrink:0}
+/* Delete confirm inline */
+.delete-confirm-strip{padding:8px 14px;background:rgba(232,69,90,.08);border-top:1px solid rgba(232,69,90,.18);display:none;align-items:center;gap:10px}
+.delete-confirm-strip.open{display:flex}
+.delete-confirm-txt{font-size:8.5px;color:var(--red);flex:1}
+.delete-confirm-btn{padding:4px 12px;border:1px solid var(--red-b);background:var(--red-a);color:var(--red);font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;transition:all .12s}
+.delete-confirm-btn:hover{background:rgba(232,69,90,.25)}
 .spinner-wrap{display:flex;align-items:center;justify-content:center;padding:50px;color:var(--t3);gap:9px;font-size:8.5px;letter-spacing:.1em}
 .spinner{width:13px;height:13px;border:1.5px solid rgba(255,255,255,.07);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 18px;font-size:8.5px;font-weight:500;opacity:0;transition:all .2s;z-index:9000;pointer-events:none;border:1px solid;white-space:nowrap}
@@ -502,6 +538,32 @@ body{display:flex;flex-direction:column}
     <div class="gm-foot">
       <button class="gm-btn gm-btn-csv" onclick="exportModalCSV()">↓ CSV</button>
       <button class="gm-btn gm-btn-cancel" onclick="closeGroupModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- GROUP CREATION CONFIRM MODAL -->
+<div class="confirm-overlay" id="confirm-overlay" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-card" id="confirm-card">
+    <div class="confirm-hero" id="confirm-hero">
+      <div class="confirm-hero-bg" id="confirm-hero-bg"></div>
+      <div class="confirm-hero-scrim"></div>
+      <div class="confirm-hero-content">
+        <div class="confirm-turma-code" id="confirm-turma-code">—</div>
+        <div class="confirm-turma-sub" id="confirm-turma-sub">—</div>
+      </div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-stat-row">
+        <div class="confirm-stat"><div class="confirm-stat-v" style="color:var(--gold2)" id="conf-n-al">—</div><div class="confirm-stat-l">Alunos</div></div>
+        <div class="confirm-stat"><div class="confirm-stat-v" style="color:var(--teal)" id="conf-slot">—</div><div class="confirm-stat-l">Horário</div></div>
+        <div class="confirm-stat"><div class="confirm-stat-v" style="color:var(--blue)" id="conf-pair">—</div><div class="confirm-stat-l">Par de dias</div></div>
+      </div>
+      <div class="confirm-warning">⚠ Ao confirmar, o código de turma fica permanentemente registado na base de dados e não poderá ser reutilizado após eliminação.</div>
+    </div>
+    <div class="confirm-footer">
+      <button class="confirm-btn confirm-btn-ok" id="confirm-btn-ok" onclick="executeCreateGroup()">✓ Criar Turma</button>
+      <button class="confirm-btn confirm-btn-cancel" onclick="closeConfirm()">Cancelar</button>
     </div>
   </div>
 </div>
@@ -643,6 +705,11 @@ let highlightPairIdx = null;
 let _lastResult = null, _modalGroup = null;
 let _sinalOpen = false;
 let _dsRef = null, _dsLoaded = false;
+/* Group creation state — persisted per session in memory.
+   _createdGroups[levelKey][groupIdx] = { turmaCode, createdAt }
+   _retiredCodes = Set of turma codes that have been created and can never be reused */
+let _createdGroups = {};
+let _retiredCodes  = new Set();
 
 /* ══════════════════════════════════════════════
    HELPERS
@@ -1034,14 +1101,17 @@ function buildSchoolGrid(mode, students, result) {
       cgs.slice(0,6).forEach(({ idx, group, sessionLetter }) => {
         const col = GROUP_COLORS[idx % GROUP_COLORS.length];
         const gId = `pg${idx}${di}${h}`;
-        pins += `<div class="pin-wrap" style="animation-delay:${idx*45}ms" title="Turma ${idx+1} · Sessão ${sessionLetter} · ${group.startTime}–${group.endTime} · ${group.students.length} al" onclick="event.stopPropagation();openGroupModal(${idx})">
+        const isCreated = !!(_createdGroups[activeLevelKey]||{})[idx];
+        const createdBadge = isCreated ? `<div style="position:absolute;top:-6px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--green);border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:7px;color:#fff;z-index:5">✓</div>` : '';
+        pins += `<div class="pin-wrap" style="animation-delay:${idx*45}ms;position:relative" title="Turma ${idx+1} · Sessão ${sessionLetter} · ${group.startTime}–${group.endTime} · ${group.students.length} al${isCreated?' · CRIADA':''}" onclick="event.stopPropagation();openGroupModal(${idx})">
+          ${createdBadge}
           <svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <radialGradient id="bg${gId}" cx="38%" cy="32%" r="68%"><stop offset="0%" stop-color="${col}" stop-opacity="1"/><stop offset="55%" stop-color="${col}" stop-opacity=".82"/><stop offset="100%" stop-color="#000" stop-opacity=".45"/></radialGradient>
               <radialGradient id="hl${gId}" cx="34%" cy="28%" r="52%"><stop offset="0%" stop-color="#fff" stop-opacity=".92"/><stop offset="40%" stop-color="#fff" stop-opacity=".38"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
               <filter id="sh${gId}" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${col}" flood-opacity=".55"/></filter>
             </defs>
-            <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="url(#bg${gId})" filter="url(#sh${gId})"/>
+            <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="url(#bg${gId})" filter="url(#sh${gId})"${isCreated?' opacity=".6"':''}/>
             <circle cx="14" cy="14" r="7.5" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
             <circle cx="14" cy="14" r="7" fill="rgba(255,255,255,.15)"/>
             <ellipse cx="11.5" cy="10.5" rx="4.5" ry="3.5" fill="url(#hl${gId})"/>
@@ -1052,7 +1122,8 @@ function buildSchoolGrid(mode, students, result) {
       });
       const bAlpha = hasPins ? '0.35' : '0.05';
       const bgStyle = hasPins ? `;background:rgba(${rgb},.05)` : '';
-      return `<div class="sg-cell pin-cell${hasPins?' has-pins':''}" data-day="${di}" data-h="${h}" style="border-color:rgba(${rgb},${bAlpha})${bgStyle}" onclick="${hasPins?`handleCellClick(${di},${h})`:''}">${pins}</div>`;
+      /* FIX 2: cell gets explicit fixed height; pins live in absolute .pin-inner so grid rows don't expand */
+      return `<div class="sg-cell pin-cell${hasPins?' has-pins':''}" data-day="${di}" data-h="${h}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})${bgStyle}" onclick="${hasPins?`handleCellClick(${di},${h})`:''}">${hasPins?`<div class="pin-inner">${pins}</div>`:''}</div>`;
     };
 
     HOURS_AM.forEach(h => mainHTML += mode==='heatmap' ? buildHmCell(h) : buildPinCell(h));
@@ -1181,19 +1252,35 @@ function renderLevelContent() {
       const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
       const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
       const isReady  = g.students.length >= ASSIGN_MIN;
-      html += `<div class="gcard" id="gcard-${i}">
+      const created  = (_createdGroups[activeLevelKey]||{})[i];
+      const turmaCode = created?.turmaCode || '';
+      html += `<div class="gcard${created?' created':''}" id="gcard-${i}">
         <div class="gc-hdr" style="border-left-color:${col}" onclick="toggleGCard(${i})">
-          <div class="gc-letter" style="color:${col}">Turma ${i+1}</div>
+          <div class="gc-letter" style="color:${col}">${created ? turmaCode : `Turma ${i+1}`}</div>
           <div class="gc-slot">${i+1}A · ${g.pair.aL} &nbsp;+&nbsp; ${i+1}B · ${g.pair.bL}</div>
           <div class="gc-time">${g.startTime} – ${g.endTime}</div>
           <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-          <div style="font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;flex-shrink:0;${isReady?'background:var(--green-a);border-color:var(--green-b);color:var(--green)':'background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)'}">${isReady?'✓ pronto':'⏳ aguardar'}</div>
+          ${created
+            ? `<div class="gc-created-badge">✓ CRIADA</div>`
+            : `<div style="font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;flex-shrink:0;${isReady?'background:var(--green-a);border-color:var(--green-b);color:var(--green)':'background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)'}">${isReady?'✓ pronto':'⏳ aguardar'}</div>`
+          }
           <div class="gc-n" style="color:${col}">${g.students.length}</div>
           <div class="gc-n-lbl">/ ${MAX_G}</div>
           <div class="gc-arrow">▼</div>
         </div>
         <div class="gc-body">
-          <div class="gc-actions"><button class="gbtn gbtn-csv" onclick="event.stopPropagation();exportGroup(${i})">↓ CSV</button></div>
+          <div class="gc-actions">
+            ${created
+              ? `<button class="gbtn" style="border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();promptDeleteGroup(${i})">✕ Eliminar turma</button>`
+              : `<button class="gbtn" style="border-color:var(--green-b);color:var(--green);font-weight:700" onclick="event.stopPropagation();openConfirm(${i})">+ Criar Turma</button>`
+            }
+            <button class="gbtn gbtn-csv" onclick="event.stopPropagation();exportGroup(${i})">↓ CSV</button>
+          </div>
+          <div class="delete-confirm-strip" id="del-strip-${i}">
+            <span class="delete-confirm-txt">O código <strong>${turmaCode}</strong> ficará permanentemente retirado de uso. Confirmar eliminação?</span>
+            <button class="delete-confirm-btn" onclick="event.stopPropagation();executeDeleteGroup(${i})">Eliminar</button>
+            <button class="delete-confirm-btn" style="border-color:var(--b2);color:var(--t3);background:transparent" onclick="event.stopPropagation();closeDeleteConfirm(${i})">Cancelar</button>
+          </div>
           ${[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
             const av = avCol(e.name||e.ref);
             const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
@@ -1344,6 +1431,180 @@ function dlCSV(content, filename) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));
   a.download = filename.replace(/\s+/g,'_'); a.click();
+}
+
+/* ══════════════════════════════════════════════
+   GROUP CREATION — CONFIRM FLOW
+══════════════════════════════════════════════ */
+let _pendingCreateIdx = null;
+
+/* Generate a branch-prefixed turma code, skipping retired codes.
+   Format: BRA-XX (e.g. FUN-40, MAC-12).
+   We query existing classes from Supabase for the branch to find the next free number. */
+async function generateTurmaCode(branch) {
+  const prefix = (BRANCH_LABELS[branch] || branch || 'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
+  try {
+    const existing = await sbGet('classes', `select=turma_code&branch=eq.${encodeURIComponent(branch)}&academic_year=eq.${encodeURIComponent(AY)}`);
+    const usedNums = new Set();
+    existing.forEach(c => {
+      const m = (c.turma_code||'').match(/-(\d+)/);
+      if (m) usedNums.add(parseInt(m[1]));
+    });
+    /* Also exclude retired codes tracked this session */
+    _retiredCodes.forEach(code => {
+      const m = code.match(/-(\d+)/);
+      if (m) usedNums.add(parseInt(m[1]));
+    });
+    let num = 1;
+    while (usedNums.has(num)) num++;
+    return `${prefix}-${String(num).padStart(2,'0')}`;
+  } catch {
+    /* Fallback: timestamp-based */
+    return `${prefix}-${Date.now().toString().slice(-4)}`;
+  }
+}
+
+function openConfirm(idx) {
+  if (!_lastResult?.groups[idx]) return;
+  const g = _lastResult.groups[idx];
+  const meta = LEVEL_MAP[activeLevelKey]||{};
+  const dc   = DEPT_CFG[meta.dept||'adults']||{};
+  _pendingCreateIdx = idx;
+
+  document.getElementById('confirm-hero-bg').style.background = DEPT_GRADS[meta.dept||'adults'];
+  document.getElementById('confirm-turma-code').textContent = `${idx+1}A + ${idx+1}B`;
+  document.getElementById('confirm-turma-code').style.color  = GROUP_COLORS[idx % GROUP_COLORS.length];
+  document.getElementById('confirm-turma-sub').textContent   = `${meta.label||activeLevelKey} · ${dc.label||''} · ${g.pair.aL} + ${g.pair.bL}`;
+  document.getElementById('conf-n-al').textContent  = g.students.length;
+  document.getElementById('conf-slot').textContent  = `${g.startTime}–${g.endTime}`;
+  document.getElementById('conf-pair').textContent  = `${g.pair.aL}+${g.pair.bL}`;
+
+  const okBtn = document.getElementById('confirm-btn-ok');
+  okBtn.disabled = false;
+  okBtn.textContent = '✓ Criar Turma';
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _pendingCreateIdx = null;
+}
+
+async function executeCreateGroup() {
+  const idx = _pendingCreateIdx;
+  if (idx === null || !_lastResult?.groups[idx]) return;
+  const g   = _lastResult.groups[idx];
+  const meta = LEVEL_MAP[activeLevelKey]||{};
+  const branch = activeLoc === 'all'
+    ? (normB(g.students[0]?.branch) || 'FUNCHAL')
+    : activeLoc;
+
+  const okBtn = document.getElementById('confirm-btn-ok');
+  okBtn.disabled = true;
+  okBtn.textContent = 'A criar…';
+
+  try {
+    const groupCode = await generateTurmaCode(branch);
+    const codeA = groupCode + 'A';
+    const codeB = groupCode + 'B';
+
+    /* Build the two session rows (A = first pair day, B = second) */
+    const sessionA = {
+      turma_code:   codeA,
+      group_code:   groupCode,
+      academic_year: AY,
+      branch,
+      lang:         (g.students[0] ? (rByRef[g.students[0].ref]?.lang || 'EN') : 'EN').toUpperCase().slice(0,2),
+      family:       meta.dept || 'adults',
+      level_code:   (activeLevelKey.split('|')[1]||'').trim(),
+      level_display: meta.label || '',
+      department:   meta.dept || 'adults',
+      day_of_week:  ['SEG','TER','QUA','QUI','SEX','SÁB'][g.pair.a],
+      hour:         Math.floor(g.startMins / 60),
+      start_time:   g.startTime,
+      end_time:     g.endTime,
+      duration_min: CLASS_DUR,
+      student_refs: g.students.map(s => s.ref),
+      status:       'pendente',
+    };
+    const sessionB = {
+      ...sessionA,
+      turma_code:  codeB,
+      day_of_week: ['SEG','TER','QUA','QUI','SEX','SÁB'][g.pair.b],
+    };
+
+    /* Insert both rows */
+    const r = await fetch(`${SB}/rest/v1/classes`, {
+      method: 'POST',
+      headers: { ...H, Prefer: 'return=representation' },
+      body: JSON.stringify([sessionA, sessionB]),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setConn(true);
+
+    /* Mark as created in session state */
+    if (!_createdGroups[activeLevelKey]) _createdGroups[activeLevelKey] = {};
+    _createdGroups[activeLevelKey][idx] = { turmaCode: groupCode, createdAt: new Date().toISOString() };
+    _retiredCodes.add(codeA);
+    _retiredCodes.add(codeB);
+
+    closeConfirm();
+    showToast(`Turma ${groupCode} criada ✓`, 'ok');
+
+    /* Animate the card to created state */
+    renderLevelContent();
+    setTimeout(() => {
+      const card = document.getElementById(`gcard-${idx}`);
+      if (card) { card.classList.add('open'); card.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+    }, 80);
+
+  } catch (err) {
+    setConn(false);
+    okBtn.disabled = false;
+    okBtn.textContent = '✓ Criar Turma';
+    showToast('Erro ao criar turma: ' + err.message, 'err');
+  }
+}
+
+function promptDeleteGroup(idx) {
+  const strip = document.getElementById(`del-strip-${idx}`);
+  if (strip) strip.classList.toggle('open');
+}
+
+function closeDeleteConfirm(idx) {
+  const strip = document.getElementById(`del-strip-${idx}`);
+  if (strip) strip.classList.remove('open');
+}
+
+async function executeDeleteGroup(idx) {
+  const created = (_createdGroups[activeLevelKey]||{})[idx];
+  if (!created) return;
+  const { turmaCode } = created;
+  const codeA = turmaCode + 'A', codeB = turmaCode + 'B';
+
+  try {
+    /* Soft delete: mark status as 'eliminado' — code stays in DB, never reused */
+    await Promise.all([
+      fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(codeA)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ status:'eliminado', deleted_at: new Date().toISOString() })
+      }),
+      fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(codeB)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ status:'eliminado', deleted_at: new Date().toISOString() })
+      }),
+    ]);
+    setConn(true);
+
+    /* Remove from session state but KEEP codes retired */
+    _retiredCodes.add(codeA);
+    _retiredCodes.add(codeB);
+    delete _createdGroups[activeLevelKey][idx];
+
+    showToast(`Turma ${turmaCode} eliminada · código retirado de uso`, 'warn');
+    renderLevelContent();
+  } catch (err) {
+    setConn(false);
+    showToast('Erro ao eliminar: ' + err.message, 'err');
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -1715,6 +1976,12 @@ async function boot() {
     setConn(true);
     allE = enrol||[]; allR = reqs||[]; rByRef = {};
     allR.forEach(r => { rByRef[r.ref] = r; });
+
+    /* Restore retired codes — fetch all classes ever created this AY so codes can never be reused */
+    try {
+      const existingClasses = await sbGet('classes', `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}`);
+      existingClasses.forEach(c => { if (c.turma_code) _retiredCodes.add(c.turma_code); });
+    } catch { /* non-fatal */ }
     document.getElementById('pill-total').textContent = `${allE.length} al`;
     document.getElementById('pill-status').textContent = 'Supabase OK';
     document.getElementById('pill-status').className   = 'tb-pill ok';
@@ -1739,6 +2006,7 @@ function showToast(msg, type='ok') {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (document.getElementById('confirm-overlay')?.classList.contains('open')) { closeConfirm(); return; }
     if (document.getElementById('ds-overlay')?.classList.contains('open')) { closeDossier(); return; }
     closeGroupModal();
   }
