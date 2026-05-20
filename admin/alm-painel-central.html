@@ -149,7 +149,7 @@ body{display:flex;flex-direction:column}
 .lh-name{font-family:var(--display);font-size:26px;letter-spacing:5px;line-height:1}
 .lh-dept{font-size:8.5px;color:var(--t2);letter-spacing:.1em;align-self:flex-end;padding-bottom:1px}
 .lh-stats{display:flex;gap:0;margin-left:auto}
-.lh-stat{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid var(--b)}
+.lh-stat{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid var(--b);cursor:default}
 .lh-v{font-size:18px;font-weight:700;line-height:1}
 .lh-l{font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px}
 .lh-cap-bar{width:50px;height:2px;background:rgba(255,255,255,.05);overflow:hidden;margin-top:4px}
@@ -208,12 +208,18 @@ body{display:flex;flex-direction:column}
 .sg-time-hdr{display:flex;gap:3px;height:22px;align-items:flex-end;padding-bottom:3px}
 .sg-time-lbl{font-size:7.5px;font-weight:600;color:var(--t3);text-align:center;flex:1;min-width:0;font-family:var(--mono)}
 .sg-time-gap{flex:0 0 16px}
-.sg-row{display:flex;gap:3px;margin-bottom:3px;position:relative}
+
+/* ═══ FIX ISSUE 2: sg-row must not inflate when pin-bubbles are inside ═══ */
+.sg-row{display:flex;gap:3px;margin-bottom:3px;position:relative;overflow:hidden;max-height:37px}
+
 .sg-row[data-di="0"]{background:rgba(var(--day0-rgb),.028)}.sg-row[data-di="1"]{background:rgba(var(--day1-rgb),.028)}.sg-row[data-di="2"]{background:rgba(var(--day2-rgb),.028)}.sg-row[data-di="3"]{background:rgba(var(--day3-rgb),.028)}.sg-row[data-di="4"]{background:rgba(var(--day4-rgb),.028)}.sg-row[data-di="5"]{background:rgba(var(--day5-rgb),.028)}
 .sg-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;opacity:.55}
 .sg-row[data-di="0"]::before{background:rgba(var(--day0-rgb),1)}.sg-row[data-di="1"]::before{background:rgba(var(--day1-rgb),1)}.sg-row[data-di="2"]::before{background:rgba(var(--day2-rgb),1)}.sg-row[data-di="3"]::before{background:rgba(var(--day3-rgb),1)}.sg-row[data-di="4"]::before{background:rgba(var(--day4-rgb),1)}.sg-row[data-di="5"]::before{background:rgba(var(--day5-rgb),1)}
 .sg-cell{border-radius:4px;border:.5px solid rgba(255,255,255,.05);flex:1;min-width:0;position:relative;overflow:hidden;cursor:default;transition:border-color .12s,outline .12s}
-.sg-cell.gap-cell{flex:0 0 16px;background:rgba(0,0,0,.35);border-color:transparent;border-radius:0;cursor:default;position:relative;overflow:hidden}
+
+/* ═══ FIX ISSUE 2: gap-cell also capped ═══ */
+.sg-cell.gap-cell{flex:0 0 16px;background:rgba(0,0,0,.35);border-color:transparent;border-radius:0;cursor:default;position:relative;overflow:hidden;max-height:34px}
+
 .sg-cell.gap-cell::after{content:'·';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg);font-size:8px;color:rgba(201,168,76,.2);letter-spacing:3px}
 .sg-cell .hm-band{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;border-radius:3px 3px 0 0;transition:height .3s;min-height:0;flex-direction:column}
 .sg-cell .hm-count{font-size:11px;font-weight:700;line-height:1;font-family:var(--mono)}
@@ -234,7 +240,12 @@ body{display:flex;flex-direction:column}
 .pm-card.viable .pm-count{color:var(--green)}.pm-card.wait .pm-count{color:var(--amber)}.pm-card.low .pm-count{color:var(--red)}
 .pm-sublabel{font-size:7px;margin-top:3px}
 .pm-card.viable .pm-sublabel{color:var(--green)}.pm-card.wait .pm-sublabel{color:var(--amber)}.pm-card.low .pm-sublabel{color:var(--red)}
+/* ═══ FIX ISSUE 1: .pm-placed shows how many were actually slotted ═══ */
+.pm-placed{font-size:6.5px;opacity:.65;margin-top:3px;letter-spacing:.04em}
+.pm-card.viable .pm-placed{color:var(--green)}.pm-card.wait .pm-placed{color:var(--amber)}.pm-card.low .pm-placed{color:var(--red)}
 .pm-icon{position:absolute;top:8px;right:10px;font-size:12px}
+/* tooltip on lh-stat */
+.lh-stat[title]{cursor:help}
 
 /* ── GROUP LIST ── */
 .gcard{background:var(--bg2);border:1px solid var(--b2);margin-bottom:5px;overflow:hidden;transition:border-color .15s}
@@ -1184,18 +1195,29 @@ function buildSchoolGrid(students) {
   });
   mainHTML += `</div>`;
 
-  /* ── pair matrix ── */
+  /* ══════════════════════════════════════════════
+     FIX ISSUE 1: pair matrix now shows BOTH
+     - big number = compatible (have both days free)
+     - small "N alocados" = actually placed by engine
+  ══════════════════════════════════════════════ */
   let pmHTML = `<div class="pair-matrix">`;
   pairCounts.forEach(({ pair, count }, i) => {
     const isReady = count >= ASSIGN_MIN, isWait = count >= MIN_G;
     const cls = isReady ? 'viable' : isWait ? 'wait' : 'low';
     const icon = isReady ? '✓' : isWait ? '!' : '✕';
-    const lbl  = isReady ? 'atribuir agora' : isWait ? 'aguardar' : 'não abre';
+    const lbl  = isReady ? 'compatíveis' : isWait ? 'aguardar' : 'não abre';
+    /* how many were actually placed in this pair by the engine */
+    const placedInPair = _lastResult
+      ? _lastResult.groups
+          .filter(g => g.pair.a === pair.a && g.pair.b === pair.b)
+          .reduce((s, g) => s + g.students.length, 0)
+      : 0;
     pmHTML += `<div class="pm-card ${cls}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${count}</div>
       <div class="pm-sublabel">${lbl}</div>
+      ${placedInPair > 0 ? `<div class="pm-placed">${placedInPair} alocados</div>` : ''}
     </div>`;
   });
   pmHTML += `</div>`;
@@ -1249,7 +1271,7 @@ function renderLevelContent() {
       <div class="lh-stat"><div class="lh-v" style="color:var(--gold2)">${allStudents.length}</div><div class="lh-l">Inscritos</div></div>
       <div class="lh-stat"><div class="lh-v" style="color:var(--green)">${withReq.length}</div><div class="lh-l">Com pedido</div></div>
       <div class="lh-stat"><div class="lh-v" style="color:var(--red)">${noReq}</div><div class="lh-l">Sem pedido</div></div>
-      ${_lastResult?`<div class="lh-stat"><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length?Math.round(placed/withReq.length*100):0}%;background:var(--teal)"></div></div></div>`:''}
+      ${_lastResult?`<div class="lh-stat" title="Alunos colocados em grupos (de ${withReq.length} com pedido). Os cards de par mostram quantos têm o par disponível; este número mostra quantos foram efectivamente alocados ao melhor horário."><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma ⓘ</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length?Math.round(placed/withReq.length*100):0}%;background:var(--teal)"></div></div></div>`:''}
       ${_lastResult?`<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${sinal}</div><div class="lh-l">Sinalizados</div></div>`:''}
       <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
     </div>`;
@@ -1318,12 +1340,19 @@ function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
     const isReady = count >= ASSIGN_MIN, isWait = count >= MIN_G;
     const cls = isReady ? 'viable' : isWait ? 'wait' : 'low';
     const icon = isReady ? '✓' : isWait ? '!' : '✕';
-    const lbl  = isReady ? 'atribuir agora' : isWait ? 'aguardar' : 'não abre';
+    const lbl  = isReady ? 'compatíveis' : isWait ? 'aguardar' : 'não abre';
+    /* FIX ISSUE 1: show actually-placed count below the compatible count */
+    const placed2 = _lastResult
+      ? _lastResult.groups
+          .filter(g => g.pair.a === pair.a && g.pair.b === pair.b)
+          .reduce((s, g) => s + g.students.length, 0)
+      : 0;
     html += `<div class="pm-card ${cls}">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${count}</div>
       <div class="pm-sublabel">${lbl}</div>
+      ${placed2 > 0 ? `<div class="pm-placed">${placed2} alocados</div>` : ''}
     </div>`;
   });
   html += `</div>`;
