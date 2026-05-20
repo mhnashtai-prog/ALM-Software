@@ -221,16 +221,13 @@ body{display:flex;flex-direction:column}
 .sg-cell .hm-sub{font-size:6px;color:rgba(255,255,255,.5);letter-spacing:.04em;margin-top:1px}
 .sg-cell.pair-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pair-dim{opacity:.14}
-.sg-cell.pin-cell{overflow:hidden;cursor:default;border-radius:4px;position:relative}
-.sg-cell.pin-cell.has-pins{cursor:pointer}
-.sg-cell.pin-cell.group-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
-.sg-cell.pin-cell.group-dim{opacity:.12}
-.pin-inner{position:absolute;bottom:4px;left:0;right:0;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:3px;padding:0 2px;pointer-events:none}
-.pin-inner .pin-wrap{pointer-events:all}
+
+/* ── PIN OVERLAY (replaces per-cell pin approach) ── */
+.pin-overlay{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5}
 
 /* ── PINS ── */
-.pin-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer;flex-shrink:0;animation:pinDrop .32s cubic-bezier(.34,1.56,.64,1) both;position:relative;transition:transform .18s cubic-bezier(.34,1.56,.64,1),filter .15s;filter:drop-shadow(0 4px 6px rgba(0,0,0,.55))}
-.pin-wrap:hover{transform:translateY(-6px) scale(1.18);filter:drop-shadow(0 8px 14px rgba(0,0,0,.75));z-index:20}
+.pin-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer;flex-shrink:0;animation:pinDrop .32s cubic-bezier(.34,1.56,.64,1) both;position:absolute;bottom:6px;pointer-events:all;transform:translateX(-50%);transition:transform .18s cubic-bezier(.34,1.56,.64,1),filter .15s;filter:drop-shadow(0 4px 6px rgba(0,0,0,.55))}
+.pin-wrap:hover{transform:translateX(-50%) translateY(-6px) scale(1.18);filter:drop-shadow(0 8px 14px rgba(0,0,0,.75));z-index:20}
 .pin-svg{display:block;flex-shrink:0;overflow:visible}
 .pin-shadow{width:10px;height:4px;background:radial-gradient(ellipse,rgba(0,0,0,.45) 0%,transparent 70%);border-radius:50%;flex-shrink:0;margin-top:-2px;transition:opacity .18s,transform .18s}
 .pin-wrap:hover .pin-shadow{opacity:.6;transform:scaleX(.8)}
@@ -349,7 +346,7 @@ body{display:flex;flex-direction:column}
 .watch-name{font-size:10px;font-weight:600;color:var(--t);flex:1}
 .watch-meta{font-size:7px;color:var(--t3);margin-top:1px}
 .watch-actions{display:flex;gap:5px;flex-shrink:0}
-.watch-btn{padding:3px 9px;border:1px solid;font-family:var(--mono);font-size:7.5px;cursor:pointer;background:transparent;transition:all .12s}
+.watch-btn{padding:3px 9px;border:1px solid;font-family:var(--mono);font-size:7.5px;cursor:pointer;background:transparent;transition:all .12px}
 .watch-btn-open{border-color:var(--b2);color:var(--gold)}.watch-btn-open:hover{background:var(--gold3)}
 .watch-btn-unpin{border-color:var(--b);color:var(--t3)}.watch-btn-unpin:hover{border-color:var(--red-b);color:var(--red)}
 .watch-body{display:none;padding:0 14px 12px;border-top:1px solid var(--b)}
@@ -555,12 +552,8 @@ body{display:flex;flex-direction:column}
 
 <!-- PANELS -->
 <div class="panels">
-
-  <!-- ═══ PANEL 1+3: OVERVIEW / FORMATION (shared layout) ═══ -->
   <div class="panel active" id="panel-main">
     <div class="ov-layout">
-
-      <!-- SIDEBAR (shared) -->
       <div class="sidebar">
         <div class="sb-kpis">
           <div class="sb-kpi"><div class="sb-kpi-v" style="color:var(--gold2)" id="st-total">—</div><div class="sb-kpi-l">Inscritos</div></div>
@@ -578,26 +571,19 @@ body{display:flex;flex-direction:column}
         </div>
         <div class="level-tree" id="level-tree"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
       </div>
-
-      <!-- MAIN RIGHT PANE -->
       <div class="main-pane">
-        <!-- Level header (shown when level selected) -->
         <div class="level-hdr" id="level-hdr">
           <div style="display:flex;flex-direction:column;justify-content:center">
             <div style="font-size:18px;opacity:.2;margin-bottom:4px">◈</div>
             <div style="font-size:7px;letter-spacing:.14em;text-transform:uppercase;opacity:.3">← Seleccione um nível</div>
           </div>
         </div>
-
-        <!-- Mode toggle bar (shown when level selected + has requests) -->
         <div class="mode-toggle-bar" id="mode-toggle-bar" style="display:none">
-          <!-- Left: view mode switch (overview vs formation) -->
           <span class="mt-label">Modo</span>
           <div class="toggle-switch">
             <button class="ts-btn active" id="ts-overview" onclick="setContentMode('overview')">📋 Overview</button>
             <button class="ts-btn" id="ts-formation" onclick="setContentMode('formation')">📊 Formation</button>
           </div>
-          <!-- Formation sub-controls (hidden in overview mode) -->
           <div id="formation-sub-controls" style="display:none;align-items:center;gap:10px;flex:1">
             <div class="toggle-switch">
               <button class="ts-btn active" id="ts-heatmap" onclick="setGridView('heatmap')">📊 Calor</button>
@@ -607,8 +593,6 @@ body{display:flex;flex-direction:column}
             <button class="clear-btn" onclick="clearHighlight()">Limpar</button>
           </div>
         </div>
-
-        <!-- Scroll area -->
         <div class="scroll-area" id="scroll-area">
           <div class="placeholder-main">
             <div class="placeholder-icon">◈</div>
@@ -619,7 +603,6 @@ body{display:flex;flex-direction:column}
     </div>
   </div>
 
-  <!-- ═══ PANEL 2: AUDIT ═══ -->
   <div class="panel" id="panel-audit">
     <div class="audit-wrap">
       <div class="kpi-row">
@@ -655,7 +638,6 @@ body{display:flex;flex-direction:column}
     </div>
   </div>
 
-  <!-- ═══ PANEL 6: WATCHLIST ═══ -->
   <div class="panel" id="panel-watchlist">
     <div class="watch-wrap">
       <div class="kpi-row">
@@ -672,7 +654,6 @@ body{display:flex;flex-direction:column}
       <div id="watch-rows"><div class="empty-msg">Sem alunos na lista de acompanhamento.</div></div>
     </div>
   </div>
-
 </div>
 
 <!-- GROUP MODAL -->
@@ -850,8 +831,8 @@ const ALM_DISP = {'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 
 let allE = [], allR = [], rByRef = {};
 let activeLoc = 'all', activeLevelKey = null;
 let openDepts = { kids:true, kids_juv:false, adults:false, exam:false };
-let contentMode = 'overview'; // 'overview' | 'formation'
-let gridView = 'heatmap';     // 'heatmap' | 'pins'
+let contentMode = 'overview';
+let gridView = 'heatmap';
 let highlightPairIdx = null;
 let _lastResult = null, _modalGroup = null;
 let _sinalOpen = false;
@@ -861,7 +842,7 @@ let _retiredCodes  = new Set();
 let _pendingCreateIdx = null;
 let auditFilters = { branch:'all', status:'all', dept:'all' };
 let watchFilter = 'all';
-let activeMainTab = 'overview'; // tracks which main tab is logically active
+let activeMainTab = 'overview';
 
 /* ══════════════════════════════════════════════
    HELPERS
@@ -939,13 +920,9 @@ function switchMainTab(tabId, el) {
   activeMainTab = tabId;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-
-  // Show/hide panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-
   if (tabId === 'overview' || tabId === 'formation') {
     document.getElementById('panel-main').classList.add('active');
-    // Switch content mode
     setContentMode(tabId === 'formation' ? 'formation' : 'overview');
   } else {
     const p = document.getElementById('panel-' + tabId);
@@ -956,7 +933,7 @@ function switchMainTab(tabId, el) {
 }
 
 /* ══════════════════════════════════════════════
-   CONTENT MODE TOGGLE (overview vs formation)
+   CONTENT MODE TOGGLE
 ══════════════════════════════════════════════ */
 function setContentMode(mode) {
   contentMode = mode;
@@ -964,7 +941,6 @@ function setContentMode(mode) {
   document.getElementById('ts-formation').classList.toggle('active', mode === 'formation');
   const subCtrl = document.getElementById('formation-sub-controls');
   subCtrl.style.display = mode === 'formation' ? 'flex' : 'none';
-  // Sync topbar tab highlight
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const tabEl = document.getElementById(mode === 'formation' ? 'tab-formation' : 'tab-overview');
   if (tabEl) tabEl.classList.add('active');
@@ -982,7 +958,7 @@ function clearHighlight() {
   highlightPairIdx = null;
   document.querySelectorAll('.vt-pair-pill').forEach(p => p.classList.remove('dim'));
   document.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c => {
-    c.classList.remove('pair-hi','pair-dim','group-hi','group-dim');
+    c.classList.remove('pair-hi','pair-dim');
   });
 }
 
@@ -991,10 +967,13 @@ function highlightPair(idx, dayPair) {
   highlightPairIdx = idx;
   document.querySelectorAll('.vt-pair-pill').forEach((p,i) => p.classList.toggle('dim', i !== idx));
   const hlDays = dayPair[0]===dayPair[1] ? [dayPair[0]] : [dayPair[0],dayPair[1]];
-  document.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c => {
-    const d = parseInt(c.dataset.day), inDay = hlDays.includes(d);
-    if (gridView === 'heatmap') { c.classList.toggle('pair-hi',inDay); c.classList.toggle('pair-dim',!inDay); }
-    else { c.classList.toggle('group-hi',inDay&&c.classList.contains('has-pins')); c.classList.toggle('group-dim',!inDay); }
+  document.querySelectorAll('.sg-row[data-di]').forEach(row => {
+    const d = parseInt(row.dataset.di);
+    const inDay = hlDays.includes(d);
+    row.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c => {
+      c.classList.toggle('pair-hi', inDay);
+      c.classList.toggle('pair-dim', !inDay);
+    });
   });
 }
 
@@ -1165,6 +1144,51 @@ function countPair(students, pair) {
 }
 
 /* ══════════════════════════════════════════════
+   PIN POSITIONING — pixel-accurate (FIX)
+   Mirrors timeToBandPos() from the Assign page.
+   Must be called via requestAnimationFrame after
+   HTML is inserted into the DOM so cell widths
+   are available from getBoundingClientRect().
+══════════════════════════════════════════════ */
+function timeToBandPosInRow(startMins, endMins, rowEl) {
+  const allCells = Array.from(rowEl.querySelectorAll('.sg-cell'));
+  const GAP = 3;
+  let x = 0, left = null, right = null;
+
+  allCells.forEach(cell => {
+    const w = cell.getBoundingClientRect().width;
+    const isGap = cell.classList.contains('gap-cell');
+    if (isGap) { x += w + GAP; return; }
+    const h = parseInt(cell.dataset.h);
+    if (isNaN(h)) { x += w + GAP; return; }
+    const hStart = h * 60, hEnd = (h + 1) * 60;
+    if (startMins < hEnd && endMins > hStart) {
+      const overlapStart = Math.max(startMins, hStart);
+      const overlapEnd   = Math.min(endMins,   hEnd);
+      if (left === null) left = x + ((overlapStart - hStart) / 60) * w;
+      right = x + ((overlapEnd - hStart) / 60) * w;
+    }
+    x += w + GAP;
+  });
+
+  if (left === null) return null;
+  return { left: Math.round(left), width: Math.max(36, Math.round(right - left)) };
+}
+
+function positionPins() {
+  document.querySelectorAll('.sg-row[data-di]').forEach(rowEl => {
+    rowEl.querySelectorAll('.pin-wrap[data-start]').forEach(pin => {
+      const startMins = parseInt(pin.dataset.start);
+      const endMins   = parseInt(pin.dataset.end);
+      const pos = timeToBandPosInRow(startMins, endMins, rowEl);
+      if (!pos) return;
+      // Centre pin horizontally at the midpoint of its time band
+      pin.style.left = (pos.left + pos.width / 2) + 'px';
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════
    SCHOOL GRID BUILDER
 ══════════════════════════════════════════════ */
 function buildSchoolGrid(mode, students, result) {
@@ -1187,34 +1211,27 @@ function buildSchoolGrid(mode, students, result) {
     maxVal = Math.max(...allVals, 1);
   }
 
-  let cellGroups = {};
+  /* ── PINS MODE: build per-day group lists (no hour bucketing) ── */
+  let pinsByDay = {};
   if (mode === 'pins' && result?.groups) {
     result.groups.forEach((g, idx) => {
-      const h = Math.floor(g.startMins / 60);
       const seenDays = new Set();
-      const sessions = [];
       [g.pair.a, g.pair.b].forEach((dayIdx, si) => {
         if (seenDays.has(dayIdx)) return;
         seenDays.add(dayIdx);
-        sessions.push({ dayIdx, sessionLetter: si===0?'A':'B' });
-      });
-      sessions.forEach(({ dayIdx, sessionLetter }) => {
-        const key = `${dayIdx}|${h}`;
-        if (!cellGroups[key]) cellGroups[key] = [];
-        cellGroups[key].push({ idx, group:g, sessionLetter });
+        if (!pinsByDay[dayIdx]) pinsByDay[dayIdx] = [];
+        pinsByDay[dayIdx].push({ idx, group: g, sessionLetter: si === 0 ? 'A' : 'B' });
       });
     });
   }
 
-  const maxPinsInCell = mode === 'pins' ? Math.max(1, ...Object.values(cellGroups).map(a => a.length)) : 1;
-  const PIN_H = 42;
-  const ROW_H = mode === 'pins' ? Math.max(64, Math.ceil(maxPinsInCell / 3) * PIN_H + 20) : 34;
+  const ROW_H = mode === 'pins' ? 80 : 34;
 
   let dayColHTML = `<div class="sg-day-col" style="padding-top:22px">`;
   DAYS_PT.forEach((day, di) => {
     const hasData = mode === 'heatmap'
       ? ALL_HOURS.some(h => (heatmap[day]?.[h]||0) > 0)
-      : Object.keys(cellGroups).some(k => k.startsWith(`${di}|`));
+      : !!pinsByDay[di];
     dayColHTML += `<div class="sg-day-lbl${hasData?' has-data':''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">${DAYS_PT[di]}</div>`;
   });
   dayColHTML += `</div>`;
@@ -1228,58 +1245,96 @@ function buildSchoolGrid(mode, students, result) {
 
   DAYS_PT.forEach((day, di) => {
     const rgb = DAY_RGB_VALS[di];
-    mainHTML += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px">`;
 
-    const buildHmCell = h => {
-      const n = heatmap[day]?.[h] || 0;
-      const pct = Math.round(n / maxVal * 100);
-      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct/100*ROW_H));
-      const alpha = n === 0 ? 0 : (0.12 + pct/100*0.55).toFixed(2);
-      const bAlpha = n === 0 ? '0.05' : (0.25 + pct/100*0.45).toFixed(2);
-      const countHTML = n > 0
-        ? `<div class="hm-count" style="color:rgba(${rgb},${Math.min(1,(+alpha+0.4).toFixed(2))})">${n}</div><div class="hm-sub">al</div>`
-        : '';
-      return `<div class="sg-cell" data-day="${di}" data-h="${h}" title="${day} ${h}h · ${n} aluno${n!==1?'s':''}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
-        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
-      </div>`;
-    };
+    if (mode === 'heatmap') {
+      mainHTML += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px">`;
+      const buildHmCell = h => {
+        const n = heatmap[day]?.[h] || 0;
+        const pct = Math.round(n / maxVal * 100);
+        const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct/100*ROW_H));
+        const alpha = n === 0 ? 0 : (0.12 + pct/100*0.55).toFixed(2);
+        const bAlpha = n === 0 ? '0.05' : (0.25 + pct/100*0.45).toFixed(2);
+        const countHTML = n > 0
+          ? `<div class="hm-count" style="color:rgba(${rgb},${Math.min(1,(+alpha+0.4).toFixed(2))})">${n}</div><div class="hm-sub">al</div>`
+          : '';
+        return `<div class="sg-cell" data-day="${di}" data-h="${h}" title="${day} ${h}h · ${n} aluno${n!==1?'s':''}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+          <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
+        </div>`;
+      };
+      HOURS_AM.forEach(h => mainHTML += buildHmCell(h));
+      mainHTML += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
+      HOURS_PM.forEach(h => mainHTML += buildHmCell(h));
+      mainHTML += `</div>`;
 
-    const buildPinCell = h => {
-      const key = `${di}|${h}`, cgs = cellGroups[key]||[], hasPins = cgs.length > 0;
+    } else {
+      /* ── PINS MODE: background cells + pin overlay ── */
+      const dayGroups = pinsByDay[di] || [];
+      const hasPins = dayGroups.length > 0;
+
+      // Background cells (decorative grid lines only)
+      let cells = '';
+      HOURS_AM.forEach(h => {
+        const bAlpha = hasPins ? '0.10' : '0.05';
+        cells += `<div class="sg-cell" data-day="${di}" data-h="${h}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})"></div>`;
+      });
+      cells += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
+      HOURS_PM.forEach(h => {
+        const bAlpha = hasPins ? '0.10' : '0.05';
+        cells += `<div class="sg-cell" data-day="${di}" data-h="${h}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})"></div>`;
+      });
+
+      // Pin elements — left position set by positionPins() after DOM insertion
       let pins = '';
-      cgs.forEach(({ idx, group, sessionLetter }) => {
+      dayGroups.forEach(({ idx, group: g, sessionLetter }) => {
         const col = GROUP_COLORS[idx % GROUP_COLORS.length];
-        const gId = `pg${idx}${di}${h}`;
         const isCreated = !!(_createdGroups[activeLevelKey]||{})[idx];
+        const endMins = g.startMins + CLASS_DUR;
+        const gId = `pg${idx}d${di}`;
+
         const createdBadge = isCreated
           ? `<div style="position:absolute;top:-6px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--green);border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:7px;color:#fff;z-index:5">✓</div>`
           : '';
-        pins += `<div class="pin-wrap" style="animation-delay:${idx*45}ms;position:relative" title="Turma ${idx+1} · ${group.startTime}–${group.endTime} · ${group.students.length} al" onclick="event.stopPropagation();openGroupModal(${idx})">
+
+        pins += `<div class="pin-wrap"
+          data-start="${g.startMins}"
+          data-end="${endMins}"
+          style="animation-delay:${idx * 45}ms"
+          title="Turma ${idx+1} · ${g.startTime}–${g.endTime} · ${g.students.length} al"
+          onclick="event.stopPropagation();openGroupModal(${idx})">
           ${createdBadge}
           <svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <radialGradient id="bg${gId}" cx="38%" cy="32%" r="68%"><stop offset="0%" stop-color="${col}" stop-opacity="1"/><stop offset="55%" stop-color="${col}" stop-opacity=".82"/><stop offset="100%" stop-color="#000" stop-opacity=".45"/></radialGradient>
-              <radialGradient id="hl${gId}" cx="34%" cy="28%" r="52%"><stop offset="0%" stop-color="#fff" stop-opacity=".92"/><stop offset="40%" stop-color="#fff" stop-opacity=".38"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
-              <filter id="sh${gId}" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${col}" flood-opacity=".55"/></filter>
+              <radialGradient id="bg${gId}" cx="38%" cy="32%" r="68%">
+                <stop offset="0%"   stop-color="${col}" stop-opacity="1"/>
+                <stop offset="55%"  stop-color="${col}" stop-opacity=".82"/>
+                <stop offset="100%" stop-color="#000"   stop-opacity=".45"/>
+              </radialGradient>
+              <radialGradient id="hl${gId}" cx="34%" cy="28%" r="52%">
+                <stop offset="0%"   stop-color="#fff" stop-opacity=".92"/>
+                <stop offset="40%"  stop-color="#fff" stop-opacity=".38"/>
+                <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+              </radialGradient>
+              <filter id="sh${gId}" x="-30%" y="-20%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${col}" flood-opacity=".55"/>
+              </filter>
             </defs>
-            <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="url(#bg${gId})" filter="url(#sh${gId})"${isCreated?' opacity=".6"':''}/>
+            <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z"
+              fill="url(#bg${gId})" filter="url(#sh${gId})"${isCreated?' opacity=".6"':''}/>
             <circle cx="14" cy="14" r="7.5" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
             <circle cx="14" cy="14" r="7" fill="rgba(255,255,255,.15)"/>
             <ellipse cx="11.5" cy="10.5" rx="4.5" ry="3.5" fill="url(#hl${gId})"/>
-            <text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="7" font-weight="700" fill="#fff">${idx+1}${sessionLetter}</text>
+            <text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace"
+              font-size="7" font-weight="700" fill="#fff">${idx+1}${sessionLetter}</text>
           </svg>
           <div class="pin-shadow"></div>
         </div>`;
       });
-      const bAlpha = hasPins ? '0.35' : '0.05';
-      const bgStyle = hasPins ? `;background:rgba(${rgb},.05)` : '';
-      return `<div class="sg-cell pin-cell${hasPins?' has-pins':''}" data-day="${di}" data-h="${h}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})${bgStyle}" onclick="${hasPins?`handleCellClick(${di},${h})`:''}">${hasPins?`<div class="pin-inner">${pins}</div>`:''}</div>`;
-    };
 
-    HOURS_AM.forEach(h => mainHTML += mode==='heatmap' ? buildHmCell(h) : buildPinCell(h));
-    mainHTML += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
-    HOURS_PM.forEach(h => mainHTML += mode==='heatmap' ? buildHmCell(h) : buildPinCell(h));
-    mainHTML += `</div>`;
+      mainHTML += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px">
+        ${cells}
+        ${hasPins ? `<div class="pin-overlay" data-di="${di}">${pins}</div>` : ''}
+      </div>`;
+    }
   });
   mainHTML += `</div>`;
 
@@ -1294,7 +1349,6 @@ function buildSchoolGrid(mode, students, result) {
       pmHTML += `<div class="pm-card ${cls}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">
         <div class="pm-icon">${icon}</div>
         <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-        <div style="font-size:7px;margin-bottom:4px;opacity:.7">Qualquer bloco</div>
         <div class="pm-count">${count}</div>
         <div class="pm-sublabel">${lbl}</div>
       </div>`;
@@ -1339,19 +1393,6 @@ function buildSchoolGrid(mode, students, result) {
   ${pmHTML}`;
 }
 
-function handleCellClick(di, h) {
-  if (!_lastResult) return;
-  const matching = [];
-  _lastResult.groups.forEach((g, idx) => {
-    const startH = Math.floor(g.startMins/60);
-    const seenDays = new Set();
-    const days = [];
-    [g.pair.a, g.pair.b].forEach(d => { if (!seenDays.has(d)) { seenDays.add(d); days.push(d); } });
-    if (days.includes(di) && startH===h) matching.push(idx);
-  });
-  if (matching.length) openGroupModal(matching[0]);
-}
-
 /* ══════════════════════════════════════════════
    RENDER LEVEL CONTENT
 ══════════════════════════════════════════════ */
@@ -1359,7 +1400,6 @@ function renderLevelContent() {
   const area = document.getElementById('scroll-area');
 
   if (!activeLevelKey) {
-    // No level selected — show overview summary
     document.getElementById('mode-toggle-bar').style.display = 'none';
     renderOvSummary();
     return;
@@ -1401,7 +1441,7 @@ function renderLevelContent() {
   }
 }
 
-/* ── OVERVIEW level content ── */
+/* ── OVERVIEW summary (no level selected) ── */
 function renderOvSummary() {
   const area = document.getElementById('scroll-area');
   const students = locStu(), total = students.length;
@@ -1437,6 +1477,7 @@ function renderOvSummary() {
   area.innerHTML = html;
 }
 
+/* ── OVERVIEW level content ── */
 function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
   const area = document.getElementById('scroll-area');
   const pairCounts = ALM_PAIRS
@@ -1504,36 +1545,8 @@ function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
   }
 
   if (_lastResult?.sinalizados?.length) {
-    const { sinalizados, sameDayCt, invalidWinCt, noGroupCt } = _lastResult;
-    html += `<div class="sinal-block">
-      <div class="sinal-hdr" onclick="toggleSinal()">
-        <div style="flex:1"><div class="sinal-title">⚠ Sinalizados</div><div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">${sameDayCt?`${sameDayCt} mesmo dia · `:''}${invalidWinCt?`${invalidWinCt} inválido · `:''}${noGroupCt?`${noGroupCt} sem grupo`:''}</div></div>
-        <div class="sinal-count">${sinalizados.length}</div>
-        <div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div>
-      </div>
-      <div class="sinal-body" id="sinal-body">`;
-    [{k:'same-day',lbl:'Mesmo dia',cls:'sr-sd',tag:'SD'},{k:'invalid-window',lbl:'Horário inválido',cls:'sr-iv',tag:'IV'},{k:'no-group',lbl:'Sem grupo',cls:'sr-ng',tag:'NG'}].forEach(({k,lbl,cls,tag}) => {
-      const sub = sinalizados.filter(s => s.reason === k); if (!sub.length) return;
-      html += `<div class="sinal-sub">${lbl}</div>`;
-      html += sub.map(({ e, why }) => {
-        const a = analysePrefs(e.ref);
-        const slots = (a?.windows||[]).map(w => `<span class="slot-tag slot-ok">${DAYS_PT[w.dayIdx]||'?'}</span>`).join('');
-        return `<div class="sinal-stu">
-          <span class="sinal-reason ${cls}">${tag}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:9px;color:var(--t);cursor:pointer" onclick="openDossier('${e.ref}')">${e.name||'—'}</div>
-            <div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}</div>
-            <div class="sinal-why">${why}</div>
-            <div style="margin-top:3px">${slots}</div>
-          </div>
-          <span class="pin-btn" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
-        </div>`;
-      }).join('');
-    });
-    html += `</div></div>`;
+    html += buildSinalizadosHTML(_lastResult);
   }
-
-  // Student table
   html += buildStudentTable(allStudents);
   area.innerHTML = html;
   clearHighlight();
@@ -1596,39 +1609,50 @@ function renderFormationLevel(withReq) {
   }
 
   if (_lastResult?.sinalizados?.length) {
-    const { sinalizados, sameDayCt, invalidWinCt, noGroupCt } = _lastResult;
-    html += `<div class="sinal-block">
-      <div class="sinal-hdr" onclick="toggleSinal()">
-        <div style="flex:1"><div class="sinal-title">⚠ Sinalizados · não alocados</div><div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">${sameDayCt?`${sameDayCt} mesmo dia · `:''}${invalidWinCt?`${invalidWinCt} inválido · `:''}${noGroupCt?`${noGroupCt} sem grupo`:''}</div></div>
-        <div class="sinal-count">${sinalizados.length}</div>
-        <div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div>
-      </div>
-      <div class="sinal-body" id="sinal-body">`;
-    [{k:'same-day',lbl:'Mesmo dia',cls:'sr-sd',tag:'SD'},{k:'invalid-window',lbl:'Horário inválido',cls:'sr-iv',tag:'IV'},{k:'no-group',lbl:'Sem grupo',cls:'sr-ng',tag:'NG'}].forEach(({k,lbl,cls,tag}) => {
-      const sub = sinalizados.filter(s => s.reason === k); if (!sub.length) return;
-      html += `<div class="sinal-sub">${lbl}</div>`;
-      html += sub.map(({ e, why }) => {
-        const a = analysePrefs(e.ref);
-        const slots = (a?.windows||[]).map(w => `<span class="slot-tag slot-ok">${DAYS_PT[w.dayIdx]||'?'} ${minsToT(w.earliest)}</span>`).join('');
-        return `<div class="sinal-stu">
-          <span class="sinal-reason ${cls}">${tag}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:9px;color:var(--t);cursor:pointer" onclick="openDossier('${e.ref}')">${e.name||'—'}</div>
-            <div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}</div>
-            <div class="sinal-why">${why}</div>
-            <div style="margin-top:3px">${slots}</div>
-          </div>
-          <span class="pin-btn" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
-        </div>`;
-      }).join('');
-    });
-    html += `</div></div>`;
+    html += buildSinalizadosHTML(_lastResult);
   }
 
   const allStudents = locStu().filter(e => lk(e) === activeLevelKey);
   html += buildStudentTable(allStudents);
   area.innerHTML = html;
   clearHighlight();
+
+  // ── KEY FIX: position pins after DOM insertion ──
+  if (gridView === 'pins') {
+    requestAnimationFrame(positionPins);
+  }
+}
+
+/* ── Shared sinalizados block ── */
+function buildSinalizadosHTML(result) {
+  const { sinalizados, sameDayCt, invalidWinCt, noGroupCt } = result;
+  let html = `<div class="sinal-block">
+    <div class="sinal-hdr" onclick="toggleSinal()">
+      <div style="flex:1"><div class="sinal-title">⚠ Sinalizados · não alocados</div><div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">${sameDayCt?`${sameDayCt} mesmo dia · `:''}${invalidWinCt?`${invalidWinCt} inválido · `:''}${noGroupCt?`${noGroupCt} sem grupo`:''}</div></div>
+      <div class="sinal-count">${sinalizados.length}</div>
+      <div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div>
+    </div>
+    <div class="sinal-body" id="sinal-body">`;
+  [{k:'same-day',lbl:'Mesmo dia',cls:'sr-sd',tag:'SD'},{k:'invalid-window',lbl:'Horário inválido',cls:'sr-iv',tag:'IV'},{k:'no-group',lbl:'Sem grupo',cls:'sr-ng',tag:'NG'}].forEach(({k,lbl,cls,tag}) => {
+    const sub = sinalizados.filter(s => s.reason === k); if (!sub.length) return;
+    html += `<div class="sinal-sub">${lbl}</div>`;
+    html += sub.map(({ e, why }) => {
+      const a = analysePrefs(e.ref);
+      const slots = (a?.windows||[]).map(w => `<span class="slot-tag slot-ok">${DAYS_PT[w.dayIdx]||'?'} ${minsToT(w.earliest)}</span>`).join('');
+      return `<div class="sinal-stu">
+        <span class="sinal-reason ${cls}">${tag}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px;color:var(--t);cursor:pointer" onclick="openDossier('${e.ref}')">${e.name||'—'}</div>
+          <div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}</div>
+          <div class="sinal-why">${why}</div>
+          <div style="margin-top:3px">${slots}</div>
+        </div>
+        <span class="pin-btn" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
+      </div>`;
+    }).join('');
+  });
+  html += `</div></div>`;
+  return html;
 }
 
 function buildStudentTable(allStudents) {
