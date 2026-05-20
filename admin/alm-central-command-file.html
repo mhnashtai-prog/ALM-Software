@@ -1114,7 +1114,6 @@ let _modalGroup = null;
 /* ══════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════ */
-// Normalise branch: handles "Funchal", "FUNCHAL", "Camara_Lobos", "CAMARA_LOBOS", "Camara Lobos"
 const normB   = b  => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
 const normS   = s  => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const lk      = e  => `${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`;
@@ -1145,45 +1144,32 @@ function timeToMins(t) {
 
 function normDay(raw) {
   if (!raw) return null;
-  // Handle numeric (1=Mon ... 6=Sat)
   const n = parseInt(raw);
   if (!isNaN(n) && n >= 1 && n <= 6) return n - 1;
   const key = (raw+'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   return DAY_NORM[key] ?? null;
 }
 
-/* Parse a slot object from the DB.
-   Canonical shape: { day:"Monday", day_short:"SEG", from:"14:30", to:"18:30", available:true }
-   We resolve to { dayIdx, fromMins, toMins }
-*/
 function parseSlot(p) {
-  // Day resolution: prefer day_short, fallback to day
   const rawDay = p.day_short || p.day || p.weekday || p.dia || '';
   let dayIdx = normDay(rawDay);
-  // If dayIdx still null, try the English full name
   if (dayIdx === null) dayIdx = normDay((rawDay+'').split('-')[0]);
   if (dayIdx === null) return null;
   if (p.available === false) return null;
-
   const fromMins = timeToMins(p.from || p.session_start || p.start_time || p.time || '');
   const toMins   = timeToMins(p.to   || p.end_time   || '');
   if (fromMins === null) return null;
-
   return { dayIdx, fromMins, toMins: toMins !== null ? toMins : fromMins + CLASS_DUR };
 }
 
 function analysePrefs(ref) {
   const req = rByRef[ref];
   if (!req) return null;
-  // slots can be a JSON string, a parsed array, or null; day_preferences is the fallback
   const raw = parseDayPrefs(req.slots || req.day_preferences);
   if (!raw.length) {
-    // Surface in console so we can diagnose missing slot data
     if (req.slots || req.day_preferences) console.warn('[ALM] Empty slots after parse for', ref, req.slots);
     return null;
   }
-
-  // Aggregate windows per day: earliest from → latest to
   const byDay = {};
   raw.forEach(p => {
     const s = parseSlot(p);
@@ -1194,7 +1180,6 @@ function analysePrefs(ref) {
       if (s.toMins   > byDay[s.dayIdx].latest  ) byDay[s.dayIdx].latest   = s.toMins;
     }
   });
-
   const windows   = Object.values(byDay);
   const dayIdxs   = windows.map(w => w.dayIdx);
   const sameDay   = new Set(dayIdxs).size === 1 && windows.length >= 2;
@@ -1205,13 +1190,8 @@ function analysePrefs(ref) {
     startMins: w.earliest,
     endMins:   w.latest,
   }));
-
   return {
-    windows,
-    dayIdxs,
-    sameDay,
-    validSlots,
-    prefs:     validSlots,
+    windows, dayIdxs, sameDay, validSlots, prefs: validSlots,
     hasManha:  validSlots.some(s => s.block === 'manha'),
     hasTarde:  validSlots.some(s => s.block === 'tarde'),
     invalidSlots: [],
@@ -1220,48 +1200,34 @@ function analysePrefs(ref) {
 
 /* ══════════════════════════════════════════════
    GROUPING ENGINE
-   Finds the best shared start-time for each pair,
-   places students greedily, repeats until < MIN_G remain.
 ══════════════════════════════════════════════ */
 function buildProposals(levelKey, branch) {
   const STEP = 30;
-
   const all = allE.filter(e => {
     if (lk(e) !== levelKey) return false;
     if (branch !== 'all' && normB(e.branch) !== branch) return false;
     return true;
   });
-
   const withReq   = all.filter(e => !!rByRef[e.ref]);
   const dept      = (LEVEL_MAP[levelKey]||{}).dept || 'adults';
   const placed    = new Set();
   const groups    = [];
-
-  // Bucket: single-day requests — cannot be paired
   const sameDayB  = withReq.filter(e => { const a = analysePrefs(e.ref); return a && a.sameDay; });
   sameDayB.forEach(e => placed.add(e.ref));
-
-  // Bucket: no valid windows
   const invalidB  = withReq.filter(e => { if (placed.has(e.ref)) return false; const a = analysePrefs(e.ref); return !a || a.windows.length === 0; });
   invalidB.forEach(e => placed.add(e.ref));
-
-  // Eligible pool
   const eligible  = withReq.filter(e => !placed.has(e.ref));
 
   function overlapMins(w, startMins) {
     const endMins = startMins + CLASS_DUR;
     return Math.min(w.latest, endMins) - Math.max(w.earliest, startMins);
   }
-
   function canAttend(e, dayIdx, startMins) {
     if (placed.has(e.ref)) return false;
-    const a = analysePrefs(e.ref);
-    if (!a) return false;
-    const w = a.windows.find(x => x.dayIdx === dayIdx);
-    if (!w) return false;
+    const a = analysePrefs(e.ref); if (!a) return false;
+    const w = a.windows.find(x => x.dayIdx === dayIdx); if (!w) return false;
     return overlapMins(w, startMins) >= CLASS_DUR - 30;
   }
-
   function getGroup(pool, pair, startA, startB) {
     return pool.filter(e => {
       if (placed.has(e.ref)) return false;
@@ -1269,12 +1235,9 @@ function buildProposals(levelKey, branch) {
       const wA = a.windows.find(x => x.dayIdx === pair.a);
       const wB = a.windows.find(x => x.dayIdx === pair.b);
       if (!wA || !wB) return false;
-      return overlapMins(wA, startA) >= CLASS_DUR - 30 &&
-             overlapMins(wB, startB) >= CLASS_DUR - 30;
+      return overlapMins(wA, startA) >= CLASS_DUR - 30 && overlapMins(wB, startB) >= CLASS_DUR - 30;
     });
   }
-
-  /* ── whyNoGroup: diagnostic string per student ── */
   function whyNoGroup(e) {
     const a = analysePrefs(e.ref); if (!a) return 'Sem janelas de disponibilidade';
     const reasons = [];
@@ -1292,18 +1255,14 @@ function buildProposals(levelKey, branch) {
 
   ALM_PAIRS.forEach(pair => {
     if (pair.examOnly && dept !== 'exam') return;
-
     const pairPool = eligible.filter(e => {
       if (placed.has(e.ref)) return false;
       const a = analysePrefs(e.ref); if (!a) return false;
       return a.windows.find(x => x.dayIdx === pair.a) && a.windows.find(x => x.dayIdx === pair.b);
     });
-
     if (pairPool.length < MIN_G) return;
     let remaining = [...pairPool];
-
     while (remaining.length >= MIN_G) {
-      // Majority vote: find start time with max students on BOTH days
       let bestStart = null, bestCount = 0;
       for (let t = 8 * 60; t <= 20 * 60 - CLASS_DUR; t += STEP) {
         const count = Math.min(
@@ -1313,16 +1272,12 @@ function buildProposals(levelKey, branch) {
         if (count > bestCount) { bestCount = count; bestStart = t; }
       }
       if (!bestStart || bestCount < MIN_G) break;
-
       const candidates = getGroup(remaining, pair, bestStart, bestStart);
       if (candidates.length < MIN_G) break;
-
       const groupStudents = candidates.slice(0, MAX_G);
       groupStudents.forEach(e => { placed.add(e.ref); remaining = remaining.filter(r => r.ref !== e.ref); });
-
       groups.push({
-        pair,
-        startMins: bestStart,
+        pair, startMins: bestStart,
         startTime: minsToT(bestStart),
         endTime:   minsToT(bestStart + CLASS_DUR),
         students:  groupStudents,
@@ -1335,31 +1290,23 @@ function buildProposals(levelKey, branch) {
     ...invalidB.map(e => ({ e, reason:'invalid-window', why:'Horário sem janelas válidas reconhecidas' })),
     ...eligible.filter(e => !placed.has(e.ref)).map(e => ({ e, reason:'no-group', why:whyNoGroup(e) })),
   ];
-
   return {
-    groups,
-    sinalizados,
-    total:       all.length,
-    withRequest: withReq.length,
-    placed:      groups.reduce((s, g) => s + g.students.length, 0),
-    sameDayCt:   sameDayB.length,
-    invalidWinCt:invalidB.length,
-    noGroupCt:   eligible.filter(e => !placed.has(e.ref)).length,
+    groups, sinalizados,
+    total:        all.length,
+    withRequest:  withReq.length,
+    placed:       groups.reduce((s, g) => s + g.students.length, 0),
+    sameDayCt:    sameDayB.length,
+    invalidWinCt: invalidB.length,
+    noGroupCt:    eligible.filter(e => !placed.has(e.ref)).length,
   };
 }
 
 /* ══════════════════════════════════════════════
    HEATMAP
-   Counts unique students per day+hour slot,
-   based on their availability window.
 ══════════════════════════════════════════════ */
 function buildHeatmap(students) {
   const map = {};
-  DAYS_PT.forEach(d => {
-    map[d] = {};
-    ALL_HOURS.forEach(h => map[d][h] = 0);
-  });
-
+  DAYS_PT.forEach(d => { map[d] = {}; ALL_HOURS.forEach(h => map[d][h] = 0); });
   students.forEach(e => {
     const a = analysePrefs(e.ref); if (!a) return;
     a.windows.forEach(w => {
@@ -1372,24 +1319,19 @@ function buildHeatmap(students) {
       }
     });
   });
-
   return map;
 }
 
 function heatColorClass(n, max) {
   if (n === 0) return 'c0';
   const p = n / max;
-  if (p < 0.10) return 'c1';
-  if (p < 0.20) return 'c2';
-  if (p < 0.35) return 'c3';
-  if (p < 0.50) return 'c4';
-  if (p < 0.65) return 'c5';
-  if (p < 0.80) return 'c6';
+  if (p < 0.10) return 'c1'; if (p < 0.20) return 'c2'; if (p < 0.35) return 'c3';
+  if (p < 0.50) return 'c4'; if (p < 0.65) return 'c5'; if (p < 0.80) return 'c6';
   return 'c7';
 }
 
 /* ══════════════════════════════════════════════
-   PAIR COUNTING (for pair matrix cards)
+   PAIR COUNTING
 ══════════════════════════════════════════════ */
 function countPair(students, pair) {
   return students.filter(e => {
@@ -1398,7 +1340,6 @@ function countPair(students, pair) {
   }).length;
 }
 
-/* Count students available for a specific pair + block combo — used by the Overview viability matrix */
 function countPairBlock(students, pair, block) {
   return students.filter(e => {
     const a = analysePrefs(e.ref); if (!a) return false;
@@ -1413,26 +1354,24 @@ function countPairBlock(students, pair, block) {
 /* ══════════════════════════════════════════════
    VIEW RENDERING
 ══════════════════════════════════════════════ */
-function setView(v) {
-  currentView = v;
-  document.getElementById('ts-heatmap').classList.toggle('active', v === 'heatmap');
-  document.getElementById('ts-pins').classList.toggle('active', v === 'pins');
-  renderLevelContent();
-}
 
+/* ── clearHighlight: grid-aware version (single definition) ── */
 function clearHighlight() {
   highlightPairIdx = null;
   document.querySelectorAll('.vt-pair-pill').forEach(p => p.classList.remove('dim'));
+  ['hm-grid', 'pin-grid'].forEach(gid => {
+    document.querySelectorAll(`#${gid}-rows .sg-cell`).forEach(c => {
+      c.classList.remove('pair-hi', 'pair-dim', 'group-hi', 'group-dim');
+    });
+  });
+  /* fallback for old grid cells outside named grids */
   document.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c => {
     c.classList.remove('pair-hi','pair-dim','group-hi','group-dim');
   });
 }
 
 /* ══════════════════════════════════════════════
-   SCHOOL-STYLE GRID BUILDER
-   Both heatmap and pin views use the same grid
-   structure: day-label col + rows with cells.
-   The rendering inside each cell differs.
+   GRID — two-pass, Assign-identical
 ══════════════════════════════════════════════ */
 const DAY_RGB_VALS = [
   '74,143,245',   // SEG
@@ -1443,268 +1382,451 @@ const DAY_RGB_VALS = [
   '201,168,76',   // SÁB
 ];
 
-function buildSchoolGrid(mode, students, result) {
-  /* mode: 'heatmap' | 'pins'
-     Canonical grid spec matched 1:1 to alm-atribuir-turmas (Assign) v18c:
-     - ALL_HRS null sentinel for gap col
-     - Gap col 40px wide, labelled "almoço"
-     - Time header 28px, warm rgba(210,180,100,.65)
-     - Row heights: heatmap 50px, pins 72px (fixed — pins are absolute)
-     - Day label col 60px, two-line: short + full name
-     - Cell bg: AM = gold tint, PM = blue tint via data-h
-  */
-  const dept = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
+function toMins2(t) {
+  if (t == null) return null;
+  if (typeof t === 'number') return t * 60;
+  const p = String(t).split(':').map(Number);
+  return (p[0] || 0) * 60 + (p[1] || 0);
+}
 
-  /* ── Pair pills ── */
-  const pairCounts = ALM_PAIRS
-    .filter(p => !(p.examOnly && dept !== 'exam'))
-    .map(p => ({ pair: p, count: countPair(students, p) }));
-
-  let pillsHTML = '';
-  pairCounts.forEach(({ pair, count }, i) => {
-    const col = count >= ASSIGN_MIN ? 'var(--green)' : count >= MIN_G ? 'var(--amber)' : 'var(--red)';
-    pillsHTML += `<span class="vt-pair-pill" style="border-color:${col}44;color:${col}" id="pill-${i}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">${pair.aL}+${pair.bL} <strong>${count}</strong></span>`;
-  });
-  document.getElementById('vt-pair-pills').innerHTML = pillsHTML;
-
-  /* ── Heatmap data ── */
-  let heatmap = null, maxVal = 1;
-  if (mode === 'heatmap') {
-    heatmap = buildHeatmap(students);
-    const allVals = DAYS_PT.flatMap(d => ALL_HOURS.map(h => heatmap[d][h]));
-    maxVal = Math.max(...allVals, 1);
+function gridTimeToBandPos(startTime, endTime, rowEl) {
+  const cells = Array.from(rowEl.querySelectorAll('.sg-cell'));
+  const GAP = 3;
+  let x = 0;
+  const sm = toMins2(startTime), em = toMins2(endTime);
+  if (sm === null || em === null) return null;
+  let left = null, right = null;
+  for (let i = 0; i < ALL_HRS.length; i++) {
+    const h = ALL_HRS[i];
+    const cell = cells[i];
+    if (!cell) continue;
+    const w = cell.offsetWidth;
+    if (h === null) { x += w + GAP; continue; }
+    const hStart = h * 60, hEnd = (h + 1) * 60;
+    if (sm < hEnd && em > hStart) {
+      const oS = Math.max(sm, hStart), oE = Math.min(em, hEnd);
+      if (left === null) left = x + ((oS - hStart) / 60) * w;
+      right = x + ((oE - hStart) / 60) * w;
+    }
+    x += w + GAP;
   }
+  if (left === null) return null;
+  return { left: Math.round(left), width: Math.max(44, Math.round(right - left)) };
+}
 
-  /* ── Pin data with SÁB dedup (seenDays) ── */
-  let cellGroups = {};
-  if (mode === 'pins' && result?.groups) {
-    result.groups.forEach((g, idx) => {
-      const h = Math.floor(g.startMins / 60);
-      const seenDays = new Set();
-      const sessions = [];
-      [g.pair.a, g.pair.b].forEach((dayIdx, si) => {
-        if (seenDays.has(dayIdx)) return;
-        seenDays.add(dayIdx);
-        sessions.push({ dayIdx, sessionLetter: si === 0 ? 'A' : 'B' });
-      });
-      sessions.forEach(({ dayIdx, sessionLetter }) => {
-        const key = `${dayIdx}|${h}`;
-        if (!cellGroups[key]) cellGroups[key] = [];
-        cellGroups[key].push({ idx, group: g, sessionLetter });
-      });
-    });
-  }
-
-  /* ROW_H: dynamic in pin mode so dense cells never clip pins */
-  const PIN_H = 42;
-  const maxPinsInCell = mode === 'pins'
-    ? Math.max(1, ...Object.values(cellGroups).map(a => a.length))
-    : 1;
-  const ROW_H = mode === 'pins'
-    ? Math.max(64, Math.ceil(maxPinsInCell / 3) * PIN_H + 20)
-    : 50;
-
-  /* ── Day label column — 60px, two-line ── */
-  let dayColHTML = `<div class="sg-day-col">`;
+function buildGridShell(gridId) {
+  const dayToday = ['SÁB','SEG','TER','QUA','QUI','SEX','SÁB'][new Date().getDay()];
+  let dayColHTML = `<div class="day-lbl-col"><div class="day-spacer"></div>`;
   DAYS_PT.forEach((day, di) => {
-    const hasData = mode === 'heatmap'
-      ? ALL_HOURS.some(h => (heatmap[day]?.[h] || 0) > 0)
-      : Object.keys(cellGroups).some(k => k.startsWith(`${di}|`));
-    dayColHTML += `<div class="sg-day-lbl${hasData ? ' has-data' : ''}" data-di="${di}" style="height:${ROW_H}px">
-      <span class="sg-day-short">${day}</span>
-      <span class="sg-day-full">${DAYS_FULL[day] || day}</span>
+    const isToday = day === dayToday;
+    dayColHTML += `<div class="day-lbl${isToday?' today':di===5?' sat':''}" data-di="${di}">
+      <span class="day-lbl-short">${day}</span>
+      <span class="day-lbl-full">${DAYS_FULL[day]||day}</span>
     </div>`;
   });
   dayColHTML += `</div>`;
 
-  /* ── Main grid: time header ── */
-  let mainHTML = `<div class="sg-main"><div class="sg-time-hdr">`;
+  let timeHdr = `<div class="time-hdr">`;
   ALL_HRS.forEach(h => {
-    if (h === null) {
-      mainHTML += `<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
-    } else {
-      mainHTML += `<div class="sg-time-lbl">${h}h</div>`;
-    }
+    if (h === null) timeHdr += `<div class="time-gap-col"><span class="time-gap-lbl">almoço</span></div>`;
+    else timeHdr += `<div class="time-lbl">${h}h</div>`;
   });
-  mainHTML += `</div>`;
+  timeHdr += `</div>`;
 
-  /* ── Rows ── */
+  let rowsHTML = '';
   DAYS_PT.forEach((day, di) => {
-    const rgb = DAY_RGB_VALS[di];
-    mainHTML += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px">`;
+    rowsHTML += `<div class="grid-row" id="${gridId}-row-${di}" data-di="${di}" data-day="${day}">`;
     ALL_HRS.forEach(h => {
-      if (h === null) {
-        mainHTML += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
-        return;
-      }
-      if (mode === 'heatmap') {
-        const n = heatmap[day]?.[h] || 0;
-        const pct = Math.round(n / maxVal * 100);
-        const bandH = n === 0 ? 0 : Math.max(16, Math.round(pct / 100 * ROW_H));
-        const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
-        const borderAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
-        const countHTML = n > 0
-          ? `<div class="hm-count" style="color:rgba(${rgb},${Math.min(1,(+alpha+0.4).toFixed(2))})">${n}</div><div class="hm-sub">al</div>`
-          : '';
-        mainHTML += `<div class="sg-cell" data-day="${di}" data-h="${h}" title="${day} ${h}h · ${n} aluno${n!==1?'s':''}" style="border-color:rgba(${rgb},${borderAlpha})">
-          <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha});border-radius:3px 3px 0 0">${countHTML}</div>
-        </div>`;
-      } else {
-        const key = `${di}|${h}`;
-        const cgs = cellGroups[key] || [];
-        const hasPins = cgs.length > 0;
-        const borderAlpha = hasPins ? '0.35' : '0.05';
-        const bgStyle = hasPins ? `;background:rgba(${rgb},.05)` : '';
-        const clickHandler = hasPins ? `handleCellClick(${di},${h})` : '';
-        let pins = '';
-        cgs.slice(0, 6).forEach(({ idx, group: g, sessionLetter }) => {
-          const col = GROUP_COLORS[idx % GROUP_COLORS.length];
-          const gId = `pg${idx}${di}${h}`;
-          pins += `<div class="pin-wrap" style="animation-delay:${idx*45}ms" title="Turma ${idx+1} · Sessão ${sessionLetter} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime}" onclick="event.stopPropagation();openGroupModal(${idx})">
-            <svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <radialGradient id="bg${gId}" cx="38%" cy="32%" r="68%"><stop offset="0%" stop-color="${col}" stop-opacity="1"/><stop offset="55%" stop-color="${col}" stop-opacity=".82"/><stop offset="100%" stop-color="#000" stop-opacity=".45"/></radialGradient>
-                <radialGradient id="hl${gId}" cx="34%" cy="28%" r="52%"><stop offset="0%" stop-color="#fff" stop-opacity=".92"/><stop offset="40%" stop-color="#fff" stop-opacity=".38"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
-                <filter id="sh${gId}" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="${col}" flood-opacity=".55"/></filter>
-              </defs>
-              <path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="url(#bg${gId})" filter="url(#sh${gId})"/>
-              <circle cx="14" cy="14" r="7.5" fill="none" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
-              <circle cx="14" cy="14" r="7" fill="rgba(255,255,255,.15)"/>
-              <ellipse cx="11.5" cy="10.5" rx="4.5" ry="3.5" fill="url(#hl${gId})"/>
-              <text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="7" font-weight="700" fill="#fff">${idx+1}${sessionLetter}</text>
-            </svg>
-            <div class="pin-shadow"></div>
-          </div>`;
-        });
-        const overflow = cgs.length > 6
-          ? `<div class="pin-wrap" style="opacity:.7" onclick="event.stopPropagation();openGroupModal(${cgs[6].idx})"><svg class="pin-svg" width="28" height="38" viewBox="0 0 28 38"><path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.2)" stroke-width=".8"/><text x="14" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="7" font-weight="700" fill="rgba(210,188,140,.6)">+${cgs.length-6}</text></svg><div class="pin-shadow" style="opacity:.3"></div></div>`
-          : '';
-        const pinsHTML = hasPins ? `<div class="pin-inner">${pins}${overflow}</div>` : '';
-        mainHTML += `<div class="sg-cell pin-cell${hasPins?' has-pins':''}" data-day="${di}" data-h="${h}" style="height:${ROW_H}px;border-color:rgba(${rgb},${borderAlpha})${bgStyle}" onclick="${clickHandler}">${pinsHTML}</div>`;
-      }
+      if (h === null) rowsHTML += `<div class="sg-cell gap-cell gcell"></div>`;
+      else rowsHTML += `<div class="sg-cell gcell" data-di="${di}" data-day="${day}" data-h="${h}"></div>`;
     });
-    mainHTML += `</div>`;
+    rowsHTML += `</div>`;
   });
-  mainHTML += `</div>`; /* /sg-main */
 
-  /* ── Heatmap legend ── */
-  const legendHTML = mode === 'heatmap' ? `<div class="hm-legend">
-    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)"></div>0</div>
-    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(74,143,245,.18)"></div>1–3</div>
-    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(232,160,32,.25)"></div>4–8</div>
-    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(29,184,122,.35)"></div>9–14</div>
-    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(29,184,122,.6)"></div>15+</div>
-  </div>` : `<span style="font-size:7.5px;color:var(--t3)">Clique num pino para ver a lista de alunos</span>`;
+  return `<div class="tl-outer">
+    <div class="day-col-wrap">
+      ${dayColHTML}
+      <div class="scroll-cols" id="${gridId}-scroll">
+        ${timeHdr}
+        <div id="${gridId}-rows">${rowsHTML}</div>
+      </div>
+    </div>
+  </div>`;
+}
 
-  /* ── Pair matrix (heatmap only) ── */
-  let pmHTML = '';
-  if (mode === 'heatmap') {
-    pmHTML = `<div class="pair-matrix">`;
-    pairCounts.forEach(({ pair, count }, i) => {
-      const isViable = count >= MIN_G, isReady = count >= ASSIGN_MIN;
-      const cls = isReady ? 'viable' : isViable ? 'wait' : 'low';
-      pmHTML += `<div class="pm-card ${cls}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">
-        <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-        <div class="pm-block-lbl">Qualquer bloco</div>
-        <div class="pm-count">${count}</div>
-        <div class="pm-sublabel">${isReady?'atribuir agora':isViable?'aguardar':'não abre'}</div>
+function syncGridRowHeights(gridId) {
+  DAYS_PT.forEach((_, di) => {
+    const rowEl = document.getElementById(`${gridId}-row-${di}`);
+    const lblEl = document.querySelector(`#${gridId}-outer .day-lbl[data-di="${di}"]`);
+    if (rowEl && lblEl) lblEl.style.height = rowEl.offsetHeight + 'px';
+  });
+}
+
+function paintAvailabilityBands(gridId, students) {
+  const windows = {};
+  students.forEach(e => {
+    const a = analysePrefs(e.ref); if (!a) return;
+    a.windows.forEach(w => {
+      if (!windows[w.dayIdx]) windows[w.dayIdx] = [];
+      const existing = windows[w.dayIdx].find(x =>
+        Math.abs(x.earliest - w.earliest) < 30 && Math.abs(x.latest - w.latest) < 30
+      );
+      if (existing) existing.count++;
+      else windows[w.dayIdx].push({ earliest: w.earliest, latest: w.latest, count: 1 });
+    });
+  });
+  const maxCount = Math.max(1, ...Object.values(windows).flatMap(ws => ws.map(w => w.count)));
+
+  DAYS_PT.forEach((day, di) => {
+    const rowEl = document.getElementById(`${gridId}-row-${di}`);
+    if (!rowEl || !windows[di]) return;
+    const rgb = DAY_RGB_VALS[di];
+    windows[di].forEach(w => {
+      const startTime = minsToT(w.earliest), endTime = minsToT(w.latest);
+      const pos = gridTimeToBandPos(startTime, endTime, rowEl); if (!pos) return;
+      const pct   = w.count / maxCount;
+      const alpha = (0.12 + pct * 0.50).toFixed(2);
+      const band  = document.createElement('div');
+      band.style.cssText = `position:absolute;top:3px;bottom:3px;left:${pos.left}px;width:${pos.width}px;
+        background:rgba(${rgb},${alpha});border:.5px solid rgba(${rgb},${(+alpha+0.2).toFixed(2)});
+        border-radius:3px;display:flex;align-items:center;justify-content:center;gap:3px;
+        overflow:hidden;pointer-events:none;z-index:5;`;
+      if (pos.width > 50) {
+        band.innerHTML = `<span style="font-size:10px;font-weight:700;color:rgba(${rgb},.9);font-family:var(--mono)">${w.count}</span>
+          <span style="font-size:6px;color:rgba(255,255,255,.4)">${startTime}–${endTime}</span>`;
+      } else if (pos.width > 30) {
+        band.innerHTML = `<span style="font-size:10px;font-weight:700;color:rgba(${rgb},.9);font-family:var(--mono)">${w.count}</span>`;
+      }
+      rowEl.appendChild(band);
+    });
+  });
+}
+
+function paintGroupPins(gridId, result) {
+  if (!result?.groups) return;
+  result.groups.forEach((g, idx) => {
+    const col       = GROUP_COLORS[idx % GROUP_COLORS.length];
+    const created   = (_createdGroups[activeLevelKey] || {})[idx];
+    const isReady   = g.students.length >= ASSIGN_MIN;
+    const days      = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    days.forEach((di, si) => {
+      const rowEl = document.getElementById(`${gridId}-row-${di}`); if (!rowEl) return;
+      const pos   = gridTimeToBandPos(g.startTime, g.endTime, rowEl); if (!pos) return;
+      const codeLabel  = created ? created.turmaCode : `T${idx+1}`;
+      const showDetail = pos.width > 70;
+      const band = document.createElement('div');
+      band.style.cssText = `position:absolute;top:0;bottom:0;left:${pos.left}px;width:${pos.width}px;
+        background:${col}18;border:.5px solid ${col}44;border-left:3px solid ${col};
+        display:flex;align-items:center;padding:0 6px;gap:5px;cursor:pointer;z-index:10;overflow:hidden;`;
+      band.innerHTML = `<div style="display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;overflow:hidden">
+        ${showDetail?`<div style="font-size:7px;color:rgba(215,193,145,.6);white-space:nowrap">${g.startTime}–${g.endTime}</div>`:''}
+        <div style="font-family:var(--display);font-size:13px;font-weight:700;color:${col};line-height:1">${codeLabel}</div>
+        ${pos.width>50?`<div style="font-size:7px;color:${col};opacity:.6">${g.students.length}/${MAX_G}</div>`:''}
+        ${created?`<div style="font-size:6px;color:var(--green);font-weight:700">✓ CRIADA</div>`:''}
       </div>`;
+      band.addEventListener('click', e => { e.stopPropagation(); openGroupModal(idx); });
+      rowEl.appendChild(band);
     });
-    pmHTML += `</div>`;
-  }
+  });
+}
 
-  /* ── Pin legend ── */
-  let pinLegendHTML = '';
-  if (mode === 'pins' && result?.groups?.length) {
-    pinLegendHTML = `<div style="padding:10px 0 4px;display:flex;flex-wrap:wrap;gap:5px;border-top:.5px solid var(--b2);margin-top:8px">`;
-    result.groups.forEach((g, i) => {
-      const col = GROUP_COLORS[i % GROUP_COLORS.length];
-      pinLegendHTML += `<span style="display:inline-flex;align-items:center;gap:6px;font-size:7.5px;padding:3px 10px;border:1px solid ${col}44;border-radius:2px;cursor:pointer;color:var(--t2)" onclick="openGroupModal(${i})">
-        <svg width="10" height="14" viewBox="0 0 28 38"><path d="M14 1 C6.8 1 1 6.8 1 14 C1 20.5 8 28 14 37 C20 28 27 20.5 27 14 C27 6.8 21.2 1 14 1 Z" fill="${col}"/></svg>
-        Turma ${i+1} · ${i+1}A ${g.pair.aL} + ${i+1}B ${g.pair.bL} · ${g.startTime} · ${g.students.length}al
-      </span>`;
+function buildPairPills(students) {
+  const dept = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
+  const pairCounts = ALM_PAIRS
+    .filter(p => !(p.examOnly && dept !== 'exam'))
+    .map(p => ({ pair: p, count: countPair(students, p) }));
+  let html = '';
+  pairCounts.forEach(({ pair, count }, i) => {
+    const col = count >= ASSIGN_MIN ? 'var(--green)' : count >= MIN_G ? 'var(--amber)' : 'var(--red)';
+    html += `<span class="vt-pair-pill" style="border-color:${col}44;color:${col}" id="pill-${i}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">${pair.aL}+${pair.bL} <strong>${count}</strong></span>`;
+  });
+  document.getElementById('vt-pair-pills').innerHTML = html;
+  return pairCounts;
+}
+
+function buildPairMatrix(pairCounts) {
+  let html = `<div class="pair-matrix">`;
+  pairCounts.forEach(({ pair, count }, i) => {
+    const isReady = count >= ASSIGN_MIN, isViable = count >= MIN_G;
+    const cls = isReady ? 'viable' : isViable ? 'wait' : 'low';
+    html += `<div class="pm-card ${cls}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">
+      <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
+      <div class="pm-block-lbl">Qualquer bloco</div>
+      <div class="pm-count">${count}</div>
+      <div class="pm-sublabel">${isReady?'atribuir agora':isViable?'aguardar':'não abre'}</div>
+    </div>`;
+  });
+  return html + `</div>`;
+}
+
+/* ── highlightPair: grid-aware version (single definition) ── */
+function highlightPair(pairIdx, dayIdxs) {
+  if (highlightPairIdx === pairIdx) { clearHighlight(); return; }
+  highlightPairIdx = pairIdx;
+  document.querySelectorAll('.vt-pair-pill').forEach((p, i) => p.classList.toggle('dim', i !== pairIdx));
+  ['hm-grid', 'pin-grid'].forEach(gid => {
+    DAYS_PT.forEach((_, di) => {
+      const rowEl = document.getElementById(`${gid}-row-${di}`); if (!rowEl) return;
+      rowEl.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(cell => {
+        cell.classList.toggle('pair-hi', dayIdxs.includes(di));
+        cell.classList.toggle('pair-dim', !dayIdxs.includes(di));
+      });
     });
-    pinLegendHTML += `</div>`;
-  }
+  });
+}
 
-  const title = mode === 'heatmap'
-    ? `📊 Disponibilidade · Mapa de calor`
-    : `📍 Vista de Pinos · ${result?.groups?.length||0} Grupos Propostos`;
-
-  return `
-  <div class="school-grid-wrap">
+/* ══════════════════════════════════════════════
+   buildHeatmapHTML — two-pass
+══════════════════════════════════════════════ */
+function buildHeatmapHTML(students, result) {
+  const GRID_ID    = 'hm-grid';
+  const pairCounts = buildPairPills(students);
+  const legendHTML = `<div class="hm-legend">
+    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)"></div>0</div>
+    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(74,143,245,.22)"></div>1–3</div>
+    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(232,160,32,.3)"></div>4–8</div>
+    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(29,184,122,.4)"></div>9–14</div>
+    <div class="hm-leg-item"><div class="hm-leg-sq" style="background:rgba(29,184,122,.65)"></div>15+</div>
+  </div>`;
+  const shell = `
+  <div class="school-grid-wrap" id="${GRID_ID}-wrap">
     <div class="school-grid-head">
-      <span class="school-grid-title">${title}</span>
+      <span class="school-grid-title">📊 Disponibilidade · Janelas reais</span>
       ${legendHTML}
       <span style="font-size:7.5px;color:var(--t3);margin-left:8px">${students.length} alunos com pedido</span>
     </div>
-    <div class="school-grid-outer">
-      <div class="school-grid" style="min-width:560px">
-        ${dayColHTML}
-        ${mainHTML}
-      </div>
-      ${pinLegendHTML}
+    <div class="school-grid-outer" id="${GRID_ID}-outer">
+      ${buildGridShell(GRID_ID)}
     </div>
-  </div>
-  ${pmHTML}`;
+  </div>`;
+  setTimeout(() => { paintAvailabilityBands(GRID_ID, students); syncGridRowHeights(GRID_ID); }, 0);
+  return shell + buildPairMatrix(pairCounts);
 }
 
-
-function buildHeatmapHTML(students, result) {
-  return buildSchoolGrid('heatmap', students, result);
-}
-
-/* ── PIN VIEW HTML ── */
+/* ══════════════════════════════════════════════
+   buildPinViewHTML — two-pass
+══════════════════════════════════════════════ */
 function buildPinViewHTML(students, result) {
   if (!result?.groups?.length) {
     document.getElementById('vt-pair-pills').innerHTML = '';
     return `<div class="school-grid-wrap">
-      <div class="school-grid-head"><span class="school-grid-title">📍 Vista de Pinos · Grupos Propostos</span></div>
+      <div class="school-grid-head"><span class="school-grid-title">📍 Vista de Grupos · Grupos Propostos</span></div>
       <div style="padding:30px;text-align:center;color:var(--t3);font-size:8.5px;letter-spacing:.08em">Nenhum grupo formado para este nível e filial.</div>
     </div>`;
   }
-  return buildSchoolGrid('pins', students, result);
+  const GRID_ID    = 'pin-grid';
+  const pairCounts = buildPairPills(students);
+  let legendHTML   = `<div style="padding:10px 0 4px;display:flex;flex-wrap:wrap;gap:5px;border-top:.5px solid var(--b2);margin-top:8px">`;
+  result.groups.forEach((g, i) => {
+    const col = GROUP_COLORS[i % GROUP_COLORS.length];
+    legendHTML += `<span style="display:inline-flex;align-items:center;gap:5px;font-size:7.5px;padding:3px 10px;border:1px solid ${col}44;cursor:pointer;color:var(--t2)" onclick="openGroupModal(${i})">
+      <span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0"></span>
+      Turma ${i+1} · ${i+1}A ${g.pair.aL} + ${i+1}B ${g.pair.bL} · ${g.startTime} · ${g.students.length}al
+    </span>`;
+  });
+  legendHTML += `</div>`;
+  const shell = `
+  <div class="school-grid-wrap" id="${GRID_ID}-wrap">
+    <div class="school-grid-head">
+      <span class="school-grid-title">📍 Vista de Grupos · ${result.groups.length} grupos propostos</span>
+      <span style="font-size:7.5px;color:var(--t3);margin-left:8px">${students.length} alunos com pedido</span>
+    </div>
+    <div class="school-grid-outer" id="${GRID_ID}-outer">
+      ${buildGridShell(GRID_ID)}
+      ${legendHTML}
+    </div>
+  </div>`;
+  setTimeout(() => { paintGroupPins(GRID_ID, result); syncGridRowHeights(GRID_ID); }, 0);
+  return shell + buildPairMatrix(pairCounts);
 }
 
-/* ── HANDLE CELL CLICK in pin view (multiple groups → list) ── */
+/* ── HANDLE CELL CLICK (pin view) ── */
 function handleCellClick(dayIdx, h) {
   if (!_lastResult) return;
-  const key = `${dayIdx}|${h}`;
-  const groups = _lastResult.groups;
   const matching = [];
-  groups.forEach((g, idx) => {
+  _lastResult.groups.forEach((g, idx) => {
     const startH = Math.floor(g.startMins / 60);
-    const days = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const days   = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     if (days.includes(dayIdx) && startH === h) matching.push({ idx, group: g });
   });
-  if (matching.length === 1) { openGroupModal(matching[0].idx); return; }
-  if (matching.length > 1) {
-    // If multiple groups share a cell, open the first. User can navigate from modal.
-    openGroupModal(matching[0].idx);
-  }
+  if (matching.length >= 1) openGroupModal(matching[0].idx);
 }
 
 /* ══════════════════════════════════════════════
-   PAIR HIGHLIGHT
+   RENDER LEVEL CONTENT  ← single, correct definition
 ══════════════════════════════════════════════ */
-function highlightPair(idx, dayPair) {
-  if (highlightPairIdx === idx) { clearHighlight(); return; }
-  highlightPairIdx = idx;
+function renderLevelContent() {
+  const area = document.getElementById('scroll-area');
+  if (!activeLevelKey) {
+    area.innerHTML = `<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;
+    return;
+  }
 
-  document.querySelectorAll('.vt-pair-pill').forEach((p, i) => p.classList.toggle('dim', i !== idx));
+  const allStudents = locStu().filter(e => lk(e) === activeLevelKey);
+  const withReq     = allStudents.filter(e => !!rByRef[e.ref]);
+  const noReq       = allStudents.length - withReq.length;
+  const meta        = LEVEL_MAP[activeLevelKey] || getLM(allStudents[0] || {});
+  const dc          = DEPT_CFG[meta.dept] || {};
+  const capPct      = Math.round(allStudents.length / (meta.maxCap || 60) * 100);
 
-  const hlDays = dayPair[0] === dayPair[1] ? [dayPair[0]] : [dayPair[0], dayPair[1]];
-  document.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c => {
-    const d = parseInt(c.dataset.day);
-    const inDay = hlDays.includes(d);
-    if (currentView === 'heatmap') {
-      c.classList.toggle('pair-hi', inDay);
-      c.classList.toggle('pair-dim', !inDay);
-    } else {
-      c.classList.toggle('group-hi', inDay && c.classList.contains('has-pins'));
-      c.classList.toggle('group-dim', !inDay);
-    }
+  /* Level header */
+  const hdr    = document.getElementById('level-hdr');
+  const placed = _lastResult ? _lastResult.placed : 0;
+  const sinal  = _lastResult ? _lastResult.sinalizados.length : 0;
+  hdr.innerHTML = `
+    <div class="lh-name" style="color:${meta.color}">${meta.label}</div>
+    <div class="lh-dept" style="color:${dc.color}">${dc.label||''}</div>
+    <div class="lh-stats">
+      <div class="lh-stat"><div class="lh-v" style="color:var(--gold2)">${allStudents.length}</div><div class="lh-l">Inscritos</div></div>
+      <div class="lh-stat"><div class="lh-v" style="color:var(--green)">${withReq.length}</div><div class="lh-l">Com pedido</div></div>
+      <div class="lh-stat"><div class="lh-v" style="color:var(--red)">${noReq}</div><div class="lh-l">Sem pedido</div></div>
+      ${_lastResult ? `<div class="lh-stat"><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length?Math.round(placed/withReq.length*100):0}%;background:var(--teal)"></div></div></div>` : ''}
+      ${_lastResult ? `<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${sinal}</div><div class="lh-l">Sinalizados</div></div>` : ''}
+      <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
+    </div>`;
+
+  document.getElementById('view-toggle-bar').style.display = withReq.length ? 'flex' : 'none';
+
+  if (!withReq.length) {
+    area.innerHTML = `<div class="placeholder-main" style="padding-top:40px;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55">Nenhum pedido de horário submetido neste nível</div></div>`;
+    return;
+  }
+
+  let html = '';
+
+  /* Grid */
+  if (currentView === 'heatmap') {
+    html += buildHeatmapHTML(withReq, _lastResult);
+  } else {
+    html += buildPinViewHTML(withReq, _lastResult);
+  }
+
+  /* Group proposals summary */
+  if (_lastResult && _lastResult.groups.length) {
+    const grpPlural = _lastResult.groups.length !== 1 ? 's' : '';
+    html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${grpPlural} · ${_lastResult.placed} alunos alocados
+      <span onclick="switchCC('decision',document.getElementById('tab-decision'))" style="margin-left:auto;font-size:7.5px;font-weight:600;color:var(--green);border:1px solid var(--green-b);padding:2px 10px;cursor:pointer;letter-spacing:.06em;transition:background .12s" onmouseover="this.style.background='var(--green-a)'" onmouseout="this.style.background=''">→ Decision</span>
+    </div>`;
+
+    html += `<div class="group-list">`;
+    _lastResult.groups.forEach((g, i) => {
+      const col      = GROUP_COLORS[i % GROUP_COLORS.length];
+      const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+      const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
+      const isReady  = g.students.length >= ASSIGN_MIN;
+      const created  = (_createdGroups[activeLevelKey]||{})[i];
+      const turmaCode = created?.turmaCode || '';
+      html += `<div class="gcard${created?' created':''}" id="gcard-${i}">
+        <div class="gc-hdr" style="border-left-color:${col}" onclick="toggleGCard(${i})">
+          <div class="gc-letter" style="color:${col}">${created ? turmaCode : `Turma ${i+1}`}</div>
+          <div class="gc-slot">${i+1}A · ${g.pair.aL} &nbsp;+&nbsp; ${i+1}B · ${g.pair.bL}</div>
+          <div class="gc-time">${g.startTime} – ${g.endTime}</div>
+          <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
+          ${created
+            ? `<div class="gc-created-badge">✓ CRIADA</div>`
+            : `<div style="font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;flex-shrink:0;${isReady?'background:var(--green-a);border-color:var(--green-b);color:var(--green)':'background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)'}">${isReady?'✓ pronto':'⏳ aguardar'}</div>`
+          }
+          <div class="gc-n" style="color:${col}">${g.students.length}</div>
+          <div class="gc-n-lbl">/ ${MAX_G}</div>
+          <div class="gc-arrow">▼</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-actions">
+            ${created
+              ? `<button class="gbtn" style="border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();promptDeleteGroup(${i})">✕ Eliminar</button>`
+              : `<button class="gbtn" style="border-color:var(--green-b);color:var(--green);font-weight:700;font-size:9px;padding:5px 14px" onclick="event.stopPropagation();openConfirm(${i})">+ Criar Turma</button>`
+            }
+            <button class="gbtn gbtn-csv" onclick="event.stopPropagation();exportGroup(${i})">↓ CSV</button>
+          </div>
+          <div class="delete-confirm-strip" id="del-strip-${i}">
+            <span style="font-size:8.5px;color:var(--red);flex:1">O código <strong>${turmaCode}</strong> ficará permanentemente retirado. Confirmar eliminação?</span>
+            <button style="padding:4px 12px;border:1px solid var(--red-b);background:var(--red-a);color:var(--red);font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();executeDeleteGroup(${i})">Eliminar</button>
+            <button style="padding:4px 10px;border:1px solid var(--b);color:var(--t3);font-family:var(--mono);font-size:8px;cursor:pointer;background:transparent" onclick="event.stopPropagation();closeDeleteConfirm(${i})">Cancelar</button>
+          </div>
+          ${[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => {
+            const av = avCol(e.name||e.ref);
+            const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
+            const stCol = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+            const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+            return `<div class="gc-stu-row" onclick="openDossierExt('${e.ref}')">
+              <div class="gc-stu-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name||e.ref)}</div>
+              <div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7.5px;color:var(--t3)">${e.ref}</div></div>
+              <span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55;flex-shrink:0">${stTxt}</span>
+              <span style="font-size:9px;color:var(--t3)">↗</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  /* Sinalizados */
+  if (_lastResult && _lastResult.sinalizados.length) {
+    const { sinalizados, sameDayCt, invalidWinCt, noGroupCt } = _lastResult;
+    html += `<div class="sinal-block">
+      <div class="sinal-hdr" onclick="toggleSinal()">
+        <div style="flex:1">
+          <div class="sinal-title">⚠ Sinalizados · não alocados</div>
+          <div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">
+            ${sameDayCt?`${sameDayCt} mesmo dia · `:''}${invalidWinCt?`${invalidWinCt} horário inválido · `:''}${noGroupCt?`${noGroupCt} sem grupo`:''}
+          </div>
+        </div>
+        <div class="sinal-count">${sinalizados.length}</div>
+        <div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div>
+      </div>
+      <div class="sinal-body" id="sinal-body">
+        <div style="display:flex;gap:6px;padding:6px 0 8px">
+          <button style="padding:3px 10px;border:1px solid var(--green-b);color:var(--green);font-family:var(--mono);font-size:7.5px;cursor:pointer;background:transparent;transition:all .12s" onmouseover="this.style.background='var(--green-a)'" onmouseout="this.style.background=''" onclick="exportSinalizados()">↓ CSV Sinalizados</button>
+        </div>
+        ${[{k:'same-day',lbl:'Mesmo dia',cls:'sr-sd',tag:'SD'},{k:'invalid-window',lbl:'Horário inválido',cls:'sr-iv',tag:'IV'},{k:'no-group',lbl:'Sem grupo compatível',cls:'sr-ng',tag:'NG'}].map(({k,lbl,cls,tag})=>{
+          const sub = sinalizados.filter(s => s.reason === k);
+          if (!sub.length) return '';
+          return `<div class="sinal-sub">${lbl}</div>` + sub.map(({e, why}) => {
+            const a = analysePrefs(e.ref);
+            const slots = (a?.windows||[]).map(w => {
+              const d = DAYS_PT[w.dayIdx]||'?';
+              return `<span class="slot-tag slot-ok">${d} ${minsToT(w.earliest)}</span>`;
+            }).join('');
+            const br = BRANCH_LABELS[normB(e.branch)] || e.branch || '—';
+            return `<div class="sinal-stu">
+              <span class="sinal-reason ${cls}">${tag}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:9px;color:var(--t);cursor:pointer" onclick="openDossierExt('${e.ref}')">${e.name||'—'}</div>
+                <div style="font-size:7px;color:var(--t3);margin-bottom:3px">${e.ref} · ${br}</div>
+                ${why ? `<div class="sinal-why">${why}</div>` : ''}
+                <div style="margin-top:3px">${slots}</div>
+              </div>
+              <span style="font-size:11px;cursor:pointer;color:var(--t3);padding:2px 5px;transition:color .12s;flex-shrink:0" title="Acompanhar" onmouseover="this.style.color='var(--amber)'" onmouseout="this.style.color='var(--t3)'" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
+            </div>`;
+          }).join('');
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  /* Student table */
+  html += `<div class="stu-sec-hdr" style="margin-top:14px">Alunos · ${allStudents.length} registos</div>
+  <div class="stu-hdr"><span>Nome</span><span>Disponibilidade</span><span>Status</span></div>`;
+  allStudents.sort((a,b) => (a.name||'').localeCompare(b.name||'')).forEach(e => {
+    const a = analysePrefs(e.ref);
+    const dayIdxs = a ? a.dayIdxs : [];
+    const cells   = DAYS_PT.map((_,di) => `<div class="hcell${dayIdxs.includes(di)?' on':''}"></div>`).join('');
+    const st      = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
+    const stCol   = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    const stTxt   = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+    html += `<div class="stu-row">
+      <div class="stu-cell" style="cursor:pointer" onclick="openDossierExt('${e.ref}')">
+        <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
+        <div style="font-size:7px;color:var(--t3)">${e.ref||'—'}</div>
+      </div>
+      <div class="stu-cell"><div class="heatstrip">${cells}</div><div style="font-size:5.5px;color:var(--t4);margin-top:2px;letter-spacing:.04em">S T Q Q S S</div></div>
+      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
+    </div>`;
   });
+
+  area.innerHTML = html;
+  clearHighlight();
 }
 
 /* ══════════════════════════════════════════════
@@ -1712,17 +1834,14 @@ function highlightPair(idx, dayPair) {
 ══════════════════════════════════════════════ */
 function openGroupModal(idx) {
   if (!_lastResult) return;
-  const g = _lastResult.groups[idx];
-  if (!g) return;
+  const g = _lastResult.groups[idx]; if (!g) return;
   _modalGroup = { idx, group: g };
-
-  const col     = GROUP_COLORS[idx % GROUP_COLORS.length];
+  const col      = GROUP_COLORS[idx % GROUP_COLORS.length];
   const groupNum = idx + 1;
-  const meta    = LEVEL_MAP[activeLevelKey] || {};
-  const dc      = DEPT_CFG[(meta.dept||'adults')] || {};
-  const capPct  = Math.round(g.students.length / MAX_G * 100);
-
-  const grad = DEPT_GRADS[meta.dept||'adults'] || DEPT_GRADS.adults;
+  const meta     = LEVEL_MAP[activeLevelKey] || {};
+  const dc       = DEPT_CFG[(meta.dept||'adults')] || {};
+  const capPct   = Math.round(g.students.length / MAX_G * 100);
+  const grad     = DEPT_GRADS[meta.dept||'adults'] || DEPT_GRADS.adults;
   document.getElementById('gm-hero-bg').style.background = grad;
   document.getElementById('gm-code').textContent  = `Turma ${groupNum}`;
   document.getElementById('gm-code').style.color  = col;
@@ -1731,26 +1850,21 @@ function openGroupModal(idx) {
   document.getElementById('gm-n').textContent     = g.students.length;
   document.getElementById('gm-cap-fill').style.width      = capPct + '%';
   document.getElementById('gm-cap-fill').style.background = capPct >= 80 ? 'var(--amber)' : col;
-
   const sorted = [...g.students].sort((a, b) => (a.name||'').localeCompare(b.name||''));
   document.getElementById('gm-body').innerHTML = sorted.map(e => {
-    const av  = avCol(e.name || e.ref);
-    const req = rByRef[e.ref];
-    const st  = req ? normS(req.status) : 'sem_pedido';
-    const stCol = st === 'atribuido' ? 'var(--green)' : st === 'sem_pedido' ? 'var(--red)' : 'var(--amber)';
-    const stTxt = st === 'atribuido' ? 'atribuído' : st === 'sem_pedido' ? 'sem pedido' : 'pendente';
-    const br = (BRANCH_LABELS[normB(e.branch)] || e.branch || '—');
+    const av    = avCol(e.name || e.ref);
+    const req   = rByRef[e.ref];
+    const st    = req ? normS(req.status) : 'sem_pedido';
+    const stCol = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+    const br    = BRANCH_LABELS[normB(e.branch)] || e.branch || '—';
     return `<div class="stu-row" onclick="closeModal();openDossierExt('${e.ref}')">
       <div class="gm-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name||e.ref)}</div>
-      <div class="stu-info">
-        <div class="stu-name">${e.name||'—'}</div>
-        <div class="stu-ref">${e.ref} · ${br}</div>
-      </div>
+      <div class="stu-info"><div class="stu-name">${e.name||'—'}</div><div class="stu-ref">${e.ref} · ${br}</div></div>
       <span style="font-size:7.5px;font-weight:700;color:${stCol};flex-shrink:0;padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span>
       <span class="stu-arrow">↗</span>
     </div>`;
   }).join('');
-
   document.getElementById('gm-overlay').classList.add('open');
 }
 
@@ -1774,12 +1888,11 @@ function exportModalCSV() {
   showToast(`CSV exportado · ${g.students.length} alunos`, 'ok');
 }
 
-/* External dossier opener — inline sheet using data already in memory */
+/* External dossier opener */
 function openDossierExt(ref) {
   const enrol = allE.find(e => e.ref === ref);
   const req   = rByRef[ref];
   if (!enrol && !req) { showToast('Aluno não encontrado', 'warn'); return; }
-
   const name   = enrol?.name || ref;
   const branch = BRANCH_LABELS[normB(enrol?.branch||'')] || enrol?.branch || '—';
   const meta   = enrol ? (LEVEL_MAP[lk(enrol)] || getLM(enrol)) : {};
@@ -1790,7 +1903,6 @@ function openDossierExt(ref) {
   const st     = req ? normS(req.status) : 'sem_pedido';
   const stCol  = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
   const stTxt  = st==='atribuido'?'ATRIBUÍDO':st==='sem_pedido'?'SEM PEDIDO':'PENDENTE';
-
   // Parse availability windows
   const a      = analysePrefs(ref);
   const windows = a ? a.windows : [];
@@ -1856,20 +1968,6 @@ function openDossierExt(ref) {
 /* ══════════════════════════════════════════════
    RENDER LEVEL CONTENT
 ══════════════════════════════════════════════ */
-function renderLevelContent() {
-  const area = document.getElementById('scroll-area');
-  if (!activeLevelKey) {
-    area.innerHTML = `<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;
-    return;
-  }
-
-  const allStudents   = locStu().filter(e => lk(e) === activeLevelKey);
-  const withReq       = allStudents.filter(e => !!rByRef[e.ref]);
-  const noReq         = allStudents.length - withReq.length;
-  const meta          = LEVEL_MAP[activeLevelKey] || getLM(allStudents[0] || {});
-  const dc            = DEPT_CFG[meta.dept] || {};
-  const capPct        = Math.round(allStudents.length / (meta.maxCap || 60) * 100);
-
   /* Level header */
   const hdr = document.getElementById('level-hdr');
   const placed = _lastResult ? _lastResult.placed : 0;
