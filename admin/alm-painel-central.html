@@ -528,18 +528,18 @@ body{display:flex;flex-direction:column}
       <div class="tab-n">2</div><div class="tab-l">Audit</div>
       <div class="tab-badge" id="badge-audit">—</div>
     </div>
-    <a class="tab" href="/admin/alm-confirmar-turmas-criadas">
-      <div class="tab-n">4</div><div class="tab-l">Decision</div><div class="tab-arr">↗</div>
+<a class="tab" href="/admin/alm-confirmar-turmas-criadas">
+      <div class="tab-n">3</div><div class="tab-l">Decision</div><div class="tab-arr">↗</div>
     </a>
     <a class="tab" href="/admin/alm-atribuir-turmas">
-      <div class="tab-n">5</div><div class="tab-l">Assign</div><div class="tab-arr">↗</div>
+      <div class="tab-n">4</div><div class="tab-l">Assign</div><div class="tab-arr">↗</div>
     </a>
     <div class="tab" id="tab-watchlist" onclick="switchMainTab('watchlist',this)">
-      <div class="tab-n">6</div><div class="tab-l">Watch</div>
+      <div class="tab-n">5</div><div class="tab-l">Watch</div>
       <div class="tab-badge amber" id="badge-watch">0</div>
     </div>
-    <a class="tab" href="/admin/alm-mensagens">
-      <div class="tab-n">7</div><div class="tab-l">Mensagens</div><div class="tab-arr">↗</div>
+  <a class="tab" href="/admin/alm-mensagens">
+      <div class="tab-n">6</div><div class="tab-l">Mensagens</div><div class="tab-arr">↗</div>
     </a>
   </div>
   <div class="topbar-right">
@@ -578,20 +578,13 @@ body{display:flex;flex-direction:column}
             <div style="font-size:7px;letter-spacing:.14em;text-transform:uppercase;opacity:.3">← Seleccione um nível</div>
           </div>
         </div>
-        <div class="mode-toggle-bar" id="mode-toggle-bar" style="display:none">
-          <span class="mt-label">Modo</span>
+      <div class="mode-toggle-bar" id="mode-toggle-bar" style="display:none">
           <div class="toggle-switch">
-            <button class="ts-btn active" id="ts-overview" onclick="setContentMode('overview')">📋 Overview</button>
-            <button class="ts-btn" id="ts-formation" onclick="setContentMode('formation')">📊 Formation</button>
+            <button class="ts-btn active" id="ts-calor" onclick="setFormationSub('calor')">Calor</button>
+            <button class="ts-btn" id="ts-pinos" onclick="setFormationSub('pinos')">Pinos</button>
           </div>
-       <div id="formation-sub-controls" style="display:none;align-items:center;gap:10px;flex:1">
-              <div class="toggle-switch">
-                <button class="ts-btn active" id="ts-calor" onclick="setFormationSub('calor')">Calor</button>
-                <button class="ts-btn" id="ts-pinos" onclick="setFormationSub('pinos')">Pinos</button>
-              </div>
-              <div class="vt-pair-pills" id="vt-pair-pills"></div>
-              <button class="clear-btn" onclick="clearHighlight()">Limpar</button>
-            </div>
+          <div class="vt-pair-pills" id="vt-pair-pills"></div>
+          <button class="clear-btn" onclick="clearHighlight()">Limpar</button>
         </div>
         <div class="scroll-area" id="scroll-area">
           <div class="placeholder-main">
@@ -832,7 +825,7 @@ const ALM_DISP = {'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 
 let allE = [], allR = [], rByRef = {};
 let activeLoc = 'all', activeLevelKey = null;
 let openDepts = { kids:true, kids_juv:false, adults:false, exam:false };
-let contentMode = 'overview';
+(delete — empty replacement)
 let highlightPairIdx = null;
 let _lastResult = null, _modalGroup = null;
 let _sinalOpen = false;
@@ -937,9 +930,9 @@ function switchMainTab(tabId, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-   if (tabId === 'overview') {
+  if (tabId === 'overview') {
     document.getElementById('panel-main').classList.add('active');
-    setContentMode('overview');
+    renderLevelContent();
   } else {
     const p = document.getElementById('panel-' + tabId);
     if (p) p.classList.add('active');
@@ -950,22 +943,7 @@ function switchMainTab(tabId, el) {
 
 /* ══════════════════════════════════════════════
    CONTENT MODE TOGGLE
-══════════════════════════════════════════════ */
-function setContentMode(mode) {
-  contentMode = mode;
-  document.getElementById('ts-overview').classList.toggle('active', mode === 'overview');
-  document.getElementById('ts-formation').classList.toggle('active', mode === 'formation');
-const subCtrl = document.getElementById('formation-sub-controls');
-  subCtrl.style.display = mode === 'formation' ? 'flex' : 'none';
-  if (mode === 'formation') {
-    document.getElementById('ts-calor')?.classList.toggle('active', formationSub === 'calor');
-    document.getElementById('ts-pinos')?.classList.toggle('active', formationSub === 'pinos');
-  }
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
- const tabEl = document.getElementById('tab-overview');
-  if (tabEl) tabEl.classList.add('active');
-  renderLevelContent();
-}
+══════════════════════════════════════════════  */
 
 function clearHighlight() {
   highlightPairIdx = null;
@@ -1316,11 +1294,7 @@ function renderLevelContent() {
     return;
   }
 
-  if (contentMode === 'overview') {
-    renderOvLevel(allStudents, withReq, meta, dc, capPct);
-  } else {
-    renderFormationLevel(withReq, allStudents);
-  }
+ renderFormationLevel(withReq, allStudents);
 }
 
 /* ── OVERVIEW summary (no level selected) ── */
@@ -1357,50 +1331,6 @@ function renderOvSummary() {
   </div>
   <div style="font-size:7.5px;color:var(--t3);padding:4px 0">← Seleccione um nível para ver detalhes</div>`;
   area.innerHTML = html;
-}
-
-/* ── OVERVIEW level content ── */
-function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
-  const area = document.getElementById('scroll-area');
-  const pairCounts = ALM_PAIRS
-    .filter(p => !(p.examOnly && (LEVEL_MAP[activeLevelKey]||{}).dept !== 'exam'))
-    .map(p => ({ pair:p, count:countPair(withReq, p) }));
-
-  let html = `<div class="sec" style="margin-bottom:12px">Disponibilidade por par</div>
-  <div class="pair-matrix">`;
- pairCounts.forEach(({ pair, count }) => {
-    const placed = placedInPair(pair);
-    const displayN = placed > 0 ? placed : count;
-    const isReady = displayN >= ASSIGN_MIN, isWait = displayN >= MIN_G;
-    const cls = isReady ? 'viable' : isWait ? 'wait' : 'low';
-    const icon = isReady ? '✓' : isWait ? '!' : '✕';
-    const lbl  = placed > 0 ? 'alocados' : count >= ASSIGN_MIN ? 'disponíveis' : count >= MIN_G ? 'aguardar' : 'não abre';
-    const subLbl = placed > 0 && count !== placed
-      ? `<div class="pm-placed">${count} disponíveis</div>`
-      : '';
-html += `<div class="pm-card ${cls}" onclick="focusPairGroups('${pair.aL}','${pair.bL}')">
-      <div class="pm-icon">${icon}</div>
-      <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-      <div class="pm-count">${displayN}</div>
-      <div class="pm-sublabel">${lbl}</div>
-      ${subLbl}
-    </div>`;
-  });
-  html += `</div>`;
-
-  if (_lastResult?.groups?.length) {
-    html += `<div class="sec">Turmas propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''} · <span style="color:var(--teal)">${_lastResult.placed}</span> alocados</div>`;
-    _lastResult.groups.forEach((g, i) => {
-      const col = GROUP_COLORS[i % GROUP_COLORS.length];
-      const created = (_createdGroups[activeLevelKey]||{})[i];
-      html += buildGroupCard(g, i, col, created, 'overview');
-    });
-  }
-
-  if (_lastResult?.sinalizados?.length) html += buildSinalizadosHTML(_lastResult);
-  html += buildStudentTable(allStudents);
-  area.innerHTML = html;
-  clearHighlight();
 }
 
 /* ── FORMATION level content ── */
@@ -1574,8 +1504,30 @@ pinsHTML += `<div style="
 /* ── FORMATION level content ── */
 function renderFormationLevel(withReq, allStudents) {
   const area = document.getElementById('scroll-area');
-  let html = formationSub === 'pinos' ? buildPinsGrid(withReq) : buildSchoolGrid(withReq);
 
+  // ── Pipeline progress strip ──
+  const groupsInLevel = Object.values(_createdGroups[activeLevelKey]||{});
+  const pipelineCounts = { raw:0, proposed:0, audited_with_flags:0, audited:0, confirmed:0 };
+  if (_lastResult?.groups) {
+    _lastResult.groups.forEach((g, i) => {
+      const created = (_createdGroups[activeLevelKey]||{})[i];
+      if (!created) { pipelineCounts.raw++; return; }
+      const st = _auditStatusByGroup[created.turmaCode] || 'proposed';
+      pipelineCounts[st] = (pipelineCounts[st]||0) + 1;
+    });
+  }
+  const pipelineHTML = `<div style="display:flex;align-items:center;gap:0;padding:6px 18px;border-bottom:1px solid var(--b);background:rgba(0,0,0,.1);flex-wrap:wrap;gap:6px">
+    <span style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-right:4px">Pipeline</span>
+    ${pipelineCounts.raw > 0 ? `<span style="font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid var(--b2);color:var(--t3);background:rgba(255,255,255,.03)">${pipelineCounts.raw} por propor</span>` : ''}
+    ${pipelineCounts.proposed > 0 ? `<span style="font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid rgba(201,168,76,.3);color:var(--gold2);background:var(--gold4)">${pipelineCounts.proposed} proposto${pipelineCounts.proposed!==1?'s':''}</span>` : ''}
+    ${pipelineCounts.audited_with_flags > 0 ? `<span style="font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${pipelineCounts.audited_with_flags} ⚠ flags</span>` : ''}
+    ${pipelineCounts.audited > 0 ? `<span style="font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid rgba(40,200,176,.35);color:var(--teal);background:rgba(40,200,176,.08)">${pipelineCounts.audited} ✓ auditado${pipelineCounts.audited!==1?'s':''}</span>` : ''}
+    ${pipelineCounts.confirmed > 0 ? `<span style="font-size:7.5px;font-weight:700;padding:2px 9px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${pipelineCounts.confirmed} confirmado${pipelineCounts.confirmed!==1?'s':''}</span>` : ''}
+    <a href="/admin/alm-audit-groups" style="margin-left:auto;font-size:7.5px;font-weight:700;padding:2px 10px;border:1px solid rgba(40,200,176,.35);color:var(--teal);text-decoration:none;transition:background .12s" onmouseover="this.style.background='rgba(40,200,176,.1)'" onmouseout="this.style.background='transparent'">→ Inspect</a>
+  </div>`;
+  area.insertAdjacentHTML ? null : null; // placeholder
+  
+  let html = pipelineHTML + (formationSub === 'pinos' ? buildPinsGrid(withReq) : buildSchoolGrid(withReq));
   if (_lastResult?.groups?.length) {
     html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''} · ${_lastResult.placed} alunos alocados</div>`;
     _lastResult.groups.forEach((g, i) => {
@@ -1924,8 +1876,7 @@ async function generateTurmaCode(branch) {
     const existing = await sbGet('classes', `select=turma_code&branch=eq.${encodeURIComponent(branch)}&academic_year=eq.${encodeURIComponent(AY)}`);
     const usedNums = new Set();
     existing.forEach(c => { const m = (c.turma_code||'').match(/-(\d+)/); if (m) usedNums.add(parseInt(m[1])); });
-    _retiredCodes.forEach(code => { const m = code.match(/-(\d+)/); if (m) usedNums.add(parseInt(m[1])); });
-    existingClasses.forEach(c => { if (c.group_code) _auditStatusByGroup[c.group_code] = c.status; });
+   _retiredCodes.forEach(code => { const m = code.match(/-(\d+)/); if (m) usedNums.add(parseInt(m[1])); });
     let num = 1; while (usedNums.has(num)) num++;
     return `${prefix}-${String(num).padStart(2,'0')}`;
   } catch {
@@ -2428,7 +2379,10 @@ async function boot() {
     allR.forEach(r => { rByRef[r.ref] = r; });
     try {
      const existingClasses = await sbGet('classes', `select=turma_code,group_code,status&academic_year=eq.${encodeURIComponent(AY)}`);
-      existingClasses.forEach(c => { if (c.turma_code) _retiredCodes.add(c.turma_code); });
+    existingClasses.forEach(c => {
+        if (c.turma_code) _retiredCodes.add(c.turma_code);
+        if (c.group_code) _auditStatusByGroup[c.group_code] = c.status;
+      });
     } catch { /* non-fatal */ }
     document.getElementById('pill-total').textContent = `${allE.length} al`;
     document.getElementById('pill-status').textContent = 'Supabase OK';
