@@ -525,9 +525,6 @@ body{display:flex;flex-direction:column}
       <div class="tab-n">2</div><div class="tab-l">Audit</div>
       <div class="tab-badge" id="badge-audit">—</div>
     </div>
-    <div class="tab" id="tab-formation" onclick="switchMainTab('formation',this)">
-      <div class="tab-n">3</div><div class="tab-l">Formation</div>
-    </div>
     <a class="tab" href="/admin/alm-confirmar-turmas-criadas">
       <div class="tab-n">4</div><div class="tab-l">Decision</div><div class="tab-arr">↗</div>
     </a>
@@ -914,6 +911,20 @@ function analysePrefs(ref) {
   return { windows, dayIdxs, sameDay };
 }
 
+  function focusPairGroups(aL, bL) {
+  if (!_lastResult?.groups) return;
+  const matches = _lastResult.groups
+    .map((g, i) => ({ g, i }))
+    .filter(({ g }) => g.pair.aL === aL && g.pair.bL === bL);
+  if (!matches.length) return;
+  matches.forEach(({ i }) => {
+    const card = document.getElementById(`gcard-${i}`);
+    if (card) card.classList.add('open');
+  });
+  const first = document.getElementById(`gcard-${matches[0].i}`);
+  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+  
 /* ══════════════════════════════════════════════
    MAIN TAB NAVIGATION
 ══════════════════════════════════════════════ */
@@ -922,9 +933,9 @@ function switchMainTab(tabId, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  if (tabId === 'overview' || tabId === 'formation') {
+   if (tabId === 'overview') {
     document.getElementById('panel-main').classList.add('active');
-    setContentMode(tabId === 'formation' ? 'formation' : 'overview');
+    setContentMode('overview');
   } else {
     const p = document.getElementById('panel-' + tabId);
     if (p) p.classList.add('active');
@@ -1363,7 +1374,7 @@ function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
     const subLbl = placed > 0 && count !== placed
       ? `<div class="pm-placed">${count} disponíveis</div>`
       : '';
-    html += `<div class="pm-card ${cls}">
+  html += `<div class="pm-card ${cls}" onclick="focusPairGroups(${JSON.stringify(pair.aL)},${JSON.stringify(pair.bL)})" style="cursor:pointer">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${displayN}</div>
