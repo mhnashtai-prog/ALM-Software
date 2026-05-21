@@ -1580,7 +1580,7 @@ function buildGroupCard(g, i, col, created, mode) {
       <div class="gc-actions">
         ${created
           ? `<button class="gbtn" style="border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();promptDeleteGroup(${i})">✕ Eliminar</button>`
-          :`<button class="gbtn" style="border-color:var(--teal);color:var(--teal);font-weight:700;font-size:9px;padding:5px 14px" onclick="event.stopPropagation();sendToAudit(${i})">→ Auditar</button>`
+         :`<button class="gbtn" style="border-color:var(--teal);color:var(--teal);font-weight:700;font-size:9px;padding:5px 14px" onclick="event.stopPropagation();auditGroupInline(${i})">→ Auditar</button>`
         }
         <button class="gbtn gbtn-csv" onclick="event.stopPropagation();exportGroup(${i})">↓ CSV</button>
       </div>
@@ -1882,23 +1882,8 @@ async function generateTurmaCode(branch) {
     return `${prefix}-${Date.now().toString().slice(-4)}`;
   }
 }
-
-function openConfirm(idx) {
-  if (!_lastResult?.groups[idx]) return;
-  const g = _lastResult.groups[idx];
-  const meta = LEVEL_MAP[activeLevelKey]||{}, dc = DEPT_CFG[meta.dept||'adults']||{};
-  _pendingCreateIdx = idx;
-  document.getElementById('confirm-hero-bg').style.background = DEPT_GRADS[meta.dept||'adults'];
-  document.getElementById('confirm-turma-code').textContent = `${idx+1}A + ${idx+1}B`;
-  document.getElementById('confirm-turma-code').style.color = GROUP_COLORS[idx % GROUP_COLORS.length];
-  document.getElementById('confirm-turma-sub').textContent  = `${meta.label||activeLevelKey} · ${dc.label||''} · ${g.pair.aL} + ${g.pair.bL}`;
-  document.getElementById('conf-n-al').textContent  = g.students.length;
-  document.getElementById('conf-slot').textContent  = `${g.startTime}–${g.endTime}`;
-  document.getElementById('conf-pair').textContent  = `${g.pair.aL}+${g.pair.bL}`;
-  const okBtn = document.getElementById('confirm-btn-ok');
-  okBtn.disabled = false; okBtn.textContent = '✓ Criar Turma';
-  document.getElementById('confirm-overlay').classList.add('open');
 }
+
 function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); _pendingCreateIdx = null; }
 
 async function sendToAudit(idx) {
@@ -1938,11 +1923,104 @@ async function sendToAudit(idx) {
     _retiredCodes.add(codeA); _retiredCodes.add(codeB);
     showToast(`${groupCode} → enviado para Audit ✓`, 'ok');
     renderLevelContent();
-    setTimeout(() => window.location.href = '/admin/alm-audit-groups', 800);
+
   } catch (err) {
     setConn(false);
     showToast('Erro ao enviar para Audit: ' + err.message, 'err');
   }
+}
+  async function auditGroupInline(idx) {
+  const g = _lastResult?.groups[idx]; if (!g) return;
+  const created = (_createdGroups[activeLevelKey]||{})[idx];
+  const btn = document.querySelector(`#gcard-${idx} .gbtn`);
+  if (btn) { btn.textContent = '⏳ A verificar…'; btn.disabled = true; }
+
+  const auditLog = {};
+  let passCount = 0, warnCount = 0, failCount = 0;
+
+  for (const e of g.students) {
+    // Fetch fresh from Supabase — one by one, guaranteed live data
+    let liveReq = null;
+    try {
+      const rows = await sbGet('timetable_requests',
+        `ref=eq.${encodeURIComponent(e.ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,slots,day_preferences,status`
+      );
+      liveReq = rows[0] || null;
+    } catch(err) {
+      auditLog[e.ref] = { verdict:'fail', reason:'Erro ao carregar pedido' };
+      failCount++; continue;
+    }
+
+    if (!liveReq) {
+      auditLog[e.ref] = { verdict:'fail', reason:'Sem pedido de horário registado' };
+      failCount++; continue;
+    }
+
+    const raw = parseDayPrefs(liveReq.slots || liveReq.day_preferences);
+    const byDay = {};
+    raw.forEach(p => {
+      const s = parseSlot(p); if (!s) return;
+      if (!byDay[s.dayIdx]) byDay[s.dayIdx] = [];
+      byDay[s.dayIdx].push(s);
+    });
+
+    const pairDays = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    let verdict = 'pass', reason = 'Slots confirmados';
+
+    for (const dayIdx of pairDays) {
+      const daySlots = byDay[dayIdx] || [];
+      if (!daySlots.length) {
+        verdict = 'fail';
+        reason = `Não pediu ${DAYS_PT[dayIdx]}`;
+        break;
+      }
+      const propEnd = g.startMins + CLASS_DUR;
+      const hasOverlap = daySlots.some(s =>
+        Math.min(s.toMins, propEnd) - Math.max(s.fromMins, g.startMins) >= CLASS_DUR - 30
+      );
+      if (!hasOverlap && verdict !== 'fail') {
+        verdict = 'warn';
+        reason = `${DAYS_PT[dayIdx]} pedido mas horário diferente`;
+      }
+    }
+
+    auditLog[e.ref] = { verdict, reason, fetchedAt: new Date().toISOString() };
+    if (verdict === 'pass') passCount++;
+    else if (verdict === 'warn') warnCount++;
+    else failCount++;
+  }
+
+  const newStatus = (failCount === 0 && warnCount === 0) ? 'audited' : 'audited_with_flags';
+  const auditedAt = new Date().toISOString();
+
+  // Write result to Supabase
+  if (created?.turmaCode) {
+    try {
+      await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(created.turmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+        method: 'PATCH',
+        headers: { ...H, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, audit_log: auditLog, audited_at: auditedAt })
+      });
+      setConn(true);
+    } catch(err) {
+      setConn(false);
+      showToast('Erro ao guardar auditoria: ' + err.message, 'err');
+    }
+  }
+
+  // Update local state
+  if (!_createdGroups[activeLevelKey]) _createdGroups[activeLevelKey] = {};
+  _createdGroups[activeLevelKey][idx] = {
+    ...(created || {}),
+    auditStatus: newStatus, auditLog, auditedAt, passCount, warnCount, failCount
+  };
+  if (created?.turmaCode) _auditStatusByGroup[created.turmaCode] = newStatus;
+
+  const msg = newStatus === 'audited'
+    ? `✓ Certificado — ${passCount}/${g.students.length} slots confirmados`
+    : `⚠ ${failCount} fail · ${warnCount} avisos — revisar antes de confirmar`;
+  showToast(msg, newStatus === 'audited' ? 'ok' : 'warn');
+  renderLevelContent();
 }
   
 function promptDeleteGroup(idx) { document.getElementById(`del-strip-${idx}`)?.classList.toggle('open'); }
