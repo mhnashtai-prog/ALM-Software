@@ -839,6 +839,7 @@ let _sinalOpen = false;
 let _dsRef = null, _dsLoaded = false, _dsData = {};
 let _createdGroups = {};
 let _retiredCodes  = new Set();
+let _auditStatusByGroup = {};
 let _pendingCreateIdx = null;
 let auditFilters = { branch:'all', status:'all', dept:'all' };
 let watchFilter = 'all';
@@ -1495,31 +1496,52 @@ function buildPinsGrid(withReq) {
         const slotLetter = slotIdx === 0 ? 'A' : 'B';
         const groupLabel = i + 1;
 
-        pinsHTML += `<div style="
-            position:absolute;
-            top:${topPx}px;
-            left:${leftPct};
-            transform:translate(-50%,-50%);
-            pointer-events:all;
-            cursor:pointer;
-          "
-          onclick="toggleGCard(${i});setTimeout(()=>{const c=document.getElementById('gcard-${i}');if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'})},60)"
-          title="Turma ${groupLabel} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime} · ${n} alunos">
-          <div style="
-            width:34px;height:34px;border-radius:50%;
-            background:${ring}1A;
-            border:2px solid ${ring};
-            display:flex;align-items:center;justify-content:center;
-            flex-direction:column;gap:0;
-            box-shadow:0 2px 14px ${ring}55,0 0 0 3px ${ring}11;
-            transition:transform .14s,box-shadow .14s;
-          "
-          onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 4px 20px ${ring}88,0 0 0 5px ${ring}22'"
-          onmouseout="this.style.transform='';this.style.boxShadow='0 2px 14px ${ring}55,0 0 0 3px ${ring}11'">
-            <div style="font-size:9px;font-weight:700;line-height:1.1;color:${ring};font-family:var(--mono)">${groupLabel}${slotLetter}</div>
-            <div style="font-size:8px;font-weight:700;line-height:1;color:${ring};font-family:var(--mono)">${created?'✓':n}</div>
-          </div>
-        </div>`;
+     // Determine audit state from _createdGroups audit info
+const auditStatus = created?.auditStatus || (created ? 'proposed' : 'raw');
+const isAuditClean  = auditStatus === 'audited';
+const isAuditFlags  = auditStatus === 'audited_with_flags';
+const isProposed    = auditStatus === 'proposed';
+
+const pinBg    = isAuditClean ? 'var(--teal)' : isAuditFlags ? 'rgba(232,160,32,.18)' : `${ring}18`;
+const pinBorder= isAuditClean ? 'var(--teal)' : isAuditFlags ? 'var(--amber)' : ring;
+const pinIcon  = isAuditClean ? '✓' : isAuditFlags ? '⚠' : `${groupLabel}`;
+const pinSub   = isAuditClean ? `${n}al` : isAuditFlags ? `${n}al` : `${slotLetter}`;
+const pinIconColor = isAuditClean ? '#07060E' : isAuditFlags ? 'var(--amber)' : ring;
+const pinPulse = isAuditFlags ? 'animation:pulse 1.4s infinite' : '';
+// Map-pin SVG shape: circle top + pointed bottom
+const pinShape = (isAuditClean || isAuditFlags)
+  ? `border-radius:50% 50% 50% 0;transform:rotate(-45deg)`
+  : `border-radius:50%`;
+const innerRotate = (isAuditClean || isAuditFlags) ? `transform:rotate(45deg)` : '';
+
+pinsHTML += `<div style="
+    position:absolute;
+    top:${topPx}px;
+    left:${leftPct};
+    transform:translate(-50%,-50%);
+    pointer-events:all;
+    cursor:pointer;
+    z-index:6;
+  "
+  onclick="toggleGCard(${i});setTimeout(()=>{const c=document.getElementById('gcard-${i}');if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'})},60)"
+  title="${isAuditClean?'✓ Auditado':isAuditFlags?'⚠ Auditado c/ flags':'Proposto · aguarda auditoria'} · Turma ${groupLabel} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime} · ${n} alunos">
+  <div style="
+    width:32px;height:32px;
+    ${pinShape};
+    background:${pinBg};
+    border:2px solid ${pinBorder};
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:0;
+    box-shadow:0 3px 12px ${pinBorder}66,0 0 0 3px ${pinBorder}18;
+    transition:transform .14s,box-shadow .14s;
+    ${pinPulse};
+  "
+  onmouseover="this.style.transform='${(isAuditClean||isAuditFlags)?'rotate(-45deg) ':''}scale(1.22)'"
+  onmouseout="this.style.transform='${(isAuditClean||isAuditFlags)?'rotate(-45deg)':''}'">
+    <div style="font-size:11px;font-weight:700;line-height:1;color:${pinIconColor};font-family:var(--mono);${innerRotate}">${pinIcon}</div>
+    <div style="font-size:7px;font-weight:600;line-height:1;color:${pinIconColor};font-family:var(--mono);opacity:.8;${innerRotate}">${pinSub}</div>
+  </div>
+</div>`;
       });
     });
   }
@@ -2404,7 +2426,7 @@ async function boot() {
     allE = enrol||[]; allR = reqs||[]; rByRef = {};
     allR.forEach(r => { rByRef[r.ref] = r; });
     try {
-      const existingClasses = await sbGet('classes', `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}`);
+     const existingClasses = await sbGet('classes', `select=turma_code,group_code,status&academic_year=eq.${encodeURIComponent(AY)}`);
       existingClasses.forEach(c => { if (c.turma_code) _retiredCodes.add(c.turma_code); });
     } catch { /* non-fatal */ }
     document.getElementById('pill-total').textContent = `${allE.length} al`;
