@@ -1607,7 +1607,7 @@ function buildGroupCard(g, i, col, created, mode) {
       <div class="gc-actions">
         ${created
           ? `<button class="gbtn" style="border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();promptDeleteGroup(${i})">✕ Eliminar</button>`
-          : `<button class="gbtn" style="border-color:var(--green-b);color:var(--green);font-weight:700;font-size:9px;padding:5px 14px" onclick="event.stopPropagation();openConfirm(${i})">+ Criar Turma</button>`
+          :`<button class="gbtn" style="border-color:var(--teal);color:var(--teal);font-weight:700;font-size:9px;padding:5px 14px" onclick="event.stopPropagation();sendToAudit(${i})">→ Auditar</button>`
         }
         <button class="gbtn gbtn-csv" onclick="event.stopPropagation();exportGroup(${i})">↓ CSV</button>
       </div>
@@ -1928,14 +1928,11 @@ function openConfirm(idx) {
 }
 function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); _pendingCreateIdx = null; }
 
-async function executeCreateGroup() {
-  const idx = _pendingCreateIdx;
+async function sendToAudit(idx) {
   if (idx === null || !_lastResult?.groups[idx]) return;
-  const g   = _lastResult.groups[idx];
+  const g    = _lastResult.groups[idx];
   const meta = LEVEL_MAP[activeLevelKey]||{};
   const branch = activeLoc === 'all' ? (normB(g.students[0]?.branch) || 'FUNCHAL') : activeLoc;
-  const okBtn = document.getElementById('confirm-btn-ok');
-  okBtn.disabled = true; okBtn.textContent = 'A criar…';
   try {
     const groupCode = await generateTurmaCode(branch);
     const codeA = groupCode + 'A', codeB = groupCode + 'B';
@@ -1949,7 +1946,8 @@ async function executeCreateGroup() {
       department: meta.dept || 'adults',
       hour: Math.floor(g.startMins / 60),
       start_time: g.startTime, end_time: g.endTime, duration_min: CLASS_DUR,
-      student_refs: g.students.map(s => s.ref), status: 'pendente',
+      student_refs: g.students.map(s => s.ref),
+      status: 'proposed',
     };
     const sessionA = { ...sessionBase, turma_code: codeA, day_of_week: ['SEG','TER','QUA','QUI','SEX','SÁB'][g.pair.a] };
     const sessions = g.pair.a === g.pair.b
@@ -1965,20 +1963,15 @@ async function executeCreateGroup() {
     if (!_createdGroups[activeLevelKey]) _createdGroups[activeLevelKey] = {};
     _createdGroups[activeLevelKey][idx] = { turmaCode: groupCode, createdAt: new Date().toISOString() };
     _retiredCodes.add(codeA); _retiredCodes.add(codeB);
-    closeConfirm();
-    showToast(`Turma ${groupCode} criada ✓`, 'ok');
+    showToast(`${groupCode} → enviado para Audit ✓`, 'ok');
     renderLevelContent();
-    setTimeout(() => {
-      const card = document.getElementById(`gcard-${idx}`);
-      if (card) { card.classList.add('open'); card.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
-    }, 80);
+    setTimeout(() => window.location.href = '/admin/alm-audit-groups', 800);
   } catch (err) {
     setConn(false);
-    okBtn.disabled = false; okBtn.textContent = '✓ Criar Turma';
-    showToast('Erro ao criar turma: ' + err.message, 'err');
+    showToast('Erro ao enviar para Audit: ' + err.message, 'err');
   }
 }
-
+  
 function promptDeleteGroup(idx) { document.getElementById(`del-strip-${idx}`)?.classList.toggle('open'); }
 function closeDeleteConfirm(idx) { document.getElementById(`del-strip-${idx}`)?.classList.remove('open'); }
 async function executeDeleteGroup(idx) {
