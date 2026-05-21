@@ -584,10 +584,14 @@ body{display:flex;flex-direction:column}
             <button class="ts-btn active" id="ts-overview" onclick="setContentMode('overview')">📋 Overview</button>
             <button class="ts-btn" id="ts-formation" onclick="setContentMode('formation')">📊 Formation</button>
           </div>
-          <div id="formation-sub-controls" style="display:none;align-items:center;gap:10px;flex:1">
-            <div class="vt-pair-pills" id="vt-pair-pills"></div>
-            <button class="clear-btn" onclick="clearHighlight()">Limpar</button>
-          </div>
+       <div id="formation-sub-controls" style="display:none;align-items:center;gap:10px;flex:1">
+              <div class="toggle-switch">
+                <button class="ts-btn active" id="ts-calor" onclick="setFormationSub('calor')">Calor</button>
+                <button class="ts-btn" id="ts-pinos" onclick="setFormationSub('pinos')">Pinos</button>
+              </div>
+              <div class="vt-pair-pills" id="vt-pair-pills"></div>
+              <button class="clear-btn" onclick="clearHighlight()">Limpar</button>
+            </div>
         </div>
         <div class="scroll-area" id="scroll-area">
           <div class="placeholder-main">
@@ -936,7 +940,7 @@ function setContentMode(mode) {
   contentMode = mode;
   document.getElementById('ts-overview').classList.toggle('active', mode === 'overview');
   document.getElementById('ts-formation').classList.toggle('active', mode === 'formation');
-  coconst subCtrl = document.getElementById('formation-sub-controls');
+ const subCtrl = document.getElementById('formation-sub-controls');
   subCtrl.style.display = mode === 'formation' ? 'flex' : 'none';
   if (mode === 'formation') {
     document.getElementById('ts-calor')?.classList.toggle('active', formationSub === 'calor');
@@ -1137,6 +1141,14 @@ function countPair(students, pair) {
   }).length;
 }
 
+// Returns students actually placed by the engine in groups of this pair
+function placedInPair(pair) {
+  if (!_lastResult?.groups) return 0;
+  return _lastResult.groups
+    .filter(g => g.pair.a === pair.a && g.pair.b === pair.b)
+    .reduce((s, g) => s + g.students.length, 0);
+}
+
 /* ══════════════════════════════════════════════
    SCHOOL GRID BUILDER (heatmap only)
 ══════════════════════════════════════════════ */
@@ -1148,8 +1160,9 @@ function buildSchoolGrid(students) {
 
   let pillsHTML = '';
   pairCounts.forEach(({ pair, count }, i) => {
-    const col = count >= ASSIGN_MIN ? 'var(--green)' : count >= MIN_G ? 'var(--amber)' : 'var(--red)';
-    pillsHTML += `<span class="vt-pair-pill" id="pill-${i}" style="border-color:${col}44;color:${col}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">${pair.aL}+${pair.bL} <strong>${count}</strong></span>`;
+  const pip = placedInPair(pair) || count;
+    const col = pip >= ASSIGN_MIN ? 'var(--green)' : pip >= MIN_G ? 'var(--amber)' : 'var(--red)';
+    pillsHTML += `<span class="vt-pair-pill" id="pill-${i}" style="border-color:${col}44;color:${col}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">${pair.aL}+${pair.bL} <strong>${pip}</strong></span>`;
   });
   document.getElementById('vt-pair-pills').innerHTML = pillsHTML;
 
@@ -1205,24 +1218,23 @@ function buildSchoolGrid(students) {
      - big number = compatible (have both days free)
      - small "N alocados" = actually placed by engine
   ══════════════════════════════════════════════ */
-  let pmHTML = `<div class="pair-matrix">`;
+let pmHTML = `<div class="pair-matrix">`;
   pairCounts.forEach(({ pair, count }, i) => {
-    const isReady = count >= ASSIGN_MIN, isWait = count >= MIN_G;
+    const placed = placedInPair(pair);
+    const displayN = placed > 0 ? placed : count;
+    const isReady = displayN >= ASSIGN_MIN, isWait = displayN >= MIN_G;
     const cls = isReady ? 'viable' : isWait ? 'wait' : 'low';
     const icon = isReady ? '✓' : isWait ? '!' : '✕';
-    const lbl  = isReady ? 'compatíveis' : isWait ? 'aguardar' : 'não abre';
-    /* how many were actually placed in this pair by the engine */
-    const placedInPair = _lastResult
-      ? _lastResult.groups
-          .filter(g => g.pair.a === pair.a && g.pair.b === pair.b)
-          .reduce((s, g) => s + g.students.length, 0)
-      : 0;
+    const lbl  = placed > 0 ? 'alocados' : count >= ASSIGN_MIN ? 'disponíveis' : count >= MIN_G ? 'aguardar' : 'não abre';
+    const subLbl = placed > 0 && count !== placed
+      ? `<div class="pm-placed">${count} disponíveis</div>`
+      : '';
     pmHTML += `<div class="pm-card ${cls}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-      <div class="pm-count">${count}</div>
+      <div class="pm-count">${displayN}</div>
       <div class="pm-sublabel">${lbl}</div>
-      ${placedInPair > 0 ? `<div class="pm-placed">${placedInPair} alocados</div>` : ''}
+      ${subLbl}
     </div>`;
   });
   pmHTML += `</div>`;
@@ -1341,23 +1353,22 @@ function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
 
   let html = `<div class="sec" style="margin-bottom:12px">Disponibilidade por par</div>
   <div class="pair-matrix">`;
-  pairCounts.forEach(({ pair, count }) => {
-    const isReady = count >= ASSIGN_MIN, isWait = count >= MIN_G;
+ pairCounts.forEach(({ pair, count }) => {
+    const placed = placedInPair(pair);
+    const displayN = placed > 0 ? placed : count;
+    const isReady = displayN >= ASSIGN_MIN, isWait = displayN >= MIN_G;
     const cls = isReady ? 'viable' : isWait ? 'wait' : 'low';
     const icon = isReady ? '✓' : isWait ? '!' : '✕';
-    const lbl  = isReady ? 'compatíveis' : isWait ? 'aguardar' : 'não abre';
-    /* FIX ISSUE 1: show actually-placed count below the compatible count */
-    const placed2 = _lastResult
-      ? _lastResult.groups
-          .filter(g => g.pair.a === pair.a && g.pair.b === pair.b)
-          .reduce((s, g) => s + g.students.length, 0)
-      : 0;
+    const lbl  = placed > 0 ? 'alocados' : count >= ASSIGN_MIN ? 'disponíveis' : count >= MIN_G ? 'aguardar' : 'não abre';
+    const subLbl = placed > 0 && count !== placed
+      ? `<div class="pm-placed">${count} disponíveis</div>`
+      : '';
     html += `<div class="pm-card ${cls}">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-      <div class="pm-count">${count}</div>
+      <div class="pm-count">${displayN}</div>
       <div class="pm-sublabel">${lbl}</div>
-      ${placed2 > 0 ? `<div class="pm-placed">${placed2} alocados</div>` : ''}
+      ${subLbl}
     </div>`;
   });
   html += `</div>`;
