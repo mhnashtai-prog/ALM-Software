@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Audit de Grupos · 2026/2027</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.18);--gold4:rgba(201,168,76,.08);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.14);--green-b:rgba(29,184,122,.35);
+  --red:#E8455A;--red-a:rgba(232,69,90,.12);--red-b:rgba(232,69,90,.30);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.13);--amber-b:rgba(232,160,32,.30);
+  --teal:#28C8B0;--blue:#4A8FF5;--purple:#9B5ECA;
+  --bg:#07060E;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A162E;
+  --b:rgba(201,168,76,.07);--b2:rgba(201,168,76,.16);--b3:rgba(201,168,76,.30);
+  --t:rgba(238,218,168,.92);--t2:rgba(210,188,140,.55);--t3:rgba(210,188,140,.28);--t4:rgba(210,188,140,.10);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+  --c-inf:#4A8FF5;--c-juv:#28C8B0;--c-ger:#C8A44A;--c-exa:#9B5ECA;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;flex-direction:column}
+
+/* ── ANIMATIONS ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(29,184,122,.4)}50%{box-shadow:0 0 0 6px rgba(29,184,122,0)}}
+@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+@keyframes auditPass{0%{background:transparent}50%{background:rgba(29,184,122,.18)}100%{background:transparent}}
+@keyframes auditFail{0%{background:transparent}50%{background:rgba(232,69,90,.18)}100%{background:transparent}}
+
+/* ── TOPBAR ── */
+.topbar{flex-shrink:0;height:50px;display:flex;align-items:center;background:rgba(7,6,14,.99);border-bottom:1px solid var(--b2);z-index:200}
+.nav-duo{display:flex;flex-direction:column;height:100%;border-right:1px solid var(--b2);flex-shrink:0;min-width:52px}
+.nav-home,.nav-back{display:flex;align-items:center;justify-content:center;flex:1;text-decoration:none;transition:background .14s}
+.nav-home{border-bottom:.5px solid var(--b);padding:0 14px}
+.nav-back{padding:0 10px;gap:3px}
+.nav-home:hover,.nav-back:hover{background:var(--gold4)}
+.nav-icon{font-size:13px;color:var(--t3)}
+.nav-lbl{font-size:6.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.nav-home:hover .nav-icon,.nav-back:hover .nav-icon,.nav-back:hover .nav-lbl{color:var(--gold2)}
+.brand{display:flex;align-items:center;padding:0 18px;height:100%;border-right:1px solid var(--b);flex-shrink:0}
+.brand-alm{font-size:18px;font-weight:700;letter-spacing:8px;color:var(--gold2)}
+.brand-yr{font-size:7.5px;color:var(--t3);letter-spacing:.14em;margin-left:8px;align-self:flex-end;padding-bottom:3px}
+.tabs{display:flex;align-items:stretch;height:100%;flex:1;overflow:hidden}
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 18px;border-right:1px solid var(--b);border-bottom:2px solid transparent;transition:all .18s;flex-shrink:0;gap:2px;cursor:pointer;text-decoration:none}
+.tab:hover{background:var(--gold4)}
+.tab.active{background:rgba(201,168,76,.06);border-bottom-color:var(--gold)}
+.tab-n{font-size:7px;font-weight:700;color:var(--t4);width:15px;height:15px;border:1px solid var(--b);display:flex;align-items:center;justify-content:center;transition:all .18s}
+.tab.active .tab-n{background:var(--gold);color:#07060E;border-color:var(--gold)}
+.tab-l{font-size:7.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);white-space:nowrap;transition:color .18s}
+.tab.active .tab-l{color:var(--gold2)}
+.tab:hover .tab-l{color:var(--t2)}
+.tab-arr{font-size:7px;color:var(--t4)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:7px;padding:0 13px;border-left:1px solid var(--b);height:100%;flex-shrink:0}
+.live{display:flex;align-items:center;gap:5px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+.live-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--green)}
+.tb-pill{font-size:7.5px;font-weight:600;letter-spacing:.06em;padding:3px 10px;border:1px solid var(--b2);color:var(--t2)}
+.tb-pill.gold{color:var(--gold2);border-color:var(--b3);background:var(--gold4)}
+.tb-pill.ok{color:var(--green);border-color:var(--green-b);background:var(--green-a)}
+.tb-pill.load{color:var(--amber);border-color:var(--amber-b)}
+.tb-pill.err{color:var(--red);border-color:var(--red-b)}
+.tb-pill.audit{color:var(--teal);border-color:rgba(40,200,176,.35);background:rgba(40,200,176,.08)}
+
+/* ── LAYOUT ── */
+.main-layout{flex:1;display:flex;overflow:hidden}
+.sidebar{width:260px;flex-shrink:0;border-right:1px solid var(--b2);display:flex;flex-direction:column;overflow:hidden;background:var(--bg2)}
+.sb-kpis{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--b2);flex-shrink:0}
+.sb-kpi{padding:10px 8px 8px}
+.sb-kpi+.sb-kpi{border-left:1px solid var(--b)}
+.sb-kpi-v{font-size:20px;font-weight:700;line-height:1}
+.sb-kpi-l{font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px}
+.branch-strip{display:flex;flex-wrap:wrap;gap:3px;padding:8px 8px 6px;border-bottom:1px solid var(--b);flex-shrink:0}
+.btab{font-size:7.5px;font-weight:600;letter-spacing:.04em;padding:3px 9px;border:1px solid var(--b2);cursor:pointer;color:var(--t3);transition:all .13s;background:transparent;font-family:var(--mono)}
+.btab:hover{color:var(--t2);border-color:var(--b3)}
+.btab.active{background:var(--gold3);border-color:var(--gold);color:var(--gold2)}
+.group-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
+.gl-sec-hdr{display:flex;align-items:center;gap:7px;padding:8px 10px 5px;position:sticky;top:0;background:var(--bg2);border-bottom:.5px solid var(--b);z-index:2}
+.gl-sec-label{font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;flex:1}
+.gl-sec-n{font-size:10px;font-weight:700;color:var(--t3)}
+.gl-item{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;cursor:pointer;border-left:2.5px solid transparent;border-bottom:.5px solid var(--b);transition:all .12s}
+.gl-item:hover{background:rgba(255,255,255,.016)}
+.gl-item.active{background:var(--gold4);border-left-color:var(--gold)}
+.gl-item.status-proposed{border-left-color:rgba(201,168,76,.3)}
+.gl-item.status-audited{border-left-color:var(--green)}
+.gl-item.status-audited_with_flags{border-left-color:var(--amber)}
+.gl-item.status-confirmed{border-left-color:var(--teal);opacity:.6}
+.gl-item-body{flex:1;min-width:0}
+.gl-item-code{font-size:10px;font-weight:700;color:var(--t);font-family:var(--display);letter-spacing:2px}
+.gl-item-sub{font-size:7.5px;color:var(--t3);margin-top:1px}
+.gl-badge{font-size:6.5px;font-weight:700;padding:2px 6px;border:1px solid;flex-shrink:0}
+.gb-proposed{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+.gb-audited{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.gb-flags{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.gb-confirmed{background:rgba(40,200,176,.1);border-color:rgba(40,200,176,.3);color:var(--teal)}
+
+/* ── MAIN PANE ── */
+.main-pane{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.audit-hdr{flex-shrink:0;padding:12px 20px 10px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--b2);display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-height:54px}
+.ah-title{font-family:var(--display);font-size:28px;letter-spacing:5px;line-height:1}
+.ah-sub{font-size:8px;color:var(--t2);letter-spacing:.08em}
+.ah-stats{display:flex;gap:0;margin-left:auto}
+.ah-stat{display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)}
+.ah-v{font-size:18px;font-weight:700;line-height:1}
+.ah-l{font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px}
+
+/* ── AUDIT CONTROLS ── */
+.audit-controls{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:8px 20px;border-bottom:1px solid var(--b);background:rgba(0,0,0,.12)}
+.ac-btn{padding:5px 16px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;transition:all .14s;letter-spacing:.08em}
+.ac-btn.primary{border-color:var(--teal);color:var(--teal)}
+.ac-btn.primary:hover{background:rgba(40,200,176,.12)}
+.ac-btn.primary:disabled{opacity:.4;cursor:not-allowed}
+.ac-btn.gold{border-color:var(--b2);color:var(--gold)}
+.ac-btn.gold:hover{background:var(--gold4)}
+.ac-btn.danger{border-color:var(--red-b);color:var(--red)}
+.ac-btn.danger:hover{background:var(--red-a)}
+.ac-sep{width:.5px;height:20px;background:var(--b2)}
+.ac-label{font-size:7.5px;color:var(--t3);letter-spacing:.06em}
+.ac-prog{flex:1;height:3px;background:rgba(255,255,255,.05);overflow:hidden}
+.ac-prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--green));transition:width .4s}
+
+/* ── SCROLL AREA ── */
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--b) transparent;padding:16px 20px 60px}
+
+/* ── PLACEHOLDER ── */
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--t3)}
+.placeholder-icon{font-size:32px;opacity:.15}
+.placeholder-text{font-size:7.5px;letter-spacing:.16em;text-transform:uppercase;opacity:.35}
+
+/* ── AUDIT CARD ── */
+.audit-card{background:var(--bg2);border:1px solid var(--b2);margin-bottom:8px;overflow:hidden;transition:border-color .2s}
+.audit-card.status-audited{border-color:rgba(29,184,122,.4)}
+.audit-card.status-audited_with_flags{border-color:rgba(232,160,32,.4)}
+.ac-card-hdr{display:flex;align-items:center;gap:14px;padding:12px 16px;background:rgba(0,0,0,.15);border-bottom:1px solid var(--b)}
+
+/* ── AUDIT BADGE (the sticker) ── */
+.audit-sticker{display:flex;flex-direction:column;align-items:center;justify-content:center;width:54px;height:54px;flex-shrink:0;position:relative}
+.sticker-ring{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;border:2px solid;transition:all .3s}
+.sticker-ring.pending{border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.05)}
+.sticker-ring.running{border-color:var(--teal);background:rgba(40,200,176,.08);animation:pulse 1.2s infinite}
+.sticker-ring.pass{border-color:var(--green);background:var(--green-a)}
+.sticker-ring.flags{border-color:var(--amber);background:var(--amber-a)}
+.sticker-ring.confirmed{border-color:var(--teal);background:rgba(40,200,176,.08)}
+.sticker-icon{font-size:14px;line-height:1}
+.sticker-lbl{font-size:5.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.sticker-ring.pending .sticker-lbl{color:var(--t3)}
+.sticker-ring.running .sticker-lbl{color:var(--teal)}
+.sticker-ring.pass .sticker-lbl{color:var(--green)}
+.sticker-ring.flags .sticker-lbl{color:var(--amber)}
+.sticker-ring.confirmed .sticker-lbl{color:var(--teal)}
+
+.ac-card-info{flex:1;min-width:0}
+.ac-card-code{font-family:var(--display);font-size:24px;letter-spacing:4px;line-height:1}
+.ac-card-slot{font-size:10px;font-weight:600;color:var(--t);margin-top:3px}
+.ac-card-meta{font-size:7.5px;color:var(--t3);margin-top:2px}
+.ac-card-stats{display:flex;gap:0;flex-shrink:0}
+.ac-stat{display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid var(--b)}
+.ac-stat-v{font-size:18px;font-weight:700;line-height:1}
+.ac-stat-l{font-size:6px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px}
+.ac-card-actions{display:flex;gap:6px;flex-shrink:0;padding-left:10px;border-left:1px solid var(--b)}
+
+/* ── STUDENT ROWS ── */
+.stu-table{width:100%}
+.stu-table-hdr{display:grid;grid-template-columns:28px 90px 1fr 120px 120px 80px 60px;font-size:6.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:7px 16px;border-bottom:1px solid var(--b2);background:rgba(0,0,0,.1)}
+.stu-table-hdr span{padding:0 3px}
+.stu-row{display:grid;grid-template-columns:28px 90px 1fr 120px 120px 80px 60px;align-items:center;padding:0 16px;border-bottom:.5px solid rgba(201,168,76,.04);transition:background .1s;min-height:38px}
+.stu-row:hover{background:rgba(201,168,76,.025)}
+.stu-row.running{animation:auditPass 1s ease}
+.stu-row.row-pass{background:rgba(29,184,122,.04)}
+.stu-row.row-fail{background:rgba(232,69,90,.04)}
+.stu-cell{padding:0 3px;font-size:8.5px}
+.stu-num{font-size:7px;color:var(--t4);font-family:var(--mono)}
+.stu-ref{font-size:7.5px;color:var(--t3);font-family:var(--mono)}
+.stu-name-wrap .name{font-size:9.5px;color:var(--t)}
+.stu-name-wrap .sub{font-size:7px;color:var(--t3);margin-top:1px}
+.slot-chip{display:inline-flex;align-items:center;gap:3px;font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;margin:1px}
+.slot-chip.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.slot-chip.bad{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.slot-chip.neutral{background:rgba(255,255,255,.04);border-color:var(--b2);color:var(--t3)}
+.verdict-badge{font-size:7px;font-weight:700;padding:2px 8px;border:1px solid;white-space:nowrap}
+.vb-pass{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.vb-fail{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.vb-warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.vb-pending{background:rgba(255,255,255,.04);border-color:var(--b2);color:var(--t3)}
+.vb-running{background:rgba(40,200,176,.1);border-color:rgba(40,200,176,.3);color:var(--teal)}
+.reason-text{font-size:7px;color:var(--t3);font-style:italic;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── AUDIT FOOTER (the confirm strip) ── */
+.audit-footer{display:none;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--b2);background:rgba(0,0,0,.15)}
+.audit-footer.visible{display:flex}
+.af-summary{flex:1;font-size:8.5px;color:var(--t2)}
+.af-summary strong{color:var(--t)}
+.af-btn{padding:5px 16px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;transition:all .14s;letter-spacing:.08em}
+.af-btn.confirm-audit{border-color:var(--green-b);color:var(--green)}
+.af-btn.confirm-audit:hover{background:var(--green-a)}
+.af-btn.confirm-audit:disabled{opacity:.4;cursor:not-allowed}
+.af-btn.re-audit{border-color:var(--b2);color:var(--t2)}
+.af-btn.re-audit:hover{background:rgba(255,255,255,.04)}
+.af-btn.send-decision{border-color:var(--teal);color:var(--teal)}
+.af-btn.send-decision:hover{background:rgba(40,200,176,.1)}
+
+/* ── SUMMARY BANNER ── */
+.audit-summary-banner{display:none;padding:10px 16px;align-items:center;gap:14px;flex-wrap:wrap}
+.audit-summary-banner.visible{display:flex}
+.asb-pass{background:var(--green-a);border-top:1px solid var(--green-b);border-bottom:1px solid var(--green-b)}
+.asb-flags{background:var(--amber-a);border-top:1px solid var(--amber-b);border-bottom:1px solid var(--amber-b)}
+.asb-icon{font-size:18px}
+.asb-title{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.asb-sub{font-size:7.5px;color:var(--t2);margin-top:2px}
+
+/* ── SPINNER ── */
+.spinner-wrap{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--t3);gap:8px;font-size:8.5px;letter-spacing:.1em}
+.spinner{width:13px;height:13px;border:1.5px solid rgba(255,255,255,.07);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.spinner.teal{border-top-color:var(--teal)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(8px);padding:5px 18px;font-size:8.5px;font-weight:600;opacity:0;transition:all .2s;z-index:9000;pointer-events:none;border:1px solid;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast.info{background:var(--gold4);border-color:var(--b3);color:var(--gold2)}
+
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="nav-duo">
+    <a class="nav-home" href="/admin/dashboard"><span class="nav-icon">⌂</span></a>
+    <a class="nav-back" href="/admin/alm-painel-central"><span class="nav-icon" style="font-size:9px">←</span><span class="nav-lbl">Painel</span></a>
+  </div>
+  <div class="brand"><span class="brand-alm">ALM</span><span class="brand-yr">2026/27</span></div>
+  <div class="tabs">
+    <a class="tab" href="/admin/alm-painel-central"><div class="tab-n">1</div><div class="tab-l">Painel</div><div class="tab-arr">↗</div></a>
+    <a class="tab" href="/admin/alm-painel-central"><div class="tab-n">2</div><div class="tab-l">Formation</div><div class="tab-arr">↗</div></a>
+    <div class="tab active"><div class="tab-n">3</div><div class="tab-l">Inspect</div></div>
+    <a class="tab" href="/admin/alm-confirmar-turmas-criadas"><div class="tab-n">4</div><div class="tab-l">Decision</div><div class="tab-arr">↗</div></a>
+    <a class="tab" href="/admin/alm-atribuir-turmas"><div class="tab-n">5</div><div class="tab-l">Assign</div><div class="tab-arr">↗</div></a>
+  </div>
+  <div class="topbar-right">
+    <div class="live"><div class="live-dot" id="live-dot"></div><span class="live-lbl" id="live-lbl">LIVE</span></div>
+    <div class="tb-pill gold" id="pill-total">— grupos</div>
+    <div class="tb-pill audit" id="pill-audited">0 auditados</div>
+    <div class="tb-pill load" id="pill-status">A carregar…</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-kpis">
+      <div class="sb-kpi"><div class="sb-kpi-v" style="color:var(--gold2)" id="st-total">—</div><div class="sb-kpi-l">Grupos</div></div>
+      <div class="sb-kpi"><div class="sb-kpi-v" style="color:var(--green)" id="st-audited">—</div><div class="sb-kpi-l">Auditados</div></div>
+      <div class="sb-kpi"><div class="sb-kpi-v" style="color:var(--amber)" id="st-flags">—</div><div class="sb-kpi-l">C/ flags</div></div>
+    </div>
+    <div class="branch-strip" id="branch-strip">
+      <div class="spinner-wrap" style="padding:6px"><div class="spinner"></div></div>
+    </div>
+    <div class="group-list" id="group-list">
+      <div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>
+    </div>
+  </div>
+
+  <!-- MAIN PANE -->
+  <div class="main-pane">
+    <div class="audit-hdr" id="audit-hdr">
+      <div style="display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:18px;opacity:.15;margin-bottom:4px">◈</div>
+        <div style="font-size:7px;letter-spacing:.14em;text-transform:uppercase;opacity:.28">← Seleccione um grupo para auditar</div>
+      </div>
+    </div>
+    <div class="audit-controls" id="audit-controls" style="display:none">
+      <button class="ac-btn primary" id="btn-run-audit" onclick="runAudit()">▶ INICIAR AUDITORIA</button>
+      <button class="ac-btn gold" id="btn-audit-all" onclick="runAuditAll()">▶▶ AUDITAR TODOS</button>
+      <div class="ac-sep"></div>
+      <span class="ac-label" id="ac-status-lbl">Pronto</span>
+      <div class="ac-prog" id="ac-prog"><div class="ac-prog-fill" id="ac-prog-fill" style="width:0%"></div></div>
+    </div>
+    <div class="scroll-area" id="scroll-area">
+      <div class="placeholder">
+        <div class="placeholder-icon">🔍</div>
+        <div class="placeholder-text">Seleccione um grupo para iniciar a auditoria</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   SUPABASE
+══════════════════════════════════════════════ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+const AY  = '2026/2027';
+
+let _failCount = 0;
+function setConn(ok) {
+  const dot = document.getElementById('live-dot'), lbl = document.getElementById('live-lbl');
+  if (ok) { _failCount = 0; dot.className='live-dot'; lbl.style.color='var(--green)'; lbl.textContent='LIVE'; }
+  else { _failCount++; dot.className=_failCount<=2?'live-dot':'live-dot'; lbl.textContent=_failCount<=2?'LENTO':'OFFLINE'; lbl.style.color=_failCount<=2?'var(--amber)':'var(--red)'; }
+}
+
+async function sbGet(table, qs) {
+  let all = [], page = 0, ps = 1000;
+  while (true) {
+    const s = page * ps, e = s + ps - 1;
+    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, { headers: { ...H, Range: `${s}-${e}`, Prefer: 'count=none' } });
+    if (!r.ok) throw new Error(`${table} HTTP ${r.status}`);
+    const d = await r.json(); all = all.concat(d);
+    if (d.length < ps) break; page++; if (page > 9) break;
+  }
+  return all;
+}
+
+async function sbPatch(table, qs, body) {
+  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+    method: 'PATCH',
+    headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`PATCH ${table} HTTP ${r.status}`);
+  return true;
+}
+
+/* ══════════════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════════════ */
+const DAYS_PT  = ['SEG','TER','QUA','QUI','SEX','SÁB'];
+const CLASS_DUR = 90;
+
+const LEVEL_MAP = {
+  'PI1':{ dept:'kids', label:'PI 1' }, 'PI2':{ dept:'kids', label:'PI 2' },
+  'PI3':{ dept:'kids', label:'PI 3' }, 'PI4':{ dept:'kids', label:'PI 4' },
+  'PJ1':{ dept:'kids_juv', label:'PJ 1' }, 'PJ2':{ dept:'kids_juv', label:'PJ 2' },
+  'PJ3':{ dept:'kids_juv', label:'PJ 3' },
+  '1':{ dept:'adults', label:'Ano 1' }, '2':{ dept:'adults', label:'Ano 2' },
+  '3':{ dept:'adults', label:'Ano 3' }, '4':{ dept:'adults', label:'Ano 4' },
+  '5':{ dept:'adults', label:'Ano 5' }, 'Portugues':{ dept:'adults', label:'Português' },
+  '6':{ dept:'exam', label:'Ano 6 FCE' }, '7':{ dept:'exam', label:'Ano 7 CAE' },
+  '8':{ dept:'exam', label:'Ano 8 CPE' },
+};
+
+const DEPT_COLORS = { kids:'var(--c-inf)', kids_juv:'var(--c-juv)', adults:'var(--c-ger)', exam:'var(--c-exa)' };
+const DEPT_GRADS  = {
+  kids:     'linear-gradient(135deg,#1A3A6A,#0D2248)',
+  kids_juv: 'linear-gradient(135deg,#0D4A3A,#062A20)',
+  adults:   'linear-gradient(135deg,#3A2A10,#201408)',
+  exam:     'linear-gradient(135deg,#3A1A3A,#200D20)',
+};
+
+const BRANCH_LABELS = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
+const BRANCH_ORDER  = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+
+const DAY_NORM = {
+  monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,
+  segunda:0,terca:1,'terça':1,quarta:2,quinta:3,sexta:4,sabado:5,'sábado':5,
+  seg:0,ter:1,qua:2,qui:3,sex:4,sab:5,'sáb':5,
+  SEG:0,TER:1,QUA:2,QUI:3,SEX:4,SÁB:5,SAB:5,
+};
+
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let allGroups   = [];   // classes rows (proposed/audited)
+let rByRef      = {};   // timetable_requests by ref
+let enrolByRef  = {};   // enrolments by ref
+let activeLoc   = 'all';
+let activeGroupId = null;
+let _auditRunning = false;
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+const normB = b => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();
+const normS = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const minsToT = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+
+function avCol(name) {
+  let h = 0;
+  for (let i = 0; i < (name||'?').length; i++) h = (h * 31 + (name||'?').charCodeAt(i)) & 0xffffffff;
+  const p = [{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#282838',t:'#9898D8'},{bg:'#2A3820',t:'#80B850'}];
+  return p[Math.abs(h) % p.length];
+}
+function avInit(n) { return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+
+function parseDayPrefs(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+}
+
+function timeToMins(t) {
+  if (!t) return null;
+  const parts = (t+'').trim().split(':');
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1]||'0', 10);
+  return isNaN(h) ? null : h * 60 + m;
+}
+
+function normDay(raw) {
+  if (raw === null || raw === undefined) return null;
+  const n = parseInt(raw);
+  if (!isNaN(n) && n >= 1 && n <= 6) return n - 1;
+  if (!isNaN(n) && n >= 0 && n <= 5) return n;
+  const key = (raw+'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return DAY_NORM[raw] ?? DAY_NORM[key] ?? null;
+}
+
+/* ── Parse a student's submitted slots into windows ── */
+function parseStudentSlots(ref) {
+  const req = rByRef[ref]; if (!req) return [];
+  const raw = parseDayPrefs(req.slots || req.day_preferences);
+  const slots = [];
+  raw.forEach(p => {
+    if (p.available === false) return;
+    const rawDay = p.day_short || p.day || p.weekday || p.dia || p.day_code || '';
+    const dayIdx = normDay(rawDay); if (dayIdx === null) return;
+    const rawStart = p.from || p.session_start || p.start_time || p.time
+      || (p.hour !== undefined ? `${p.hour}:00` : null);
+    const fromMins = timeToMins(rawStart); if (fromMins === null) return;
+    const rawEnd = p.to || p.end_time;
+    const toMins = rawEnd ? timeToMins(rawEnd) : fromMins + CLASS_DUR;
+    slots.push({ dayIdx, fromMins, toMins: toMins || fromMins + CLASS_DUR, label: `${DAYS_PT[dayIdx]} ${minsToT(fromMins)}` });
+  });
+  return slots;
+}
+
+/* ── Core audit logic for a single student against a proposed slot ── */
+function auditStudent(ref, proposedDayIdx, proposedStartMins) {
+  const req = rByRef[ref];
+  if (!req) return { verdict: 'fail', reason: 'Sem pedido de horário', matchedSlot: null };
+
+  const slots = parseStudentSlots(ref);
+  if (!slots.length) return { verdict: 'fail', reason: 'Pedido sem slots válidos', matchedSlot: null };
+
+  // Find a slot on the proposed day that overlaps with the proposed time
+  const proposedEnd = proposedStartMins + CLASS_DUR;
+  const daySlots = slots.filter(s => s.dayIdx === proposedDayIdx);
+  if (!daySlots.length) return { verdict: 'fail', reason: `Não pediu ${DAYS_PT[proposedDayIdx]}`, matchedSlot: null };
+
+  for (const slot of daySlots) {
+    const overlap = Math.min(slot.toMins, proposedEnd) - Math.max(slot.fromMins, proposedStartMins);
+    if (overlap >= CLASS_DUR - 30) { // 30min tolerance
+      return { verdict: 'pass', reason: 'Slot confirmado', matchedSlot: slot.label };
+    }
+  }
+
+  // Has the day but wrong time
+  const times = daySlots.map(s => minsToT(s.fromMins)).join(', ');
+  return { verdict: 'warn', reason: `${DAYS_PT[proposedDayIdx]} pedido mas horário diferente (${times})`, matchedSlot: null };
+}
+
+/* ══════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════ */
+async function boot() {
+  try {
+    const [classes, reqs, enrols] = await Promise.all([
+      sbGet('classes', `select=id,group_code,turma_code,branch,level_code,level_display,department,day_of_week,start_time,end_time,student_refs,status,audit_log,audited_at&academic_year=eq.${encodeURIComponent(AY)}&order=group_code`),
+      sbGet('timetable_requests', `select=ref,slots,day_preferences,status&academic_year=eq.${encodeURIComponent(AY)}`),
+      sbGet('enrolments', `select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}`),
+    ]);
+    setConn(true);
+
+    // Build lookup maps
+    reqs.forEach(r => { rByRef[r.ref] = r; });
+    enrols.forEach(e => { enrolByRef[e.ref] = e; });
+
+    // Group sessions by group_code (A+B sessions → one group)
+    const grouped = {};
+    classes.forEach(c => {
+      const gc = c.group_code || c.turma_code?.replace(/[AB]$/,'') || c.turma_code;
+      if (!grouped[gc]) grouped[gc] = { group_code: gc, sessions: [], status: c.status, audit_log: c.audit_log, audited_at: c.audited_at, branch: c.branch, level_code: c.level_code, level_display: c.level_display, department: c.department, student_refs: c.student_refs };
+      grouped[gc].sessions.push(c);
+      // Take the most advanced status
+      const rank = { proposed:0, audited_with_flags:1, audited:2, confirmed:3 };
+      if ((rank[c.status]||0) > (rank[grouped[gc].status]||0)) grouped[gc].status = c.status;
+      // Merge audit_log if present
+      if (c.audit_log && !grouped[gc].audit_log) grouped[gc].audit_log = c.audit_log;
+    });
+
+    allGroups = Object.values(grouped).filter(g => ['proposed','audited','audited_with_flags'].includes(g.status));
+
+    // Parse student_refs
+    allGroups.forEach(g => {
+      try { g._refs = typeof g.student_refs === 'string' ? JSON.parse(g.student_refs) : (g.student_refs || []); }
+      catch { g._refs = []; }
+    });
+
+    updateTopStats();
+    initBranchStrip();
+    renderGroupList();
+
+    document.getElementById('pill-status').textContent = 'Supabase OK';
+    document.getElementById('pill-status').className = 'tb-pill ok';
+    showToast(`${allGroups.length} grupos carregados`, 'ok');
+  } catch(err) {
+    setConn(false);
+    document.getElementById('pill-status').textContent = 'Erro DB';
+    document.getElementById('pill-status').className = 'tb-pill err';
+    showToast('Erro: ' + err.message, 'err');
+  }
+}
+
+function updateTopStats() {
+  const visible = activeLoc === 'all' ? allGroups : allGroups.filter(g => normB(g.branch) === activeLoc);
+  const audited = visible.filter(g => g.status === 'audited').length;
+  const flags   = visible.filter(g => g.status === 'audited_with_flags').length;
+  document.getElementById('st-total').textContent   = visible.length;
+  document.getElementById('st-audited').textContent = audited;
+  document.getElementById('st-flags').textContent   = flags;
+  document.getElementById('pill-total').textContent = `${visible.length} grupos`;
+  document.getElementById('pill-audited').textContent = `${audited + flags} auditados`;
+}
+
+/* ══════════════════════════════════════════════
+   BRANCH STRIP
+══════════════════════════════════════════════ */
+function initBranchStrip() {
+  const branches = [...new Set(allGroups.map(g => normB(g.branch)).filter(Boolean))];
+  const ordered  = BRANCH_ORDER.filter(b => branches.includes(b)).concat(branches.filter(b => !BRANCH_ORDER.includes(b)));
+  document.getElementById('branch-strip').innerHTML =
+    `<button class="btab active" onclick="setLoc('all',this)">Tudo</button>` +
+    ordered.map(b => `<button class="btab" onclick="setLoc('${b}',this)">${BRANCH_LABELS[b]||b}</button>`).join('');
+}
+
+function setLoc(loc, btn) {
+  activeLoc = loc;
+  document.querySelectorAll('.btab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  updateTopStats();
+  renderGroupList();
+}
+
+/* ══════════════════════════════════════════════
+   GROUP LIST (SIDEBAR)
+══════════════════════════════════════════════ */
+function renderGroupList() {
+  const visible = activeLoc === 'all' ? allGroups : allGroups.filter(g => normB(g.branch) === activeLoc);
+
+  // Sort: proposed first, then flags, then audited
+  const order = { proposed:0, audited_with_flags:1, audited:2 };
+  const sorted = [...visible].sort((a,b) => (order[a.status]||0) - (order[b.status]||0) || a.group_code.localeCompare(b.group_code));
+
+  if (!sorted.length) {
+    document.getElementById('group-list').innerHTML = `<div style="padding:20px;text-align:center;font-size:8px;color:var(--t3)">Nenhum grupo proposto.</div>`;
+    return;
+  }
+
+  const sections = [
+    { key: 'proposed',            label: 'Por auditar',   color: 'var(--gold2)' },
+    { key: 'audited_with_flags',  label: 'Com flags',     color: 'var(--amber)' },
+    { key: 'audited',             label: '✓ Auditados',   color: 'var(--green)' },
+  ];
+
+  let html = '';
+  sections.forEach(sec => {
+    const items = sorted.filter(g => g.status === sec.key);
+    if (!items.length) return;
+    html += `<div class="gl-sec-hdr"><span class="gl-sec-label" style="color:${sec.color}">${sec.label}</span><span class="gl-sec-n" style="color:${sec.color}">${items.length}</span></div>`;
+    items.forEach(g => {
+      const isActive = g.group_code === activeGroupId;
+      const sessions = g.sessions || [];
+      const days = [...new Set(sessions.map(s => s.day_of_week))].join(' + ');
+      const meta = LEVEL_MAP[g.level_code] || { label: g.level_display || g.level_code || '—' };
+      const n = g._refs?.length || 0;
+      const badgeCls = g.status === 'audited' ? 'gb-audited' : g.status === 'audited_with_flags' ? 'gb-flags' : 'gb-proposed';
+      const badgeTxt = g.status === 'audited' ? '✓' : g.status === 'audited_with_flags' ? '⚠' : '—';
+      html += `<div class="gl-item status-${g.status}${isActive?' active':''}" onclick="selectGroup('${g.group_code}')">
+        <div class="gl-item-body">
+          <div class="gl-item-code">${g.group_code}</div>
+          <div class="gl-item-sub">${days} · ${meta.label} · ${n} al</div>
+        </div>
+        <span class="gl-badge ${badgeCls}">${badgeTxt}</span>
+      </div>`;
+    });
+  });
+
+  document.getElementById('group-list').innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════
+   SELECT GROUP
+══════════════════════════════════════════════ */
+function selectGroup(groupCode) {
+  activeGroupId = groupCode;
+  renderGroupList();
+  renderAuditPanel(groupCode);
+}
+
+function renderAuditPanel(groupCode) {
+  const g = allGroups.find(x => x.group_code === groupCode);
+  if (!g) return;
+
+  const meta    = LEVEL_MAP[g.level_code] || { label: g.level_display || g.level_code || '—', dept: g.department || 'adults' };
+  const dept    = meta.dept || g.department || 'adults';
+  const color   = DEPT_COLORS[dept] || 'var(--c-ger)';
+  const sessions = g.sessions || [];
+  const days    = [...new Set(sessions.map(s => s.day_of_week))].join(' + ');
+  const startT  = sessions[0]?.start_time || '—';
+  const endT    = sessions[0]?.end_time   || '—';
+  const n       = g._refs?.length || 0;
+  const isAudited = ['audited','audited_with_flags'].includes(g.status);
+
+  // Sticker state
+  let stickerCls, stickerIcon, stickerLbl;
+  if (g.status === 'audited')             { stickerCls='pass';  stickerIcon='✓'; stickerLbl='APROVADO'; }
+  else if (g.status === 'audited_with_flags') { stickerCls='flags'; stickerIcon='⚠'; stickerLbl='C/ FLAGS'; }
+  else                                    { stickerCls='pending'; stickerIcon='◎'; stickerLbl='PENDENTE'; }
+
+  // Header
+  document.getElementById('audit-hdr').innerHTML = `
+    <div class="ah-title" style="color:${color}">${g.group_code}</div>
+    <div>
+      <div style="font-size:10px;font-weight:600;color:var(--t)">${days} · ${startT}–${endT}</div>
+      <div style="font-size:7.5px;color:var(--t3);margin-top:2px">${meta.label} · ${BRANCH_LABELS[normB(g.branch)]||g.branch||'—'}</div>
+    </div>
+    <div class="ah-stats">
+      <div class="ah-stat"><div class="ah-v" style="color:var(--gold2)">${n}</div><div class="ah-l">Alunos</div></div>
+      ${isAudited ? `
+      <div class="ah-stat"><div class="ah-v" style="color:var(--green)" id="hdr-pass">—</div><div class="ah-l">Pass</div></div>
+      <div class="ah-stat"><div class="ah-v" style="color:var(--amber)" id="hdr-warn">—</div><div class="ah-l">Aviso</div></div>
+      <div class="ah-stat"><div class="ah-v" style="color:var(--red)" id="hdr-fail">—</div><div class="ah-l">Fail</div></div>
+      ` : ''}
+    </div>`;
+
+  // Controls
+  const ctrlEl = document.getElementById('audit-controls');
+  ctrlEl.style.display = 'flex';
+  document.getElementById('btn-run-audit').disabled = _auditRunning;
+  document.getElementById('btn-run-audit').textContent = isAudited ? '↺ RE-AUDITAR' : '▶ INICIAR AUDITORIA';
+  document.getElementById('ac-status-lbl').textContent = isAudited ? `Auditado em ${new Date(g.audited_at).toLocaleString('pt-PT')}` : 'Pronto para auditar';
+
+  // Render student rows
+  renderStudentRows(g, false);
+}
+
+/* ══════════════════════════════════════════════
+   RENDER STUDENT ROWS
+══════════════════════════════════════════════ */
+function renderStudentRows(g, showResults) {
+  const area = document.getElementById('scroll-area');
+  const sessions = g.sessions || [];
+  const days = [...new Set(sessions.map(s => s.day_of_week))].join(' + ');
+  const startT = sessions[0]?.start_time || '—';
+  const proposedStartMins = timeToMins(startT);
+  const isAudited = showResults || ['audited','audited_with_flags'].includes(g.status);
+  const auditLog = g.audit_log || {};
+
+  const refs = g._refs || [];
+  if (!refs.length) {
+    area.innerHTML = `<div class="placeholder"><div class="placeholder-icon">📭</div><div class="placeholder-text">Nenhum aluno neste grupo</div></div>`;
+    return;
+  }
+
+  // Sticker
+  let stickerCls = 'pending', stickerIcon = '◎', stickerLbl = 'PENDENTE';
+  if (g.status === 'audited')             { stickerCls='pass';  stickerIcon='✓'; stickerLbl='APROVADO'; }
+  else if (g.status === 'audited_with_flags') { stickerCls='flags'; stickerIcon='⚠'; stickerLbl='C/ FLAGS'; }
+
+  // Summary banner
+  let passCount = 0, warnCount = 0, failCount = 0;
+  if (isAudited) {
+    refs.forEach(ref => {
+      const r = auditLog[ref];
+      if (!r) return;
+      if (r.verdict === 'pass') passCount++;
+      else if (r.verdict === 'warn') warnCount++;
+      else failCount++;
+    });
+  }
+
+  let bannerHTML = '';
+  if (isAudited) {
+    const allClear = failCount === 0 && warnCount === 0;
+    const bannerCls = allClear ? 'asb-pass' : 'asb-flags';
+    bannerHTML = `<div class="audit-summary-banner visible ${bannerCls}" style="margin-bottom:12px">
+      <div class="asb-icon">${allClear ? '✅' : '⚠️'}</div>
+      <div>
+        <div class="asb-title">${allClear ? 'Grupo aprovado — todos os slots confirmados' : `${failCount + warnCount} aluno${failCount+warnCount!==1?'s':''} com problemas`}</div>
+        <div class="asb-sub">${passCount} pass · ${warnCount} aviso · ${failCount} fail · auditado em ${g.audited_at ? new Date(g.audited_at).toLocaleString('pt-PT') : '—'}</div>
+      </div>
+    </div>`;
+    // Update header stats
+    const hp = document.getElementById('hdr-pass'), hw = document.getElementById('hdr-warn'), hf = document.getElementById('hdr-fail');
+    if (hp) hp.textContent = passCount;
+    if (hw) hw.textContent = warnCount;
+    if (hf) hf.textContent = failCount;
+  }
+
+  // Build proposed slots display per day
+  const proposedSlotsHTML = sessions.map(s => {
+    const dayIdx = DAY_NORM[s.day_of_week] ?? DAY_NORM[(s.day_of_week||'').toLowerCase()] ?? 0;
+    return `<span class="slot-chip neutral">${s.day_of_week} ${s.start_time}</span>`;
+  }).join('');
+
+  // Student rows
+  let rowsHTML = refs.map((ref, idx) => {
+    const enrol = enrolByRef[ref] || {};
+    const name  = enrol.name || ref;
+    const req   = rByRef[ref];
+    const col   = avCol(name);
+    const init  = avInit(name);
+    const refNum = ref.replace(/\D/g,'');
+
+    // Student's submitted slots
+    const studentSlots = parseStudentSlots(ref);
+    const slotsHTML = studentSlots.length
+      ? studentSlots.map(s => `<span class="slot-chip neutral">${s.label}</span>`).join('')
+      : '<span style="font-size:7px;color:var(--red)">Sem slots</span>';
+
+    // Verdict
+    let verdictHTML = '<span class="verdict-badge vb-pending">—</span>';
+    let reasonHTML  = '';
+    let rowCls      = '';
+
+    if (isAudited && auditLog[ref]) {
+      const r = auditLog[ref];
+      if (r.verdict === 'pass')      { verdictHTML = `<span class="verdict-badge vb-pass">✓ PASS</span>`; rowCls = 'row-pass'; }
+      else if (r.verdict === 'warn') { verdictHTML = `<span class="verdict-badge vb-warn">⚠ AVISO</span>`; rowCls = ''; }
+      else                           { verdictHTML = `<span class="verdict-badge vb-fail">✕ FAIL</span>`; rowCls = 'row-fail'; }
+      reasonHTML = `<div class="reason-text" title="${r.reason||''}">${r.reason||''}</div>`;
+    }
+
+    // Proposed slot chips showing match or mismatch per day
+    let matchHTML = '<div style="display:flex;flex-wrap:wrap;gap:2px">';
+    sessions.forEach(s => {
+      const dayIdx = DAY_NORM[s.day_of_week] ?? 0;
+      const propStart = timeToMins(s.start_time);
+      if (isAudited && auditLog[ref]) {
+        const res = auditStudent(ref, dayIdx, propStart);
+        const cls = res.verdict === 'pass' ? 'ok' : res.verdict === 'warn' ? 'neutral' : 'bad';
+        matchHTML += `<span class="slot-chip ${cls}">${s.day_of_week} ${s.start_time}</span>`;
+      } else {
+        matchHTML += `<span class="slot-chip neutral">${s.day_of_week} ${s.start_time}</span>`;
+      }
+    });
+    matchHTML += '</div>';
+
+    return `<div class="stu-row ${rowCls}" id="stu-row-${ref}">
+      <div class="stu-cell stu-num">${idx+1}</div>
+      <div class="stu-cell stu-ref">${refNum}</div>
+      <div class="stu-cell stu-name-wrap">
+        <div class="name">${name}</div>
+        <div class="sub">${enrol.branch ? (BRANCH_LABELS[normB(enrol.branch)]||enrol.branch) : '—'}</div>
+      </div>
+      <div class="stu-cell">${slotsHTML}</div>
+      <div class="stu-cell">${matchHTML}</div>
+      <div class="stu-cell">${verdictHTML}</div>
+      <div class="stu-cell">${reasonHTML}</div>
+    </div>`;
+  }).join('');
+
+  // Footer strip
+  let footerHTML = '';
+  if (isAudited) {
+    const allClear = failCount === 0 && warnCount === 0;
+    const btnLabel = g.status === 'confirmed' ? '✓ Já enviado para Decision' : '→ Enviar para Decision';
+    const btnCls   = g.status === 'confirmed' ? 'send-decision' : 'send-decision';
+    footerHTML = `<div class="audit-footer visible" id="audit-footer">
+      <div class="af-summary">
+        <strong>${passCount} alunos confirmados</strong> · ${warnCount} avisos · ${failCount} falhas ·
+        ${allClear ? '<span style="color:var(--green)">Grupo apto para Decision ✓</span>' : '<span style="color:var(--amber)">Revisar flags antes de enviar</span>'}
+      </div>
+      <button class="af-btn re-audit" onclick="runAudit()">↺ Re-auditar</button>
+      <button class="af-btn ${btnCls}" onclick="sendToDecision('${g.group_code}')" ${g.status==='confirmed'?'disabled':''}>
+        ${btnLabel}
+      </button>
+    </div>`;
+  }
+
+  area.innerHTML = `
+    ${bannerHTML}
+    <div style="margin-bottom:14px">
+      <div style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Slot proposto: ${proposedSlotsHTML}</div>
+    </div>
+    <div class="stu-table">
+      <div class="stu-table-hdr">
+        <span>#</span><span>Ref</span><span>Nome</span><span>Pedido (submetido)</span><span>Slot proposto</span><span>Veredicto</span><span>Razão</span>
+      </div>
+      ${rowsHTML}
+    </div>
+    ${footerHTML}`;
+}
+
+/* ══════════════════════════════════════════════
+   RUN AUDIT — live row-by-row animation
+══════════════════════════════════════════════ */
+async function runAudit() {
+  if (_auditRunning) return;
+  const g = allGroups.find(x => x.group_code === activeGroupId);
+  if (!g) return;
+
+  _auditRunning = true;
+  document.getElementById('btn-run-audit').disabled = true;
+  document.getElementById('btn-audit-all').disabled = true;
+
+  const refs = g._refs || [];
+  const sessions = g.sessions || [];
+
+  // Sticker → running
+  document.getElementById('ac-status-lbl').textContent = `Auditando ${refs.length} alunos…`;
+  document.getElementById('ac-prog-fill').style.width = '0%';
+
+  // Temporarily render rows in pending state
+  g.audit_log = {};
+  renderStudentRows(g, false);
+
+  // Animate sticker ring
+  const stickerEl = document.querySelector('.sticker-ring');
+
+  const auditLog = {};
+  let passCount = 0, warnCount = 0, failCount = 0;
+
+  for (let i = 0; i < refs.length; i++) {
+    const ref = refs[i];
+    const rowEl = document.getElementById(`stu-row-${ref}`);
+
+    // Mark as running
+    if (rowEl) { rowEl.classList.add('running'); const vEl = rowEl.querySelector('.verdict-badge'); if(vEl){vEl.className='verdict-badge vb-running';vEl.textContent='…';} }
+
+    // Audit against EACH session day
+    let overallVerdict = 'pass';
+    let overallReason  = 'Slot confirmado';
+    let matchedSlot    = null;
+
+    for (const session of sessions) {
+      const dayIdx   = DAY_NORM[session.day_of_week] ?? DAY_NORM[(session.day_of_week||'').toLowerCase()] ?? 0;
+      const propStart = timeToMins(session.start_time);
+      const result   = auditStudent(ref, dayIdx, propStart);
+
+      if (result.verdict === 'fail')                        { overallVerdict = 'fail'; overallReason = result.reason; break; }
+      if (result.verdict === 'warn' && overallVerdict !== 'fail') { overallVerdict = 'warn'; overallReason = result.reason; }
+      if (result.matchedSlot) matchedSlot = result.matchedSlot;
+    }
+
+    auditLog[ref] = { verdict: overallVerdict, reason: overallReason, matchedSlot, auditedAt: new Date().toISOString() };
+    if (overallVerdict === 'pass') passCount++;
+    else if (overallVerdict === 'warn') warnCount++;
+    else failCount++;
+
+    // Update row visually
+    if (rowEl) {
+      rowEl.classList.remove('running');
+      if (overallVerdict === 'pass')      rowEl.classList.add('row-pass');
+      else if (overallVerdict === 'fail') rowEl.classList.add('row-fail');
+      const vEl = rowEl.querySelector('.verdict-badge');
+      if (vEl) {
+        vEl.className = overallVerdict === 'pass' ? 'verdict-badge vb-pass' : overallVerdict === 'warn' ? 'verdict-badge vb-warn' : 'verdict-badge vb-fail';
+        vEl.textContent = overallVerdict === 'pass' ? '✓ PASS' : overallVerdict === 'warn' ? '⚠ AVISO' : '✕ FAIL';
+      }
+      // Update match chips
+      const matchCells = rowEl.querySelectorAll('.slot-chip');
+      // Re-render just the match column
+    }
+
+    // Progress bar
+    document.getElementById('ac-prog-fill').style.width = `${Math.round((i+1)/refs.length*100)}%`;
+    await new Promise(r => setTimeout(r, 120)); // animate delay
+  }
+
+  // Determine group status
+  const newStatus = (failCount === 0 && warnCount === 0) ? 'audited' : 'audited_with_flags';
+  g.audit_log   = auditLog;
+  g.status      = newStatus;
+  g.audited_at  = new Date().toISOString();
+
+  // Write to Supabase — update ALL sessions of this group
+  try {
+    for (const session of sessions) {
+      await sbPatch('classes',
+        `group_code=eq.${encodeURIComponent(g.group_code)}&academic_year=eq.${encodeURIComponent(AY)}`,
+        { status: newStatus, audit_log: auditLog, audited_at: g.audited_at }
+      );
+    }
+    setConn(true);
+  } catch(err) {
+    setConn(false);
+    showToast('Erro ao guardar auditoria: ' + err.message, 'err');
+  }
+
+  // Re-render with results
+  renderStudentRows(g, true);
+  renderGroupList();
+  updateTopStats();
+
+  document.getElementById('ac-status-lbl').textContent = `Auditado: ${passCount} pass · ${warnCount} aviso · ${failCount} fail`;
+  document.getElementById('btn-run-audit').textContent = '↺ RE-AUDITAR';
+  document.getElementById('btn-run-audit').disabled = false;
+  document.getElementById('btn-audit-all').disabled = false;
+  _auditRunning = false;
+
+  const msg = newStatus === 'audited'
+    ? `${g.group_code} ✓ — ${passCount} slots confirmados`
+    : `${g.group_code} ⚠ — ${failCount} fail · ${warnCount} avisos`;
+  showToast(msg, newStatus === 'audited' ? 'ok' : 'warn');
+}
+
+/* ══════════════════════════════════════════════
+   AUDIT ALL GROUPS IN BRANCH
+══════════════════════════════════════════════ */
+async function runAuditAll() {
+  if (_auditRunning) return;
+  const visible = (activeLoc === 'all' ? allGroups : allGroups.filter(g => normB(g.branch) === activeLoc))
+    .filter(g => g.status === 'proposed');
+  if (!visible.length) { showToast('Nenhum grupo por auditar', 'warn'); return; }
+
+  showToast(`A auditar ${visible.length} grupos…`, 'info');
+  for (const g of visible) {
+    activeGroupId = g.group_code;
+    renderGroupList();
+    renderAuditPanel(g.group_code);
+    await runAudit();
+    await new Promise(r => setTimeout(r, 200));
+  }
+  showToast(`${visible.length} grupos auditados`, 'ok');
+}
+
+/* ══════════════════════════════════════════════
+   SEND TO DECISION
+══════════════════════════════════════════════ */
+async function sendToDecision(groupCode) {
+  const g = allGroups.find(x => x.group_code === groupCode);
+  if (!g) return;
+
+  const log = g.audit_log || {};
+  const failCount = Object.values(log).filter(r => r.verdict === 'fail').length;
+
+  if (failCount > 0) {
+    const proceed = confirm(`Este grupo tem ${failCount} aluno${failCount!==1?'s':''} com FAIL.\nEnviar mesmo assim para Decision?`);
+    if (!proceed) return;
+  }
+
+  try {
+    await sbPatch('classes',
+      `group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,
+      { status: 'audited' }
+    );
+    g.status = 'audited';
+    setConn(true);
+    renderGroupList();
+    renderStudentRows(g, true);
+    showToast(`${groupCode} → Decision ✓`, 'ok');
+  } catch(err) {
+    setConn(false);
+    showToast('Erro: ' + err.message, 'err');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════ */
+let _toastT;
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') activeGroupId = null;
+});
+
+boot();
+</script>
+</body>
+</html>
