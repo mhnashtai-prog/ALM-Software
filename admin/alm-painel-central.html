@@ -304,6 +304,9 @@ body{display:flex;flex-direction:column}
 /* ── STUDENT TABLE ── */
 .stu-sec-hdr{font-size:7.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .stu-sec-hdr::after{content:'';flex:1;height:.5px;background:var(--b2)}
+.stu-filter-btn{font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--b);cursor:pointer;color:var(--t3);background:transparent;font-family:var(--mono);transition:all .13s}
+.stu-filter-btn:hover{color:var(--fc,var(--t2));border-color:var(--fc,var(--b2))}
+.stu-filter-btn.act{background:color-mix(in srgb,var(--fc,var(--gold)) 12%,transparent);border-color:var(--fc,var(--gold));color:var(--fc,var(--gold2))}
 .stu-hdr{display:grid;grid-template-columns:1fr 120px 70px 40px;font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:4px 0 7px;border-bottom:1px solid var(--b2)}
 .stu-hdr span{padding:0 3px}
 .stu-row{display:grid;grid-template-columns:1fr 120px 70px 40px;align-items:center;border-bottom:.5px solid rgba(201,168,76,.04);transition:background .1s;cursor:pointer}
@@ -1348,7 +1351,7 @@ function renderOvSummary() {
   html += `</div><div class="sec">Próximas acções</div>
   <div style="background:var(--bg2);border:1px solid var(--b);padding:2px 14px;margin-bottom:14px">
     <div class="action-row"><div class="action-dot" style="background:var(--red)"></div><span style="color:var(--t2)">${sem} aluno${sem!==1?'s':''} sem pedido de horário</span><button class="action-btn action-btn-gold" onclick="switchMainTab('audit',document.getElementById('tab-audit'))">Audit →</button></div>
-    <div class="action-row"><div class="action-dot" style="background:var(--teal)"></div><span style="color:var(--t2)">Formação de turmas em curso</span><button class="action-btn action-btn-gold" onclick="switchMainTab('formation',document.getElementById('tab-formation'))">Formation →</button></div>
+    <div class="action-row"><div class="action-dot" style="background:var(--teal)"></div><span style="color:var(--t2)">Formação de turmas em curso</span><button class="action-btn action-btn-gold" onclick="setContentMode('formation')">Formation →</button></div>
     <div class="action-row"><div class="action-dot" style="background:var(--green)"></div><span style="color:var(--t2)">Atribuir professores a turmas aprovadas</span><a class="action-btn action-btn-green" href="/admin/alm-atribuir-turmas">Assign →</a></div>
   </div>
   <div style="font-size:7.5px;color:var(--t3);padding:4px 0">← Seleccione um nível para ver detalhes</div>`;
@@ -1650,23 +1653,180 @@ function buildSinalizadosHTML(result) {
   return html;
 }
 
+let _stuFilter = 'all';
+function setStuFilter(f, btn) {
+  _stuFilter = f;
+  document.querySelectorAll('.stu-filter-btn').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  const area = document.getElementById('scroll-area');
+  const existing = area.querySelector('.stu-table-wrap');
+  if (existing) {
+    const allStudents = locStu().filter(e => lk(e) === activeLevelKey);
+    existing.outerHTML = buildStudentTable(allStudents);
+  }
+}
+
 function buildStudentTable(allStudents) {
-  let html = `<div class="stu-sec-hdr" style="margin-top:14px">Alunos · ${allStudents.length} registos</div>
-  <div class="stu-hdr"><span>Nome</span><span>Disponibilidade</span><span>Status</span><span></span></div>`;
-  allStudents.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(e => {
-    const a = analysePrefs(e.ref), dayIdxs = a ? a.dayIdxs : [];
-    const cells = DAYS_PT.map((_,di) => `<div class="hcell${dayIdxs.includes(di)?' on':''}"></div>`).join('');
+  // Build turma lookup: ref → turma label
+  const turmaByRef = {};
+  if (_lastResult?.groups) {
+    _lastResult.groups.forEach((g, i) => {
+      const created = (_createdGroups[activeLevelKey]||{})[i];
+      const label = created ? created.turmaCode : `T${i+1}`;
+      g.students.forEach(e => { turmaByRef[e.ref] = { label, color: GROUP_COLORS[i % GROUP_COLORS.length] }; });
+    });
+  }
+
+  const sorted = [...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+
+  // Filter
+  const filtered = sorted.filter(e => {
+    if (_stuFilter === 'all') return true;
+    const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
+    if (_stuFilter === 'atribuido') return st === 'atribuido';
+    if (_stuFilter === 'pendente')  return st === 'pendente';
+    if (_stuFilter === 'sem')       return st === 'sem_pedido';
+    if (_stuFilter === 'turma')     return !!turmaByRef[e.ref];
+    if (_stuFilter === 'sinal')     return _lastResult?.sinalizados?.find(s => s.e.ref === e.ref);
+    return true;
+  });
+
+  const meta = LEVEL_MAP[activeLevelKey] || {};
+  const branch = activeLoc === 'all' ? 'Todas as filiais' : (BRANCH_LABELS[activeLoc] || activeLoc);
+  const counts = {
+    all: allStudents.length,
+    atribuido: sorted.filter(e => rByRef[e.ref] && normS(rByRef[e.ref].status)==='atribuido').length,
+    pendente:  sorted.filter(e => rByRef[e.ref] && normS(rByRef[e.ref].status)==='pendente').length,
+    sem:       sorted.filter(e => !rByRef[e.ref] || normS(rByRef[e.ref].status)==='sem_pedido').length,
+    turma:     sorted.filter(e => !!turmaByRef[e.ref]).length,
+    sinal:     _lastResult?.sinalizados?.length || 0,
+  };
+
+  const filterChips = [
+    { k:'all',      lbl:`Todos ${counts.all}`,           col:'var(--t2)' },
+    { k:'turma',    lbl:`Em turma ${counts.turma}`,      col:'var(--teal)' },
+    { k:'atribuido',lbl:`Atribuído ${counts.atribuido}`, col:'var(--green)' },
+    { k:'pendente', lbl:`Pendente ${counts.pendente}`,   col:'var(--amber)' },
+    { k:'sem',      lbl:`Sem pedido ${counts.sem}`,      col:'var(--red)' },
+    { k:'sinal',    lbl:`Sinalizado ${counts.sinal}`,    col:'var(--purple)' },
+  ].map(({k,lbl,col}) =>
+    `<button class="stu-filter-btn${_stuFilter===k?' act':''}" style="--fc:${col}" onclick="setStuFilter('${k}',this)">${lbl}</button>`
+  ).join('');
+
+  let html = `<div class="stu-table-wrap" style="margin-top:14px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+    <div class="stu-sec-hdr" style="margin:0;flex-shrink:0">Alunos · ${filtered.length}${filtered.length!==allStudents.length?` / ${allStudents.length}`:''}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1">${filterChips}</div>
+    <button onclick="printStudentList()" style="padding:3px 10px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);font-size:7.5px;cursor:pointer;flex-shrink:0;transition:all .12s" onmouseover="this.style.borderColor='var(--b3)'" onmouseout="this.style.borderColor='var(--b2)'">⎙ Imprimir</button>
+    <button onclick="exportLevelCSV()" style="padding:3px 10px;border:1px solid var(--green-b);color:var(--green);background:transparent;font-family:var(--mono);font-size:7.5px;cursor:pointer;flex-shrink:0;transition:all .12s" onmouseover="this.style.background='var(--green-a)'" onmouseout="this.style.background='transparent'">↓ CSV</button>
+  </div>
+  <div class="stu-hdr" style="grid-template-columns:32px 90px 1fr 90px 70px 40px">
+    <span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span>
+  </div>`;
+
+  filtered.forEach((e, idx) => {
+    const a = analysePrefs(e.ref);
+    const slots = a ? a.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
     const st    = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
     const stCol = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
     const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
-    html += `<div class="stu-row" onclick="openDossier('${e.ref}')">
-      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref||'—'}</div></div>
-      <div class="stu-cell"><div class="heatstrip">${cells}</div><div style="font-size:5.5px;color:var(--t4);margin-top:2px;letter-spacing:.04em">S T Q Q S S</div></div>
+    const turma = turmaByRef[e.ref];
+    const refNum = (e.ref||'').replace(/\D/g,'');
+    html += `<div class="stu-row" style="grid-template-columns:32px 90px 1fr 90px 70px 40px" onclick="openDossier('${e.ref}')">
+      <div class="stu-cell" style="color:var(--t4);font-size:8px">${idx+1}</div>
+      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${refNum}</div>
+      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
+      <div class="stu-cell">${turma ? `<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44">${turma.label}</span>` : '<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
       <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
       <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
     </div>`;
   });
+
+  html += `</div>`;
   return html;
+}
+
+function exportLevelCSV() {
+  if (!activeLevelKey) return;
+  const meta = LEVEL_MAP[activeLevelKey]||{};
+  const turmaByRef = {};
+  if (_lastResult?.groups) {
+    _lastResult.groups.forEach((g, i) => {
+      const created = (_createdGroups[activeLevelKey]||{})[i];
+      const label = created ? created.turmaCode : `T${i+1}`;
+      g.students.forEach(e => { turmaByRef[e.ref] = label; });
+    });
+  }
+  const students = locStu().filter(e => lk(e) === activeLevelKey).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const rows = [`ALM · ${meta.label} · ${new Date().toLocaleDateString('pt-PT')}`, `Total: ${students.length}`, '', '#,Ref,Nome,Turma,Disponibilidade,Status'];
+  students.forEach((e, i) => {
+    const a = analysePrefs(e.ref);
+    const slots = a ? a.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' / ') : '';
+    const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem pedido';
+    const turma = turmaByRef[e.ref] || '—';
+    rows.push(`${i+1},"${e.ref}","${e.name||''}","${turma}","${slots}","${st}"`);
+  });
+  dlCSV(rows.join('\n'), `ALM-${meta.label}-lista.csv`);
+  showToast(`CSV exportado · ${students.length} alunos`, 'ok');
+}
+
+function printStudentList() {
+  if (!activeLevelKey) return;
+  const meta = LEVEL_MAP[activeLevelKey]||{};
+  const turmaByRef = {};
+  if (_lastResult?.groups) {
+    _lastResult.groups.forEach((g, i) => {
+      const created = (_createdGroups[activeLevelKey]||{})[i];
+      const label = created ? created.turmaCode : `T${i+1}`;
+      g.students.forEach(e => { turmaByRef[e.ref] = label; });
+    });
+  }
+  const students = locStu().filter(e => lk(e) === activeLevelKey).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const branch = activeLoc === 'all' ? 'Todas as filiais' : (BRANCH_LABELS[activeLoc] || activeLoc);
+  const rows = students.map((e, i) => {
+    const a = analysePrefs(e.ref);
+    const slots = a ? a.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+    const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem pedido';
+    const turma = turmaByRef[e.ref] || '—';
+    const stColor = st==='atribuido'?'#1a7a4a':st==='sem pedido'?'#a02020':'#8a6000';
+    return `<tr>
+      <td style="color:#999">${i+1}</td>
+      <td style="font-family:monospace;color:#666">${(e.ref||'').replace(/\D/g,'')}</td>
+      <td style="font-weight:500">${e.name||'—'}</td>
+      <td style="font-family:monospace;font-weight:700;color:#1a6a4a">${turma}</td>
+      <td style="font-family:monospace;font-size:11px;color:#444">${slots}</td>
+      <td style="color:${stColor};font-weight:600;font-size:11px">${st}</td>
+    </tr>`;
+  }).join('');
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+  <title>ALM · ${meta.label} · ${branch}</title>
+  <style>
+    body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#111;padding:20px 28px;max-width:900px;margin:0 auto}
+    h1{font-size:22px;font-weight:700;letter-spacing:2px;margin-bottom:2px}
+    .sub{font-size:11px;color:#666;margin-bottom:16px}
+    .kpis{display:flex;gap:20px;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #eee}
+    .kpi{text-align:center}.kpi-v{font-size:22px;font-weight:700}.kpi-l{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#999;margin-top:2px}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#999;padding:5px 6px;border-bottom:1.5px solid #ddd;text-align:left;font-weight:600}
+    td{padding:6px 6px;border-bottom:.5px solid #eee;vertical-align:middle}
+    tr:hover td{background:#fafafa}
+    @media print{body{padding:10px}button{display:none}}
+  </style></head><body>
+  <h1>A L M</h1>
+  <div class="sub">${meta.label} · ${branch} · ${new Date().toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'})}</div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-v">${students.length}</div><div class="kpi-l">Inscritos</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#1a7a4a">${students.filter(e=>rByRef[e.ref]&&normS(rByRef[e.ref].status)==='atribuido').length}</div><div class="kpi-l">Atribuídos</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#1a6a4a">${Object.keys(turmaByRef).length}</div><div class="kpi-l">Em turma</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#a02020">${students.filter(e=>!rByRef[e.ref]).length}</div><div class="kpi-l">Sem pedido</div></div>
+  </div>
+  <table><thead><tr><th>#</th><th>Ref</th><th>Nome</th><th>Turma</th><th>Disponibilidade</th><th>Estado</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <script>window.print()<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 function toggleGCard(i) { document.getElementById(`gcard-${i}`)?.classList.toggle('open'); }
