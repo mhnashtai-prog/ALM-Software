@@ -839,6 +839,7 @@ let _pendingCreateIdx = null;
 let auditFilters = { branch:'all', status:'all', dept:'all' };
 let watchFilter = 'all';
 let activeMainTab = 'overview';
+let formationSub = 'calor';
 
 /* ══════════════════════════════════════════════
    HELPERS
@@ -935,8 +936,12 @@ function setContentMode(mode) {
   contentMode = mode;
   document.getElementById('ts-overview').classList.toggle('active', mode === 'overview');
   document.getElementById('ts-formation').classList.toggle('active', mode === 'formation');
-  const subCtrl = document.getElementById('formation-sub-controls');
+  coconst subCtrl = document.getElementById('formation-sub-controls');
   subCtrl.style.display = mode === 'formation' ? 'flex' : 'none';
+  if (mode === 'formation') {
+    document.getElementById('ts-calor')?.classList.toggle('active', formationSub === 'calor');
+    document.getElementById('ts-pinos')?.classList.toggle('active', formationSub === 'pinos');
+  }
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const tabEl = document.getElementById(mode === 'formation' ? 'tab-formation' : 'tab-overview');
   if (tabEl) tabEl.classList.add('active');
@@ -1373,9 +1378,156 @@ function renderOvLevel(allStudents, withReq, meta, dc, capPct) {
 }
 
 /* ── FORMATION level content ── */
+/* ── Formation sub-mode toggle ── */
+function setFormationSub(sub) {
+  formationSub = sub;
+  document.getElementById('ts-calor').classList.toggle('active', sub === 'calor');
+  document.getElementById('ts-pinos').classList.toggle('active', sub === 'pinos');
+  renderLevelContent();
+}
+
+/* ── PINS GRID ── */
+function buildPinsGrid(withReq) {
+  const dept = (LEVEL_MAP[activeLevelKey]||{}).dept || 'adults';
+  const HOURS_AM = [8,9,10,11], HOURS_PM = [14,15,16,17,18,19,20];
+  const ROW_STRIDE = ROW_H + 3;
+  const HEADER_H = 22;
+
+  // Maps a startMins value to a left% within the scrollable grid content area.
+  // Grid = 4 AM cols + 1 gap unit + 7 PM cols = 12 units total.
+  // Gap is fixed at 16px but we approximate as 1 unit for percentage math.
+  function timeToLeftPct(mins) {
+    const hr = Math.floor(mins / 60);
+    const frac = (mins % 60) / 60;
+    const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length; // 12
+    const amIdx = HOURS_AM.indexOf(hr);
+    if (amIdx !== -1) return ((amIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
+    const pmIdx = HOURS_PM.indexOf(hr);
+    if (pmIdx !== -1) return ((HOURS_AM.length + 1 + pmIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
+    return '0%';
+  }
+
+  // Day-label column — identical structure to heatmap
+  let dayColHTML = `<div class="sg-day-col" style="padding-top:${HEADER_H}px">`;
+  DAYS_PT.forEach((_, di) => {
+    const hasData = withReq.some(e => { const a = analysePrefs(e.ref); return a && a.dayIdxs.includes(di); });
+    dayColHTML += `<div class="sg-day-lbl${hasData?' has-data':''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">${DAYS_PT[di]}</div>`;
+  });
+  dayColHTML += `</div>`;
+
+  // Heatmap data (dimmed — same as buildSchoolGrid but lower alpha)
+  const heatmap = buildHeatmap(withReq);
+  const allVals = DAYS_PT.flatMap(d => HOURS_AM.concat(HOURS_PM).map(h => heatmap[d][h]));
+  const maxVal  = Math.max(...allVals, 1);
+
+  function buildDimCell(day, di, h) {
+    const rgb = DAY_RGB_VALS[di];
+    const n   = heatmap[day]?.[h] || 0;
+    const pct = Math.round(n / maxVal * 100);
+    const bandH  = n === 0 ? 0 : Math.max(8, Math.round(pct/100*ROW_H));
+    const alpha  = n === 0 ? 0 : (0.06 + pct/100*0.22).toFixed(2); // dimmed vs normal
+    const bAlpha = (0.10 + pct/100*0.18).toFixed(2);
+    return `<div class="sg-cell" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+      <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
+    </div>`;
+  }
+
+  // Main grid with relative positioning for the pins overlay
+  let mainHTML = `<div class="sg-main" style="position:relative">`;
+
+  // Time header
+  mainHTML += `<div class="sg-time-hdr">`;
+  HOURS_AM.forEach(h => mainHTML += `<div class="sg-time-lbl">${h}h</div>`);
+  mainHTML += `<div class="sg-time-gap"></div>`;
+  HOURS_PM.forEach(h => mainHTML += `<div class="sg-time-lbl">${h}h</div>`);
+  mainHTML += `</div>`;
+
+  // Dimmed heatmap rows
+  DAYS_PT.forEach((day, di) => {
+    mainHTML += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px">`;
+    HOURS_AM.forEach(h => mainHTML += buildDimCell(day, di, h));
+    mainHTML += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
+    HOURS_PM.forEach(h => mainHTML += buildDimCell(day, di, h));
+    mainHTML += `</div>`;
+  });
+
+  // Pins overlay — absolutely positioned, above heatmap, zero impact on cell height
+  let pinsHTML = `<div style="position:absolute;top:${HEADER_H}px;left:0;right:0;pointer-events:none;z-index:5">`;
+
+  if (_lastResult?.groups?.length) {
+    _lastResult.groups.forEach((g, i) => {
+      const col     = GROUP_COLORS[i % GROUP_COLORS.length];
+      const n       = g.students.length;
+      const ready   = n >= ASSIGN_MIN;
+      const created = (_createdGroups[activeLevelKey]||{})[i];
+      const ring    = created ? 'var(--green)' : ready ? col : 'var(--amber)';
+      const pairDays = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+
+      pairDays.forEach((dayIdx, slotIdx) => {
+        const leftPct = timeToLeftPct(g.startMins);
+        // Vertically centred in the row for this dayIdx
+        const topPx = dayIdx * ROW_STRIDE + ROW_STRIDE / 2;
+        const slotLetter = slotIdx === 0 ? 'A' : 'B';
+        const groupLabel = i + 1;
+
+        pinsHTML += `<div style="
+            position:absolute;
+            top:${topPx}px;
+            left:${leftPct};
+            transform:translate(-50%,-50%);
+            pointer-events:all;
+            cursor:pointer;
+          "
+          onclick="toggleGCard(${i});setTimeout(()=>{const c=document.getElementById('gcard-${i}');if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'})},60)"
+          title="Turma ${groupLabel} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime} · ${n} alunos">
+          <div style="
+            width:34px;height:34px;border-radius:50%;
+            background:${ring}1A;
+            border:2px solid ${ring};
+            display:flex;align-items:center;justify-content:center;
+            flex-direction:column;gap:0;
+            box-shadow:0 2px 14px ${ring}55,0 0 0 3px ${ring}11;
+            transition:transform .14s,box-shadow .14s;
+          "
+          onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 4px 20px ${ring}88,0 0 0 5px ${ring}22'"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 2px 14px ${ring}55,0 0 0 3px ${ring}11'">
+            <div style="font-size:9px;font-weight:700;line-height:1.1;color:${ring};font-family:var(--mono)">${groupLabel}${slotLetter}</div>
+            <div style="font-size:8px;font-weight:700;line-height:1;color:${ring};font-family:var(--mono)">${created?'✓':n}</div>
+          </div>
+        </div>`;
+      });
+    });
+  }
+
+  pinsHTML += `</div>`; // end overlay
+  mainHTML  += pinsHTML + `</div>`; // end sg-main
+
+  // Legend
+  const legendHTML = `<div style="display:flex;gap:10px;align-items:center;margin-left:auto;flex-shrink:0">
+    <div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--green)"></div><span style="font-size:7px;color:var(--t3)">criada</span></div>
+    <div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid ${GROUP_COLORS[0]}"></div><span style="font-size:7px;color:var(--t3)">pronta (≥8)</span></div>
+    <div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--amber)"></div><span style="font-size:7px;color:var(--t3)">aguardar</span></div>
+  </div>`;
+
+  const groupCount = _lastResult?.groups?.length || 0;
+  const placed     = _lastResult?.placed || 0;
+
+  return `<div class="school-grid-wrap">
+    <div class="school-grid-head">
+      <span class="school-grid-title">📍 Pinos · ${groupCount} turma${groupCount!==1?'s':''} proposta${groupCount!==1?'s':''}</span>
+      ${legendHTML}
+      <span style="font-size:7.5px;color:var(--t3)">${placed} de ${withReq.length} alocados</span>
+    </div>
+    <div class="school-grid-outer">
+      <div class="school-grid" style="min-width:520px">${dayColHTML}${mainHTML}</div>
+    </div>
+  </div>`;
+}
+
+/* ── FORMATION level content ── */
 function renderFormationLevel(withReq, allStudents) {
   const area = document.getElementById('scroll-area');
-  let html = buildSchoolGrid(withReq);
+  let html = formationSub === 'pinos' ? buildPinsGrid(withReq) : buildSchoolGrid(withReq);
 
   if (_lastResult?.groups?.length) {
     html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''} · ${_lastResult.placed} alunos alocados</div>`;
