@@ -461,6 +461,24 @@ body{display:flex;flex-direction:column}
 .toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
 .toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
 .toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+
+/* ══ BRANCH BAR CHART ══ */
+.barchart-wrap{background:var(--bg2);border:1px solid var(--b2);padding:14px;margin-bottom:14px}
+.barchart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.barchart-legend-item{display:flex;align-items:center;gap:5px;font-size:7.5px;color:var(--t2)}
+.barchart-legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.barchart-rows{display:flex;flex-direction:column;gap:5px}
+.barchart-row{display:flex;align-items:center;gap:8px}
+.barchart-row-label{font-size:8px;font-weight:600;color:var(--t3);width:52px;text-align:right;flex-shrink:0;font-family:var(--mono);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barchart-row-track{flex:1;display:flex;height:22px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.03)}
+.barchart-segment{display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;font-family:var(--mono);color:rgba(0,0,0,.65);transition:width .6s cubic-bezier(.4,0,.2,1);overflow:hidden;white-space:nowrap;min-width:0;flex-shrink:0}
+.barchart-segment:first-child{border-radius:2px 0 0 2px}
+.barchart-segment:last-child{border-radius:0 2px 2px 0}
+.barchart-segment.solo{border-radius:2px}
+.barchart-row-total{font-size:8px;font-weight:700;color:var(--t3);width:28px;text-align:left;flex-shrink:0;font-family:var(--mono)}
+.barchart-axis{display:flex;margin-left:60px;margin-top:4px;padding-right:36px}
+.barchart-axis-tick{flex:1;font-size:6.5px;color:var(--t4);text-align:center;font-family:var(--mono)}
+  
 </style>
 </head>
 <body>
@@ -1745,6 +1763,76 @@ function ovRenderTree(){
 }
 function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovRenderLevelDetail(key);}
 
+/* Branch colours for the stacked bar chart */
+const BRANCH_COLORS={
+  FUNCHAL:'#4A8FF5',
+  CAMARA_LOBOS:'#1DB87A',
+  SANTA_CRUZ:'#E8A020',
+  MACHICO:'#E8455A',
+  RIBEIRA_BRAVA:'#9B5ECA',
+  CALHETA:'#28C8B0',
+};
+
+function buildBranchBarChart(students){
+  /* Collect all branches present */
+  const branches=[...new Set(students.map(e=>normB(e.branch)).filter(Boolean))];
+  const ordered=BRANCH_ORDER.filter(b=>branches.includes(b)).concat(branches.filter(b=>!BRANCH_ORDER.includes(b)));
+
+  /* Group by level, count per branch */
+  const byLevel={};
+  students.forEach(e=>{
+    const key=lk(e),meta=LEVEL_MAP[key]||{},label=meta.label||key;
+    if(!byLevel[label])byLevel[label]={label,order:meta.order||99,counts:{},total:0};
+    const br=normB(e.branch)||'OTHER';
+    byLevel[label].counts[br]=(byLevel[label].counts[br]||0)+1;
+    byLevel[label].total++;
+  });
+
+  const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
+  if(!rows.length)return'';
+  const maxTotal=Math.max(...rows.map(r=>r.total),1);
+
+  /* Legend */
+  let legend=`<div class="barchart-legend">`;
+  ordered.forEach(br=>{
+    const col=BRANCH_COLORS[br]||'var(--t3)';
+    legend+=`<div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:${col}"></div>${BRANCH_LABELS[br]||br}</div>`;
+  });
+  legend+=`</div>`;
+
+  /* Rows */
+  let rowsHTML=`<div class="barchart-rows">`;
+  rows.forEach(row=>{
+    const total=row.total;
+    const segments=ordered.map((br,bi)=>{
+      const n=row.counts[br]||0;if(!n)return'';
+      const pct=(n/maxTotal*100).toFixed(2);
+      const col=BRANCH_COLORS[br]||'var(--t3)';
+      const solo=ordered.filter(b=>row.counts[b]>0).length===1?' solo':'';
+      const lbl=n>=8?n:'';
+      return`<div class="barchart-segment${solo}" style="width:${pct}%;background:${col}" title="${BRANCH_LABELS[br]||br}: ${n}">${lbl}</div>`;
+    }).join('');
+    rowsHTML+=`<div class="barchart-row">
+      <div class="barchart-row-label" title="${row.label}">${row.label}</div>
+      <div class="barchart-row-track">${segments}</div>
+      <div class="barchart-row-total">${total}</div>
+    </div>`;
+  });
+  rowsHTML+=`</div>`;
+
+  /* Axis ticks */
+  const ticks=[0,25,50,75,100].map(p=>{
+    const v=Math.round(p/100*maxTotal);
+    return`<div class="barchart-axis-tick">${v}</div>`;
+  }).join('');
+  const axis=`<div class="barchart-axis">${ticks}</div>`;
+
+  return`<div class="barchart-wrap">
+    <div class="sec" style="margin-bottom:10px">Inscrições por nível · por filial</div>
+    ${legend}${rowsHTML}${axis}
+  </div>`;
+}
+
 function ovRenderSummary(){
   const students=ovStudents(),total=students.length;
   const el=document.getElementById('ov-right');
@@ -1754,14 +1842,18 @@ function ovRenderSummary(){
   const deptCounts={};DEPT_ORDER.forEach(dk=>{deptCounts[dk]=students.filter(e=>(LEVEL_MAP[lk(e)]||{}).dept===dk).length;});
   const maxD=Math.max(...Object.values(deptCounts),1);
   let totalCert=0;Object.values(_groupCodes).forEach(lvl=>totalCert+=Object.keys(lvl).length);
+
   let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:14px">
     <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--gold2)">${total}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Inscritos</div></div>
     <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${com}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Com pedido</div></div>
     <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--red)">${sem}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Sem pedido</div></div>
     <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${totalCert}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Turmas cert.</div></div>
-    ${_exceptionQueue.length>0?`<div style="background:var(--bg2);border:1px solid var(--amber-b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--amber)">${_exceptionQueue.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Excepções</div></div>`:''}
+    ${_exceptionQueue.length>0?`<div style="background:var(--bg2);border:1px solid var(--amber-b);background:var(--amber-a);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--amber)">${_exceptionQueue.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Excepções</div></div>`:''}
   </div>
+
+  ${buildBranchBarChart(students)}
+
   <div class="sec">Por departamento</div>
   <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 14px;margin-bottom:14px">`;
   DEPT_ORDER.forEach(dk=>{
@@ -1779,44 +1871,6 @@ function ovRenderSummary(){
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--green)"></div><span style="color:var(--t2)">Aprovar e atribuir professores</span><button onclick="switchCC('decision',document.getElementById('tab-decision'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--green-b);color:var(--green);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Decision →</button></div>
   </div>
   <div style="font-size:7.5px;color:var(--t3)">← Seleccione um nível no painel esquerdo para ver detalhes</div>`;
-  el.innerHTML=html;
-}
-
-function ovRenderLevelDetail(key){
-  const el=document.getElementById('ov-right');
-  const students=ovStudents().filter(e=>lk(e)===key);
-  if(!students.length){el.innerHTML=`<div class="empty-msg">Nenhum aluno neste nível para a filial seleccionada.</div>`;return;}
-  const meta=LEVEL_MAP[key]||{},dc=DEPT_CFG[meta.dept||'adults']||{};
-  const com=students.filter(e=>rByRef[e.ref]).length,sem=students.length-com;
-  const capPct=Math.round(students.length/(meta.maxCap||60)*100);
-  const result=_allResults[key];
-  const placed=result?result.placed:0,sinalN=result?result.sinalizados.length:0;
-  const certN=Object.keys(_groupCodes[key]||{}).length;
-  let html=`<div class="sec">${meta.label} <span style="font-size:8.5px;font-family:var(--sans);text-transform:none;letter-spacing:0;color:${dc.color}">· ${dc.label||''}</span></div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;margin-bottom:14px">
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:9px 11px"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${students.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div>
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:9px 11px"><div style="font-size:20px;font-weight:700;color:var(--green)">${com}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div>
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:9px 11px"><div style="font-size:20px;font-weight:700;color:var(--red)">${sem}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>
-    ${result?`<div style="background:var(--bg2);border:1px solid var(--b);padding:9px 11px"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>`:''}
-    ${certN>0?`<div style="background:var(--bg2);border:1px solid var(--green-b);background:var(--green-a);padding:9px 11px"><div style="font-size:20px;font-weight:700;color:var(--green)">${certN}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-top:2px">Certificadas</div></div>`:''}
-  </div>`;
-  /* Capacity bar */
-  html+=`<div style="font-size:6.5px;color:var(--t3);margin-bottom:4px">${capPct}% capacidade (máx ${meta.maxCap||60})</div>
-  <div style="height:3px;background:rgba(255,255,255,.04);margin-bottom:14px;overflow:hidden"><div style="height:100%;width:${capPct}%;background:${meta.color};transition:width .6s"></div></div>`;
-  /* Student list */
-  html+=`<div class="sec">Alunos</div>`;
-  students.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(e=>{
-    const a=analysePrefs(e.ref),dayIdxs=a?a.dayIdxs:[];
-    const cells=DAYS_PT.map((_,di)=>`<div class="hcell${dayIdxs.includes(di)?' on':''}"></div>`).join('');
-    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
-    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    html+=`<div style="display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:.5px solid rgba(201,168,76,.04);cursor:pointer;transition:background .1s" onmouseover="this.style.background='rgba(201,168,76,.02)'" onmouseout="this.style.background=''" onclick="openDossier('${e.ref}')">
-      <div style="flex:1;min-width:0"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref}</div></div>
-      <div class="heatstrip">${cells}</div>
-      <span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span>
-      <span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
-    </div>`;
-  });
   el.innerHTML=html;
 }
 
