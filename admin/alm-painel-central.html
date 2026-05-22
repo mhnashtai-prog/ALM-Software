@@ -462,22 +462,23 @@ body{display:flex;flex-direction:column}
 .toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
 .toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
 
-/* ══ BRANCH BAR CHART ══ */
+/* ══ LEVEL STATUS BAR CHART ══ */
 .barchart-wrap{background:var(--bg2);border:1px solid var(--b2);padding:14px;margin-bottom:14px}
-.barchart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.barchart-legend-item{display:flex;align-items:center;gap:5px;font-size:7.5px;color:var(--t2)}
-.barchart-legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
-.barchart-rows{display:flex;flex-direction:column;gap:5px}
-.barchart-row{display:flex;align-items:center;gap:8px}
-.barchart-row-label{font-size:8px;font-weight:600;color:var(--t3);width:52px;text-align:right;flex-shrink:0;font-family:var(--mono);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.barchart-row-track{flex:1;display:flex;height:22px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.03)}
-.barchart-segment{display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;font-family:var(--mono);color:rgba(0,0,0,.65);transition:width .6s cubic-bezier(.4,0,.2,1);overflow:hidden;white-space:nowrap;min-width:0;flex-shrink:0}
-.barchart-segment:first-child{border-radius:2px 0 0 2px}
-.barchart-segment:last-child{border-radius:0 2px 2px 0}
-.barchart-segment.solo{border-radius:2px}
-.barchart-row-total{font-size:8px;font-weight:700;color:var(--t3);width:28px;text-align:left;flex-shrink:0;font-family:var(--mono)}
-.barchart-axis{display:flex;margin-left:60px;margin-top:4px;padding-right:36px}
-.barchart-axis-tick{flex:1;font-size:6.5px;color:var(--t4);text-align:center;font-family:var(--mono)}
+.barchart-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--b)}
+.barchart-legend-item{display:flex;align-items:center;gap:5px;font-size:7px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
+.barchart-legend-dot{width:8px;height:8px;border-radius:1px;flex-shrink:0}
+.barchart-rows{display:flex;flex-direction:column;gap:4px}
+.barchart-row{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:3px;cursor:pointer;transition:background .12s}
+.barchart-row:hover{background:rgba(201,168,76,.05)}
+.barchart-row-label{font-size:8px;font-weight:700;color:var(--t2);width:58px;text-align:right;flex-shrink:0;font-family:var(--mono);letter-spacing:.03em}
+.barchart-row-track{flex:1;display:flex;height:20px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.03);position:relative}
+.barchart-segment{display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;font-family:var(--mono);color:rgba(0,0,0,.7);transition:width .7s cubic-bezier(.4,0,.2,1);overflow:hidden;white-space:nowrap;min-width:0;flex-shrink:0}
+.barchart-meta{display:flex;align-items:center;gap:6px;width:110px;flex-shrink:0;justify-content:flex-end}
+.barchart-cert{font-size:6.5px;font-weight:700;padding:1px 5px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);white-space:nowrap;letter-spacing:.04em}
+.barchart-total{font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right}
+.barchart-pct{font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px;text-align:right}
+.barchart-axis{display:flex;margin-left:66px;margin-top:6px;padding-right:118px;border-top:1px solid var(--b);padding-top:4px}
+.barchart-axis-tick{flex:1;font-size:6px;color:var(--t4);text-align:center;font-family:var(--mono)}
   
 </style>
 </head>
@@ -1773,66 +1774,96 @@ const BRANCH_COLORS={
   CALHETA:'#28C8B0',
 };
 
-function buildBranchBarChart(students){
-  /* Collect all branches present */
-  const branches=[...new Set(students.map(e=>normB(e.branch)).filter(Boolean))];
-  const ordered=BRANCH_ORDER.filter(b=>branches.includes(b)).concat(branches.filter(b=>!BRANCH_ORDER.includes(b)));
-
-  /* Group by level, count per branch */
-  const byLevel={};
-  students.forEach(e=>{
-    const key=lk(e),meta=LEVEL_MAP[key]||{},label=meta.label||key;
-    if(!byLevel[label])byLevel[label]={label,order:meta.order||99,counts:{},total:0};
-    const br=normB(e.branch)||'OTHER';
-    byLevel[label].counts[br]=(byLevel[label].counts[br]||0)+1;
-    byLevel[label].total++;
+function buildBranchBarChart(students) {
+  /* Collect all levels in order */
+  const byLevel = {};
+  students.forEach(e => {
+    const key = lk(e), meta = LEVEL_MAP[key] || {};
+    if (!meta.label) return;
+    if (!byLevel[key]) byLevel[key] = {
+      key, label: meta.label, color: meta.color || 'var(--t3)',
+      dept: meta.dept || 'adults', order: meta.order || 99,
+      total: 0, withReq: 0, placed: 0, noReq: 0
+    };
+    byLevel[key].total++;
+    if (rByRef[e.ref]) byLevel[key].withReq++;
+    else byLevel[key].noReq++;
   });
 
-  const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
-  if(!rows.length)return'';
-  const maxTotal=Math.max(...rows.map(r=>r.total),1);
+  /* Pull placed counts from engine results */
+  Object.keys(byLevel).forEach(key => {
+    const result = _allResults[key];
+    if (result) byLevel[key].placed = result.placed || 0;
+  });
+
+  const rows = Object.values(byLevel).sort((a, b) => a.order - b.order);
+  if (!rows.length) return '';
+  const maxTotal = Math.max(...rows.map(r => r.total), 1);
 
   /* Legend */
-  let legend=`<div class="barchart-legend">`;
-  ordered.forEach(br=>{
-    const col=BRANCH_COLORS[br]||'var(--t3)';
-    legend+=`<div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:${col}"></div>${BRANCH_LABELS[br]||br}</div>`;
-  });
-  legend+=`</div>`;
+  const legend = `<div class="barchart-legend">
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div>
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--amber)"></div>Com pedido · aguarda</div>
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--red)"></div>Sem pedido</div>
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)"></div>Capacidade restante</div>
+  </div>`;
 
   /* Rows */
-  let rowsHTML=`<div class="barchart-rows">`;
-  rows.forEach(row=>{
-    const total=row.total;
-    const segments=ordered.map((br,bi)=>{
-      const n=row.counts[br]||0;if(!n)return'';
-      const pct=(n/maxTotal*100).toFixed(2);
-      const col=BRANCH_COLORS[br]||'var(--t3)';
-      const solo=ordered.filter(b=>row.counts[b]>0).length===1?' solo':'';
-      const lbl=n>=8?n:'';
-      return`<div class="barchart-segment${solo}" style="width:${pct}%;background:${col}" title="${BRANCH_LABELS[br]||br}: ${n}">${lbl}</div>`;
-    }).join('');
-    rowsHTML+=`<div class="barchart-row">
-      <div class="barchart-row-label" title="${row.label}">${row.label}</div>
-      <div class="barchart-row-track">${segments}</div>
-      <div class="barchart-row-total">${total}</div>
+  let rowsHTML = `<div class="barchart-rows">`;
+  rows.forEach(row => {
+    const { key, label, color, total, withReq, placed, noReq } = row;
+    const waiting = withReq - placed;
+    const certCount = Object.keys(_groupCodes[key] || {}).length;
+    const groupCount = (_allResults[key]?.groups?.length) || 0;
+    const meta = LEVEL_MAP[key] || {};
+    const cap = meta.maxCap || total || 1;
+
+    /* Widths as % of maxTotal (so bars are comparable across levels) */
+    const pPlaced  = (placed  / maxTotal * 100).toFixed(1);
+    const pWait    = (waiting / maxTotal * 100).toFixed(1);
+    const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
+    const pEmpty   = Math.max(0, ((cap - total) / maxTotal * 100)).toFixed(1);
+
+    const placedLbl  = placed  >= 6 ? placed  : '';
+    const waitLbl    = waiting >= 6 ? waiting : '';
+    const noReqLbl   = noReq   >= 6 ? noReq   : '';
+
+    const placedPct = total > 0 ? Math.round(placed / total * 100) : 0;
+    const certBadge = certCount > 0
+      ? `<span class="barchart-cert">✓ ${certCount}t</span>` : '';
+    const groupBadge = groupCount > 0 && certCount === 0
+      ? `<span class="barchart-cert" style="border-color:var(--amber-b);color:var(--amber);background:var(--amber-a)">${groupCount}g</span>` : '';
+
+    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')" title="${label} · ${total} al · ${placed} em turma · ${noReq} sem pedido">
+      <div class="barchart-row-label">${label}</div>
+      <div class="barchart-row-track">
+        ${placed > 0  ? `<div class="barchart-segment" style="width:${pPlaced}%;background:var(--green)">${placedLbl}</div>` : ''}
+        ${waiting > 0 ? `<div class="barchart-segment" style="width:${pWait}%;background:var(--amber)">${waitLbl}</div>` : ''}
+        ${noReq > 0   ? `<div class="barchart-segment" style="width:${pNoReq}%;background:var(--red)">${noReqLbl}</div>` : ''}
+        ${pEmpty > 0  ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>` : ''}
+      </div>
+      <div class="barchart-meta">
+        ${certBadge}${groupBadge}
+        <span class="barchart-pct">${placedPct}%</span>
+        <span class="barchart-total">${total}</span>
+      </div>
     </div>`;
   });
-  rowsHTML+=`</div>`;
+  rowsHTML += `</div>`;
 
-  /* Axis ticks */
-  const ticks=[0,25,50,75,100].map(p=>{
-    const v=Math.round(p/100*maxTotal);
-    return`<div class="barchart-axis-tick">${v}</div>`;
+  /* Axis */
+  const ticks = [0, 25, 50, 75, 100].map(p => {
+    const v = Math.round(p / 100 * maxTotal);
+    return `<div class="barchart-axis-tick">${v}</div>`;
   }).join('');
-  const axis=`<div class="barchart-axis">${ticks}</div>`;
 
-  return`<div class="barchart-wrap">
-    <div class="sec" style="margin-bottom:10px">Inscrições por nível · por filial</div>
-    ${legend}${rowsHTML}${axis}
+  return `<div class="barchart-wrap">
+    <div class="sec" style="margin-bottom:10px">Estado por nível <span style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para abrir em Formation</span></div>
+    ${legend}
+    ${rowsHTML}
+    <div class="barchart-axis">${ticks}</div>
   </div>`;
 }
-
 function ovRenderSummary(){
   const students=ovStudents(),total=students.length;
   const el=document.getElementById('ov-right');
