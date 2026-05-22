@@ -1087,6 +1087,23 @@ async function runBootAudit(){
     }));
   }
   setBootProgress(100);
+  
+  function reconcileDBvsEngine(){
+  const warnings=[];
+  Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
+    const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
+    const engineCount=_allResults[key]?.placed||0;
+    const diff=Math.abs(dbCount-engineCount);
+    if(diff>2){
+      const label=(LEVEL_MAP[key]||{}).label||key;
+      warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);
+    }
+  });
+  if(warnings.length){
+    console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));
+    showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');
+  }
+}
   return{committed,exceptions:_exceptionQueue.length};
 }
 
