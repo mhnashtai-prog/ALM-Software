@@ -504,7 +504,6 @@ body{display:flex;flex-direction:column}
     <div class="tb-pill-nav" id="tab-audit" onclick="switchCC('audit',this)">
       Audit <span class="pn-badge" id="badge-audit">—</span>
     </div>
-    <div class="tb-pill-nav" id="tab-formation" onclick="switchCC('formation',this)">Formation</div>
     <div class="tb-pill-nav" id="tab-decision" onclick="switchCC('decision',this)">
       Decision <span class="pn-badge amber" id="badge-pending">0</span>
     </div>
@@ -1048,6 +1047,19 @@ async function runBootAudit(){
   try{
     const existing=await sbGet('classes',`select=turma_code,group_code,status&academic_year=eq.${encodeURIComponent(AY)}&status=neq.eliminado`);
     existing.forEach(c=>{if(c.turma_code)_retiredCodes.add(c.turma_code);});
+
+    /* ── DB-verified placed counts ── */
+    const existing=await sbGet('classes',`select=turma_code,group_code,status,level_code,family,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=neq.eliminado`);
+   existing.forEach(c=>{
+  if(c.turma_code)_retiredCodes.add(c.turma_code);
+  const key=`${(c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+  const refs=Array.isArray(c.student_refs)?c.student_refs:[];
+  if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
+  if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
+  refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
+   });
+    window._dbPlacedByLevel=_dbPlacedByLevel;
+
   }catch{}
   setBootProgress(85);
   _exceptionQueue=[];
@@ -1917,8 +1929,13 @@ function buildBranchBarChart(students) {
 
   /* Pull placed counts from engine results */
   Object.keys(byLevel).forEach(key => {
+  const dbSet = window._dbPlacedByLevel?.[key];
+  if (dbSet) {
+    byLevel[key].placed = dbSet.size;
+  } else {
     const result = _allResults[key];
     if (result) byLevel[key].placed = result.placed || 0;
+  }
   });
 
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order);
