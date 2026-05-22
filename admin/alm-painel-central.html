@@ -1211,7 +1211,12 @@ function jumpToException(levelKey,groupIdx){
   activeLevelKey=levelKey;_lastResult=_allResults[levelKey];
   switchCC('formation',document.getElementById('tab-formation'));
   renderTree();renderLevelContent();
-  setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c){c.classList.add('open');c.scrollIntoView({behavior:'smooth',block:'start'});}},120);
+  setTimeout(()=>{
+    const g=(_allResults[levelKey]?.groups||[])[groupIdx];
+    if(g){const sec=document.getElementById(`pgs-${g.pair.aL}-${g.pair.bL}`);if(sec)sec.style.display='block';}
+    const c=document.getElementById(`gcard-${groupIdx}`);
+    if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+  },120);
 }
 
 async function batchConfirm(){
@@ -1393,8 +1398,9 @@ function highlightPair(idx,dayPair){
   });
 }
 function focusPairGroups(aL,bL){
-  if(!_lastResult?.groups)return;
-  _lastResult.groups.forEach((g,i)=>{if(g.pair.aL===aL&&g.pair.bL===bL){document.getElementById(`gcard-${i}`)?.classList.add('open');}});
+  document.querySelectorAll('.pair-group-section').forEach(s=>s.style.display='none');
+  const t=document.getElementById(`pgs-${aL}-${bL}`);
+  if(t){t.style.display='block';t.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 
 /* ══════════════════════════════════════════════
@@ -1525,7 +1531,13 @@ function renderLevelContent(){
       ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
       ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
     </div>`;
-    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+ALM_PAIRS.forEach(pair=>{
+      const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
+      if(!pairGroups.length)return;
+      html+=`<div class="pair-group-section" id="pgs-${pair.aL}-${pair.bL}" style="display:none">`;
+      pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
+      html+=`</div>`;
+    });
   }
 
   if(_lastResult?.sinalizados?.length)html+=buildSinalizadosHTML(_lastResult);
@@ -1576,7 +1588,11 @@ function buildGroupCard(g,i){
   </div>`;
 }
 
-function toggleGCard(i){document.getElementById(`gcard-${i}`)?.classList.toggle('open');}
+function toggleGCard(i){
+  const g=_lastResult?.groups?.[i];
+  if(g){const sec=document.getElementById(`pgs-${g.pair.aL}-${g.pair.bL}`);if(sec)sec.style.display='block';}
+  document.getElementById(`gcard-${i}`)?.classList.toggle('open');
+}
 
 function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
@@ -2013,7 +2029,13 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
       ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
       ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
     </div>`;
-    _lastResult.groups.forEach((g,i) => { html += buildGroupCard(g,i); });
+   ALM_PAIRS.forEach(pair=>{
+      const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
+      if(!pairGroups.length)return;
+      html+=`<div class="pair-group-section" id="pgs-${pair.aL}-${pair.bL}" style="display:none">`;
+      pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
+      html+=`</div>`;
+    });
   }
 
   /* ── Sinalizados + student table ── */
