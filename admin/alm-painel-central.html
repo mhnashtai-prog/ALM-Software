@@ -1666,117 +1666,111 @@ function injectStamps(gridId, result, levelKey) {
   overlay.innerHTML = '';
   wrap.style.position = 'relative';
 
+  const wrapRect = wrap.getBoundingClientRect();
+
   result.groups.forEach((g, i) => {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar        = (_auditResults[levelKey] || {})[i];
 
-    // Determine stamp state from audit truth, not just committed flag
     const isCert  = !!committed;
     const isFail  = ar?.status === 'fail';
     const isWarn  = ar?.status === 'warn';
-    const isProp  = !isCert && !isFail && !isWarn; // clean proposal, commit pending
 
-    // Colours per state
     const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
     const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
     const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
-
-    // Label: use real turmaCode if committed, else provisional index
-    const codeLabel = committed
-      ? committed.turmaCode
-      : `T${i + 1}`;
-
+    const codeLabel = committed ? committed.turmaCode : `T${i + 1}`;
     const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
 
     const pairDays    = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotLetters = ['A', 'B'];
-    const startHour   = Math.floor(g.startMins / 60);
+
+    // Class runs from g.startMins to g.startMins + CLASS_DUR (90 min)
+    const startMins = g.startMins;
+    const endMins   = g.startMins + CLASS_DUR;
 
     pairDays.forEach((dayIdx, si) => {
-      const row  = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
+      const row = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
       if (!row) return;
-      const cell = row.querySelector(`.sg-cell[data-h="${startHour}"]`);
-      if (!cell) return;
 
-      const cellLeft = cell.offsetLeft + cell.offsetWidth  / 2;
-      const rowTop   = row.offsetTop   + row.offsetHeight  / 2;
+      // Find all non-gap cells and measure their positions
+      const cells = Array.from(row.querySelectorAll('.sg-cell:not(.gap-cell)'));
+      if (!cells.length) return;
+
+      // Build a map: hour → cell bounding rect
+      const cellMap = {};
+      cells.forEach(cell => {
+        const h = parseInt(cell.dataset.h);
+        if (!isNaN(h)) cellMap[h] = cell.getBoundingClientRect();
+      });
+
+      // Find the pixel span for [startMins, endMins]
+      // For each hour that overlaps the class, interpolate within that cell
+      let leftPx = null, rightPx = null;
+
+      for (const [hStr, rect] of Object.entries(cellMap)) {
+        const h = parseInt(hStr);
+        const cellStart = h * 60;
+        const cellEnd   = (h + 1) * 60;
+
+        if (startMins < cellEnd && endMins > cellStart) {
+          const overlapStart = Math.max(startMins, cellStart);
+          const overlapEnd   = Math.min(endMins,   cellEnd);
+          const frac0 = (overlapStart - cellStart) / 60;
+          const frac1 = (overlapEnd   - cellStart) / 60;
+
+          const pxStart = rect.left - wrapRect.left + frac0 * rect.width;
+          const pxEnd   = rect.left - wrapRect.left + frac1 * rect.width;
+
+          if (leftPx === null || pxStart < leftPx) leftPx  = pxStart;
+          if (rightPx === null || pxEnd   > rightPx) rightPx = pxEnd;
+        }
+      }
+
+      if (leftPx === null) return;
+
+      // Centre of the full band span
+      const rowRect    = row.getBoundingClientRect();
+      const centrePx   = (leftPx + rightPx) / 2;
+      const rowCentreY = rowRect.top - wrapRect.top + rowRect.height / 2;
 
       const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
       const SIZE = 38, R = SIZE / 2;
-
-      // Unique IDs per stamp to avoid textPath href collisions
-      const uid = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
+      const uid  = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
 
       const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
           <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
         </defs>
-
-        <!-- Outer fill -->
         <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
-        <!-- Dashed inner ring -->
         <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
-        <!-- Inner solid -->
         <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
-
-        <!-- Notch dots at 45° -->
-        ${[45, 135, 225, 315].map(deg => {
-          const rad = deg * Math.PI / 180;
-          const dr = R - 2.5;
-          return `<circle cx="${(R + dr * Math.cos(rad)).toFixed(2)}" cy="${(R + dr * Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
+        ${[45,135,225,315].map(deg=>{
+          const rad=deg*Math.PI/180, dr=R-2.5;
+          return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
         }).join('')}
-
-        <!-- Top arc: slot code -->
         <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700"
               letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
           <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
         </text>
-
-        <!-- Centre glyph -->
-        <text x="${R}" y="${R + 3}" text-anchor="middle"
-              font-family="'IBM Plex Mono',monospace"
-              font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
-
-        <!-- Bottom arc: student count + time -->
+        <text x="${R}" y="${R+3}" text-anchor="middle"
+              font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
         <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600"
               letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
           <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${g.startTime}</textPath>
         </text>
       </svg>`;
 
-      const rotation = -6 + (i % 4) * 4; // subtle hand-stamped tilt per group
-
+      const rotation = -6 + (i % 4) * 4;
       const el = document.createElement('div');
-      el.style.cssText = `
-        position:absolute;
-        left:${cellLeft}px;
-        top:${rowTop}px;
-        transform:translate(-50%,-50%) rotate(${rotation}deg);
-        pointer-events:all;
-        cursor:pointer;
-        z-index:11;
-        filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));
-        animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i * 0.055}s both;
-        transition:transform .15s, filter .15s, z-index 0s;
-      `;
-      el.title = `${slotCode} · ${isCert ? '✓ Certificado' : isFail ? '✕ Falha' : isWarn ? '⚠ Aviso' : '○ Proposta'} · ${g.students.length} al · ${g.startTime}–${g.endTime}`;
+      el.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.055}s both;transition:transform .15s,filter .15s;`;
+      el.title = `${slotCode} · ${isCert?'✓ Certificado':isFail?'✕ Falha':isWarn?'⚠ Aviso':'○ Proposta'} · ${g.students.length}al · ${g.startTime}–${g.endTime}`;
       el.innerHTML = svg;
 
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = `translate(-50%,-50%) rotate(0deg) scale(1.35)`;
-        el.style.filter    = `drop-shadow(0 4px 12px ${stampRing}99)`;
-        el.style.zIndex    = '20';
-      });
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = `translate(-50%,-50%) rotate(${rotation}deg)`;
-        el.style.filter    = `drop-shadow(0 2px 5px rgba(0,0,0,.75))`;
-        el.style.zIndex    = '11';
-      });
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        openGroupModal(levelKey, i);
-      });
+      el.addEventListener('mouseenter', () => { el.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; el.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; el.style.zIndex='20'; });
+      el.addEventListener('mouseleave', () => { el.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; el.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; el.style.zIndex='11'; });
+      el.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
 
       overlay.appendChild(el);
     });
