@@ -1035,9 +1035,9 @@ function auditGroupSync(g){
     for(const dayIdx of pairDays){
       const daySlots=byDay[dayIdx]||[];
       if(!daySlots.length){verdict='fail';reason=`Não pediu ${DAYS_PT[dayIdx]}`;break;}
-      const propEnd=g.startMins+CLASS_DUR;
-      const hasOverlap=daySlots.some(s=>Math.min(s.toMins,propEnd)-Math.max(s.fromMins,g.startMins)>=CLASS_DUR-30);
-      if(!hasOverlap&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} pedido mas horário diferente`;}
+     const propEnd=g.startMins+CLASS_DUR;
+     const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=propEnd);
+      if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(g.startMins)}–${minsToT(propEnd)} não cabe na janela declarada`;}
     }
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
@@ -1372,7 +1372,7 @@ function buildPairMatrix(pairCounts){
     const icon=isReady?'✓':isWait?'!':'✕';
     const lbl=placed>0?'alocados':count>=ASSIGN_MIN?'disponíveis':count>=MIN_G?'aguardar':'não abre';
     const subLbl=placed>0&&count!==placed?`<div class="pm-placed">${count} disponíveis</div>`:'';
-    html+=`<div class="pm-card ${cls}" onclick="focusPairGroups('${pair.aL}','${pair.bL}')">
+    html+=`<div class="pm-card ${cls}" onclick="openGroupModal('${activeLevelKey}',${_lastResult?.groups?.findIndex(g=>g.pair.aL==='${pair.aL}'&&g.pair.bL==='${pair.bL}')??0})">`;
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${displayN}</div>
@@ -1651,18 +1651,6 @@ function buildUnifiedGrid(withReq, result, levelKey, gridId) {
 
 function injectStamps(gridId, result, levelKey) {
   if (!result?.groups?.length) return;
-  const ROW_STRIDE = ROW_H + 3, HEADER_H = 28;
-  const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length;
-
-  function timeToLeftPct(mins) {
-    const hr = Math.floor(mins / 60), frac = (mins % 60) / 60;
-    const amIdx = HOURS_AM.indexOf(hr);
-    if (amIdx !== -1) return ((amIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
-    const pmIdx = HOURS_PM.indexOf(hr);
-    if (pmIdx !== -1) return ((HOURS_AM.length + 1 + pmIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
-    return '0%';
-  }
-
   const wrap = document.getElementById(`${gridId}-rows-wrap`);
   if (!wrap) return;
 
@@ -1670,51 +1658,61 @@ function injectStamps(gridId, result, levelKey) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.className = 'pins-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:10';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10';
     wrap.appendChild(overlay);
   }
   overlay.innerHTML = '';
   wrap.style.position = 'relative';
 
-  result.groups.forEach((g, i) => {
-    const ar = (_auditResults[levelKey] || {})[i];
-    const committed = (_groupCodes[levelKey] || {})[i];
-    const isCert = !!committed;
-    const isExc = !committed && (ar?.status === 'fail' || ar?.status === 'warn');
+  const wrapRect = wrap.getBoundingClientRect();
 
-    const ring = isCert ? '#1DB87A' : isExc ? (ar?.status === 'fail' ? '#E8455A' : '#E8A020') : '#4A8FF5';
-    const bg = isCert ? 'rgba(29,184,122,.18)' : isExc ? (ar?.status === 'fail' ? 'rgba(232,69,90,.15)' : 'rgba(232,160,32,.15)') : 'rgba(74,143,245,.14)';
-    const codeLabel = committed ? committed.turmaCode : `T${i + 1}`;
-    const nLabel = g.students.length + 'al' + (isCert ? ' ✓' : '');
+  result.groups.forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    if (!committed) return; // only certified groups
+
     const pairDays = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotLetters = ['A', 'B'];
 
     pairDays.forEach((dayIdx, si) => {
-      const leftPct = timeToLeftPct(g.startMins);
-      const topPx = HEADER_H + dayIdx * ROW_STRIDE + ROW_STRIDE / 2;
-      const slotCode = committed
-        ? committed.turmaCode + (pairDays.length > 1 ? slotLetters[si] : '')
-        : `T${i + 1}${slotLetters[si]}`;
+      // Find the exact cell by day row and hour
+      const row = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
+      if (!row) return;
+      const cell = row.querySelector(`.sg-cell[data-h="${Math.floor(g.startMins / 60)}"]`);
+      if (!cell) return;
+
+      const cellRect = cell.getBoundingClientRect();
+      const left = cellRect.left - wrapRect.left + cellRect.width / 2;
+      const top = row.offsetTop + row.offsetHeight / 2;
+
+      const slotCode = committed.turmaCode + (pairDays.length > 1 ? slotLetters[si] : '');
 
       const el = document.createElement('div');
-      el.style.cssText = `position:absolute;top:${topPx}px;left:${leftPct};transform:translate(-50%,-50%);pointer-events:all;cursor:pointer;z-index:11;animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i * 0.06}s both`;
-      el.title = `${isCert ? '✓ Certificada' : isExc ? '⚠ Excepção' : 'Proposta'} · ${slotCode} · ${DAYS_PT[dayIdx]} · ${g.startTime}–${g.endTime} · ${g.students.length} al`;
-
-      el.innerHTML = `<div style="width:38px;height:38px;border-radius:50%;background:${bg};border:2.5px solid ${ring};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:transform .15s,box-shadow .15s;box-shadow:0 0 0 4px ${ring}18" onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 4px 18px ${ring}66,0 0 0 6px ${ring}22'" onmouseout="this.style.transform='';this.style.boxShadow='0 0 0 4px ${ring}18'">
-        <div style="position:absolute;inset:4px;border-radius:50%;border:1px dashed ${ring};opacity:.45;pointer-events:none"></div>
-        <div style="font-size:7.5px;font-weight:700;color:${ring};font-family:var(--mono);line-height:1;position:relative">${slotCode}</div>
-        <div style="font-size:6px;color:${ring};opacity:.85;font-family:var(--mono);line-height:1.3;position:relative">${nLabel}</div>
-      </div>`;
-
-      el.addEventListener('click', e => {
-        e.stopPropagation();
-        openGroupModal(levelKey, i);
-      });
+      el.style.cssText = `
+        position:absolute;
+        left:${left}px;
+        top:${top}px;
+        transform:translate(-50%,-50%);
+        pointer-events:all;
+        cursor:pointer;
+        z-index:11;
+        width:28px;height:28px;
+        border-radius:50%;
+        background:var(--green);
+        border:2px solid rgba(0,0,0,.35);
+        display:flex;flex-direction:column;
+        align-items:center;justify-content:center;
+        box-shadow:0 2px 8px rgba(0,0,0,.5);
+      `;
+      el.title = `${slotCode} · ${DAYS_PT[dayIdx]} · ${g.startTime}–${g.endTime} · ${g.students.length} al`;
+      el.innerHTML = `
+        <div style="font-size:7px;font-weight:700;color:#07060E;font-family:var(--mono);line-height:1">${slotCode}</div>
+        <div style="font-size:5.5px;font-weight:700;color:rgba(0,0,0,.6);font-family:var(--mono);line-height:1.2">${g.students.length}al</div>
+      `;
+      el.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
       overlay.appendChild(el);
     });
   });
 }
-
 
 function setLCView(v){
   document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
@@ -2177,9 +2175,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
    ALM_PAIRS.forEach(pair=>{
       const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
       if(!pairGroups.length)return;
-      html+=`<div class="pair-group-section" id="pgs-${pair.aL}-${pair.bL}" style="display:none">`;
       pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
-      html+=`</div>`;
     });
   }
 
@@ -2258,9 +2254,9 @@ const BRANCH_COLORS={
     const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
     const pEmpty   = Math.max(0, ((cap - total) / maxTotal * 100)).toFixed(1);
 
-    const placedLbl  = '';
-    const waitLbl    = '';
-    const noReqLbl   = '';
+   const placedLbl  = placed  >= 6 ? placed  : '';
+   const waitLbl    = waiting >= 6 ? waiting : '';
+   const noReqLbl   = noReq   >= 6 ? noReq   : '';
     const placedPct  = total > 0 ? Math.round(placed / total * 100) : 0;
 
     const isClean  = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
