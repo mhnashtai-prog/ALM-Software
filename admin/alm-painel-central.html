@@ -355,6 +355,14 @@ body{display:flex;flex-direction:column}
 .au-row:hover{background:rgba(201,168,76,.02)}
 .au-cell{padding:6px 4px}
 
+/* ══ STAMP BASE ══ */
+.sg-stamp{position:absolute;display:flex;align-items:center;gap:5px;padding:0 6px 0 4px;cursor:pointer;z-index:11;overflow:hidden;box-sizing:border-box;border-radius:3px;transition:opacity .15s,box-shadow .15s}
+.sg-stamp:hover{opacity:.82!important;box-shadow:0 2px 12px rgba(0,0,0,.6);z-index:20!important}
+.sg-stamp-seal{position:relative;width:32px;height:32px;flex-shrink:0}
+.sg-stamp-seal svg{position:absolute;inset:0;width:100%;height:100%}
+.sg-stamp-code{font-size:7px;font-weight:700;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;font-family:var(--mono);text-transform:uppercase}
+.sg-stamp-count{font-size:7px;font-weight:600;opacity:.65;flex-shrink:0;white-space:nowrap;font-family:var(--mono)}
+
 /* ══ DECISION ══ */
 .dec-layout{display:flex;height:100%;overflow:hidden}
 .dec-main{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 18px 60px}
@@ -926,6 +934,17 @@ function avCol(name){
 }
 function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 
+  function turmaCol(code){
+  const base=(code||'').replace(/[AB]$/i,'').trim();
+  let h=0;for(let i=0;i<base.length;i++)h=(h*31+base.charCodeAt(i))&0xffffffff;
+  const palette=[
+    '#9F974A','#847C3D','#686230','#BBB157',
+    '#5C7A3E','#8B6914','#4A7C6F','#9B7B4A',
+    '#6B5B8A','#7A4A4A','#4A6B8A','#8A7A4A',
+  ];
+  return palette[Math.abs(h)%palette.length];
+}
+
 function parseDayPrefs(raw){
   if(!raw)return[];if(Array.isArray(raw))return raw;
   try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return[];}
@@ -1082,50 +1101,77 @@ function drawStamps(containerId, levelKey, result){
   if(!result?.groups?.length) return;
 
   result.groups.forEach((g, i) => {
-    const committed = (_groupCodes[levelKey] || {})[i];
-    const ar        = (_auditResults[levelKey] || {})[i];
+    const committed  = (_groupCodes[levelKey] || {})[i];
+    const ar         = (_auditResults[levelKey] || {})[i];
+    const isCert     = !!committed;
+    const isFail     = ar?.status === 'fail';
+    const isWarn     = ar?.status === 'warn';
 
-    const isCert = !!committed;
-    const isFail = ar?.status === 'fail';
-    const isWarn = ar?.status === 'warn';
+    const code       = committed?.turmaCode || `T${i+1}`;
+    const groupCol   = turmaCol(code);
+    const codeLabel  = code;
+    const pairDays   = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const slotSuffix = ['A','B'];
+    const n          = g.students.length;
 
-    const codeLabel = committed ? committed.turmaCode : `T${i+1}`;
-    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
-    const slotLetters = ['A', 'B'];
+    /* colour scheme */
+    const col       = isFail ? '#E8455A' : isWarn ? '#E8A020' : groupCol;
+    const bandBg    = isFail ? 'rgba(232,69,90,.13)'
+                    : isWarn ? 'rgba(232,160,32,.13)'
+                    : isCert ? col + '22'
+                    :          col + '11';
+    const borderCol = isFail ? '#E8455A99'
+                    : isWarn ? '#E8A02099'
+                    : isCert ? col + 'CC'
+                    :          col + '66';
+    const inkCol    = isFail ? '#FFB0B8'
+                    : isWarn ? '#FFD080'
+                    : col;
 
-    const startTime = minsToT(g.startMins);
-    const endTime   = minsToT(g.startMins + CLASS_DUR);
+    /* Italian cheese seal SVG — concentric rings + dotted inner + glyph */
+    function makeSeal(glyph, fillCol, inkC, certified){
+      const dash = certified ? 'none' : '2 2';
+      const outerStroke = certified ? fillCol : fillCol + '99';
+      const glyphEl = glyph.length === 1
+        ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700"
+             fill="${inkC}" font-family="'IBM Plex Mono',monospace">${glyph}</text>`
+        : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700"
+             fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
+      return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- outer ring -->
+        <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${certified?2:1.5}"/>
+        <!-- mid ring -->
+        <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
+        <!-- dotted inner ring -->
+        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8"
+          stroke-dasharray="${dash}" opacity=".5"/>
+        <!-- fill disc -->
+        ${certified
+          ? `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".9"/>`
+          : `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>`}
+        <!-- glyph -->
+        ${certified
+          ? `<path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"/>`
+          : glyphEl}
+      </svg>`;
+    }
+
+    const sealGlyph = isFail ? '✕' : isWarn ? '!' : String(i+1);
+    const sealSVG   = makeSeal(sealGlyph, col, inkCol, isCert);
 
     pairDays.forEach((dayIdx, si) => {
       const dayKey = DAYS_PT[dayIdx];
       const rowEl  = document.getElementById(`${containerId}-row-${dayKey}`);
       if(!rowEl) return;
 
-      const pos = timeToBandPos(startTime, endTime, rowEl);
+      const pos = timeToBandPos(minsToT(g.startMins), minsToT(g.startMins + CLASS_DUR), rowEl);
       if(!pos) return;
 
-      /* colour from DAY_RGB — same array the sg-row tints use */
-      const rgb = DAY_RGB[dayIdx] || '201,168,76';
+      const slotCode  = codeLabel + (pairDays.length > 1 ? slotSuffix[si] : '');
+      const showText  = pos.width > 72;
+      const showCount = pos.width > 50;
 
-      /* band state colours */
-      const bandBg    = isFail ? 'rgba(232,69,90,.18)'
-                      : isWarn ? 'rgba(232,160,32,.18)'
-                      : isCert ? `rgba(${rgb},.22)`
-                      :          `rgba(${rgb},.13)`;
-      const borderCol = isFail ? '#E8455A'
-                      : isWarn ? '#E8A020'
-                      : isCert ? `rgb(${rgb})`
-                      :          `rgba(${rgb},.55)`;
-      const inkCol    = isFail ? '#FFB0B8'
-                      : isWarn ? '#FFD080'
-                      : isCert ? `rgb(${rgb})`
-                      :          `rgba(${rgb},.8)`;
-
-      const slotCode  = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
-      const n         = g.students.length;
-      const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
-
-      /* wrapRect + rowRect give us absolute → relative offsets */
       const wrapRect = wrap.getBoundingClientRect();
       const rowRect  = rowEl.getBoundingClientRect();
       const bandLeft = (rowRect.left - wrapRect.left) + pos.left;
@@ -1134,54 +1180,28 @@ function drawStamps(containerId, levelKey, result){
       const band = document.createElement('div');
       band.className = 'sg-stamp';
       band.style.cssText = [
-        `position:absolute`,
         `left:${bandLeft}px`,
-        `top:${bandTop + 3}px`,
+        `top:${bandTop + 2}px`,
         `width:${pos.width}px`,
-        `height:${rowEl.offsetHeight - 6}px`,
+        `height:${rowEl.offsetHeight - 4}px`,
         `background:${bandBg}`,
         `border-left:3px solid ${borderCol}`,
-        `border-top:.5px solid ${borderCol}55`,
-        `border-right:.5px solid ${borderCol}33`,
-        `border-bottom:.5px solid ${borderCol}33`,
-        `border-radius:3px`,
-        `display:flex`,
-        `align-items:center`,
-        `gap:5px`,
-        `padding:0 6px 0 5px`,
-        `cursor:pointer`,
-        `z-index:11`,
-        `overflow:hidden`,
-        `box-sizing:border-box`,
-        `transition:opacity .15s, box-shadow .15s`,
+        `border-top:.5px solid ${borderCol}`,
+        `border-right:.5px solid ${col}22`,
+        `border-bottom:.5px solid ${col}22`,
       ].join(';');
 
-      /* show turma code + status glyph + n/MAX */
-      const showText = pos.width > 52;
-      const showCount = pos.width > 42;
-
       band.innerHTML = `
-        <span style="font-size:7px;font-weight:700;letter-spacing:.04em;
-                     color:${inkCol};white-space:nowrap;overflow:hidden;
-                     text-overflow:ellipsis;flex:1;min-width:0;font-family:'IBM Plex Mono',monospace">
-          ${showText ? slotCode : statusGlyph}
-        </span>
+        <div class="sg-stamp-seal">${sealSVG}</div>
+        ${showText
+          ? `<span class="sg-stamp-code" style="color:${inkCol}">${slotCode}</span>`
+          : ''}
         ${showCount
-          ? `<span style="font-size:7px;font-weight:600;color:${inkCol};
-                          opacity:.65;flex-shrink:0;font-family:'IBM Plex Mono',monospace;
-                          white-space:nowrap">${n}<span style="opacity:.5">/${MAX_G}</span></span>`
+          ? `<span class="sg-stamp-count" style="color:${inkCol}">
+               ${n}<span style="opacity:.4">/${MAX_G}</span>
+             </span>`
           : ''}`;
 
-      band.addEventListener('mouseenter', () => {
-        band.style.opacity = '.82';
-        band.style.boxShadow = `0 2px 10px rgba(0,0,0,.55)`;
-        band.style.zIndex = '20';
-      });
-      band.addEventListener('mouseleave', () => {
-        band.style.opacity = '1';
-        band.style.boxShadow = 'none';
-        band.style.zIndex = '11';
-      });
       band.addEventListener('click', e => {
         e.stopPropagation();
         openGroupModal(levelKey, i);
@@ -1609,7 +1629,7 @@ function renderLevelContent(){
   /* ── 3. GROUPS ── */
   if(_lastResult?.groups?.length){
     html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-      ${certCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${certCount} ✓ cert</span>`:''}
+     ${certCount>0?`<span style="font-size:6px;font-weight:700;color:var(--green);padding:1px 4px;border:1px solid var(--green-b);background:var(--green-a)">✓${certCount}</span>`:''}
       ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
     </div>`;
     _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
@@ -1676,7 +1696,9 @@ function buildGroupCard(g,i){
     ?`<path d="M5 11L9 15.5L17 7" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
     :isExc&&status==='fail'
       ?`<path d="M11 7v5m0 3.5v.5" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round"/>`
-      :`<text x="11" y="15" text-anchor="middle" font-size="11" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text>`;
+      :isExc&&status==='warn'
+        ?`<text x="11" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#07060E" font-family="var(--mono)">!</text>`
+        :`<text x="11" y="15" text-anchor="middle" font-size="11" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text>`;
   const cardCls=`gcard-compact${isCert?' certified':isExc?' exception':''}`;
   return`<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
     <div class="gc-seal" style="background:${sealBg}">
@@ -1708,7 +1730,7 @@ function openGroupModal(levelKey,i){
   const col=GROUP_COLORS[i%GROUP_COLORS.length];
   const isCert=!!committed;
   const isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
-  const sealBg=isCert?'var(--green)':isExc?(ar?.status==='fail'?'var(--red)':'var(--amber)'):col;
+  const sealBg=isCert?turmaCol(committed.turmaCode):isExc?(ar?.status==='fail'?'var(--red)':'var(--amber)'):turmaCol(`T${i+1}`);
   const dept=(meta.dept||'adults');
   const bannerBg=DEPT_GRADS[dept]||DEPT_GRADS.adults;
   const sheet=document.getElementById('gm-sheet');
@@ -2316,7 +2338,8 @@ function renderDecTriage(branch){
   if(!_lastResult)return;
   let html='';
   _lastResult.groups.forEach((g,i)=>{
-    const col=GROUP_COLORS[i%GROUP_COLORS.length];
+    const committed2=(_groupCodes[activeLevelKey]||{})[i];
+    const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
     const committed=(_groupCodes[activeLevelKey]||{})[i];
     const ar=(_auditResults[activeLevelKey]||{})[i];
     const isCert=!!committed,isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
