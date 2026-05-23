@@ -1519,22 +1519,16 @@ function renderLevelContent(){
   /* ── 2. SINALIZADOS ── */
   if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
 
-  /* ── 3. ANALYSIS — collapsible ── */
+/* ── 3. ANALYSIS — unified grid, no toggle ── */
   const dept=(meta.dept||'adults');
   const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
   html+=`<div style="margin-top:14px">
-    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';">
-      📊 Análise · Disponibilidade
+    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';if(!o&&_lastResult?.groups?.length)requestAnimationFrame(()=>injectStamps('lc-grid',_lastResult,activeLevelKey));">
+      Disponibilidade + Turmas
       <span id="lc-analysis-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
     </div>
     <div id="lc-analysis" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px;padding:0 0 10px;flex-wrap:wrap">
-        <div class="toggle-switch">
-          <button class="ts-btn active" id="lc-hm-btn" onclick="setLCView('heatmap')">📊 Calor</button>
-          <button class="ts-btn" id="lc-pin-btn" onclick="setLCView('pins')">📍 Pinos</button>
-        </div>
-      </div>
-      <div id="lc-grid-container">${buildAnalysisGrid(withReq,false,'lc-grid')}</div>
+      <div id="lc-grid-container">${buildUnifiedGrid(withReq, _lastResult, activeLevelKey, 'lc-grid')}</div>
       ${buildPairMatrix(pairCounts)}
     </div>
   </div>`;
@@ -1585,6 +1579,142 @@ function renderLevelContent(){
     </div>
   </div>`;
 }
+  /* ══════════════════════════════════════════════
+   UNIFIED GRID — heatmap + stamps merged, no toggle
+══════════════════════════════════════════════ */
+function buildUnifiedGrid(withReq, result, levelKey, gridId) {
+  const heatmap = buildHeatmap(withReq);
+  const allVals = DAYS_PT.flatMap(d => ALL_HOURS.map(h => heatmap[d][h]));
+  const maxVal = Math.max(...allVals, 1);
+  const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length;
+
+  let dayCol = `<div style="flex-shrink:0;width:52px;padding-top:28px;display:flex;flex-direction:column;gap:3px">`;
+  DAYS_PT.forEach((day, di) => {
+    const hasData = ALL_HOURS.some(h => (heatmap[day]?.[h] || 0) > 0);
+    dayCol += `<div class="sg-day-lbl${hasData ? ' has-data' : ''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
+      <span class="sg-day-short">${day}</span>
+      <span class="sg-day-full">${DAYS_FULL[day] || day}</span>
+    </div>`;
+  });
+  dayCol += `</div>`;
+
+  let main = `<div class="sg-main"><div class="sg-time-hdr">`;
+  HOURS_AM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
+  main += `<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
+  HOURS_PM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
+  main += `</div>`;
+
+  DAYS_PT.forEach((day, di) => {
+    main += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px;position:relative" id="${gridId}-row-${di}">`;
+    HOURS_AM.forEach(h => {
+      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
+      const rgb = DAY_RGB[di];
+      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
+      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
+      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
+      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
+      </div>`;
+    });
+    main += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
+    HOURS_PM.forEach(h => {
+      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
+      const rgb = DAY_RGB[di];
+      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
+      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
+      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
+      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
+      </div>`;
+    });
+    main += `</div>`;
+  });
+  main += `</div>`;
+
+  const certCount = Object.keys(_groupCodes[levelKey] || {}).length;
+  const propCount = (result?.groups?.length || 0) - certCount;
+
+  return `<div class="school-grid-wrap" style="margin-bottom:14px">
+    <div class="school-grid-head">
+      <span class="school-grid-title">Disponibilidade + Turmas</span>
+      ${certCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>` : ''}
+      ${propCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount !== 1 ? 's' : ''}</span>` : ''}
+      <span style="font-size:7.5px;color:var(--t3);margin-left:auto">${withReq.length} al com pedido · sem botão de toggle</span>
+    </div>
+    <div class="school-grid-outer">
+      <div id="${gridId}-rows-wrap" style="position:relative">
+        <div class="school-grid" style="min-width:540px">${dayCol}${main}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function injectStamps(gridId, result, levelKey) {
+  if (!result?.groups?.length) return;
+  const ROW_STRIDE = ROW_H + 3, HEADER_H = 28;
+  const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length;
+
+  function timeToLeftPct(mins) {
+    const hr = Math.floor(mins / 60), frac = (mins % 60) / 60;
+    const amIdx = HOURS_AM.indexOf(hr);
+    if (amIdx !== -1) return ((amIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
+    const pmIdx = HOURS_PM.indexOf(hr);
+    if (pmIdx !== -1) return ((HOURS_AM.length + 1 + pmIdx + frac) / TOTAL_UNITS * 100).toFixed(2) + '%';
+    return '0%';
+  }
+
+  const wrap = document.getElementById(`${gridId}-rows-wrap`);
+  if (!wrap) return;
+
+  let overlay = wrap.querySelector('.pins-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'pins-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:10';
+    wrap.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  wrap.style.position = 'relative';
+
+  result.groups.forEach((g, i) => {
+    const ar = (_auditResults[levelKey] || {})[i];
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const isCert = !!committed;
+    const isExc = !committed && (ar?.status === 'fail' || ar?.status === 'warn');
+
+    const ring = isCert ? '#1DB87A' : isExc ? (ar?.status === 'fail' ? '#E8455A' : '#E8A020') : '#4A8FF5';
+    const bg = isCert ? 'rgba(29,184,122,.18)' : isExc ? (ar?.status === 'fail' ? 'rgba(232,69,90,.15)' : 'rgba(232,160,32,.15)') : 'rgba(74,143,245,.14)';
+    const codeLabel = committed ? committed.turmaCode : `T${i + 1}`;
+    const nLabel = g.students.length + 'al' + (isCert ? ' ✓' : '');
+    const pairDays = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const slotLetters = ['A', 'B'];
+
+    pairDays.forEach((dayIdx, si) => {
+      const leftPct = timeToLeftPct(g.startMins);
+      const topPx = HEADER_H + dayIdx * ROW_STRIDE + ROW_STRIDE / 2;
+      const slotCode = committed
+        ? committed.turmaCode + (pairDays.length > 1 ? slotLetters[si] : '')
+        : `T${i + 1}${slotLetters[si]}`;
+
+      const el = document.createElement('div');
+      el.style.cssText = `position:absolute;top:${topPx}px;left:${leftPct};transform:translate(-50%,-50%);pointer-events:all;cursor:pointer;z-index:11;animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i * 0.06}s both`;
+      el.title = `${isCert ? '✓ Certificada' : isExc ? '⚠ Excepção' : 'Proposta'} · ${slotCode} · ${DAYS_PT[dayIdx]} · ${g.startTime}–${g.endTime} · ${g.students.length} al`;
+
+      el.innerHTML = `<div style="width:38px;height:38px;border-radius:50%;background:${bg};border:2.5px solid ${ring};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:transform .15s,box-shadow .15s;box-shadow:0 0 0 4px ${ring}18" onmouseover="this.style.transform='scale(1.2)';this.style.boxShadow='0 4px 18px ${ring}66,0 0 0 6px ${ring}22'" onmouseout="this.style.transform='';this.style.boxShadow='0 0 0 4px ${ring}18'">
+        <div style="position:absolute;inset:4px;border-radius:50%;border:1px dashed ${ring};opacity:.45;pointer-events:none"></div>
+        <div style="font-size:7.5px;font-weight:700;color:${ring};font-family:var(--mono);line-height:1;position:relative">${slotCode}</div>
+        <div style="font-size:6px;color:${ring};opacity:.85;font-family:var(--mono);line-height:1.3;position:relative">${nLabel}</div>
+      </div>`;
+
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        openGroupModal(levelKey, i);
+      });
+      overlay.appendChild(el);
+    });
+  });
+}
+
 
 function setLCView(v){
   document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
@@ -2016,19 +2146,8 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
     el.innerHTML = html; return;
   }
 
-  /* ── View toggle ── */
-  const ovView = window._ovCurrentView || 'heatmap';
-  html += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0 12px;border-bottom:1px solid var(--b);margin-bottom:14px;flex-wrap:wrap">
-    <span style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)">Vista</span>
-    <div style="display:flex;border:1px solid var(--b2);overflow:hidden;flex-shrink:0">
-      <button style="font-size:7.5px;font-weight:700;letter-spacing:.08em;padding:4px 14px;cursor:pointer;border:none;font-family:var(--mono);text-transform:uppercase;transition:all .15s;${ovView==='heatmap'?'background:var(--gold3);color:var(--gold2)':'background:transparent;color:var(--t3)'}" onclick="window._ovCurrentView='heatmap';ovDrillToFormation('${levelKey}')">📊 Calor</button>
-      <button style="font-size:7.5px;font-weight:700;letter-spacing:.08em;padding:4px 14px;cursor:pointer;border:none;font-family:var(--mono);text-transform:uppercase;transition:all .15s;${ovView==='pins'?'background:var(--gold3);color:var(--gold2)':'background:transparent;color:var(--t3)'}" onclick="window._ovCurrentView='pins';ovDrillToFormation('${levelKey}')">📍 Pinos</button>
-    </div>
-  </div>`;
-
-  /* ── Grid ── */
-  const isPins = ovView === 'pins';
-  const GRID_ID = isPins ? 'ov-pin-grid' : 'ov-hm-grid';
+/* ── Grid — unified, no toggle ── */
+  const GRID_ID = 'ov-unified-grid';
 
   /* Pair pills */
   const dept = meta.dept || 'adults';
@@ -2043,22 +2162,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
     return `<span style="font-size:7px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;cursor:pointer;font-family:var(--mono);letter-spacing:.04em;color:${col}">${pair.aL}+${pair.bL} <strong>${pip}</strong></span>`;
   }).join('');
 
-  const legendHTML = isPins
-    ? `<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--green)"></div><span style="font-size:7px;color:var(--t3)">certificada</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid ${GROUP_COLORS[0]}"></div><span style="font-size:7px;color:var(--t3)">proposta</span></div></div>`
-    : `<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(74,143,245,.22)"></div><span style="font-size:7px;color:var(--t3)">1–4</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(232,160,32,.32)"></div><span style="font-size:7px;color:var(--t3)">5–9</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(29,184,122,.5)"></div><span style="font-size:7px;color:var(--t3)">10+</span></div></div>`;
-
-  html += `<div class="school-grid-wrap">
-    <div class="school-grid-head">
-      <span class="school-grid-title">${isPins ? `📍 Pinos · ${_lastResult?.groups?.length||0} turmas` : '📊 Mapa de calor · Disponibilidade'}</span>
-      ${pairPillsHTML}
-      ${legendHTML}
-      <span style="font-size:7.5px;color:var(--t3);margin-left:8px">${withReq.length} al com pedido</span>
-    </div>
-    <div class="school-grid-outer">
-      <div id="${GRID_ID}-rows-wrap" style="position:relative">${buildGridRows(GRID_ID, withReq, isPins)}</div>
-    </div>
-  </div>`;
-
+  html += buildUnifiedGrid(withReq, _lastResult, levelKey, GRID_ID);
   /* ── Pair matrix ── */
   html += buildPairMatrix(pairCounts);
 
@@ -2089,9 +2193,9 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
 
   el.innerHTML = html;
 
-  /* Inject pins after DOM render */
-  if(isPins && _lastResult?.groups?.length){
-    requestAnimationFrame(() => injectPins(GRID_ID, _lastResult));
+ /* Inject stamps after DOM render */
+  if (_lastResult?.groups?.length) {
+    requestAnimationFrame(() => injectStamps(GRID_ID, _lastResult, levelKey));
   }
 }
 
