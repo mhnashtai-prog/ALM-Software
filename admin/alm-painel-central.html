@@ -1089,16 +1089,12 @@ function drawStamps(containerId, levelKey, result){
     const isFail = ar?.status === 'fail';
     const isWarn = ar?.status === 'warn';
 
-    const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
-    const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
-    const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
-    const codeLabel   = committed ? committed.turmaCode : `T${i+1}`;
-    const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
+    const codeLabel = committed ? committed.turmaCode : `T${i+1}`;
+    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const slotLetters = ['A', 'B'];
 
     const startTime = minsToT(g.startMins);
     const endTime   = minsToT(g.startMins + CLASS_DUR);
-    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
-    const slotLetters = ['A', 'B'];
 
     pairDays.forEach((dayIdx, si) => {
       const dayKey = DAYS_PT[dayIdx];
@@ -1108,59 +1104,93 @@ function drawStamps(containerId, levelKey, result){
       const pos = timeToBandPos(startTime, endTime, rowEl);
       if(!pos) return;
 
-      const wrapRect   = wrap.getBoundingClientRect();
-      const rowRect    = rowEl.getBoundingClientRect();
-      const rowTop     = rowRect.top  - wrapRect.top;
-      const rowLeft    = rowRect.left - wrapRect.left;
-      const centrePx   = rowLeft + pos.left + pos.width / 2;
-      const rowCentreY = rowTop  + rowEl.offsetHeight / 2;
+      /* colour from DAY_RGB — same array the sg-row tints use */
+      const rgb = DAY_RGB[dayIdx] || '201,168,76';
 
-      const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
-      const SIZE = 38, R = SIZE / 2;
-      const uid  = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
-      const rotation = -6 + (i % 4) * 4;
+      /* band state colours */
+      const bandBg    = isFail ? 'rgba(232,69,90,.18)'
+                      : isWarn ? 'rgba(232,160,32,.18)'
+                      : isCert ? `rgba(${rgb},.22)`
+                      :          `rgba(${rgb},.13)`;
+      const borderCol = isFail ? '#E8455A'
+                      : isWarn ? '#E8A020'
+                      : isCert ? `rgb(${rgb})`
+                      :          `rgba(${rgb},.55)`;
+      const inkCol    = isFail ? '#FFB0B8'
+                      : isWarn ? '#FFD080'
+                      : isCert ? `rgb(${rgb})`
+                      :          `rgba(${rgb},.8)`;
 
-      const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
-          <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
-        </defs>
-        <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
-        <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
-        <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
-        ${[45,135,225,315].map(deg => {
-          const rad = deg*Math.PI/180, dr = R-2.5;
-          return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
-        }).join('')}
-        <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700" letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
-          <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
-        </text>
-        <text x="${R}" y="${R+3}" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
-        <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600" letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
-          <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${startTime}</textPath>
-        </text>
-      </svg>`;
+      const slotCode  = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
+      const n         = g.students.length;
+      const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
 
-      const stampEl = document.createElement('div');
-      stampEl.className = 'sg-stamp';
-      stampEl.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));transition:transform .15s,filter .15s;`;
-      stampEl.innerHTML = svg;
-      stampEl.addEventListener('mouseenter', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; stampEl.style.zIndex='20'; });
-      stampEl.addEventListener('mouseleave', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; stampEl.style.zIndex='11'; });
-      stampEl.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
-      wrap.appendChild(stampEl);
+      /* wrapRect + rowRect give us absolute → relative offsets */
+      const wrapRect = wrap.getBoundingClientRect();
+      const rowRect  = rowEl.getBoundingClientRect();
+      const bandLeft = (rowRect.left - wrapRect.left) + pos.left;
+      const bandTop  = rowRect.top  - wrapRect.top;
+
+      const band = document.createElement('div');
+      band.className = 'sg-stamp';
+      band.style.cssText = [
+        `position:absolute`,
+        `left:${bandLeft}px`,
+        `top:${bandTop + 3}px`,
+        `width:${pos.width}px`,
+        `height:${rowEl.offsetHeight - 6}px`,
+        `background:${bandBg}`,
+        `border-left:3px solid ${borderCol}`,
+        `border-top:.5px solid ${borderCol}55`,
+        `border-right:.5px solid ${borderCol}33`,
+        `border-bottom:.5px solid ${borderCol}33`,
+        `border-radius:3px`,
+        `display:flex`,
+        `align-items:center`,
+        `gap:5px`,
+        `padding:0 6px 0 5px`,
+        `cursor:pointer`,
+        `z-index:11`,
+        `overflow:hidden`,
+        `box-sizing:border-box`,
+        `transition:opacity .15s, box-shadow .15s`,
+      ].join(';');
+
+      /* show turma code + status glyph + n/MAX */
+      const showText = pos.width > 52;
+      const showCount = pos.width > 42;
+
+      band.innerHTML = `
+        <span style="font-size:7px;font-weight:700;letter-spacing:.04em;
+                     color:${inkCol};white-space:nowrap;overflow:hidden;
+                     text-overflow:ellipsis;flex:1;min-width:0;font-family:'IBM Plex Mono',monospace">
+          ${showText ? slotCode : statusGlyph}
+        </span>
+        ${showCount
+          ? `<span style="font-size:7px;font-weight:600;color:${inkCol};
+                          opacity:.65;flex-shrink:0;font-family:'IBM Plex Mono',monospace;
+                          white-space:nowrap">${n}<span style="opacity:.5">/${MAX_G}</span></span>`
+          : ''}`;
+
+      band.addEventListener('mouseenter', () => {
+        band.style.opacity = '.82';
+        band.style.boxShadow = `0 2px 10px rgba(0,0,0,.55)`;
+        band.style.zIndex = '20';
+      });
+      band.addEventListener('mouseleave', () => {
+        band.style.opacity = '1';
+        band.style.boxShadow = 'none';
+        band.style.zIndex = '11';
+      });
+      band.addEventListener('click', e => {
+        e.stopPropagation();
+        openGroupModal(levelKey, i);
+      });
+
+      wrap.appendChild(band);
     });
   });
 }
-
-function drawStampsSafe(containerId, levelKey, result){
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      drawStamps(containerId, levelKey, result);
-    });
-  });
-}
-
 /* ══════════════════════════════════════════════
    GROUPING ENGINE
 ══════════════════════════════════════════════ */
