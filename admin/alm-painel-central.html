@@ -1666,7 +1666,33 @@ function injectStamps(gridId, result, levelKey) {
   overlay.innerHTML = '';
   wrap.style.position = 'relative';
 
-  const wrapRect = wrap.getBoundingClientRect();
+  // Replicate timeToBandPos but for sg-cell layout
+  // ALL_HOURS in painel = [8,9,10,11,14,15,16,17,18,19,20] with gap between 11 and 14
+  const PAINEL_HRS = [8,9,10,11,null,14,15,16,17,18,19,20];
+  const GAP = 3;
+
+  function bandPos(startMins, endMins, rowEl) {
+    // Get all cells in order (including gap-cell)
+    const cells = Array.from(rowEl.querySelectorAll('.sg-cell'));
+    let x = 0, left = null, right = null;
+    for (let i = 0; i < PAINEL_HRS.length; i++) {
+      const h = PAINEL_HRS[i];
+      const cell = cells[i];
+      if (!cell) continue;
+      const w = cell.offsetWidth;
+      if (h === null) { x += w + GAP; continue; } // gap column
+      const hStart = h * 60, hEnd = (h + 1) * 60;
+      if (startMins < hEnd && endMins > hStart) {
+        const os = Math.max(startMins, hStart);
+        const oe = Math.min(endMins,   hEnd);
+        if (left === null) left = x + ((os - hStart) / 60) * w;
+        right = x + ((oe - hStart) / 60) * w;
+      }
+      x += w + GAP;
+    }
+    if (left === null) return null;
+    return { left: Math.round(left), width: Math.max(38, Math.round(right - left)) };
+  }
 
   result.groups.forEach((g, i) => {
     const committed = (_groupCodes[levelKey] || {})[i];
@@ -1679,60 +1705,28 @@ function injectStamps(gridId, result, levelKey) {
     const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
     const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
     const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
-    const codeLabel = committed ? committed.turmaCode : `T${i + 1}`;
+    const codeLabel   = committed ? committed.turmaCode : `T${i + 1}`;
     const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
 
     const pairDays    = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotLetters = ['A', 'B'];
-
-    // Class runs from g.startMins to g.startMins + CLASS_DUR (90 min)
-    const startMins = g.startMins;
-    const endMins   = g.startMins + CLASS_DUR;
+    const startMins   = g.startMins;
+    const endMins     = g.startMins + CLASS_DUR;
 
     pairDays.forEach((dayIdx, si) => {
       const row = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
       if (!row) return;
 
-      // Find all non-gap cells and measure their positions
-      const cells = Array.from(row.querySelectorAll('.sg-cell:not(.gap-cell)'));
-      if (!cells.length) return;
+      const pos = bandPos(startMins, endMins, row);
+      if (!pos) return;
 
-      // Build a map: hour → cell bounding rect
-      const cellMap = {};
-      cells.forEach(cell => {
-        const h = parseInt(cell.dataset.h);
-        if (!isNaN(h)) cellMap[h] = cell.getBoundingClientRect();
-      });
+      // Row's offsetTop relative to wrap
+      let rowTop = 0;
+      let el2 = row;
+      while (el2 && el2 !== wrap) { rowTop += el2.offsetTop; el2 = el2.offsetParent; }
 
-      // Find the pixel span for [startMins, endMins]
-      // For each hour that overlaps the class, interpolate within that cell
-      let leftPx = null, rightPx = null;
-
-      for (const [hStr, rect] of Object.entries(cellMap)) {
-        const h = parseInt(hStr);
-        const cellStart = h * 60;
-        const cellEnd   = (h + 1) * 60;
-
-        if (startMins < cellEnd && endMins > cellStart) {
-          const overlapStart = Math.max(startMins, cellStart);
-          const overlapEnd   = Math.min(endMins,   cellEnd);
-          const frac0 = (overlapStart - cellStart) / 60;
-          const frac1 = (overlapEnd   - cellStart) / 60;
-
-          const pxStart = rect.left - wrapRect.left + frac0 * rect.width;
-          const pxEnd   = rect.left - wrapRect.left + frac1 * rect.width;
-
-          if (leftPx === null || pxStart < leftPx) leftPx  = pxStart;
-          if (rightPx === null || pxEnd   > rightPx) rightPx = pxEnd;
-        }
-      }
-
-      if (leftPx === null) return;
-
-      // Centre of the full band span
-      const rowRect    = row.getBoundingClientRect();
-      const centrePx   = (leftPx + rightPx) / 2;
-      const rowCentreY = rowRect.top - wrapRect.top + rowRect.height / 2;
+      const centrePx   = pos.left + pos.width / 2;
+      const rowCentreY = rowTop + row.offsetHeight / 2;
 
       const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
       const SIZE = 38, R = SIZE / 2;
@@ -1746,8 +1740,8 @@ function injectStamps(gridId, result, levelKey) {
         <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
         <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
         <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
-        ${[45,135,225,315].map(deg=>{
-          const rad=deg*Math.PI/180, dr=R-2.5;
+        ${[45,135,225,315].map(deg => {
+          const rad = deg*Math.PI/180, dr = R-2.5;
           return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
         }).join('')}
         <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700"
@@ -1763,16 +1757,13 @@ function injectStamps(gridId, result, levelKey) {
       </svg>`;
 
       const rotation = -6 + (i % 4) * 4;
-      const el = document.createElement('div');
-      el.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.055}s both;transition:transform .15s,filter .15s;`;
-      el.title = `${slotCode} · ${isCert?'✓ Certificado':isFail?'✕ Falha':isWarn?'⚠ Aviso':'○ Proposta'} · ${g.students.length}al · ${g.startTime}–${g.endTime}`;
-      el.innerHTML = svg;
-
-      el.addEventListener('mouseenter', () => { el.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; el.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; el.style.zIndex='20'; });
-      el.addEventListener('mouseleave', () => { el.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; el.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; el.style.zIndex='11'; });
-      el.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
-
-      overlay.appendChild(el);
+      const stampEl = document.createElement('div');
+      stampEl.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.055}s both;transition:transform .15s,filter .15s;`;
+      stampEl.innerHTML = svg;
+      stampEl.addEventListener('mouseenter', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; stampEl.style.zIndex='20'; });
+      stampEl.addEventListener('mouseleave', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; stampEl.style.zIndex='11'; });
+      stampEl.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
+      overlay.appendChild(stampEl);
     });
   });
 }
@@ -1787,6 +1778,7 @@ function setLCView(v){
     if(v==='pins'&&_lastResult?.groups?.length)requestAnimationFrame(()=>injectPins('lc-grid',_lastResult));
   }
 }
+  
 /* ══════════════════════════════════════════════
    GROUP CARD — with auto-audit verdicts (Doc 3)
 ══════════════════════════════════════════════ */
