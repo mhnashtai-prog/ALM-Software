@@ -790,13 +790,12 @@ async function sbGet(table, qs) {
 }
 
 /* ══════════════════════════════════════════════
-   CONSTANTS
+   CONSTANTS — canonical, matching assign file
 ══════════════════════════════════════════════ */
+const ALL_HRS   = [8,9,10,11,null,14,15,16,17,18,19,20]; /* null = lunch gap */
+const HOUR_COLS = ALL_HRS.filter(h=>h!==null);
 const DAYS_PT   = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
-const ALL_HOURS = [8,9,10,11,14,15,16,17,18,19,20];
-const HOURS_AM  = [8,9,10,11];
-const HOURS_PM  = [14,15,16,17,18,19,20];
 const CLASS_DUR = 90;
 const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
 const ROW_H=48;
@@ -867,8 +866,6 @@ const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1'
 let allE=[],allR=[],rByRef={};
 let activeLoc='all',activeLevelKey=null;
 let openDepts={kids:true,kids_juv:false,adults:false,exam:false};
-let currentView='heatmap';
-let highlightPairIdx=null;
 let _lastResult=null;
 let _allResults={};
 let _auditResults={};
@@ -881,8 +878,13 @@ let watchFilter='all';
 let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='all';
-let _ovOpenDepts={kids:true,kids_juv:false,adults:false,exam:false};
+let _ovOpenDepts2={kids:true,kids_juv:false,adults:false,exam:false};
 let _decActiveIdx=null,_decActiveBranch='all';
+
+/* Current grid state — tracks what's built in DOM */
+let _gridLevelKey=null;
+let _gridWithReq=[];
+let _gridResult=null;
 
 /* ══════════════════════════════════════════════
    HELPERS
@@ -943,7 +945,222 @@ function analysePrefs(ref){
 }
 
 /* ══════════════════════════════════════════════
-   GROUPING ENGINE — from Doc 1 (best version)
+   TIME → PIXEL  (canonical, from assign file)
+══════════════════════════════════════════════ */
+function toMins(t){
+  if(t==null)return null;
+  if(typeof t==='number')return t*60;
+  const parts=String(t).split(':').map(Number);
+  return(parts[0]||0)*60+(parts[1]||0);
+}
+
+function timeToBandPos(startTime, endTime, rowEl){
+  const cells=Array.from(rowEl.querySelectorAll('.sg-cell'));
+  const GAP=3;
+  let x=0;
+  const sm=toMins(startTime);
+  const em=toMins(endTime);
+  if(sm===null||em===null)return null;
+  let left=null, right=null;
+  for(let i=0;i<ALL_HRS.length;i++){
+    const h=ALL_HRS[i];
+    const cell=cells[i];
+    if(!cell)continue;
+    const w=cell.offsetWidth;
+    if(h===null){x+=w+GAP;continue;}
+    const hStart=h*60, hEnd=(h+1)*60;
+    if(sm<hEnd&&em>hStart){
+      const overlapStart=Math.max(sm,hStart);
+      const overlapEnd=Math.min(em,hEnd);
+      if(left===null)left=x+((overlapStart-hStart)/60)*w;
+      right=x+((overlapEnd-hStart)/60)*w;
+    }
+    x+=w+GAP;
+  }
+  if(left===null)return null;
+  return{left:Math.round(left),width:Math.max(38,Math.round(right-left))};
+}
+
+/* ══════════════════════════════════════════════
+   HEATMAP GRID — permanent DOM, never hidden
+   The grid lives in #sg-grid-outer which is
+   always in the DOM once built. Stamps are drawn
+   over it with absolute positioning.
+══════════════════════════════════════════════ */
+function buildHeatmap(students){
+  const map={};
+  DAYS_PT.forEach(d=>{map[d]={};HOUR_COLS.forEach(h=>map[d][h]=0);});
+  students.forEach(e=>{
+    const a=analysePrefs(e.ref);if(!a)return;
+    a.windows.forEach(w=>{
+      const day=DAYS_PT[w.dayIdx];if(!day)return;
+      const startH=Math.floor(w.earliest/60),endH=Math.floor(w.latest/60);
+      const seen=new Set();
+      for(let h=startH;h<=endH;h++){if(HOUR_COLS.includes(h)&&!seen.has(h)){seen.add(h);map[day][h]++;}}
+    });
+  });
+  return map;
+}
+
+/* Build permanent grid DOM — called once per level, rows always visible */
+function buildPermanentGrid(containerId, withReq){
+  const container=document.getElementById(containerId);
+  if(!container)return;
+
+  const heatmap=buildHeatmap(withReq);
+  const allVals=DAYS_PT.flatMap(d=>HOUR_COLS.map(h=>heatmap[d][h]));
+  const maxVal=Math.max(...allVals,1);
+  const today=new Date().getDay();
+  const dayToday=[null,'SEG','TER','QUA','QUI','SEX','SÁB'][today]||null;
+
+  /* Day label column */
+  let dayColHTML='<div class="day-spacer"></div>';
+  DAYS_PT.forEach((day,di)=>{
+    const hasData=HOUR_COLS.some(h=>(heatmap[day]?.[h]||0)>0);
+    const isToday=day===dayToday;
+    dayColHTML+=`<div class="sg-day-lbl${hasData?' has-data':''}${isToday?' today':''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
+      <span class="sg-day-short">${day}</span>
+      <span class="sg-day-full">${DAYS_FULL[day]||day}</span>
+    </div>`;
+  });
+
+  /* Time header */
+  let timeHdrHTML='<div class="sg-time-hdr">';
+  ALL_HRS.forEach(h=>{
+    if(h===null) timeHdrHTML+=`<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
+    else timeHdrHTML+=`<div class="sg-time-lbl">${h}h</div>`;
+  });
+  timeHdrHTML+='</div>';
+
+  /* Rows — one per day, cells matching ALL_HRS exactly */
+  let rowsHTML='';
+  DAYS_PT.forEach((day,di)=>{
+    const rgb=DAY_RGB[di];
+    let cells='';
+    ALL_HRS.forEach(h=>{
+      if(h===null){
+        cells+=`<div class="sg-cell gap-cell"></div>`;
+      } else {
+        const n=heatmap[day]?.[h]||0;
+        const pct=Math.round(n/maxVal*100);
+        const bandH=n===0?0:Math.max(14,Math.round(pct/100*ROW_H));
+        const alpha=n===0?0:(0.12+pct/100*0.55).toFixed(2);
+        const bAlpha=n===0?'0.05':(0.25+pct/100*0.45).toFixed(2);
+        const countHTML=n>0?`<div class="hm-count" style="color:rgba(${rgb},.9)">${n}</div><div class="hm-sub">al</div>`:'';
+        cells+=`<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha});background:rgba(${rgb},.025)">
+          <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
+        </div>`;
+      }
+    });
+    rowsHTML+=`<div class="sg-row" data-di="${di}" id="sg-row-${di}" style="height:${ROW_H}px;position:relative;margin-bottom:3px">${cells}</div>`;
+  });
+
+  container.innerHTML=`
+    <div style="display:flex">
+      <div style="flex-shrink:0;width:52px">${dayColHTML}</div>
+      <div style="flex:1;position:relative" id="sg-scroll-cols">
+        ${timeHdrHTML}
+        <div id="sg-rows-wrap" style="position:relative">${rowsHTML}</div>
+      </div>
+    </div>`;
+}
+
+/* Draw stamps — called after grid is in visible DOM via rAF */
+function drawStamps(levelKey, result){
+  const wrap=document.getElementById('sg-rows-wrap');
+  if(!wrap)return;
+
+  /* Remove old stamps */
+  wrap.querySelectorAll('.sg-stamp').forEach(s=>s.remove());
+
+  if(!result?.groups?.length)return;
+
+  result.groups.forEach((g,i)=>{
+    const committed=(_groupCodes[levelKey]||{})[i];
+    const ar=(_auditResults[levelKey]||{})[i];
+
+    const isCert=!!committed;
+    const isFail=ar?.status==='fail';
+    const isWarn=ar?.status==='warn';
+
+    const stampBg  =isFail?'#3A0A0A':isWarn?'#2A1A00':isCert?'#0A2A14':'#1A1A2A';
+    const stampRing=isFail?'#E8455A':isWarn?'#E8A020':isCert?'#C9A84C':'#4A8FF5';
+    const stampInk =isFail?'#FFB0B8':isWarn?'#FFD080':isCert?'#E8C97A':'#90C0FF';
+    const codeLabel  =committed?committed.turmaCode:`T${i+1}`;
+    const statusGlyph=isFail?'✕':isWarn?'⚠':isCert?'✓':'○';
+
+    const startMins=g.startMins;
+    const endMins=g.startMins+CLASS_DUR;
+    const startTime=minsToT(startMins);
+    const endTime=minsToT(endMins);
+    const pairDays=g.pair.a===g.pair.b?[g.pair.a]:[g.pair.a,g.pair.b];
+    const slotLetters=['A','B'];
+
+    pairDays.forEach((dayIdx,si)=>{
+      const rowEl=document.getElementById(`sg-row-${dayIdx}`);
+      if(!rowEl)return;
+
+      const pos=timeToBandPos(startTime, endTime, rowEl);
+      if(!pos)return;
+
+      /* Position relative to wrap */
+      const wrapRect=wrap.getBoundingClientRect();
+      const rowRect=rowEl.getBoundingClientRect();
+      const rowTop=rowRect.top-wrapRect.top;
+      const rowLeft=rowRect.left-wrapRect.left;
+
+      const centrePx=rowLeft+pos.left+pos.width/2;
+      const rowCentreY=rowTop+rowEl.offsetHeight/2;
+
+      const slotCode=codeLabel+(pairDays.length>1?slotLetters[si]:'');
+      const SIZE=38, R=SIZE/2;
+      const uid=`${levelKey}-${i}-${si}`.replace(/[|]/g,'-');
+      const rotation=-6+(i%4)*4;
+
+      const svg=`<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
+          <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
+        </defs>
+        <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
+        <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
+        <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
+        ${[45,135,225,315].map(deg=>{
+          const rad=deg*Math.PI/180,dr=R-2.5;
+          return`<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
+        }).join('')}
+        <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700" letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
+          <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
+        </text>
+        <text x="${R}" y="${R+3}" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
+        <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600" letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
+          <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${startTime}</textPath>
+        </text>
+      </svg>`;
+
+      const stampEl=document.createElement('div');
+      stampEl.className='sg-stamp';
+      stampEl.style.cssText=`position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));transition:transform .15s,filter .15s;`;
+      stampEl.innerHTML=svg;
+      stampEl.addEventListener('mouseenter',()=>{stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`;stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`;stampEl.style.zIndex='20';});
+      stampEl.addEventListener('mouseleave',()=>{stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`;stampEl.style.zIndex='11';});
+      stampEl.addEventListener('click',e=>{e.stopPropagation();openGroupModal(levelKey,i);});
+      wrap.appendChild(stampEl);
+    });
+  });
+}
+
+/* Safe draw — waits for layout */
+function drawStampsSafe(levelKey, result){
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      drawStamps(levelKey, result);
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════
+   GROUPING ENGINE
 ══════════════════════════════════════════════ */
 function buildProposals(levelKey,branch){
   const STEP=30;
@@ -1020,7 +1237,7 @@ function buildProposals(levelKey,branch){
 }
 
 /* ══════════════════════════════════════════════
-   AUTO-AUDIT ENGINE — from Doc 3
+   AUTO-AUDIT ENGINE
 ══════════════════════════════════════════════ */
 function auditGroupSync(g){
   const log={},pairDays=g.pair.a===g.pair.b?[g.pair.a]:[g.pair.a,g.pair.b];
@@ -1035,8 +1252,8 @@ function auditGroupSync(g){
     for(const dayIdx of pairDays){
       const daySlots=byDay[dayIdx]||[];
       if(!daySlots.length){verdict='fail';reason=`Não pediu ${DAYS_PT[dayIdx]}`;break;}
-     const propEnd=g.startMins+CLASS_DUR;
-     const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=propEnd);
+      const propEnd=g.startMins+CLASS_DUR;
+      const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=propEnd);
       if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(g.startMins)}–${minsToT(propEnd)} não cabe na janela declarada`;}
     }
     log[e.ref]={verdict,reason};
@@ -1102,8 +1319,7 @@ async function runBootAudit(){
     done++;setBootProgress(40+Math.round(done/total*40));
   }
   setBoot('A verificar turmas existentes…');
-  
-   try{
+  try{
     const existing=await sbGet('classes',`select=turma_code,group_code,status,level_code,family,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=neq.eliminado`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
@@ -1114,7 +1330,6 @@ async function runBootAudit(){
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
-    
   setBootProgress(85);
   _exceptionQueue=[];
   for(const key of Object.keys(_allResults)){
@@ -1136,7 +1351,7 @@ async function runBootAudit(){
   let committed=0;
   for(let b=0;b<passing.length;b+=5){
     const batch=passing.slice(b,b+5);
- const results=await Promise.allSettled(batch.map(async({key,i})=>{
+    const results=await Promise.allSettled(batch.map(async({key,i})=>{
       await commitGroup(key,i);committed++;return{key,i};
     }));
     results.forEach((r,bi)=>{
@@ -1149,34 +1364,23 @@ async function runBootAudit(){
         console.error(`ALM: commitGroup failed ${key} G${i}`,r.reason);
       }
     });
-    } 
-  setBootProgress(100);
-  
-  (function reconcileDBvsEngine(){
-  const warnings=[];
-  Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
-    const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
-    const engineCount=_allResults[key]?.placed||0;
-    const diff=Math.abs(dbCount-engineCount);
-    if(diff>2){
-      const label=(LEVEL_MAP[key]||{}).label||key;
-      warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);
-    }
-  });
-  if(warnings.length){
-    console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));
-    showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');
   }
-})();
+  setBootProgress(100);
+  (function reconcileDBvsEngine(){
+    const warnings=[];
+    Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
+      const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
+      const engineCount=_allResults[key]?.placed||0;
+      const diff=Math.abs(dbCount-engineCount);
+      if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
+    });
+    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
+  })();
   return{committed,exceptions:_exceptionQueue.length};
 }
 
-function setBootProgress(pct){
-  const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';
-}
-function setBoot(msg,sub=''){
-  const s=document.getElementById('boot-sub');if(s)s.textContent=sub||msg;
-}
+function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
+function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
 
 /* ══════════════════════════════════════════════
    EXCEPTION BAR
@@ -1198,16 +1402,15 @@ function renderExcBar(){
   }
   bar.className=fails.length>0?'exc-bar fail':'exc-bar';
   lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
- const byLevel={};
-_exceptionQueue.forEach(exc=>{
-  const lbl=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;
-  if(!byLevel[lbl])byLevel[lbl]={f:0,w:0};
-  if(exc.auditResult.status==='fail')byLevel[lbl].f++;
-  else byLevel[lbl].w++;
-});
-items.innerHTML=Object.entries(byLevel).map(([lbl,c])=>
-  `<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lbl} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`
-).join('');
+  const byLevel={};
+  _exceptionQueue.forEach(exc=>{
+    const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;
+    if(!byLevel[lb])byLevel[lb]={f:0,w:0};
+    if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;
+  });
+  items.innerHTML=Object.entries(byLevel).map(([lb,c])=>
+    `<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`
+  ).join('');
   if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warns.length} aviso${warns.length!==1?'s':''}`;}
   else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
 }
@@ -1237,20 +1440,6 @@ function overrideException(levelKey,groupIdx){
   _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
   commitGroup(levelKey,groupIdx).then(code=>{showToast(`Turma ${code||''} aceite com excepção`,'warn');renderExcBar();renderLevelContent();}).catch(err=>showToast('Erro: '+err.message,'err'));
 }
-function excludeStudentFromGroup(levelKey,groupIdx,ref){
-  const result=_allResults[levelKey];if(!result)return;
-  const g=result.groups[groupIdx];if(!g)return;
-  g.students=g.students.filter(e=>e.ref!==ref);
-  const ar=auditGroupSync(g);
-  if(!_auditResults[levelKey])_auditResults[levelKey]={};
-  _auditResults[levelKey][groupIdx]=ar;
-  const excIdx=_exceptionQueue.findIndex(e=>e.levelKey===levelKey&&e.groupIdx===groupIdx);
-  if(ar.status==='pass'){
-    if(excIdx!==-1)_exceptionQueue.splice(excIdx,1);
-    commitGroup(levelKey,groupIdx).then(code=>showToast(`${ref} removido · Turma ${code||''} certificada ✓`,'ok')).catch(()=>{});
-  }else{if(excIdx!==-1)_exceptionQueue[excIdx].auditResult=ar;showToast(`${ref} removido · ${ar.failCount} falha${ar.failCount!==1?'s':''} restantes`,'warn');}
-  renderExcBar();renderLevelContent();
-}
 
 /* ══════════════════════════════════════════════
    CC NAVIGATION
@@ -1263,103 +1452,18 @@ function switchCC(panel,el){
   if(panel==='watch')renderWatchlist();
   if(panel==='audit')renderAudit();
   if(panel==='decision')renderDecision();
-  if(panel==='overview'){_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();}
+  if(panel==='overview'){_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();}
 }
 
 /* ══════════════════════════════════════════════
-   HEATMAP
+   PAIR HELPERS
 ══════════════════════════════════════════════ */
-function buildHeatmap(students){
-  const map={};
-  DAYS_PT.forEach(d=>{map[d]={};ALL_HOURS.forEach(h=>map[d][h]=0);});
-  students.forEach(e=>{
-    const a=analysePrefs(e.ref);if(!a)return;
-    a.windows.forEach(w=>{
-      const day=DAYS_PT[w.dayIdx];if(!day)return;
-      const startH=Math.floor(w.earliest/60),endH=Math.floor(w.latest/60);
-      const seen=new Set();for(let h=startH;h<=endH;h++){if(ALL_HOURS.includes(h)&&!seen.has(h)){seen.add(h);map[day][h]++;}}
-    });
-  });
-  return map;
-}
 function countPair(students,pair){
   return students.filter(e=>{const a=analysePrefs(e.ref);if(!a)return false;return a.windows.find(w=>w.dayIdx===pair.a)&&a.windows.find(w=>w.dayIdx===pair.b);}).length;
 }
 function placedInPair(pair){
   if(!_lastResult?.groups)return 0;
   return _lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b).reduce((s,g)=>s+g.students.length,0);
-}
-
-/* ══════════════════════════════════════════════
-   GRID BUILDER — two-column layout (Doc 2 style)
-══════════════════════════════════════════════ */
-function buildGridRows(gridId,withReq,isPins){
-  const heatmap=buildHeatmap(withReq);
-  const allVals=DAYS_PT.flatMap(d=>ALL_HOURS.map(h=>heatmap[d][h]));
-  const maxVal=Math.max(...allVals,1);
-
-  /* Day label column */
-  let dayCol=`<div style="flex-shrink:0;width:52px;padding-top:28px;display:flex;flex-direction:column;gap:3px">`;
-  DAYS_PT.forEach((day,di)=>{
-    const hasData=ALL_HOURS.some(h=>(heatmap[day]?.[h]||0)>0);
-    dayCol+=`<div class="sg-day-lbl${hasData?' has-data':''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
-      <span class="sg-day-short">${day}</span>
-      <span class="sg-day-full">${DAYS_FULL[day]||day}</span>
-    </div>`;
-  });
-  dayCol+=`</div>`;
-
-  /* Time header */
-  let main=`<div class="sg-main"><div class="sg-time-hdr">`;
-  HOURS_AM.forEach(h=>main+=`<div class="sg-time-lbl">${h}h</div>`);
-  main+=`<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
-  HOURS_PM.forEach(h=>main+=`<div class="sg-time-lbl">${h}h</div>`);
-  main+=`</div>`;
-
-  /* Rows */
-  DAYS_PT.forEach((day,di)=>{
-    main+=`<div class="sg-row" data-di="${di}" style="height:${ROW_H}px;position:relative" id="${gridId}-row-${di}">`;
-    HOURS_AM.forEach(h=>{
-      const n=heatmap[day]?.[h]||0,pct=Math.round(n/maxVal*100);
-      const rgb=DAY_RGB[di];
-      const bandH=isPins?0:(n===0?0:Math.max(14,Math.round(pct/100*ROW_H)));
-      const alpha=n===0?0:(0.12+pct/100*0.55).toFixed(2);
-      const bAlpha=n===0?'0.05':(0.25+pct/100*0.45).toFixed(2);
-      const countHTML=(!isPins&&n>0)?`<div class="hm-count" style="color:rgba(${rgb},.9)">${n}</div><div class="hm-sub">al</div>`:'';
-      main+=`<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})${isPins?';opacity:.35':''}">
-        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
-      </div>`;
-    });
-    main+=`<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
-    HOURS_PM.forEach(h=>{
-      const n=heatmap[day]?.[h]||0,pct=Math.round(n/maxVal*100);
-      const rgb=DAY_RGB[di];
-      const bandH=isPins?0:(n===0?0:Math.max(14,Math.round(pct/100*ROW_H)));
-      const alpha=n===0?0:(0.12+pct/100*0.55).toFixed(2);
-      const bAlpha=n===0?'0.05':(0.25+pct/100*0.45).toFixed(2);
-      const countHTML=(!isPins&&n>0)?`<div class="hm-count" style="color:rgba(${rgb},.9)">${n}</div><div class="hm-sub">al</div>`:'';
-      main+=`<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})${isPins?';opacity:.35':''}">
-        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
-      </div>`;
-    });
-    main+=`</div>`;
-  });
-  main+=`</div>`;
-  return`<div class="school-grid" style="min-width:540px">${dayCol}${main}</div>`;
-}
-
-/* Pair pills */
-function buildPairPills(withReq){
-  const dept=(LEVEL_MAP[activeLevelKey]||{}).dept||'adults';
-  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
-  let html='';
-  pairCounts.forEach(({pair,count},i)=>{
-    const pip=placedInPair(pair)||count;
-    const col=pip>=ASSIGN_MIN?'var(--green)':pip>=MIN_G?'var(--amber)':'var(--red)';
-    html+=`<span class="vt-pair-pill" id="pill-${i}" style="border-color:${col}44;color:${col}" onclick="highlightPair(${i},[${pair.a},${pair.b}])">${pair.aL}+${pair.bL} <strong>${pip}</strong></span>`;
-  });
-  document.getElementById('vt-pair-pills').innerHTML=html;
-  return pairCounts;
 }
 
 /* Pair matrix */
@@ -1372,9 +1476,9 @@ function buildPairMatrix(pairCounts){
     const icon=isReady?'✓':isWait?'!':'✕';
     const lbl=placed>0?'alocados':count>=ASSIGN_MIN?'disponíveis':count>=MIN_G?'aguardar':'não abre';
     const subLbl=placed>0&&count!==placed?`<div class="pm-placed">${count} disponíveis</div>`:'';
-    const firstGroupIdx = _lastResult?.groups?.findIndex(g => g.pair.a === pair.a && g.pair.b === pair.b) ?? -1;
-    const clickHandler = firstGroupIdx >= 0 ? `openGroupModal('${activeLevelKey}',${firstGroupIdx})` : '';
-   html += `<div class="pm-card ${cls}" onclick="${clickHandler}">
+    const firstGroupIdx=_lastResult?.groups?.findIndex(g=>g.pair.a===pair.a&&g.pair.b===pair.b)??-1;
+    const clickHandler=firstGroupIdx>=0?`openGroupModal('${activeLevelKey}',${firstGroupIdx})`:'';
+    html+=`<div class="pm-card ${cls}" onclick="${clickHandler}">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${displayN}</div>
@@ -1384,97 +1488,16 @@ function buildPairMatrix(pairCounts){
   return html+`</div>`;
 }
 
-/* ══ HIGHLIGHT ══ */
-function clearHighlight(){
-  highlightPairIdx=null;
-  document.querySelectorAll('.vt-pair-pill').forEach(p=>p.classList.remove('dim'));
-  document.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c=>c.classList.remove('pair-hi','pair-dim'));
-}
-function highlightPair(idx,dayPair){
-  if(highlightPairIdx===idx){clearHighlight();return;}
-  highlightPairIdx=idx;
-  document.querySelectorAll('.vt-pair-pill').forEach((p,i)=>p.classList.toggle('dim',i!==idx));
-  const hlDays=dayPair[0]===dayPair[1]?[dayPair[0]]:[dayPair[0],dayPair[1]];
-  document.querySelectorAll('.sg-row[data-di]').forEach(row=>{
-    const d=parseInt(row.dataset.di),inDay=hlDays.includes(d);
-    row.querySelectorAll('.sg-cell:not(.gap-cell)').forEach(c=>{c.classList.toggle('pair-hi',inDay);c.classList.toggle('pair-dim',!inDay);});
-  });
-}
-function focusPairGroups(aL,bL){
-  const s=document.getElementById('lc-analysis');
-  const h=document.getElementById('lc-analysis-hint');
-  if(s){s.style.display='block';if(h)h.textContent='· clique para fechar';}
-  const pair=ALM_PAIRS.find(p=>p.aL===aL&&p.bL===bL);
-  if(pair)highlightPair(ALM_PAIRS.indexOf(pair),[pair.a,pair.b]);
-}
-
-/* ══════════════════════════════════════════════
-   PINS OVERLAY (from Doc 1 — the circles shown in Image 2)
-══════════════════════════════════════════════ */
-function injectPins(gridId,result){
-  if(!result?.groups?.length)return;
-  const ROW_STRIDE=ROW_H+3,HEADER_H=28;
-  const TOTAL_UNITS=HOURS_AM.length+1+HOURS_PM.length;
-  function timeToLeftPct(mins){
-    const hr=Math.floor(mins/60),frac=(mins%60)/60;
-    const amIdx=HOURS_AM.indexOf(hr);
-    if(amIdx!==-1)return((amIdx+frac)/TOTAL_UNITS*100).toFixed(2)+'%';
-    const pmIdx=HOURS_PM.indexOf(hr);
-    if(pmIdx!==-1)return((HOURS_AM.length+1+pmIdx+frac)/TOTAL_UNITS*100).toFixed(2)+'%';
-    return'0%';
-  }
-
-  const wrap=document.getElementById(`${gridId}-rows-wrap`);
-  if(!wrap)return;
-
-  let overlay=wrap.querySelector('.pins-overlay');
-  if(!overlay){overlay=document.createElement('div');overlay.className='pins-overlay';overlay.style.cssText='position:absolute;top:0;left:0;right:0;pointer-events:none;z-index:10';wrap.appendChild(overlay);}
-  overlay.innerHTML='';
-  wrap.style.position='relative';
-
-  result.groups.forEach((g,i)=>{
-    const ar=(_auditResults[activeLevelKey]||{})[i];
-    const committed=(_groupCodes[activeLevelKey]||{})[i];
-    const col=GROUP_COLORS[i%GROUP_COLORS.length];
-    const status=ar?.status||'pending';
-    const isCert=!!committed;
-    const isExc=!committed&&(status==='fail'||status==='warn');
-    const ring=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):col;
-    const pinBg=isCert?'rgba(29,184,122,.18)':isExc?`rgba(232,${status==='fail'?'69,90':'160,32'},.15)`:col+'18';
-    const pinIcon=isCert?'✓':isExc?(status==='fail'?'✕':'⚠'):`${i+1}`;
-    const pinIconColor=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):col;
-    const pairDays=g.pair.a===g.pair.b?[g.pair.a]:[g.pair.a,g.pair.b];
-
-    pairDays.forEach((dayIdx,si)=>{
-      const leftPct=timeToLeftPct(g.startMins);
-      const topPx=HEADER_H+dayIdx*ROW_STRIDE+ROW_STRIDE/2;
-      const slotLetter=si===0?'A':'B';
-      const el=document.createElement('div');
-      el.style.cssText=`position:absolute;top:${topPx}px;left:${leftPct};transform:translate(-50%,-50%);pointer-events:all;cursor:pointer;z-index:11;animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.04}s both`;
-      el.title=`${isCert?'✓ Certificado':isExc?'Excepção · atenção':'Proposta'} · Turma ${i+1} · ${g.pair.aL}+${g.pair.bL} · ${g.startTime}–${g.endTime} · ${g.students.length}al`;
-      el.innerHTML=`<div style="width:34px;height:34px;border-radius:50%;background:${pinBg};border:2.5px solid ${ring};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 4px 14px ${ring}55,0 0 0 4px ${ring}14;transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform='scale(1.22)';this.style.boxShadow='0 6px 22px ${ring}88,0 0 0 6px ${ring}20'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px ${ring}55,0 0 0 4px ${ring}14'">
-        <div style="font-size:12px;font-weight:700;line-height:1;color:${pinIconColor};font-family:var(--mono)">${pinIcon}</div>
-        <div style="font-size:6.5px;font-weight:700;line-height:1;color:${pinIconColor};font-family:var(--mono);opacity:.8">${g.students.length}al</div>
-      </div>`;
-      el.addEventListener('click',e=>{e.stopPropagation();toggleGCard(i);setTimeout(()=>{const c=document.getElementById(`gcard-${i}`);if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'});},60);});
-      overlay.appendChild(el);
-    });
-  });
-}
-
 /* ══════════════════════════════════════════════
    FORMATION LEVEL RENDER
+   Grid is always visible — no collapsible wrapper
 ══════════════════════════════════════════════ */
-function setView(v){
-  currentView=v;
-  document.getElementById('ts-heatmap').classList.toggle('active',v==='heatmap');
-  document.getElementById('ts-pins').classList.toggle('active',v==='pins');
-  renderLevelContent();
-}
-
 function renderLevelContent(){
   const area=document.getElementById('scroll-area');
-  if(!activeLevelKey){area.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;return;}
+  if(!activeLevelKey){
+    area.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;
+    return;
+  }
 
   document.getElementById('view-toggle-bar').style.display='none';
 
@@ -1503,11 +1526,34 @@ function renderLevelContent(){
       <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
     </div>`;
 
-  if(!withReq.length){area.innerHTML=`<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;return;}
+  if(!withReq.length){
+    area.innerHTML=`<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;
+    return;
+  }
+
+  const dept=(meta.dept||'adults');
+  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
 
   let html='';
 
-  /* ── 1. GROUPS — front and centre ── */
+  /* ── 1. GRID — always visible, no toggle, no collapsible ── */
+  const certCount2=Object.keys(_groupCodes[activeLevelKey]||{}).length;
+  const propCount=(_lastResult?.groups?.length||0)-certCount2;
+  html+=`<div class="school-grid-wrap" style="margin-bottom:14px">
+    <div class="school-grid-head">
+      <span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>
+      ${certCount2>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount2} ✓ cert</span>`:''}
+      ${propCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount!==1?'s':''}</span>`:''}
+    </div>
+    <div class="school-grid-outer">
+      <div id="sg-grid-container" style="min-width:540px"></div>
+    </div>
+  </div>`;
+
+  /* ── 2. PAIR MATRIX ── */
+  html+=buildPairMatrix(pairCounts);
+
+  /* ── 3. GROUPS ── */
   if(_lastResult?.groups?.length){
     html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
       ${certCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${certCount} ✓ cert</span>`:''}
@@ -1518,24 +1564,10 @@ function renderLevelContent(){
     html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
   }
 
-  /* ── 2. SINALIZADOS ── */
+  /* ── 4. SINALIZADOS ── */
   if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
 
-/* ── 3. ANALYSIS — unified grid, no toggle ── */
-  const dept=(meta.dept||'adults');
-  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
- html+=`<div style="margin-top:14px">
-  <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';if(!o&&_lastResult?.groups?.length)setTimeout(()=>injectStamps('lc-grid',_lastResult,activeLevelKey),120);">
-    Disponibilidade + Turmas
-    <span id="lc-analysis-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
-  </div>
-  <div id="lc-analysis" style="display:none">
-    <div id="lc-grid-container">${buildUnifiedGrid(withReq, _lastResult, activeLevelKey, 'lc-grid')}</div>
-    ${buildPairMatrix(pairCounts)}
-  </div>
-</div>`;
-
-  /* ── 4. STUDENT TABLE — collapsed ── */
+  /* ── 5. STUDENT TABLE ── */
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const turmaByRef={};
   if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});});}
@@ -1568,218 +1600,14 @@ function renderLevelContent(){
   </div>`;
 
   area.innerHTML=html;
-  clearHighlight();
-}
-  function buildAnalysisGrid(withReq,isPins,gridId){
-  return`<div class="school-grid-wrap" style="margin-bottom:14px">
-    <div class="school-grid-head">
-      <span class="school-grid-title">${isPins?'📍 Pinos · turmas propostas':'📊 Calor · Disponibilidade'}</span>
-      <span style="font-size:7.5px;color:var(--t3);margin-left:auto">${withReq.length} al com pedido</span>
-    </div>
-    <div class="school-grid-outer">
-      <div id="${gridId}-rows-wrap" style="position:relative">${buildGridRows(gridId,withReq,isPins)}</div>
-    </div>
-  </div>`;
-}
-  /* ══════════════════════════════════════════════
-   UNIFIED GRID — heatmap + stamps merged, no toggle
-══════════════════════════════════════════════ */
-function buildUnifiedGrid(withReq, result, levelKey, gridId) {
-  const heatmap = buildHeatmap(withReq);
-  const allVals = DAYS_PT.flatMap(d => ALL_HOURS.map(h => heatmap[d][h]));
-  const maxVal = Math.max(...allVals, 1);
-  const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length;
 
-  let dayCol = `<div style="flex-shrink:0;width:52px;padding-top:28px;display:flex;flex-direction:column;gap:3px">`;
-  DAYS_PT.forEach((day, di) => {
-    const hasData = ALL_HOURS.some(h => (heatmap[day]?.[h] || 0) > 0);
-    dayCol += `<div class="sg-day-lbl${hasData ? ' has-data' : ''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
-      <span class="sg-day-short">${day}</span>
-      <span class="sg-day-full">${DAYS_FULL[day] || day}</span>
-    </div>`;
-  });
-  dayCol += `</div>`;
-
-  let main = `<div class="sg-main"><div class="sg-time-hdr">`;
-  HOURS_AM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
-  main += `<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
-  HOURS_PM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
-  main += `</div>`;
-
-  DAYS_PT.forEach((day, di) => {
-    main += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px;position:relative" id="${gridId}-row-${di}">`;
-    HOURS_AM.forEach(h => {
-      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
-      const rgb = DAY_RGB[di];
-      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
-      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
-      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
-      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
-        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
-      </div>`;
-    });
-    main += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
-    HOURS_PM.forEach(h => {
-      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
-      const rgb = DAY_RGB[di];
-      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
-      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
-      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
-      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
-        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
-      </div>`;
-    });
-    main += `</div>`;
-  });
-  main += `</div>`;
-
-  const certCount = Object.keys(_groupCodes[levelKey] || {}).length;
-  const propCount = (result?.groups?.length || 0) - certCount;
-
-  return `<div class="school-grid-wrap" style="margin-bottom:14px">
-    <div class="school-grid-head">
-      <span class="school-grid-title">Disponibilidade + Turmas</span>
-      ${certCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>` : ''}
-      ${propCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount !== 1 ? 's' : ''}</span>` : ''}
-      <span style="font-size:7.5px;color:var(--t3);margin-left:auto">${withReq.length} al com pedido · sem botão de toggle</span>
-    </div>
-  <div class="school-grid-outer" style="overflow:visible">
-  <div id="${gridId}-rows-wrap" style="position:relative">
-        <div class="school-grid" style="min-width:540px">${dayCol}${main}</div>
-      </div>
-    </div>
-  </div>`;
+  /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
+  buildPermanentGrid('sg-grid-container', withReq);
+  drawStampsSafe(activeLevelKey, _lastResult);
 }
 
-function injectStamps(gridId, result, levelKey) {
-  if (!result?.groups?.length) return;
-  const wrap = document.getElementById(`${gridId}-rows-wrap`);
-  if (!wrap) return;
-
-  let overlay = wrap.querySelector('.pins-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'pins-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10';
-    wrap.appendChild(overlay);
-  }
-  overlay.innerHTML = '';
-  wrap.style.position = 'relative';
-
-  // Replicate timeToBandPos but for sg-cell layout
-  // ALL_HOURS in painel = [8,9,10,11,14,15,16,17,18,19,20] with gap between 11 and 14
-  const PAINEL_HRS = [8,9,10,11,null,14,15,16,17,18,19,20];
-  const GAP = 3;
-
-function bandPos(startMins, endMins, rowEl) {
-    const cells = Array.from(rowEl.querySelectorAll('.sg-cell'));
-    let x = 0, left = null, right = null;
-    for (let i = 0; i < PAINEL_HRS.length; i++) {
-      const h = PAINEL_HRS[i];
-      const cell = cells[i];
-      if (!cell) continue;
-      const w = cell.offsetWidth;
-      if (h === null) { x += w + GAP; continue; }
-      const hStart = h * 60, hEnd = (h + 1) * 60;
-      if (startMins < hEnd && endMins > hStart) {
-        const os = Math.max(startMins, hStart);
-        const oe = Math.min(endMins,   hEnd);
-        if (left === null) left = x + ((os - hStart) / 60) * w;
-        right = x + ((oe - hStart) / 60) * w;
-      }
-      x += w + GAP;
-    }
-    if (left === null) return null;
-    return { left: Math.round(left), width: Math.max(38, Math.round(right - left)) };
-  }
-
-  result.groups.forEach((g, i) => {
-    const committed = (_groupCodes[levelKey] || {})[i];
-    const ar        = (_auditResults[levelKey] || {})[i];
-
-    const isCert  = !!committed;
-    const isFail  = ar?.status === 'fail';
-    const isWarn  = ar?.status === 'warn';
-
-    const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
-    const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
-    const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
-    const codeLabel   = committed ? committed.turmaCode : `T${i + 1}`;
-    const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
-
-    const pairDays    = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
-    const slotLetters = ['A', 'B'];
-    const startMins   = g.startMins;
-    const endMins     = g.startMins + CLASS_DUR;
-
-    pairDays.forEach((dayIdx, si) => {
-      const row = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
-      if (!row) return;
-
-      const pos = bandPos(startMins, endMins, row);
-      if (!pos) return;
-
-      const wrapRect = wrap.getBoundingClientRect();
-      const rowRect  = row.getBoundingClientRect();
-      const rowTop   = rowRect.top  - wrapRect.top;
-      const rowLeft  = rowRect.left - wrapRect.left;
-
-      const centrePx   = rowLeft + pos.left + pos.width / 2;
-      const rowCentreY = rowTop  + row.offsetHeight / 2;
-
-      const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
-      const SIZE = 38, R = SIZE / 2;
-      const uid  = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
-
-      const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
-          <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
-        </defs>
-        <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
-        <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
-        <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
-        ${[45,135,225,315].map(deg => {
-          const rad = deg*Math.PI/180, dr = R-2.5;
-          return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
-        }).join('')}
-        <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700"
-              letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
-          <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
-        </text>
-        <text x="${R}" y="${R+3}" text-anchor="middle"
-              font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
-        <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600"
-              letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
-          <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${g.startTime}</textPath>
-        </text>
-      </svg>`;
-
-      const rotation = -6 + (i % 4) * 4;
-      const stampEl = document.createElement('div');
-      stampEl.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.055}s both;transition:transform .15s,filter .15s;`;
-      stampEl.innerHTML = svg;
-      stampEl.addEventListener('mouseenter', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; stampEl.style.zIndex='20'; });
-      stampEl.addEventListener('mouseleave', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; stampEl.style.zIndex='11'; });
-      stampEl.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
-      overlay.appendChild(stampEl);
-    });
-  });
-}
-  
-function setLCView(v){
-  document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
-  document.getElementById('lc-pin-btn')?.classList.toggle('active',v==='pins');
-  const withReq=locStu().filter(e=>lk(e)===activeLevelKey&&!!rByRef[e.ref]);
-  const container=document.getElementById('lc-grid-container');
-  if(container){
-    container.innerHTML=buildAnalysisGrid(withReq,v==='pins','lc-grid');
-    if(v==='pins'&&_lastResult?.groups?.length)requestAnimationFrame(()=>injectPins('lc-grid',_lastResult));
-  }
-}
-  
 /* ══════════════════════════════════════════════
-   GROUP CARD — with auto-audit verdicts (Doc 3)
+   GROUP CARD
 ══════════════════════════════════════════════ */
 function buildGroupCard(g,i){
   const col=GROUP_COLORS[i%GROUP_COLORS.length];
@@ -1790,7 +1618,7 @@ function buildGroupCard(g,i){
   const isExc=!committed&&(status==='fail'||status==='warn');
   const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
   const blockLbl=g.startMins<720?'Manhã':'Tarde';
-  const sealBg=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):`${col}`;
+  const sealBg=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):col;
   const sealIcon=isCert
     ?`<path d="M5 11L9 15.5L17 7" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
     :isExc&&status==='fail'
@@ -1815,8 +1643,9 @@ function buildGroupCard(g,i){
   </div>`;
 }
 
-function toggleGCard(i){document.getElementById(`gcard-${i}`)?.classList.toggle('open');}
-
+/* ══════════════════════════════════════════════
+   GROUP MODAL
+══════════════════════════════════════════════ */
 function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
   const g=result.groups[i];if(!g)return;
@@ -1829,42 +1658,35 @@ function openGroupModal(levelKey,i){
   const sealBg=isCert?'var(--green)':isExc?(ar?.status==='fail'?'var(--red)':'var(--amber)'):col;
   const dept=(meta.dept||'adults');
   const bannerBg=DEPT_GRADS[dept]||DEPT_GRADS.adults;
-
   const sheet=document.getElementById('gm-sheet');
   sheet.classList.remove('gm-exit');
   document.getElementById('gm-overlay').classList.add('open');
-
   document.getElementById('gm-banner').style.background=bannerBg;
   const seal=document.getElementById('gm-seal');
   seal.style.background=sealBg;
   seal.innerHTML=isCert
     ?`<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><circle cx="14" cy="14" r="7" stroke="rgba(7,6,14,.18)" stroke-width="1" stroke-dasharray="2 2"/><path d="M8 14L12.5 19.5L20 9" fill="none" stroke="#07060E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     :`<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" font-size="14" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text></svg>`;
-
   document.getElementById('gm-title').textContent=`TURMA ${i+1}`;
   document.getElementById('gm-sub').textContent=`${i+1}A · ${g.pair.aL} + ${i+1}B · ${g.pair.bL} · ${g.startTime}–${g.endTime} · ${meta.label||''} · ${BRANCH_LABELS[activeLoc]||'Todas filiais'}`;
-
   const blockLbl=g.startMins<720?'Manhã':'Tarde';
   const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
   document.getElementById('gm-pills').innerHTML=
     `<span class="gc-block-tag ${blockCls}">${blockLbl}</span>`+
     (isCert?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${committed.turmaCode}</span>`:'')
     +(isExc?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'');
-
   document.getElementById('gm-strip').innerHTML=
     `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${g.students.length}</div><div class="gm-stat-l">alunos</div></div>`+
     `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount??g.students.length}</div><div class="gm-stat-l">ok</div></div>`+
     (ar?.warnCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--amber)">${ar.warnCount}</div><div class="gm-stat-l">avisos</div></div>`:'')
     +(ar?.failCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--red)">${ar.failCount}</div><div class="gm-stat-l">falhas</div></div>`:'')
     +(isCert?`<div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:13px">${committed.turmaCode}</div><div class="gm-stat-l">código</div></div>`:'');
-
   const auditPills=ar?
     `<span class="gm-ap pass">✓ ${ar.passCount} ok</span>`+
     (ar.warnCount?`<span class="gm-ap warn">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'')
     +(ar.failCount?`<span class="gm-ap fail">✕ ${ar.failCount} falha${ar.failCount!==1?'s':''}</span>`:'')
     +`<span style="font-size:6.5px;color:var(--t4);margin-left:auto;align-self:center">auditoria automática</span>`
     :'';
-
   const stuRows=[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
     const av=avCol(e.name||e.ref);
     const verdict=ar?.log?.[e.ref]?.verdict||'pass';
@@ -1882,12 +1704,9 @@ function openGroupModal(levelKey,i){
       <span style="font-size:9px;color:var(--sub-d)">↗</span>
     </div>`;
   }).join('');
-
-  document.getElementById('gm-body').innerHTML=
-    `<div class="gm-audit">${auditPills}</div>${stuRows}`;
-
+  document.getElementById('gm-body').innerHTML=`<div class="gm-audit">${auditPills}</div>${stuRows}`;
   document.getElementById('gm-foot').innerHTML=
-    `<button class="gm-btn gm-btn-csv" onclick="exportGroup(${i})">↓ CSV</button>`+
+    `<button class="gm-btn gm-btn-csv" onclick="exportGroup('${levelKey}',${i})">↓ CSV</button>`+
     `<button class="gm-btn gm-btn-ghost" onclick="closeGroupModal();setTimeout(()=>openDossier('${g.students[0]?.ref}'),240)">Primeiro dossier ↗</button>`+
     `<div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${g.students.length} aluno${g.students.length!==1?'s':''}</div>`;
 }
@@ -1897,12 +1716,13 @@ function closeGroupModal(){
   s.classList.add('gm-exit');
   setTimeout(()=>{document.getElementById('gm-overlay')?.classList.remove('open');s.classList.remove('gm-exit');},220);
 }
-function exportGroup(idx){
-  if(!_lastResult?.groups[idx])return;
-  const g=_lastResult.groups[idx],meta=LEVEL_MAP[activeLevelKey]||{};
-  const rows=[`ALM · ${meta.label||activeLevelKey} · Turma ${idx+1}`,'','Nome,Ref,Filial,Estado,Auditoria'];
+
+function exportGroup(levelKey,idx){
+  const result=_allResults[levelKey];if(!result?.groups[idx])return;
+  const g=result.groups[idx],meta=LEVEL_MAP[levelKey]||{};
+  const rows=[`ALM · ${meta.label||levelKey} · Turma ${idx+1}`,'','Nome,Ref,Filial,Estado,Auditoria'];
   g.students.forEach(e=>{
-    const verdict=(_auditResults[activeLevelKey]||{})[idx]?.log?.[e.ref]?.verdict||'—';
+    const verdict=(_auditResults[levelKey]||{})[idx]?.log?.[e.ref]?.verdict||'—';
     rows.push(`"${e.name||''}","${e.ref||''}","${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}","${rByRef[e.ref]?normS(rByRef[e.ref].status):'sem pedido'}","${verdict}"`);
   });
   dlCSV(rows.join('\n'),`ALM-Turma${idx+1}.csv`);
@@ -1944,42 +1764,7 @@ function buildSinalizadosHTML(result){
 function toggleSinal(){_sinalOpen=!_sinalOpen;document.getElementById('sinal-body')?.classList.toggle('open',_sinalOpen);const arr=document.getElementById('sinal-arr');if(arr)arr.style.transform=_sinalOpen?'rotate(180deg)':'';}
 
 /* ══════════════════════════════════════════════
-   STUDENT TABLE
-══════════════════════════════════════════════ */
-function buildStudentTable(allStudents){
-  const turmaByRef={};
-  if(_lastResult?.groups){
-    _lastResult.groups.forEach((g,i)=>{
-      const committed=(_groupCodes[activeLevelKey]||{})[i];
-      const label=committed?committed.turmaCode:`T${i+1}`;
-      g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});
-    });
-  }
-  const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  let html=`<div style="margin-top:14px">
-  <div class="sec">Alunos · ${sorted.length}</div>
-  <div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>`;
-  sorted.forEach((e,idx)=>{
-    const a=analysePrefs(e.ref);
-    const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
-    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
-    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
-    const turma=turmaByRef[e.ref];
-    html+=`<div class="stu-row" onclick="openDossier('${e.ref}')">
-      <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
-      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
-      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
-      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
-      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
-      <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
-    </div>`;
-  });
-  return html+`</div>`;
-}
-
-/* ══════════════════════════════════════════════
-   SIDEBAR — Formation & Overview trees
+   SIDEBAR — Formation tree
 ══════════════════════════════════════════════ */
 function initBranchStrip(){
   const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))];
@@ -2052,7 +1837,7 @@ function renderTree(){
 function toggleDept(dk){openDepts[dk]=!openDepts[dk];renderTree();}
 
 function selectLevel(key){
-  activeLevelKey=key;_sinalOpen=false;highlightPairIdx=null;
+  activeLevelKey=key;_sinalOpen=false;
   _lastResult=_allResults[key]||null;
   if(!_lastResult){
     const withReq=locStu().filter(e=>lk(e)===key&&!!rByRef[e.ref]);
@@ -2061,7 +1846,7 @@ function selectLevel(key){
   renderTree();renderLevelContent();
 }
 
-/* Formation sidebar search */
+/* Sidebar search */
 function sbSearchInput(val){
   const q=val.trim().toLowerCase();
   document.getElementById('sb-search-clear').classList.toggle('vis',val.length>0);
@@ -2091,12 +1876,6 @@ function sbSearchClear(){
 /* ══════════════════════════════════════════════
    OVERVIEW
 ══════════════════════════════════════════════ */
-function initOverview(){
-  const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))];
-  const ordered=BRANCH_ORDER.filter(b=>branches.includes(b)).concat(branches.filter(b=>!BRANCH_ORDER.includes(b)));
-  // ov-branches already rendered in initBranchStrip
-  ovRenderStats();ovRenderTree();ovRenderSummary();
-}
 function ovSetLoc(loc,btn){
   _ovActiveLoc=loc;_ovActiveLevel=null;
   document.querySelectorAll('#ov-branches .branch-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
@@ -2110,7 +1889,6 @@ function ovRenderStats(){
   document.getElementById('ov-sem').textContent=s.length-com;
 }
 
-let _ovOpenDepts2={kids:true,kids_juv:false,adults:false,exam:false};
 function ovRenderTree(){
   const students=ovStudents(),tree={};
   students.forEach(e=>{const meta=LEVEL_MAP[lk(e)]||{},dk=meta.dept||(e.family||'adults').toLowerCase(),key=lk(e);if(!tree[dk])tree[dk]={};if(!tree[dk][key])tree[dk][key]=[];tree[dk][key].push(e);});
@@ -2140,228 +1918,16 @@ function ovRenderTree(){
   });
   document.getElementById('ov-tree').innerHTML=html||`<div style="padding:20px;font-size:8px;color:var(--t3);text-align:center">Sem dados.</div>`;
 }
+
 function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation(key);}
-  function ovDrillToFormation(levelKey){
-  /* Sync active level state */
-  _ovActiveLevel = levelKey;
-  activeLevelKey = levelKey;
-  activeLoc = _ovActiveLoc;
 
-  /* Open the right dept in the ov-tree */
-  const meta = LEVEL_MAP[levelKey] || {};
-  if(meta.dept) _ovOpenDepts2[meta.dept] = true;
+function ovDrillToFormation(levelKey){
+  _ovActiveLevel=levelKey;
+  activeLevelKey=levelKey;
+  activeLoc=_ovActiveLoc;
+  const meta=LEVEL_MAP[levelKey]||{};
+  if(meta.dept)_ovOpenDepts2[meta.dept]=true;
   ovRenderTree();
-
-  /* Build proposals if not already done */
-  _lastResult = _allResults[levelKey] || null;
-  if(!_lastResult){
-    const withReq = allE.filter(e => lk(e) === levelKey && !!rByRef[e.ref]);
-    if(withReq.length >= MIN_G){
-      _lastResult = buildProposals(levelKey, 'all');
-      _allResults[levelKey] = _lastResult;
-      if(!_auditResults[levelKey]) _auditResults[levelKey] = {};
-      _lastResult.groups.forEach((g,i) => { _auditResults[levelKey][i] = auditGroupSync(g); });
-    }
-  }
-
-  /* Render formation content into ov-right */
-  const el = document.getElementById('ov-right');
-  const allStudents = (activeLoc === 'all' ? allE : allE.filter(e => normB(e.branch) === activeLoc))
-    .filter(e => lk(e) === levelKey);
-  const withReq = allStudents.filter(e => !!rByRef[e.ref]);
-  const noReq = allStudents.length - withReq.length;
-  const dc = DEPT_CFG[meta.dept] || {};
-  const capPct = Math.round(allStudents.length / (meta.maxCap || 60) * 100);
-  const placed = _lastResult ? _lastResult.placed : 0;
-  const sinal = _lastResult ? _lastResult.sinalizados.length : 0;
-  const certCount = Object.keys(_groupCodes[levelKey] || {}).length;
-  const excCount = _exceptionQueue.filter(e => e.levelKey === levelKey).length;
-
-  /* ── Header ── */
-  let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px">
-    <div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
-    <div style="font-size:8.5px;color:${dc.color||'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label||''}</div>
-<button onclick="_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button>
-    <div style="display:flex;gap:0">
-      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div>
-      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div>
-      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--red)">${noReq}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>
-      ${_lastResult ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>` : ''}
-      ${certCount > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${certCount}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Cert.</div></div>` : ''}
-      ${sinal > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--amber)">${sinal}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sinalizados</div></div>` : ''}
-      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Capacidade</div></div>
-    </div>
-  </div>`;
-
-  if(!withReq.length){
-    html += `<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;
-    el.innerHTML = html; return;
-  }
-
-/* ── Grid — unified, no toggle ── */
-  const GRID_ID = 'ov-unified-grid';
-
-  /* Pair pills */
-  const dept = meta.dept || 'adults';
-  const pairCounts = ALM_PAIRS.filter(p => !(p.examOnly && dept !== 'exam')).map(p => ({
-    pair: p,
-    count: withReq.filter(e => { const a = analysePrefs(e.ref); if(!a) return false; return a.windows.find(w => w.dayIdx === p.a) && a.windows.find(w => w.dayIdx === p.b); }).length
-  }));
-
-  const pairPillsHTML = pairCounts.map(({pair, count}, i) => {
-    const pip = (_lastResult?.groups||[]).filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b).reduce((s,g)=>s+g.students.length,0) || count;
-    const col = pip >= ASSIGN_MIN ? 'var(--green)' : pip >= MIN_G ? 'var(--amber)' : 'var(--red)';
-    return `<span style="font-size:7px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;cursor:pointer;font-family:var(--mono);letter-spacing:.04em;color:${col}">${pair.aL}+${pair.bL} <strong>${pip}</strong></span>`;
-  }).join('');
-
-  html += buildUnifiedGrid(withReq, _lastResult, levelKey, GRID_ID);
-  /* ── Pair matrix ── */
-  html += buildPairMatrix(pairCounts);
-
-  /* ── Group cards ── */
-  if(_lastResult?.groups?.length){
-    const lvCert = Object.keys(_groupCodes[levelKey]||{}).length;
-    const lvExc = _exceptionQueue.filter(e=>e.levelKey===levelKey).length;
-    html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-      ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
-      ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
-    </div>`;
-   ALM_PAIRS.forEach(pair=>{
-      const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
-      if(!pairGroups.length)return;
-      pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
-    });
-  }
-
-  /* ── Sinalizados + student table ── */
-  if(_lastResult?.sinalizados?.length) html += buildSinalizadosHTML(_lastResult);
- html += `<div style="margin-top:14px;padding-bottom:20px">
-  <button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
-    Ver ${allStudents.length} alunos ↗
-  </button>
-</div>`;
-
- el.innerHTML = html;
-
-  if (_lastResult?.groups?.length) {
-    setTimeout(() => injectStamps(GRID_ID, _lastResult, levelKey), 120);
-  }
-}
-  
-/* Branch colours for the stacked bar chart */
-const BRANCH_COLORS={
-  FUNCHAL:'#4A8FF5',
-  CAMARA_LOBOS:'#1DB87A',
-  SANTA_CRUZ:'#E8A020',
-  MACHICO:'#E8455A',
-  RIBEIRA_BRAVA:'#9B5ECA',
-  CALHETA:'#28C8B0',
-};
-
-  function buildBranchBarChart(students) {
-  const byLevel = {};
-  students.forEach(e => {
-    const key = lk(e), meta = LEVEL_MAP[key] || {};
-    if (!meta.label) return;
-    if (!byLevel[key]) byLevel[key] = {
-      key, label: meta.label, color: meta.color || 'var(--t3)',
-      dept: meta.dept || 'adults', order: meta.order || 99,
-      total: 0, withReq: 0, placed: 0, noReq: 0
-    };
-    byLevel[key].total++;
-    if (rByRef[e.ref]) byLevel[key].withReq++;
-    else byLevel[key].noReq++;
-  });
-
-  Object.keys(byLevel).forEach(key => {
-    const dbSet = window._dbPlacedByLevel?.[key];
-    if (dbSet) byLevel[key].placed = dbSet.size;
-    else { const result = _allResults[key]; if (result) byLevel[key].placed = result.placed || 0; }
-  });
-
-  const rows = Object.values(byLevel).sort((a, b) => a.order - b.order);
-  if (!rows.length) return '';
-  const maxTotal = Math.max(...rows.map(r => r.total), 1);
-
-  const legend = `<div class="barchart-legend">
-    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div>
-    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--amber)"></div>Com pedido · aguarda</div>
-    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--red)"></div>Sem pedido</div>
-    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)"></div>Capacidade restante</div>
-  </div>`;
-
-  let rowsHTML = `<div class="barchart-rows">`;
-
-  rows.forEach(row => {
-    const { key, label, total, withReq, placed, noReq } = row;
-    const waiting = withReq - placed;
-    const certCount = Object.keys(_groupCodes[key] || {}).length;
-    const groupCount = (_allResults[key]?.groups?.length) || 0;
-    const sinalizadosCount = (_allResults[key]?.sinalizados?.length) || 0;
-    const excCount = _exceptionQueue.filter(e=>e.levelKey===key).length;
-    const meta = LEVEL_MAP[key] || {};
-    const cap = meta.maxCap || total || 1;
-
-    const pPlaced  = (placed  / maxTotal * 100).toFixed(1);
-    const pWait    = (waiting / maxTotal * 100).toFixed(1);
-    const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
-    const pEmpty   = Math.max(0, ((cap - total) / maxTotal * 100)).toFixed(1);
-
-   const placedLbl  = placed  >= 6 ? placed  : '';
-   const waitLbl    = waiting >= 6 ? waiting : '';
-   const noReqLbl   = noReq   >= 6 ? noReq   : '';
-    const placedPct  = total > 0 ? Math.round(placed / total * 100) : 0;
-
-    const isClean  = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
-    const isWarn   = excCount > 0 || sinalizadosCount > 0 || (withReq > 0 && placed === 0 && groupCount > 0);
-    const healthBg = isClean ? 'var(--green)' : isWarn ? 'var(--amber)' : 'var(--red)';
-    const healthTip = isClean ? 'Tudo certificado' : isWarn ? 'Atenção necessária' : 'Requer acção';
-    const healthDot = `<div title="${healthTip}" style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0;margin-right:4px"></div>`;
-
-    const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
-    let icons = '';
-
-    if(certCount > 0)
-      icons += `<span title="Ver grupos certificados" style="${iconStyle}background:var(--green-a);border-color:var(--green-b);color:var(--green)" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${certCount}</span>`;
-
-    if(sinalizadosCount > 0)
-      icons += `<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();drillToSinalizados('${key}')">⚠ ${sinalizadosCount}</span>`;
-
-    if(excCount > 0)
-      icons += `<span title="Ver excepções" style="${iconStyle}background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();jumpToException('${key}',0)">! ${excCount}</span>`;
-
-    icons += `<span title="Ver grelha de disponibilidade" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();drillToGrid('${key}')">≡</span>`;
-    icons += `<span title="Formation completo" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();ovDrillToFormation('${key}')">→</span>`;
-
-    rowsHTML += `<div class="barchart-row" title="${label} · ${total} al · ${placed} em turma · ${noReq} sem pedido" onclick="ovDrillToFormation('${key}')">
-      <div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px">${healthDot}${label}</div>
-      <div class="barchart-row-track">
-        ${placed > 0  ? `<div class="barchart-segment" title="${placed} em turma" style="width:${pPlaced}%;background:var(--green);cursor:pointer" onclick="event.stopPropagation();drillToGroups('${key}')">${placedLbl}</div>` : ''}
-        ${waiting > 0 ? `<div class="barchart-segment" title="${waiting} aguardam" style="width:${pWait}%;background:var(--amber);cursor:pointer" onclick="event.stopPropagation();drillToSinalizados('${key}')">${waitLbl}</div>` : ''}
-        ${noReq > 0   ? `<div class="barchart-segment" title="${noReq} sem pedido" style="width:${pNoReq}%;background:var(--red);cursor:pointer" onclick="event.stopPropagation();drillToNoRequest('${key}')">${noReqLbl}</div>` : ''}
-        ${pEmpty > 0  ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>` : ''}
-      </div>
-    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div>
-    </div>`;
-  });
-
-  rowsHTML += `</div>`;
-
-  const ticks = [0,25,50,75,100].map(p=>{
-    const v = Math.round(p/100*maxTotal);
-    return `<div class="barchart-axis-tick">${v}</div>`;
-  }).join('');
-
-  return `<div class="barchart-wrap">
-    <div class="sec" style="margin-bottom:10px">Estado por nível <span style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique na barra para navegar</span></div>
-    ${legend}
-    ${rowsHTML}
-    <div class="barchart-axis">${ticks}</div>
-  </div>`;
-}
-
-  function _drillSetupLevel(levelKey){
-  activeLevelKey=levelKey;activeLoc='all';
   _lastResult=_allResults[levelKey]||null;
   if(!_lastResult){
     const withReq=allE.filter(e=>lk(e)===levelKey&&!!rByRef[e.ref]);
@@ -2372,93 +1938,182 @@ const BRANCH_COLORS={
       _lastResult.groups.forEach((g,i)=>{_auditResults[levelKey][i]=auditGroupSync(g);});
     }
   }
-  document.querySelectorAll('#branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));
-  document.querySelector('#branch-strip .branch-pill')?.classList.add('active');
-  const meta=LEVEL_MAP[levelKey]||{};
-  if(meta.dept)openDepts[meta.dept]=true;
-  updateSidebarKPIs();renderTree();renderLevelContent();
+
+  /* Render into ov-right */
+  const el=document.getElementById('ov-right');
+  const allStudents=(activeLoc==='all'?allE:allE.filter(e=>normB(e.branch)===activeLoc)).filter(e=>lk(e)===levelKey);
+  const withReq=allStudents.filter(e=>!!rByRef[e.ref]);
+  const noReq=allStudents.length-withReq.length;
+  const dc=DEPT_CFG[meta.dept]||{};
+  const capPct=Math.round(allStudents.length/(meta.maxCap||60)*100);
+  const placed=_lastResult?_lastResult.placed:0;
+  const sinal=_lastResult?_lastResult.sinalizados.length:0;
+  const certCount=Object.keys(_groupCodes[levelKey]||{}).length;
+  const excCount=_exceptionQueue.filter(e=>e.levelKey===levelKey).length;
+
+  let html=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px">
+    <div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
+    <div style="font-size:8.5px;color:${dc.color||'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label||''}</div>
+    <button onclick="_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button>
+    <div style="display:flex;gap:0">
+      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--red)">${noReq}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>
+      ${_lastResult?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>`:''}
+      ${certCount>0?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${certCount}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Cert.</div></div>`:''}
+      ${sinal>0?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--amber)">${sinal}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sinalizados</div></div>`:''}
+    </div>
+  </div>`;
+
+  if(!withReq.length){
+    html+=`<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;
+    el.innerHTML=html;return;
+  }
+
+  const dept=meta.dept||'adults';
+  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
+
+  /* Grid container — will be built into DOM after innerHTML */
+  html+=`<div class="school-grid-wrap" style="margin-bottom:14px">
+    <div class="school-grid-head">
+      <span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>
+      ${certCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>`:''}
+    </div>
+    <div class="school-grid-outer">
+      <div id="ov-grid-container" style="min-width:540px"></div>
+    </div>
+  </div>`;
+
+  html+=buildPairMatrix(pairCounts);
+
+  if(_lastResult?.groups?.length){
+    const lvCert=Object.keys(_groupCodes[levelKey]||{}).length;
+    const lvExc=_exceptionQueue.filter(e=>e.levelKey===levelKey).length;
+    html+=`<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
+      ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
+      ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
+    </div>`;
+    /* Save activeLevelKey so buildGroupCard uses correct key */
+    const savedKey=activeLevelKey;
+    activeLevelKey=levelKey;
+    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+    activeLevelKey=savedKey;
+  }
+
+  if(_lastResult?.sinalizados?.length)html+=buildSinalizadosHTML(_lastResult);
+
+  html+=`<div style="margin-top:14px;padding-bottom:20px">
+    <button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
+      Ver ${allStudents.length} alunos ↗
+    </button>
+  </div>`;
+
+  el.innerHTML=html;
+
+  /* Build grid then draw stamps — both rAF to ensure layout */
+  buildPermanentGrid('ov-grid-container', withReq);
+  drawStampsSafe(levelKey, _lastResult);
 }
 
-function drillToGroups(levelKey){
-  _drillSetupLevel(levelKey);
-  switchCC('formation',document.getElementById('tab-formation'));
-  setTimeout(()=>{
-    const first=document.getElementById('gcard-0');
-    if(first)first.scrollIntoView({behavior:'smooth',block:'start'});
-  },150);
+/* ══════════════════════════════════════════════
+   OVERVIEW SUMMARY (bar chart)
+══════════════════════════════════════════════ */
+const BRANCH_COLORS={FUNCHAL:'#4A8FF5',CAMARA_LOBOS:'#1DB87A',SANTA_CRUZ:'#E8A020',MACHICO:'#E8455A',RIBEIRA_BRAVA:'#9B5ECA',CALHETA:'#28C8B0'};
+
+function buildBranchBarChart(students){
+  const byLevel={};
+  students.forEach(e=>{
+    const key=lk(e),meta=LEVEL_MAP[key]||{};
+    if(!meta.label)return;
+    if(!byLevel[key])byLevel[key]={key,label:meta.label,color:meta.color||'var(--t3)',dept:meta.dept||'adults',order:meta.order||99,total:0,withReq:0,placed:0,noReq:0};
+    byLevel[key].total++;
+    if(rByRef[e.ref])byLevel[key].withReq++;else byLevel[key].noReq++;
+  });
+  Object.keys(byLevel).forEach(key=>{
+    const dbSet=window._dbPlacedByLevel?.[key];
+    if(dbSet)byLevel[key].placed=dbSet.size;
+    else{const result=_allResults[key];if(result)byLevel[key].placed=result.placed||0;}
+  });
+  const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
+  if(!rows.length)return'';
+  const maxTotal=Math.max(...rows.map(r=>r.total),1);
+  const legend=`<div class="barchart-legend">
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div>
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--amber)"></div>Com pedido · aguarda</div>
+    <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--red)"></div>Sem pedido</div>
+  </div>`;
+  let rowsHTML=`<div class="barchart-rows">`;
+  rows.forEach(row=>{
+    const{key,label,total,withReq,placed,noReq}=row;
+    const waiting=withReq-placed;
+    const certCount=Object.keys(_groupCodes[key]||{}).length;
+    const sinalizadosCount=(_allResults[key]?.sinalizados?.length)||0;
+    const excCount=_exceptionQueue.filter(e=>e.levelKey===key).length;
+    const cap=(LEVEL_MAP[key]||{}).maxCap||total||1;
+    const pPlaced=(placed/maxTotal*100).toFixed(1);
+    const pWait=(waiting/maxTotal*100).toFixed(1);
+    const pNoReq=(noReq/maxTotal*100).toFixed(1);
+    const pEmpty=Math.max(0,((cap-total)/maxTotal*100)).toFixed(1);
+    const placedPct=total>0?Math.round(placed/total*100):0;
+    const isClean=certCount>0&&excCount===0&&sinalizadosCount===0&&noReq===0;
+    const isWarn=excCount>0||sinalizadosCount>0||(withReq>0&&placed===0&&(_allResults[key]?.groups?.length||0)>0);
+    const healthBg=isClean?'var(--green)':isWarn?'var(--amber)':'var(--red)';
+    const iconStyle=`font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
+    let icons='';
+    if(certCount>0)icons+=`<span title="Ver grupos" style="${iconStyle}background:var(--green-a);border-color:var(--green-b);color:var(--green)" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${certCount}</span>`;
+    if(sinalizadosCount>0)icons+=`<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();drillToSinalizados('${key}')">⚠ ${sinalizadosCount}</span>`;
+    if(excCount>0)icons+=`<span title="Ver excepções" style="${iconStyle}background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();jumpToException('${key}',0)">! ${excCount}</span>`;
+    icons+=`<span title="Formation" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();ovDrillToFormation('${key}')">→</span>`;
+    rowsHTML+=`<div class="barchart-row" onclick="ovDrillToFormation('${key}')">
+      <div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div>
+      <div class="barchart-row-track">
+        ${placed>0?`<div class="barchart-segment" style="width:${pPlaced}%;background:var(--green)">${placed>=6?placed:''}</div>`:''}
+        ${waiting>0?`<div class="barchart-segment" style="width:${pWait}%;background:var(--amber)">${waiting>=6?waiting:''}</div>`:''}
+        ${noReq>0?`<div class="barchart-segment" style="width:${pNoReq}%;background:var(--red)">${noReq>=6?noReq:''}</div>`:''}
+        ${pEmpty>0?`<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div>
+    </div>`;
+  });
+  rowsHTML+=`</div>`;
+  const ticks=[0,25,50,75,100].map(p=>`<div class="barchart-axis-tick">${Math.round(p/100*maxTotal)}</div>`).join('');
+  return`<div class="barchart-wrap">
+    <div class="sec" style="margin-bottom:10px">Estado por nível <span style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique na barra para navegar</span></div>
+    ${legend}${rowsHTML}
+    <div class="barchart-axis">${ticks}</div>
+  </div>`;
 }
 
-function drillToSinalizados(levelKey){
-  _drillSetupLevel(levelKey);
-  switchCC('formation',document.getElementById('tab-formation'));
-  setTimeout(()=>{
-    _sinalOpen=true;
-    const body=document.getElementById('sinal-body');
-    const arr=document.getElementById('sinal-arr');
-    if(body){body.classList.add('open');if(arr)arr.style.transform='rotate(180deg)';}
-    document.querySelector('.sinal-hdr')?.scrollIntoView({behavior:'smooth',block:'start'});
-  },150);
-}
-
-function drillToGrid(levelKey){
-  _drillSetupLevel(levelKey);
-  switchCC('formation',document.getElementById('tab-formation'));
-  setTimeout(()=>{
-    const s=document.getElementById('lc-analysis');
-    const h=document.getElementById('lc-analysis-hint');
-    if(s){s.style.display='block';if(h)h.textContent='· clique para fechar';}
-    s?.scrollIntoView({behavior:'smooth',block:'start'});
-  },150);
-}
-
-function drillToNoRequest(levelKey){
-  const meta=LEVEL_MAP[levelKey]||{};
-  auditFilters={branch:'all',status:'noreq',dept:meta.dept||'all',levelKey};
-  switchCC('audit',document.getElementById('tab-audit'));
-  document.querySelectorAll('#au-filters .fbt').forEach(b=>b.classList.remove('act'));
-  document.querySelector('#au-filters .fbt[data-ag="branch"][data-av="all"]')?.classList.add('act');
-  document.querySelector('#au-filters .fbt[data-ag="status"][data-av="noreq"]')?.classList.add('act');
-  document.querySelector('#au-filters .fbt[data-ag="dept"][data-av="all"]')?.classList.add('act');
-  renderAudit();
-}
-  
 function ovRenderSummary(){
   const students=ovStudents(),total=students.length;
   const el=document.getElementById('ov-right');
   if(!total){el.innerHTML='<div class="empty-msg">Sem inscrições.</div>';return;}
-  const com=students.filter(e=>rByRef[e.ref]).length,sem=total-com;
-  const pend=students.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length;
+  const com=students.filter(e=>rByRef[e.ref]).length;
   const deptCounts={};DEPT_ORDER.forEach(dk=>{deptCounts[dk]=students.filter(e=>(LEVEL_MAP[lk(e)]||{}).dept===dk).length;});
   const maxD=Math.max(...Object.values(deptCounts),1);
   let totalCert=0;Object.values(_groupCodes).forEach(lvl=>totalCert+=Object.keys(lvl).length);
-
- let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}
-  <span style="font-size:7px;font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--t3);margin-left:4px">
-   ${totalCert>0?'· <span style="color:var(--green)">'+totalCert+' turmas cert.</span>':''}
-   ${_exceptionQueue.length>0?'· <span style="color:var(--amber)">'+_exceptionQueue.length+' excepções</span>':''}
-  </span>
-</div>`;
-
- html += buildBranchBarChart(students);
-
- html += `<div class="sec">Por departamento</div>
-  <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 14px;margin-bottom:14px">`;
-
-DEPT_ORDER.forEach(dk=>{
-  const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
-  html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
-    <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
-    <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
-    <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
+  let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}
+    <span style="font-size:7px;font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--t3);margin-left:4px">
+      ${totalCert>0?`· <span style="color:var(--green)">${totalCert} turmas cert.</span>`:''}
+      ${_exceptionQueue.length>0?`· <span style="color:var(--amber)">${_exceptionQueue.length} excepções</span>`:''}
+    </span>
   </div>`;
-});
-
-html+=`</div>
-  <div style="font-size:7.5px;color:var(--t3);padding-top:8px">← Seleccione um nível no painel esquerdo para ver detalhes</div>`;
+  html+=buildBranchBarChart(students);
+  html+=`<div class="sec">Por departamento</div>
+    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 14px;margin-bottom:14px">`;
+  DEPT_ORDER.forEach(dk=>{
+    const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
+      <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
+      <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
+      <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
+    </div>`;
+  });
+  html+=`</div><div style="font-size:7.5px;color:var(--t3);padding-top:8px">← Seleccione um nível no painel esquerdo para ver detalhes</div>`;
   el.innerHTML=html;
 }
 
-  function ovOpenStudentModal(levelKey){
+function ovOpenStudentModal(levelKey){
   const meta=LEVEL_MAP[levelKey]||{};
   const allStudents=(activeLoc==='all'?allE:allE.filter(e=>normB(e.branch)===activeLoc)).filter(e=>lk(e)===levelKey);
   const turmaByRef={};
@@ -2470,19 +2125,18 @@ html+=`</div>
     });
   }
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  let rows=sorted.map((e,idx)=>{
+  const rows=sorted.map((e,idx)=>{
     const a=analysePrefs(e.ref);
     const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
     const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
     const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
     const turma=turmaByRef[e.ref];
     return`<div class="stu-row" onclick="document.getElementById('ov-stu-modal').remove();openDossier('${e.ref}')">
       <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
       <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
-      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
-      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
-      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
+      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div></div>
+      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
+      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div>
       <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
     </div>`;
   }).join('');
@@ -2504,7 +2158,7 @@ html+=`</div>
   </div>`;
   document.body.appendChild(overlay);
 }
-  
+
 /* Overview search */
 function ovSearch(val){
   const q=val.trim().toLowerCase();
@@ -2526,6 +2180,27 @@ function ovSearch(val){
 }
 function ovClear(){const i=document.getElementById('ov-search');if(i)i.value='';document.getElementById('ov-clr').classList.remove('vis');document.getElementById('ov-drop').classList.remove('open');}
 
+/* Drill helpers */
+function _drillSetupLevel(levelKey){
+  activeLevelKey=levelKey;activeLoc='all';
+  _lastResult=_allResults[levelKey]||null;
+  if(!_lastResult){
+    const withReq=allE.filter(e=>lk(e)===levelKey&&!!rByRef[e.ref]);
+    if(withReq.length>=MIN_G){
+      _lastResult=buildProposals(levelKey,'all');_allResults[levelKey]=_lastResult;
+      if(!_auditResults[levelKey])_auditResults[levelKey]={};
+      _lastResult.groups.forEach((g,i)=>{_auditResults[levelKey][i]=auditGroupSync(g);});
+    }
+  }
+  document.querySelectorAll('#branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));
+  document.querySelector('#branch-strip .branch-pill')?.classList.add('active');
+  const meta=LEVEL_MAP[levelKey]||{};
+  if(meta.dept)openDepts[meta.dept]=true;
+  updateSidebarKPIs();renderTree();renderLevelContent();
+}
+function drillToGroups(levelKey){_drillSetupLevel(levelKey);switchCC('formation',document.getElementById('tab-formation'));setTimeout(()=>{document.getElementById('gcard-0')?.scrollIntoView({behavior:'smooth',block:'start'});},150);}
+function drillToSinalizados(levelKey){_drillSetupLevel(levelKey);switchCC('formation',document.getElementById('tab-formation'));setTimeout(()=>{_sinalOpen=true;const body=document.getElementById('sinal-body');const arr=document.getElementById('sinal-arr');if(body){body.classList.add('open');if(arr)arr.style.transform='rotate(180deg)';}document.querySelector('.sinal-hdr')?.scrollIntoView({behavior:'smooth',block:'start'});},150);}
+
 /* ══════════════════════════════════════════════
    AUDIT
 ══════════════════════════════════════════════ */
@@ -2536,7 +2211,7 @@ function setAF(btn){
 function renderAudit(){
   let students=[...allE];
   if(auditFilters.branch!=='all')students=students.filter(e=>normB(e.branch)===auditFilters.branch);
- if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
+  if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
   if(auditFilters.levelKey)students=students.filter(e=>lk(e)===auditFilters.levelKey);
   if(auditFilters.status!=='all')students=students.filter(e=>{
     const req=rByRef[e.ref];
@@ -2626,41 +2301,39 @@ function openDecGroup(idx){
   const stuRows=[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
     const verdict=ar?.log?.[e.ref]?.verdict||'pass',reason=ar?.log?.[e.ref]?.reason||'';
     const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
-    const vTxt=verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕';
     const av=avCol(e.name||e.ref);
     return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid rgba(201,168,76,.04);cursor:pointer;transition:background .1s" onclick="openDossier('${e.ref}')" onmouseover="this.style.background='rgba(201,168,76,.02)'" onmouseout="this.style.background=''">
       <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${av.bg};border-color:${av.t}55;color:${av.t}">${avInit(e.name||e.ref)}</div>
       <div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref}${reason&&verdict!=='pass'?' · '+reason:''}</div></div>
-      <span style="font-size:7px;font-weight:700;color:${vCol};padding:1px 5px;border:1px solid ${vCol}55;flex-shrink:0">${vTxt}</span>
-      <span style="font-size:9px;color:var(--t3)">↗</span>
+      <span style="font-size:7px;font-weight:700;color:${vCol};padding:1px 5px;border:1px solid ${vCol}55;flex-shrink:0">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
     </div>`;
   }).join('');
   document.getElementById('dec-main').innerHTML=`
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-    <div style="font-family:var(--display);font-size:28px;letter-spacing:4px;color:${col}">Turma ${idx+1}</div>
-    <div style="font-size:11px;font-weight:600;color:var(--t);flex:1">${idx+1}A · ${g.pair.aL} + ${idx+1}B · ${g.pair.bL}</div>
-    <div style="font-size:8.5px;color:var(--t2)">${g.startTime}–${g.endTime} · ${meta.label||''}</div>
-  </div>
-  <div class="dec-card${isCert?' open':''}" style="border-left-color:${col}">
-    <div class="dc-hdr" onclick="this.closest('.dec-card').classList.toggle('open')">
-      <div style="font-family:var(--display);font-size:18px;letter-spacing:2px;min-width:32px;color:${col}">${isCert?committed.turmaCode:`T${idx+1}`}</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="font-family:var(--display);font-size:28px;letter-spacing:4px;color:${col}">Turma ${idx+1}</div>
       <div style="font-size:11px;font-weight:600;color:var(--t);flex:1">${idx+1}A · ${g.pair.aL} + ${idx+1}B · ${g.pair.bL}</div>
-      <div style="font-size:8.5px;color:var(--t2)">${g.startTime} – ${g.endTime}</div>
-      <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-      ${isCert?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;padding:3px 10px;border:1px solid;flex-shrink:0;background:var(--green-a);border-color:var(--green-b);color:var(--green)">✓ CERTIFICADA</span>`:''}
-      <div style="font-size:26px;font-weight:700;line-height:1;flex-shrink:0;color:${col}">${g.students.length}</div>
-      <div style="font-size:6.5px;color:var(--t3);letter-spacing:.08em;flex-shrink:0;align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
-      <div class="dc-arr">▼</div>
+      <div style="font-size:8.5px;color:var(--t2)">${g.startTime}–${g.endTime} · ${meta.label||''}</div>
     </div>
-    <div class="dc-body">
-      ${auditSum}
-      <div style="display:flex;gap:6px;padding:0 0 8px;flex-wrap:wrap">
-        ${!isCert&&ar?.status==='warn'?`<button class="dc-btn dc-btn-create" onclick="overrideException('${activeLevelKey}',${idx})">⚠ Aceitar com aviso</button>`:''}
-        <button class="dc-btn dc-btn-csv" onclick="exportGroup(${idx})">↓ CSV</button>
+    <div class="dec-card open" style="border-left-color:${col}">
+      <div class="dc-hdr" onclick="this.closest('.dec-card').classList.toggle('open')">
+        <div style="font-family:var(--display);font-size:18px;letter-spacing:2px;min-width:32px;color:${col}">${isCert?committed.turmaCode:`T${idx+1}`}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--t);flex:1">${idx+1}A · ${g.pair.aL} + ${idx+1}B · ${g.pair.bL}</div>
+        <div style="font-size:8.5px;color:var(--t2)">${g.startTime} – ${g.endTime}</div>
+        <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
+        ${isCert?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;padding:3px 10px;border:1px solid;flex-shrink:0;background:var(--green-a);border-color:var(--green-b);color:var(--green)">✓ CERTIFICADA</span>`:''}
+        <div style="font-size:26px;font-weight:700;line-height:1;flex-shrink:0;color:${col}">${g.students.length}</div>
+        <div style="font-size:6.5px;color:var(--t3);letter-spacing:.08em;flex-shrink:0;align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
+        <div class="dc-arr">▼</div>
       </div>
-      ${stuRows}
-    </div>
-  </div>`;
+      <div class="dc-body">
+        ${auditSum}
+        <div style="display:flex;gap:6px;padding:0 0 8px;flex-wrap:wrap">
+          ${!isCert&&ar?.status==='warn'?`<button class="dc-btn dc-btn-create" onclick="overrideException('${activeLevelKey}',${idx})">⚠ Aceitar com aviso</button>`:''}
+          <button class="dc-btn dc-btn-csv" onclick="exportGroup('${activeLevelKey}',${idx})">↓ CSV</button>
+        </div>
+        ${stuRows}
+      </div>
+    </div>`;
 }
 
 /* ══════════════════════════════════════════════
@@ -2723,7 +2396,7 @@ function renderWatchlist(){
 }
 
 /* ══════════════════════════════════════════════
-   V10 DOSSIER — with availability ruler (Doc 2)
+   V10 DOSSIER
 ══════════════════════════════════════════════ */
 const DS_FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
 const DEPT_LABELS_D={kids:'INFANTIL',kids_juv:'JUVENIL',adults:'GERAL',exam:'EXAMES'};
@@ -2787,7 +2460,6 @@ async function openDossier(ref){
   items.push(`<span class="ds-ci ds-ci-link" onclick="pinStudent('${ref}','${(enrol?.name||ref).replace(/'/g,"\\'")}')" style="cursor:pointer">📌 Acompanhar</span>`);
   document.getElementById('ds-strip').innerHTML=items.join(`<span class="ds-ci-sep">·</span>`);
 
-  /* Find proposed turma */
   let turmaInfo='—';
   for(const [key,result] of Object.entries(_allResults)){
     result.groups.forEach((g,i)=>{
@@ -2799,8 +2471,6 @@ async function openDossier(ref){
   }
 
   const slots=parseSlotsForRuler(req);
-
-  /* Enrol section */
   const enrolContent=!enrol?`<div class="ds-empty">Matrícula não encontrada.</div>`:[
     dsRow('Referência',enrol.ref||'—','tint'),dsRow('Nome',enrol.name||'—'),
     enrol.age?dsRow('Idade',enrol.age+' anos'):'',
@@ -2818,7 +2488,6 @@ async function openDossier(ref){
     `<div class="ds-row"><div class="ds-rk">Turma proposta</div><div class="ds-rv">${turmaInfo!=='—'?`<span class="ds-turma-badge">${turmaInfo}</span>`:'<span style="color:var(--sub-d)">—</span>'}</div></div>`,
   ].filter(Boolean).join('');
 
-  /* Historial */
   const histContent=!hst.length?`<div class="ds-empty">Sem historial registado.</div>`:hst.map(yr=>{
     const l=ALM_DISP[(yr.level_cefr||'').trim()]||yr.level_cefr||'—';
     const cls=yr.outcome==='aprovado'?'ok':yr.outcome==='reprovado'?'warn':'na';
@@ -2831,10 +2500,7 @@ async function openDossier(ref){
     </div>`;
   }).join('');
 
-  /* Timetable section — lazy rendered on expand */
   const ttMeta=slots.length?`${slots.length} slot${slots.length!==1?'s':''}` : '—';
-
-  /* Notes */
   const notesContent=`<div class="ds-flags">
     <button class="ds-flag" onclick="this.classList.toggle('on')">⚠ Comportamento</button>
     <button class="ds-flag" onclick="this.classList.toggle('on')">💳 Pagamento</button>
@@ -2860,7 +2526,6 @@ async function openDossier(ref){
   });
 }
 
-/* Availability ruler — from Doc 2 (Image 1 feature) */
 function dsLoadTimetable(){
   if(_dsTTLoaded)return;_dsTTLoaded=true;
   const el=document.getElementById('ds-tt-content');if(!el)return;
@@ -2945,6 +2610,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(document.getElementById('ds-overlay')?.classList.contains('open')){closeDossier();return;}
+    closeGroupModal();
   }
 });
 
@@ -2971,13 +2637,11 @@ async function boot(){
     document.getElementById('pill-status').textContent='Supabase OK';
     document.getElementById('pill-status').className='tb-status ok';
     updateSidebarKPIs();initBranchStrip();renderTree();
-    initOverview();updateWatchBadge();renderExcBar();
+    updateWatchBadge();renderExcBar();
 
-    /* Audit badge */
     document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
     document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
 
-    /* Hide boot overlay */
     setTimeout(()=>{document.getElementById('boot-overlay').classList.add('hidden');},350);
 
     const msg=exceptions>0
@@ -2985,7 +2649,6 @@ async function boot(){
       :`${allE.length} al · ${committed} turma${committed!==1?'s':''} certificada${committed!==1?'s':''} ✓`;
     showToast(msg,exceptions>0?'warn':'ok');
 
- /* Default to Overview */
     switchCC('overview',document.getElementById('tab-overview'));
 
   }catch(err){
