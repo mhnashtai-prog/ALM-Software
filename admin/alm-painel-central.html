@@ -1671,8 +1671,7 @@ function injectStamps(gridId, result, levelKey) {
   const PAINEL_HRS = [8,9,10,11,null,14,15,16,17,18,19,20];
   const GAP = 3;
 
-  function bandPos(startMins, endMins, rowEl) {
-    // Get all cells in order (including gap-cell)
+function bandPos(startMins, endMins, rowEl) {
     const cells = Array.from(rowEl.querySelectorAll('.sg-cell'));
     let x = 0, left = null, right = null;
     for (let i = 0; i < PAINEL_HRS.length; i++) {
@@ -1680,7 +1679,7 @@ function injectStamps(gridId, result, levelKey) {
       const cell = cells[i];
       if (!cell) continue;
       const w = cell.offsetWidth;
-      if (h === null) { x += w + GAP; continue; } // gap column
+      if (h === null) { x += w + GAP; continue; }
       const hStart = h * 60, hEnd = (h + 1) * 60;
       if (startMins < hEnd && endMins > hStart) {
         const os = Math.max(startMins, hStart);
@@ -1720,13 +1719,13 @@ function injectStamps(gridId, result, levelKey) {
       const pos = bandPos(startMins, endMins, row);
       if (!pos) return;
 
-      // Row's offsetTop relative to wrap
-      let rowTop = 0;
-      let el2 = row;
-      while (el2 && el2 !== wrap) { rowTop += el2.offsetTop; el2 = el2.offsetParent; }
+      const wrapRect = wrap.getBoundingClientRect();
+      const rowRect  = row.getBoundingClientRect();
+      const rowTop   = rowRect.top  - wrapRect.top;
+      const rowLeft  = rowRect.left - wrapRect.left;
 
-      const centrePx   = pos.left + pos.width / 2;
-      const rowCentreY = rowTop + row.offsetHeight / 2;
+      const centrePx   = rowLeft + pos.left + pos.width / 2;
+      const rowCentreY = rowTop  + row.offsetHeight / 2;
 
       const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
       const SIZE = 38, R = SIZE / 2;
