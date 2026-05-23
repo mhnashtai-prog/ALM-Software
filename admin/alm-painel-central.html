@@ -1211,12 +1211,7 @@ function jumpToException(levelKey,groupIdx){
   activeLevelKey=levelKey;_lastResult=_allResults[levelKey];
   switchCC('formation',document.getElementById('tab-formation'));
   renderTree();renderLevelContent();
-  setTimeout(()=>{
-    const g=(_allResults[levelKey]?.groups||[])[groupIdx];
-    if(g){const sec=document.getElementById(`pgs-${g.pair.aL}-${g.pair.bL}`);if(sec)sec.style.display='block';}
-    const c=document.getElementById(`gcard-${groupIdx}`);
-    if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
-  },120);
+  setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
 }
 
 async function batchConfirm(){
@@ -1398,9 +1393,11 @@ function highlightPair(idx,dayPair){
   });
 }
 function focusPairGroups(aL,bL){
-  document.querySelectorAll('.pair-group-section').forEach(s=>s.style.display='none');
-  const t=document.getElementById(`pgs-${aL}-${bL}`);
-  if(t){t.style.display='block';t.scrollIntoView({behavior:'smooth',block:'start'});}
+  const s=document.getElementById('lc-analysis');
+  const h=document.getElementById('lc-analysis-hint');
+  if(s){s.style.display='block';if(h)h.textContent='· clique para fechar';}
+  const pair=ALM_PAIRS.find(p=>p.aL===aL&&p.bL===bL);
+  if(pair)highlightPair(ALM_PAIRS.indexOf(pair),[pair.a,pair.b]);
 }
 
 /* ══════════════════════════════════════════════
@@ -1470,6 +1467,9 @@ function setView(v){
 function renderLevelContent(){
   const area=document.getElementById('scroll-area');
   if(!activeLevelKey){area.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;return;}
+
+  document.getElementById('view-toggle-bar').style.display='none';
+
   const allStudents=locStu().filter(e=>lk(e)===activeLevelKey);
   const withReq=allStudents.filter(e=>!!rByRef[e.ref]);
   const noReq=allStudents.length-withReq.length;
@@ -1481,7 +1481,6 @@ function renderLevelContent(){
   const certCount=Object.values(_groupCodes[activeLevelKey]||{}).length;
   const excCount=_exceptionQueue.filter(e=>e.levelKey===activeLevelKey).length;
 
-  /* Level header */
   document.getElementById('level-hdr').innerHTML=`
     <div class="lh-name" style="color:${meta.color}">${meta.label}</div>
     <div class="lh-dept" style="color:${dc.color}">${dc.label||''}</div>
@@ -1496,61 +1495,101 @@ function renderLevelContent(){
       <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
     </div>`;
 
-  document.getElementById('view-toggle-bar').style.display=withReq.length?'flex':'none';
   if(!withReq.length){area.innerHTML=`<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;return;}
 
-  const isPins=currentView==='pins';
-  const GRID_ID=isPins?'pin-grid':'hm-grid';
-  const pairCounts=buildPairPills(withReq);
+  let html='';
 
-  const legendHTML=isPins
-    ?`<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--green)"></div><span style="font-size:7px;color:var(--t3)">certificada</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid ${GROUP_COLORS[0]}"></div><span style="font-size:7px;color:var(--t3)">proposta</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--red)"></div><span style="font-size:7px;color:var(--t3)">excepção</span></div></div>`
-    :`<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)"></div><span style="font-size:7px;color:var(--t3)">0</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(74,143,245,.22)"></div><span style="font-size:7px;color:var(--t3)">1–4</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(232,160,32,.32)"></div><span style="font-size:7px;color:var(--t3)">5–9</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(29,184,122,.5)"></div><span style="font-size:7px;color:var(--t3)">10+</span></div></div>`;
+  /* ── 1. GROUPS — front and centre ── */
+  if(_lastResult?.groups?.length){
+    html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
+      ${certCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${certCount} ✓ cert</span>`:''}
+      ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
+    </div>`;
+    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+  } else {
+    html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
+  }
 
-  const title=isPins?`📍 Pinos · ${_lastResult?.groups?.length||0} turmas propostas`:`📊 Mapa de calor · Disponibilidade`;
-  const gridInner=buildGridRows(GRID_ID,withReq,isPins);
+  /* ── 2. SINALIZADOS ── */
+  if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
 
-  let html=`<div class="school-grid-wrap">
-    <div class="school-grid-head">
-      <span class="school-grid-title">${title}</span>
-      ${legendHTML}
-      <span style="font-size:7.5px;color:var(--t3);margin-left:8px">${withReq.length} al com pedido</span>
+  /* ── 3. ANALYSIS — collapsible ── */
+  const dept=(meta.dept||'adults');
+  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
+  html+=`<div style="margin-top:14px">
+    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';">
+      📊 Análise · Disponibilidade
+      <span id="lc-analysis-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
     </div>
-    <div class="school-grid-outer">
-      <div id="${GRID_ID}-rows-wrap" style="position:relative">${gridInner}</div>
+    <div id="lc-analysis" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 0 10px;flex-wrap:wrap">
+        <div class="toggle-switch">
+          <button class="ts-btn active" id="lc-hm-btn" onclick="setLCView('heatmap')">📊 Calor</button>
+          <button class="ts-btn" id="lc-pin-btn" onclick="setLCView('pins')">📍 Pinos</button>
+        </div>
+      </div>
+      <div id="lc-grid-container">${buildAnalysisGrid(withReq,false,'lc-grid')}</div>
+      ${buildPairMatrix(pairCounts)}
     </div>
   </div>`;
 
-  html+=buildPairMatrix(pairCounts);
-
-  /* Group cards */
-  if(_lastResult?.groups?.length){
-    const lvCert=Object.values(_groupCodes[activeLevelKey]||{}).length;
-    const lvExc=_exceptionQueue.filter(e=>e.levelKey===activeLevelKey).length;
-    html+=`<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-      ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
-      ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
+  /* ── 4. STUDENT TABLE — collapsed ── */
+  const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const turmaByRef={};
+  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});});}
+  let stuRows='';
+  sorted.forEach((e,idx)=>{
+    const a=analysePrefs(e.ref);
+    const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
+    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
+    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+    const turma=turmaByRef[e.ref];
+    stuRows+=`<div class="stu-row" onclick="openDossier('${e.ref}')">
+      <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
+      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
+      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
+      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
+      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
+      <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
     </div>`;
-ALM_PAIRS.forEach(pair=>{
-      const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
-      if(!pairGroups.length)return;
-      html+=`<div class="pair-group-section" id="pgs-${pair.aL}-${pair.bL}" style="display:none">`;
-      pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
-      html+=`</div>`;
-    });
-  }
+  });
+  html+=`<div style="margin-top:14px">
+    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-students');const h=document.getElementById('lc-students-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';">
+      Alunos · ${sorted.length}
+      <span id="lc-students-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
+    </div>
+    <div id="lc-students" style="display:none">
+      <div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>
+      ${stuRows}
+    </div>
+  </div>`;
 
-  if(_lastResult?.sinalizados?.length)html+=buildSinalizadosHTML(_lastResult);
-  html+=buildStudentTable(allStudents);
   area.innerHTML=html;
   clearHighlight();
-
-  /* Inject pins overlay AFTER DOM insert */
-  if(isPins&&_lastResult?.groups?.length){
-    requestAnimationFrame(()=>injectPins(GRID_ID,_lastResult));
-  }
+}
+  function buildAnalysisGrid(withReq,isPins,gridId){
+  return`<div class="school-grid-wrap" style="margin-bottom:14px">
+    <div class="school-grid-head">
+      <span class="school-grid-title">${isPins?'📍 Pinos · turmas propostas':'📊 Calor · Disponibilidade'}</span>
+      <span style="font-size:7.5px;color:var(--t3);margin-left:auto">${withReq.length} al com pedido</span>
+    </div>
+    <div class="school-grid-outer">
+      <div id="${gridId}-rows-wrap" style="position:relative">${buildGridRows(gridId,withReq,isPins)}</div>
+    </div>
+  </div>`;
 }
 
+function setLCView(v){
+  document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
+  document.getElementById('lc-pin-btn')?.classList.toggle('active',v==='pins');
+  const withReq=locStu().filter(e=>lk(e)===activeLevelKey&&!!rByRef[e.ref]);
+  const container=document.getElementById('lc-grid-container');
+  if(container){
+    container.innerHTML=buildAnalysisGrid(withReq,v==='pins','lc-grid');
+    if(v==='pins'&&_lastResult?.groups?.length)requestAnimationFrame(()=>injectPins('lc-grid',_lastResult));
+  }
+}
 /* ══════════════════════════════════════════════
    GROUP CARD — with auto-audit verdicts (Doc 3)
 ══════════════════════════════════════════════ */
@@ -1588,11 +1627,7 @@ function buildGroupCard(g,i){
   </div>`;
 }
 
-function toggleGCard(i){
-  const g=_lastResult?.groups?.[i];
-  if(g){const sec=document.getElementById(`pgs-${g.pair.aL}-${g.pair.bL}`);if(sec)sec.style.display='block';}
-  document.getElementById(`gcard-${i}`)?.classList.toggle('open');
-}
+function toggleGCard(i){document.getElementById(`gcard-${i}`)?.classList.toggle('open');}
 
 function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
