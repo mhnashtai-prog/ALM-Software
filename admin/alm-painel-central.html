@@ -1191,6 +1191,13 @@ function drawStamps(containerId, levelKey, result){
     });
   });
 }
+  function drawStampsSafe(containerId, levelKey, result){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      drawStamps(containerId, levelKey, result);
+    });
+  });
+}
 /* ══════════════════════════════════════════════
    GROUPING ENGINE
 ══════════════════════════════════════════════ */
@@ -1352,7 +1359,7 @@ async function runBootAudit(){
   }
   setBoot('A verificar turmas existentes…');
   try{
-    const existing=await sbGet('classes',`select=turma_code,group_code,status,level_code,family,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=neq.eliminado`);
+    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,family,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
@@ -1362,6 +1369,20 @@ async function runBootAudit(){
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
+  existing.forEach(c=>{
+  if(!c.group_code)return;
+  const key=`${(c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+  const result=_allResults[key];if(!result)return;
+  const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
+  result.groups.forEach((g,i)=>{
+    if((_groupCodes[key]||{})[i])return;
+    const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+    if(overlap>=Math.floor(g.students.length*0.7)){
+      if(!_groupCodes[key])_groupCodes[key]={};
+      _groupCodes[key][i]={turmaCode:c.group_code,sentAt:'',status:'pass'};
+    }
+  });
+});
   setBootProgress(85);
   _exceptionQueue=[];
   for(const key of Object.keys(_allResults)){
