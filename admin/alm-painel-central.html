@@ -1115,18 +1115,19 @@ function drawStamps(containerId, levelKey, result){
     const n          = g.students.length;
 
     /* colour scheme */
-    const col       = isFail ? '#E8455A' : isWarn ? '#E8A020' : groupCol;
-    const bandBg    = isFail ? 'rgba(232,69,90,.13)'
-                    : isWarn ? 'rgba(232,160,32,.13)'
-                    : isCert ? col + '22'
-                    :          col + '11';
-    const borderCol = isFail ? '#E8455A99'
-                    : isWarn ? '#E8A02099'
-                    : isCert ? col + 'CC'
-                    :          col + '66';
-    const inkCol    = isFail ? '#FFB0B8'
-                    : isWarn ? '#FFD080'
-                    : col;
+   // In drawStamps, replace the color scheme block:
+const col       = isFail ? 'var(--red)' : isWarn ? 'var(--amber)' : turmaCol(code);
+const bandBg    = isFail ? 'rgba(232,69,90,.13)'
+                : isWarn ? 'rgba(232,160,32,.13)'
+                : isCert ? col + '22'
+                :          col + '11';
+const borderCol = isFail ? '#E8455A99'
+                : isWarn ? '#E8A02099'
+                : isCert ? col + 'CC'
+                :          col + '66';
+const inkCol    = isFail ? '#FFB0B8'
+                : isWarn ? '#FFD080'
+                : col;
 
     /* Italian cheese seal SVG — concentric rings + dotted inner + glyph */
     function makeSeal(glyph, fillCol, inkC, certified){
@@ -1683,27 +1684,50 @@ drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
    GROUP CARD
 ══════════════════════════════════════════════ */
 function buildGroupCard(g,i){
-  const committed2=(_groupCodes[activeLevelKey]||{})[i];
-  const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
-  const ar=(_auditResults[activeLevelKey]||{})[i];
-  const committed=(_groupCodes[activeLevelKey]||{})[i];
-  const status=ar?.status||'pending';
-  const isCert=!!committed;
-  const isExc=!committed&&(status==='fail'||status==='warn');
-  const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
-  const blockLbl=g.startMins<720?'Manhã':'Tarde';
-  const sealBg=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):col;
-  const sealIcon=isCert
-    ?`<path d="M5 11L9 15.5L17 7" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
-    :isExc&&status==='fail'
-      ?`<path d="M11 7v5m0 3.5v.5" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round"/>`
-      :isExc&&status==='warn'
-        ?`<text x="11" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#07060E" font-family="var(--mono)">!</text>`
-        :`<text x="11" y="15" text-anchor="middle" font-size="11" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text>`;
-  const cardCls=`gcard-compact${isCert?' certified':isExc?' exception':''}`;
-  return`<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
-    <div class="gc-seal" style="background:${sealBg}">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">${sealIcon}</svg>
+  const committed  = (_groupCodes[activeLevelKey]||{})[i];
+  const ar         = (_auditResults[activeLevelKey]||{})[i];
+  const status     = ar?.status || 'pending';
+  const isCert     = !!committed;
+  const isWarn     = !isCert && status === 'warn';
+  const isFail     = !isCert && status === 'fail';
+  const isExc      = isWarn || isFail;
+
+  const turmaCode  = committed?.turmaCode || `T${i+1}`;
+  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : turmaCol(turmaCode);
+  const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
+  const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
+  const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
+
+  const sealGlyph  = isFail ? '✕' : isWarn ? '!' : String(i+1);
+  const dash       = isCert ? 'none' : '2 2';
+  const outerStroke = isCert ? col : col + '99';
+
+  const glyphEl = sealGlyph.length === 1
+    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700"
+         fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
+    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700"
+         fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
+
+  const sealSVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+    <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${isCert?2:1.5}"/>
+    <circle cx="16" cy="16" r="12" stroke="${col}" stroke-width=".8" opacity=".6"/>
+    <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
+    ${isCert
+      ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
+         <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>
+         ${glyphEl}`}
+  </svg>`;
+
+  const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+  const blockLbl = g.startMins < 720 ? 'Manhã'    : 'Tarde';
+  const cardCls  = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
+  const displayCol = turmaCol(turmaCode); // border-left always uses turmaCol, not audit override
+
+  return `<div class="${cardCls}" style="border-left-color:${displayCol}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
+    <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+      ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
       <div style="font-size:10px;font-weight:600;color:var(--t)">${i+1}A · ${g.pair.aL} + ${i+1}B · ${g.pair.bL}</div>
@@ -1711,14 +1735,15 @@ function buildGroupCard(g,i){
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
       <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-      ${isCert?`<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>`:''}
-      ${isExc?`<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${status==='fail'?'var(--red-b)':'var(--amber-b)'};color:${status==='fail'?'var(--red)':'var(--amber)'}">${status==='fail'?'✕ falha':'⚠ aviso'}</div>`:''}
-      <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${g.students.length}</div>
+      ${isCert ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>` : ''}
+      ${isExc  ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${isFail?'var(--red-b)':'var(--amber-b)'};color:${isFail?'var(--red)':'var(--amber)'}">
+                    ${isFail ? '✕ falha' : '⚠ aviso'}
+                  </div>` : ''}
+      <div style="font-size:22px;font-weight:700;color:${displayCol};line-height:1">${g.students.length}</div>
       <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
     </div>
   </div>`;
 }
-
 /* ══════════════════════════════════════════════
    GROUP MODAL
 ══════════════════════════════════════════════ */
