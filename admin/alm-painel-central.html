@@ -28,6 +28,7 @@
   --sep-d:rgba(255,255,255,.08);--sep2-d:rgba(255,255,255,.04);
   --label-d:rgba(255,255,255,.35);--text-d:#F2F2F7;--sub-d:#8E8E93;
   --tint-d:#3A8EFF;--red-d:#FF4E4E;--green-d:#30C060;--amber-d:#F5A020;
+   --row-h: 50px;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
 body{display:flex;flex-direction:column}
@@ -229,7 +230,29 @@ body{display:flex;flex-direction:column}
 .sg-cell .hm-sub{font-size:6px;color:rgba(255,255,255,.5);letter-spacing:.04em;margin-top:1px}
 .sg-cell.pair-hi{outline:1.5px solid var(--gold);outline-offset:-1px;z-index:3}
 .sg-cell.pair-dim{opacity:.14}
-
+  
+/* ══ ASSIGN-IDENTICAL GRID ══ */
+.day-lbl-col{flex-shrink:0;width:60px}
+.day-spacer{height:28px}
+.day-lbl{height:var(--row-h);display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:10px;margin-bottom:3px}
+.day-lbl-short{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.08em;line-height:1}
+.day-lbl-full{font-size:7px;color:var(--t3);letter-spacing:.04em;margin-top:2px}
+.day-lbl.today .day-lbl-short{color:var(--green)}
+.day-lbl.today .day-lbl-full{color:rgba(29,184,122,.6)}
+.day-lbl.sat .day-lbl-short{color:rgba(201,168,74,.7)}
+.time-hdr{display:flex;gap:3px;margin-bottom:4px;height:28px;align-items:flex-end}
+.time-lbl{font-size:8px;font-weight:600;color:rgba(210,180,100,.65);text-align:center;flex-shrink:0;flex:1;min-width:0}
+.time-gap-col{width:40px;flex-shrink:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px}
+.time-gap-lbl{font-size:6px;font-weight:700;letter-spacing:.04em;color:rgba(201,168,76,.28);text-transform:uppercase;white-space:nowrap}
+.grid-row{display:flex;gap:3px;margin-bottom:3px;position:relative;height:var(--row-h)}
+.gcell{height:var(--row-h);border-radius:4px;flex:1;min-width:0;position:relative;cursor:default;transition:border-color .12s,background .12s}
+.gcell[data-h="8"],.gcell[data-h="9"],.gcell[data-h="10"],.gcell[data-h="11"]{background:rgba(201,168,76,.025);border:.5px solid rgba(201,168,76,.07)}
+.gcell[data-h="14"],.gcell[data-h="15"],.gcell[data-h="16"],.gcell[data-h="17"],.gcell[data-h="18"],.gcell[data-h="19"],.gcell[data-h="20"]{background:rgba(74,100,180,.025);border:.5px solid rgba(74,100,180,.07)}
+.gcell.gap-cell{background:rgba(0,0,0,.55);border:none;flex:0 0 40px;cursor:default;border-radius:0;position:relative;overflow:hidden}
+.gcell.gap-cell::after{content:'12–14';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);font-size:6px;font-weight:700;letter-spacing:.06em;color:rgba(201,168,76,.2);white-space:nowrap;pointer-events:none}
+.day-col-wrap{display:flex}
+.scroll-cols{flex:1}
+  
 /* ══ PAIR MATRIX ══ */
 .pair-matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:14px}
 .pm-card{border:1px solid;padding:11px 12px;cursor:pointer;transition:all .14s;position:relative;border-left:3px solid}
@@ -955,7 +978,7 @@ function toMins(t){
 }
 
 function timeToBandPos(startTime, endTime, rowEl){
-  const cells=Array.from(rowEl.querySelectorAll('.sg-cell'));
+const cells=Array.from(rowEl.querySelectorAll('.gcell'));
   const GAP=3;
   let x=0;
   const sm=toMins(startTime);
@@ -1004,120 +1027,100 @@ function buildHeatmap(students){
 
 /* Build permanent grid DOM — called once per level, rows always visible */
 function buildPermanentGrid(containerId, withReq){
-  const container=document.getElementById(containerId);
-  if(!container)return;
+  const container = document.getElementById(containerId);
+  if(!container) return;
 
-  const heatmap=buildHeatmap(withReq);
-  const allVals=DAYS_PT.flatMap(d=>HOUR_COLS.map(h=>heatmap[d][h]));
-  const maxVal=Math.max(...allVals,1);
-  const today=new Date().getDay();
-  const dayToday=[null,'SEG','TER','QUA','QUI','SEX','SÁB'][today]||null;
+  const today = new Date().getDay();
+  const dayToday = [null,'SEG','TER','QUA','QUI','SEX','SÁB'][today] || null;
 
-  /* Day label column */
-  let dayColHTML='<div class="day-spacer"></div>';
-  DAYS_PT.forEach((day,di)=>{
-    const hasData=HOUR_COLS.some(h=>(heatmap[day]?.[h]||0)>0);
-    const isToday=day===dayToday;
-    dayColHTML+=`<div class="sg-day-lbl${hasData?' has-data':''}${isToday?' today':''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
-      <span class="sg-day-short">${day}</span>
-      <span class="sg-day-full">${DAYS_FULL[day]||day}</span>
+  let dayColHTML = '<div class="day-spacer"></div>';
+  DAYS_PT.forEach(d => {
+    const isToday = d === dayToday;
+    const isSat   = d === 'SÁB';
+    dayColHTML += `<div class="day-lbl${isToday?' today':isSat?' sat':''}">
+      <span class="day-lbl-short">${d}</span>
+      <span class="day-lbl-full">${DAYS_FULL[d]||d}</span>
     </div>`;
   });
 
-  /* Time header */
-  let timeHdrHTML='<div class="sg-time-hdr">';
-  ALL_HRS.forEach(h=>{
-    if(h===null) timeHdrHTML+=`<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
-    else timeHdrHTML+=`<div class="sg-time-lbl">${h}h</div>`;
+  let timeHdrHTML = '<div class="time-hdr">';
+  ALL_HRS.forEach(h => {
+    if(h === null) timeHdrHTML += `<div class="time-gap-col"><span class="time-gap-lbl">almoço</span></div>`;
+    else           timeHdrHTML += `<div class="time-lbl">${h}h</div>`;
   });
-  timeHdrHTML+='</div>';
+  timeHdrHTML += '</div>';
 
-  /* Rows — one per day, cells matching ALL_HRS exactly */
-  let rowsHTML='';
-  DAYS_PT.forEach((day,di)=>{
-    const rgb=DAY_RGB[di];
-    let cells='';
-    ALL_HRS.forEach(h=>{
-      if(h===null){
-        cells+=`<div class="sg-cell gap-cell"></div>`;
+  let rowsHTML = '';
+  DAYS_PT.forEach(day => {
+    let cells = '';
+    ALL_HRS.forEach(h => {
+      if(h === null){
+        cells += `<div class="gcell gap-cell"></div>`;
       } else {
-        const n=heatmap[day]?.[h]||0;
-        const pct=Math.round(n/maxVal*100);
-        const bandH=n===0?0:Math.max(14,Math.round(pct/100*ROW_H));
-        const alpha=n===0?0:(0.12+pct/100*0.55).toFixed(2);
-        const bAlpha=n===0?'0.05':(0.25+pct/100*0.45).toFixed(2);
-        const countHTML=n>0?`<div class="hm-count" style="color:rgba(${rgb},.9)">${n}</div><div class="hm-sub">al</div>`:'';
-        cells+=`<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha});background:rgba(${rgb},.025)">
-          <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})">${countHTML}</div>
-        </div>`;
+        cells += `<div class="gcell" data-day="${day}" data-h="${h}"></div>`;
       }
     });
-    rowsHTML+=`<div class="sg-row" data-di="${di}" id="sg-row-${di}" style="height:${ROW_H}px;position:relative;margin-bottom:3px">${cells}</div>`;
+    rowsHTML += `<div class="grid-row" id="${containerId}-row-${day}" data-day="${day}">${cells}</div>`;
   });
 
-  container.innerHTML=`
-    <div style="display:flex">
-      <div style="flex-shrink:0;width:52px">${dayColHTML}</div>
-      <div style="flex:1;position:relative" id="sg-scroll-cols">
+  container.innerHTML = `
+    <div class="day-col-wrap">
+      <div class="day-lbl-col">${dayColHTML}</div>
+      <div class="scroll-cols">
         ${timeHdrHTML}
-        <div id="sg-rows-wrap" style="position:relative">${rowsHTML}</div>
+        <div id="${containerId}-rows-wrap" style="position:relative">${rowsHTML}</div>
       </div>
     </div>`;
 }
 
 /* Draw stamps — called after grid is in visible DOM via rAF */
-function drawStamps(levelKey, result){
-  const wrap=document.getElementById('sg-rows-wrap');
-  if(!wrap)return;
+function drawStamps(containerId, levelKey, result){
+  const wrap = document.getElementById(`${containerId}-rows-wrap`);
+  if(!wrap) return;
 
-  /* Remove old stamps */
-  wrap.querySelectorAll('.sg-stamp').forEach(s=>s.remove());
+  wrap.querySelectorAll('.sg-stamp').forEach(s => s.remove());
+  if(!result?.groups?.length) return;
 
-  if(!result?.groups?.length)return;
+  result.groups.forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const ar        = (_auditResults[levelKey] || {})[i];
 
-  result.groups.forEach((g,i)=>{
-    const committed=(_groupCodes[levelKey]||{})[i];
-    const ar=(_auditResults[levelKey]||{})[i];
+    const isCert = !!committed;
+    const isFail = ar?.status === 'fail';
+    const isWarn = ar?.status === 'warn';
 
-    const isCert=!!committed;
-    const isFail=ar?.status==='fail';
-    const isWarn=ar?.status==='warn';
+    const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
+    const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
+    const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
+    const codeLabel   = committed ? committed.turmaCode : `T${i+1}`;
+    const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
 
-    const stampBg  =isFail?'#3A0A0A':isWarn?'#2A1A00':isCert?'#0A2A14':'#1A1A2A';
-    const stampRing=isFail?'#E8455A':isWarn?'#E8A020':isCert?'#C9A84C':'#4A8FF5';
-    const stampInk =isFail?'#FFB0B8':isWarn?'#FFD080':isCert?'#E8C97A':'#90C0FF';
-    const codeLabel  =committed?committed.turmaCode:`T${i+1}`;
-    const statusGlyph=isFail?'✕':isWarn?'⚠':isCert?'✓':'○';
+    const startTime = minsToT(g.startMins);
+    const endTime   = minsToT(g.startMins + CLASS_DUR);
+    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const slotLetters = ['A', 'B'];
 
-    const startMins=g.startMins;
-    const endMins=g.startMins+CLASS_DUR;
-    const startTime=minsToT(startMins);
-    const endTime=minsToT(endMins);
-    const pairDays=g.pair.a===g.pair.b?[g.pair.a]:[g.pair.a,g.pair.b];
-    const slotLetters=['A','B'];
+    pairDays.forEach((dayIdx, si) => {
+      const dayKey = DAYS_PT[dayIdx];
+      const rowEl  = document.getElementById(`${containerId}-row-${dayKey}`);
+      if(!rowEl) return;
 
-    pairDays.forEach((dayIdx,si)=>{
-      const rowEl=document.getElementById(`sg-row-${dayIdx}`);
-      if(!rowEl)return;
+      const pos = timeToBandPos(startTime, endTime, rowEl);
+      if(!pos) return;
 
-      const pos=timeToBandPos(startTime, endTime, rowEl);
-      if(!pos)return;
+      const wrapRect   = wrap.getBoundingClientRect();
+      const rowRect    = rowEl.getBoundingClientRect();
+      const rowTop     = rowRect.top  - wrapRect.top;
+      const rowLeft    = rowRect.left - wrapRect.left;
+      const centrePx   = rowLeft + pos.left + pos.width / 2;
+      const rowCentreY = rowTop  + rowEl.offsetHeight / 2;
 
-      /* Position relative to wrap */
-      const wrapRect=wrap.getBoundingClientRect();
-      const rowRect=rowEl.getBoundingClientRect();
-      const rowTop=rowRect.top-wrapRect.top;
-      const rowLeft=rowRect.left-wrapRect.left;
+      const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
+      const SIZE = 38, R = SIZE / 2;
+      const uid  = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
+      const rotation = -6 + (i % 4) * 4;
 
-      const centrePx=rowLeft+pos.left+pos.width/2;
-      const rowCentreY=rowTop+rowEl.offsetHeight/2;
-
-      const slotCode=codeLabel+(pairDays.length>1?slotLetters[si]:'');
-      const SIZE=38, R=SIZE/2;
-      const uid=`${levelKey}-${i}-${si}`.replace(/[|]/g,'-');
-      const rotation=-6+(i%4)*4;
-
-      const svg=`<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+      const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
           <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
@@ -1125,9 +1128,9 @@ function drawStamps(levelKey, result){
         <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
         <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
         <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
-        ${[45,135,225,315].map(deg=>{
-          const rad=deg*Math.PI/180,dr=R-2.5;
-          return`<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
+        ${[45,135,225,315].map(deg => {
+          const rad = deg*Math.PI/180, dr = R-2.5;
+          return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
         }).join('')}
         <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700" letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
           <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
@@ -1138,23 +1141,22 @@ function drawStamps(levelKey, result){
         </text>
       </svg>`;
 
-      const stampEl=document.createElement('div');
-      stampEl.className='sg-stamp';
-      stampEl.style.cssText=`position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));transition:transform .15s,filter .15s;`;
-      stampEl.innerHTML=svg;
-      stampEl.addEventListener('mouseenter',()=>{stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`;stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`;stampEl.style.zIndex='20';});
-      stampEl.addEventListener('mouseleave',()=>{stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`;stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`;stampEl.style.zIndex='11';});
-      stampEl.addEventListener('click',e=>{e.stopPropagation();openGroupModal(levelKey,i);});
+      const stampEl = document.createElement('div');
+      stampEl.className = 'sg-stamp';
+      stampEl.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));transition:transform .15s,filter .15s;`;
+      stampEl.innerHTML = svg;
+      stampEl.addEventListener('mouseenter', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; stampEl.style.zIndex='20'; });
+      stampEl.addEventListener('mouseleave', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; stampEl.style.zIndex='11'; });
+      stampEl.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
       wrap.appendChild(stampEl);
     });
   });
 }
 
-/* Safe draw — waits for layout */
-function drawStampsSafe(levelKey, result){
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      drawStamps(levelKey, result);
+function drawStampsSafe(containerId, levelKey, result){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      drawStamps(containerId, levelKey, result);
     });
   });
 }
@@ -1602,8 +1604,8 @@ function renderLevelContent(){
   area.innerHTML=html;
 
   /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
-  buildPermanentGrid('sg-grid-container', withReq);
-  drawStampsSafe(activeLevelKey, _lastResult);
+ buildPermanentGrid('sg-grid-container', withReq);
+drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
 }
 
 /* ══════════════════════════════════════════════
@@ -2011,8 +2013,8 @@ function ovDrillToFormation(levelKey){
   el.innerHTML=html;
 
   /* Build grid then draw stamps — both rAF to ensure layout */
-  buildPermanentGrid('ov-grid-container', withReq);
-  drawStampsSafe(levelKey, _lastResult);
+buildPermanentGrid('ov-grid-container', withReq);
+drawStampsSafe('ov-grid-container', levelKey, _lastResult);
 }
 
 /* ══════════════════════════════════════════════
