@@ -1643,7 +1643,7 @@ function renderLevelContent(){
   /* ── 5. STUDENT TABLE ── */
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const turmaByRef={};
-  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});});}
+  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});});}
   let stuRows='';
   sorted.forEach((e,idx)=>{
     const a=analysePrefs(e.ref);
@@ -1683,7 +1683,8 @@ drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
    GROUP CARD
 ══════════════════════════════════════════════ */
 function buildGroupCard(g,i){
-  const col=GROUP_COLORS[i%GROUP_COLORS.length];
+  const committed2=(_groupCodes[activeLevelKey]||{})[i];
+  const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
   const ar=(_auditResults[activeLevelKey]||{})[i];
   const committed=(_groupCodes[activeLevelKey]||{})[i];
   const status=ar?.status||'pending';
@@ -2196,7 +2197,7 @@ function ovOpenStudentModal(levelKey){
     _allResults[levelKey].groups.forEach((g,i)=>{
       const committed=(_groupCodes[levelKey]||{})[i];
       const label=committed?committed.turmaCode:`T${i+1}`;
-      g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});
+     g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});
     });
   }
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -2360,7 +2361,7 @@ function openDecGroup(idx){
   if(!_lastResult?.groups[idx])return;
   _decActiveIdx=idx;renderDecTriage(_decActiveBranch);
   const g=_lastResult.groups[idx];
-  const col=GROUP_COLORS[idx%GROUP_COLORS.length];
+ const col=turmaCol((_groupCodes[activeLevelKey]||{})[idx]?.turmaCode||`T${idx+1}`);
   const meta=LEVEL_MAP[activeLevelKey]||{};
   const committed=(_groupCodes[activeLevelKey]||{})[idx];
   const ar=(_auditResults[activeLevelKey]||{})[idx];
