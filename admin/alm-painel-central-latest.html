@@ -1035,9 +1035,9 @@ function auditGroupSync(g){
     for(const dayIdx of pairDays){
       const daySlots=byDay[dayIdx]||[];
       if(!daySlots.length){verdict='fail';reason=`Não pediu ${DAYS_PT[dayIdx]}`;break;}
-      const propEnd=g.startMins+CLASS_DUR;
-      const hasOverlap=daySlots.some(s=>Math.min(s.toMins,propEnd)-Math.max(s.fromMins,g.startMins)>=CLASS_DUR-30);
-      if(!hasOverlap&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} pedido mas horário diferente`;}
+     const propEnd=g.startMins+CLASS_DUR;
+     const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=propEnd);
+      if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(g.startMins)}–${minsToT(propEnd)} não cabe na janela declarada`;}
     }
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
@@ -1198,11 +1198,16 @@ function renderExcBar(){
   }
   bar.className=fails.length>0?'exc-bar fail':'exc-bar';
   lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
-  items.innerHTML=_exceptionQueue.map(exc=>{
-    const meta=LEVEL_MAP[exc.levelKey]||{},cls=exc.auditResult.status==='fail'?'fail':'warn';
-    const icon=exc.auditResult.status==='fail'?'✕':'⚠';
-    return`<div class="exc-chip ${cls}" onclick="jumpToException('${exc.levelKey}',${exc.groupIdx})">${icon} ${meta.label||exc.levelKey} G${exc.groupIdx+1} <span style="opacity:.7;font-size:6.5px">${exc.auditResult.failCount>0?exc.auditResult.failCount+'F':exc.auditResult.warnCount+'W'}</span></div>`;
-  }).join('');
+ const byLevel={};
+_exceptionQueue.forEach(exc=>{
+  const lbl=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;
+  if(!byLevel[lbl])byLevel[lbl]={f:0,w:0};
+  if(exc.auditResult.status==='fail')byLevel[lbl].f++;
+  else byLevel[lbl].w++;
+});
+items.innerHTML=Object.entries(byLevel).map(([lbl,c])=>
+  `<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lbl} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`
+).join('');
   if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warns.length} aviso${warns.length!==1?'s':''}`;}
   else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
 }
@@ -1367,7 +1372,9 @@ function buildPairMatrix(pairCounts){
     const icon=isReady?'✓':isWait?'!':'✕';
     const lbl=placed>0?'alocados':count>=ASSIGN_MIN?'disponíveis':count>=MIN_G?'aguardar':'não abre';
     const subLbl=placed>0&&count!==placed?`<div class="pm-placed">${count} disponíveis</div>`:'';
-    html+=`<div class="pm-card ${cls}" onclick="focusPairGroups('${pair.aL}','${pair.bL}')">
+    const firstGroupIdx = _lastResult?.groups?.findIndex(g => g.pair.a === pair.a && g.pair.b === pair.b) ?? -1;
+    const clickHandler = firstGroupIdx >= 0 ? `openGroupModal('${activeLevelKey}',${firstGroupIdx})` : '';
+   html += `<div class="pm-card ${cls}" onclick="${clickHandler}">
       <div class="pm-icon">${icon}</div>
       <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
       <div class="pm-count">${displayN}</div>
@@ -1514,25 +1521,19 @@ function renderLevelContent(){
   /* ── 2. SINALIZADOS ── */
   if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
 
-  /* ── 3. ANALYSIS — collapsible ── */
+/* ── 3. ANALYSIS — unified grid, no toggle ── */
   const dept=(meta.dept||'adults');
   const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
-  html+=`<div style="margin-top:14px">
-    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';">
-      📊 Análise · Disponibilidade
-      <span id="lc-analysis-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
-    </div>
-    <div id="lc-analysis" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px;padding:0 0 10px;flex-wrap:wrap">
-        <div class="toggle-switch">
-          <button class="ts-btn active" id="lc-hm-btn" onclick="setLCView('heatmap')">📊 Calor</button>
-          <button class="ts-btn" id="lc-pin-btn" onclick="setLCView('pins')">📍 Pinos</button>
-        </div>
-      </div>
-      <div id="lc-grid-container">${buildAnalysisGrid(withReq,false,'lc-grid')}</div>
-      ${buildPairMatrix(pairCounts)}
-    </div>
-  </div>`;
+ html+=`<div style="margin-top:14px">
+  <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-analysis');const h=document.getElementById('lc-analysis-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';if(!o&&_lastResult?.groups?.length)setTimeout(()=>injectStamps('lc-grid',_lastResult,activeLevelKey),120);">
+    Disponibilidade + Turmas
+    <span id="lc-analysis-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
+  </div>
+  <div id="lc-analysis" style="display:none">
+    <div id="lc-grid-container">${buildUnifiedGrid(withReq, _lastResult, activeLevelKey, 'lc-grid')}</div>
+    ${buildPairMatrix(pairCounts)}
+  </div>
+</div>`;
 
   /* ── 4. STUDENT TABLE — collapsed ── */
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -1580,7 +1581,192 @@ function renderLevelContent(){
     </div>
   </div>`;
 }
+  /* ══════════════════════════════════════════════
+   UNIFIED GRID — heatmap + stamps merged, no toggle
+══════════════════════════════════════════════ */
+function buildUnifiedGrid(withReq, result, levelKey, gridId) {
+  const heatmap = buildHeatmap(withReq);
+  const allVals = DAYS_PT.flatMap(d => ALL_HOURS.map(h => heatmap[d][h]));
+  const maxVal = Math.max(...allVals, 1);
+  const TOTAL_UNITS = HOURS_AM.length + 1 + HOURS_PM.length;
 
+  let dayCol = `<div style="flex-shrink:0;width:52px;padding-top:28px;display:flex;flex-direction:column;gap:3px">`;
+  DAYS_PT.forEach((day, di) => {
+    const hasData = ALL_HOURS.some(h => (heatmap[day]?.[h] || 0) > 0);
+    dayCol += `<div class="sg-day-lbl${hasData ? ' has-data' : ''}" data-di="${di}" style="height:${ROW_H}px;margin-bottom:3px">
+      <span class="sg-day-short">${day}</span>
+      <span class="sg-day-full">${DAYS_FULL[day] || day}</span>
+    </div>`;
+  });
+  dayCol += `</div>`;
+
+  let main = `<div class="sg-main"><div class="sg-time-hdr">`;
+  HOURS_AM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
+  main += `<div class="sg-time-gap"><span class="sg-time-gap-lbl">almoço</span></div>`;
+  HOURS_PM.forEach(h => main += `<div class="sg-time-lbl">${h}h</div>`);
+  main += `</div>`;
+
+  DAYS_PT.forEach((day, di) => {
+    main += `<div class="sg-row" data-di="${di}" style="height:${ROW_H}px;position:relative" id="${gridId}-row-${di}">`;
+    HOURS_AM.forEach(h => {
+      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
+      const rgb = DAY_RGB[di];
+      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
+      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
+      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
+      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
+      </div>`;
+    });
+    main += `<div class="sg-cell gap-cell" style="height:${ROW_H}px"></div>`;
+    HOURS_PM.forEach(h => {
+      const n = heatmap[day]?.[h] || 0, pct = Math.round(n / maxVal * 100);
+      const rgb = DAY_RGB[di];
+      const bandH = n === 0 ? 0 : Math.max(14, Math.round(pct / 100 * ROW_H));
+      const alpha = n === 0 ? 0 : (0.12 + pct / 100 * 0.55).toFixed(2);
+      const bAlpha = n === 0 ? '0.05' : (0.25 + pct / 100 * 0.45).toFixed(2);
+      main += `<div class="sg-cell" data-h="${h}" data-di="${di}" style="height:${ROW_H}px;border-color:rgba(${rgb},${bAlpha})">
+        <div class="hm-band" style="height:${bandH}px;background:rgba(${rgb},${alpha})"></div>
+      </div>`;
+    });
+    main += `</div>`;
+  });
+  main += `</div>`;
+
+  const certCount = Object.keys(_groupCodes[levelKey] || {}).length;
+  const propCount = (result?.groups?.length || 0) - certCount;
+
+  return `<div class="school-grid-wrap" style="margin-bottom:14px">
+    <div class="school-grid-head">
+      <span class="school-grid-title">Disponibilidade + Turmas</span>
+      ${certCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>` : ''}
+      ${propCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount !== 1 ? 's' : ''}</span>` : ''}
+      <span style="font-size:7.5px;color:var(--t3);margin-left:auto">${withReq.length} al com pedido · sem botão de toggle</span>
+    </div>
+  <div class="school-grid-outer" style="overflow:visible">
+  <div id="${gridId}-rows-wrap" style="position:relative">
+        <div class="school-grid" style="min-width:540px">${dayCol}${main}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function injectStamps(gridId, result, levelKey) {
+  if (!result?.groups?.length) return;
+  const wrap = document.getElementById(`${gridId}-rows-wrap`);
+  if (!wrap) return;
+
+  let overlay = wrap.querySelector('.pins-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'pins-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10';
+    wrap.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  wrap.style.position = 'relative';
+
+  // Replicate timeToBandPos but for sg-cell layout
+  // ALL_HOURS in painel = [8,9,10,11,14,15,16,17,18,19,20] with gap between 11 and 14
+  const PAINEL_HRS = [8,9,10,11,null,14,15,16,17,18,19,20];
+  const GAP = 3;
+
+function bandPos(startMins, endMins, rowEl) {
+    const cells = Array.from(rowEl.querySelectorAll('.sg-cell'));
+    let x = 0, left = null, right = null;
+    for (let i = 0; i < PAINEL_HRS.length; i++) {
+      const h = PAINEL_HRS[i];
+      const cell = cells[i];
+      if (!cell) continue;
+      const w = cell.offsetWidth;
+      if (h === null) { x += w + GAP; continue; }
+      const hStart = h * 60, hEnd = (h + 1) * 60;
+      if (startMins < hEnd && endMins > hStart) {
+        const os = Math.max(startMins, hStart);
+        const oe = Math.min(endMins,   hEnd);
+        if (left === null) left = x + ((os - hStart) / 60) * w;
+        right = x + ((oe - hStart) / 60) * w;
+      }
+      x += w + GAP;
+    }
+    if (left === null) return null;
+    return { left: Math.round(left), width: Math.max(38, Math.round(right - left)) };
+  }
+
+  result.groups.forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const ar        = (_auditResults[levelKey] || {})[i];
+
+    const isCert  = !!committed;
+    const isFail  = ar?.status === 'fail';
+    const isWarn  = ar?.status === 'warn';
+
+    const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
+    const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
+    const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
+    const codeLabel   = committed ? committed.turmaCode : `T${i + 1}`;
+    const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
+
+    const pairDays    = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const slotLetters = ['A', 'B'];
+    const startMins   = g.startMins;
+    const endMins     = g.startMins + CLASS_DUR;
+
+    pairDays.forEach((dayIdx, si) => {
+      const row = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
+      if (!row) return;
+
+      const pos = bandPos(startMins, endMins, row);
+      if (!pos) return;
+
+      const wrapRect = wrap.getBoundingClientRect();
+      const rowRect  = row.getBoundingClientRect();
+      const rowTop   = rowRect.top  - wrapRect.top;
+      const rowLeft  = rowRect.left - wrapRect.left;
+
+      const centrePx   = rowLeft + pos.left + pos.width / 2;
+      const rowCentreY = rowTop  + row.offsetHeight / 2;
+
+      const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
+      const SIZE = 38, R = SIZE / 2;
+      const uid  = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
+
+      const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
+          <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
+        </defs>
+        <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
+        <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
+        <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
+        ${[45,135,225,315].map(deg => {
+          const rad = deg*Math.PI/180, dr = R-2.5;
+          return `<circle cx="${(R+dr*Math.cos(rad)).toFixed(2)}" cy="${(R+dr*Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
+        }).join('')}
+        <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700"
+              letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
+          <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
+        </text>
+        <text x="${R}" y="${R+3}" text-anchor="middle"
+              font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
+        <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600"
+              letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
+          <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${g.startTime}</textPath>
+        </text>
+      </svg>`;
+
+      const rotation = -6 + (i % 4) * 4;
+      const stampEl = document.createElement('div');
+      stampEl.style.cssText = `position:absolute;left:${centrePx}px;top:${rowCentreY}px;transform:translate(-50%,-50%) rotate(${rotation}deg);pointer-events:all;cursor:pointer;z-index:11;filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i*0.055}s both;transition:transform .15s,filter .15s;`;
+      stampEl.innerHTML = svg;
+      stampEl.addEventListener('mouseenter', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(0deg) scale(1.35)`; stampEl.style.filter=`drop-shadow(0 4px 12px ${stampRing}99)`; stampEl.style.zIndex='20'; });
+      stampEl.addEventListener('mouseleave', () => { stampEl.style.transform=`translate(-50%,-50%) rotate(${rotation}deg)`; stampEl.style.filter=`drop-shadow(0 2px 5px rgba(0,0,0,.75))`; stampEl.style.zIndex='11'; });
+      stampEl.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
+      overlay.appendChild(stampEl);
+    });
+  });
+}
+  
 function setLCView(v){
   document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
   document.getElementById('lc-pin-btn')?.classList.toggle('active',v==='pins');
@@ -1591,6 +1777,7 @@ function setLCView(v){
     if(v==='pins'&&_lastResult?.groups?.length)requestAnimationFrame(()=>injectPins('lc-grid',_lastResult));
   }
 }
+  
 /* ══════════════════════════════════════════════
    GROUP CARD — with auto-audit verdicts (Doc 3)
 ══════════════════════════════════════════════ */
@@ -1994,7 +2181,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
   let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px">
     <div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
     <div style="font-size:8.5px;color:${dc.color||'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label||''}</div>
-  <button onclick="_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;...">← Visão geral</button>
+<button onclick="_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button>
     <div style="display:flex;gap:0">
       <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div>
       <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div>
@@ -2011,19 +2198,8 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
     el.innerHTML = html; return;
   }
 
-  /* ── View toggle ── */
-  const ovView = window._ovCurrentView || 'heatmap';
-  html += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0 12px;border-bottom:1px solid var(--b);margin-bottom:14px;flex-wrap:wrap">
-    <span style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)">Vista</span>
-    <div style="display:flex;border:1px solid var(--b2);overflow:hidden;flex-shrink:0">
-      <button style="font-size:7.5px;font-weight:700;letter-spacing:.08em;padding:4px 14px;cursor:pointer;border:none;font-family:var(--mono);text-transform:uppercase;transition:all .15s;${ovView==='heatmap'?'background:var(--gold3);color:var(--gold2)':'background:transparent;color:var(--t3)'}" onclick="window._ovCurrentView='heatmap';ovDrillToFormation('${levelKey}')">📊 Calor</button>
-      <button style="font-size:7.5px;font-weight:700;letter-spacing:.08em;padding:4px 14px;cursor:pointer;border:none;font-family:var(--mono);text-transform:uppercase;transition:all .15s;${ovView==='pins'?'background:var(--gold3);color:var(--gold2)':'background:transparent;color:var(--t3)'}" onclick="window._ovCurrentView='pins';ovDrillToFormation('${levelKey}')">📍 Pinos</button>
-    </div>
-  </div>`;
-
-  /* ── Grid ── */
-  const isPins = ovView === 'pins';
-  const GRID_ID = isPins ? 'ov-pin-grid' : 'ov-hm-grid';
+/* ── Grid — unified, no toggle ── */
+  const GRID_ID = 'ov-unified-grid';
 
   /* Pair pills */
   const dept = meta.dept || 'adults';
@@ -2038,22 +2214,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
     return `<span style="font-size:7px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;cursor:pointer;font-family:var(--mono);letter-spacing:.04em;color:${col}">${pair.aL}+${pair.bL} <strong>${pip}</strong></span>`;
   }).join('');
 
-  const legendHTML = isPins
-    ? `<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid var(--green)"></div><span style="font-size:7px;color:var(--t3)">certificada</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:9px;height:9px;border-radius:50%;border:2px solid ${GROUP_COLORS[0]}"></div><span style="font-size:7px;color:var(--t3)">proposta</span></div></div>`
-    : `<div style="display:flex;gap:8px;align-items:center;margin-left:auto"><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(74,143,245,.22)"></div><span style="font-size:7px;color:var(--t3)">1–4</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(232,160,32,.32)"></div><span style="font-size:7px;color:var(--t3)">5–9</span></div><div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:rgba(29,184,122,.5)"></div><span style="font-size:7px;color:var(--t3)">10+</span></div></div>`;
-
-  html += `<div class="school-grid-wrap">
-    <div class="school-grid-head">
-      <span class="school-grid-title">${isPins ? `📍 Pinos · ${_lastResult?.groups?.length||0} turmas` : '📊 Mapa de calor · Disponibilidade'}</span>
-      ${pairPillsHTML}
-      ${legendHTML}
-      <span style="font-size:7.5px;color:var(--t3);margin-left:8px">${withReq.length} al com pedido</span>
-    </div>
-    <div class="school-grid-outer">
-      <div id="${GRID_ID}-rows-wrap" style="position:relative">${buildGridRows(GRID_ID, withReq, isPins)}</div>
-    </div>
-  </div>`;
-
+  html += buildUnifiedGrid(withReq, _lastResult, levelKey, GRID_ID);
   /* ── Pair matrix ── */
   html += buildPairMatrix(pairCounts);
 
@@ -2068,24 +2229,25 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
    ALM_PAIRS.forEach(pair=>{
       const pairGroups=_lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b);
       if(!pairGroups.length)return;
-      html+=`<div class="pair-group-section" id="pgs-${pair.aL}-${pair.bL}" style="display:none">`;
       pairGroups.forEach(g=>{const i=_lastResult.groups.indexOf(g);html+=buildGroupCard(g,i);});
-      html+=`</div>`;
     });
   }
 
   /* ── Sinalizados + student table ── */
   if(_lastResult?.sinalizados?.length) html += buildSinalizadosHTML(_lastResult);
-  html += buildStudentTable(allStudents);
+ html += `<div style="margin-top:14px;padding-bottom:20px">
+  <button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
+    Ver ${allStudents.length} alunos ↗
+  </button>
+</div>`;
 
-  el.innerHTML = html;
+ el.innerHTML = html;
 
-  /* Inject pins after DOM render */
-  if(isPins && _lastResult?.groups?.length){
-    requestAnimationFrame(() => injectPins(GRID_ID, _lastResult));
+  if (_lastResult?.groups?.length) {
+    setTimeout(() => injectStamps(GRID_ID, _lastResult, levelKey), 120);
   }
 }
-
+  
 /* Branch colours for the stacked bar chart */
 const BRANCH_COLORS={
   FUNCHAL:'#4A8FF5',
@@ -2145,9 +2307,9 @@ const BRANCH_COLORS={
     const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
     const pEmpty   = Math.max(0, ((cap - total) / maxTotal * 100)).toFixed(1);
 
-    const placedLbl  = placed  >= 6 ? placed  : '';
-    const waitLbl    = waiting >= 6 ? waiting : '';
-    const noReqLbl   = noReq   >= 6 ? noReq   : '';
+   const placedLbl  = placed  >= 6 ? placed  : '';
+   const waitLbl    = waiting >= 6 ? waiting : '';
+   const noReqLbl   = noReq   >= 6 ? noReq   : '';
     const placedPct  = total > 0 ? Math.round(placed / total * 100) : 0;
 
     const isClean  = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
@@ -2179,7 +2341,7 @@ const BRANCH_COLORS={
         ${noReq > 0   ? `<div class="barchart-segment" title="${noReq} sem pedido" style="width:${pNoReq}%;background:var(--red);cursor:pointer" onclick="event.stopPropagation();drillToNoRequest('${key}')">${noReqLbl}</div>` : ''}
         ${pEmpty > 0  ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px">${icons}</div>
+    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div>
     </div>`;
   });
 
@@ -2270,37 +2432,79 @@ function ovRenderSummary(){
   const maxD=Math.max(...Object.values(deptCounts),1);
   let totalCert=0;Object.values(_groupCodes).forEach(lvl=>totalCert+=Object.keys(lvl).length);
 
-  let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:14px">
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--gold2)">${total}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Inscritos</div></div>
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${com}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Com pedido</div></div>
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--red)">${sem}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Sem pedido</div></div>
-    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${totalCert}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Turmas cert.</div></div>
-    ${_exceptionQueue.length>0?`<div style="background:var(--bg2);border:1px solid var(--amber-b);background:var(--amber-a);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--amber)">${_exceptionQueue.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Excepções</div></div>`:''}
-  </div>
+ let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}
+  <span style="font-size:7px;font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--t3);margin-left:4px">
+   ${totalCert>0?'· <span style="color:var(--green)">'+totalCert+' turmas cert.</span>':''}
+   ${_exceptionQueue.length>0?'· <span style="color:var(--amber)">'+_exceptionQueue.length+' excepções</span>':''}
+  </span>
+</div>`;
 
-  ${buildBranchBarChart(students)}
+ html += buildBranchBarChart(students);
 
-  <div class="sec">Por departamento</div>
+ html += `<div class="sec">Por departamento</div>
   <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 14px;margin-bottom:14px">`;
-  DEPT_ORDER.forEach(dk=>{
-    const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
-      <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
-      <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
-      <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
-    </div>`;
-  });
-  html+=`</div><div class="sec">Próximas acções</div>
-  <div style="background:var(--bg2);border:1px solid var(--b);padding:2px 14px;margin-bottom:14px">
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--b);font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--red)"></div><span style="color:var(--t2)">${sem} aluno${sem!==1?'s':''} sem pedido de horário</span><button onclick="switchCC('audit',document.getElementById('tab-audit'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--b2);color:var(--gold);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Audit →</button></div>
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--b);font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--teal)"></div><span style="color:var(--t2)">Formação de turmas em curso</span><button onclick="switchCC('formation',document.getElementById('tab-formation'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--b2);color:var(--gold);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Formation →</button></div>
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--green)"></div><span style="color:var(--t2)">Aprovar e atribuir professores</span><button onclick="switchCC('decision',document.getElementById('tab-decision'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--green-b);color:var(--green);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Decision →</button></div>
-  </div>
-  <div style="font-size:7.5px;color:var(--t3)">← Seleccione um nível no painel esquerdo para ver detalhes</div>`;
+
+DEPT_ORDER.forEach(dk=>{
+  const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
+  html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
+    <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
+    <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
+    <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
+  </div>`;
+});
+
+html+=`</div>
+  <div style="font-size:7.5px;color:var(--t3);padding-top:8px">← Seleccione um nível no painel esquerdo para ver detalhes</div>`;
   el.innerHTML=html;
 }
 
+  function ovOpenStudentModal(levelKey){
+  const meta=LEVEL_MAP[levelKey]||{};
+  const allStudents=(activeLoc==='all'?allE:allE.filter(e=>normB(e.branch)===activeLoc)).filter(e=>lk(e)===levelKey);
+  const turmaByRef={};
+  if(_allResults[levelKey]?.groups){
+    _allResults[levelKey].groups.forEach((g,i)=>{
+      const committed=(_groupCodes[levelKey]||{})[i];
+      const label=committed?committed.turmaCode:`T${i+1}`;
+      g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});
+    });
+  }
+  const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  let rows=sorted.map((e,idx)=>{
+    const a=analysePrefs(e.ref);
+    const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
+    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
+    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+    const turma=turmaByRef[e.ref];
+    return`<div class="stu-row" onclick="document.getElementById('ov-stu-modal').remove();openDossier('${e.ref}')">
+      <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
+      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
+      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
+      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
+      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
+      <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
+    </div>`;
+  }).join('');
+  const existing=document.getElementById('ov-stu-modal');if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='ov-stu-modal';
+  overlay.style.cssText='position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML=`<div style="width:min(720px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
+      <div style="font-family:var(--display);font-size:18px;letter-spacing:4px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
+      <div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${sorted.length} alunos</div>
+      <button onclick="document.getElementById('ov-stu-modal').remove()" style="margin-left:auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:11px">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:8px 16px 20px">
+      <div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>
+      ${rows}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+  
 /* Overview search */
 function ovSearch(val){
   const q=val.trim().toLowerCase();
