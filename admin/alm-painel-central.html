@@ -1368,21 +1368,23 @@ async function runBootAudit(){
       if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
+refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
+    });
+    existing.forEach(c=>{
+      const gc=c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null;if(!gc)return;
+      const key=`${(c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const result=_allResults[key];if(!result)return;
+      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
+      result.groups.forEach((g,i)=>{
+        if((_groupCodes[key]||{})[i])return;
+        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap>=Math.floor(g.students.length*0.7)){
+          if(!_groupCodes[key])_groupCodes[key]={};
+          _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
+        }
+      });
+    });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
-  existing.forEach(c=>{
-  const gc=c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null;if(!gc)return;
-  const key=`${(c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-  const result=_allResults[key];if(!result)return;
-  const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-  result.groups.forEach((g,i)=>{
-    if((_groupCodes[key]||{})[i])return;
-    const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-    if(overlap>=Math.floor(g.students.length*0.7)){
-      if(!_groupCodes[key])_groupCodes[key]={};
-     _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
-    }
-  });
-});
   setBootProgress(85);
   _exceptionQueue=[];
   for(const key of Object.keys(_allResults)){
