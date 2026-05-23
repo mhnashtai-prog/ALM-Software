@@ -1668,21 +1668,29 @@ function injectStamps(gridId, result, levelKey) {
 
   result.groups.forEach((g, i) => {
     const committed = (_groupCodes[levelKey] || {})[i];
-    if (!committed) return;
+    const ar        = (_auditResults[levelKey] || {})[i];
 
-    const ar = (_auditResults[levelKey] || {})[i];
-    const hasWarn  = ar?.status === 'warn';
-    const hasFail  = ar?.status === 'fail';
+    // Determine stamp state from audit truth, not just committed flag
+    const isCert  = !!committed;
+    const isFail  = ar?.status === 'fail';
+    const isWarn  = ar?.status === 'warn';
+    const isProp  = !isCert && !isFail && !isWarn; // clean proposal, commit pending
 
-    // Stamp colour: gold for clean, amber for warn, red for fail
-    const stampBg   = hasFail ? '#8B1A1A' : hasWarn ? '#7A4A00' : '#1A3A1A';
-    const stampRing = hasFail ? '#C8455A' : hasWarn ? '#C8840A' : '#C9A84C';
-    const stampText = hasFail ? '#E8455A' : hasWarn ? '#E8A020' : '#C9A84C';
-    const stampInk  = hasFail ? '#FFB0B8' : hasWarn ? '#FFD080' : '#E8C97A';
+    // Colours per state
+    const stampBg   = isFail ? '#3A0A0A' : isWarn ? '#2A1A00' : isCert ? '#0A2A14' : '#1A1A2A';
+    const stampRing = isFail ? '#E8455A' : isWarn ? '#E8A020' : isCert ? '#C9A84C' : '#4A8FF5';
+    const stampInk  = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : isCert ? '#E8C97A' : '#90C0FF';
 
-    const pairDays   = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    // Label: use real turmaCode if committed, else provisional index
+    const codeLabel = committed
+      ? committed.turmaCode
+      : `T${i + 1}`;
+
+    const statusGlyph = isFail ? '✕' : isWarn ? '⚠' : isCert ? '✓' : '○';
+
+    const pairDays    = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotLetters = ['A', 'B'];
-    const startHour  = Math.floor(g.startMins / 60);
+    const startHour   = Math.floor(g.startMins / 60);
 
     pairDays.forEach((dayIdx, si) => {
       const row  = wrap.querySelector(`.sg-row[data-di="${dayIdx}"]`);
@@ -1693,93 +1701,88 @@ function injectStamps(gridId, result, levelKey) {
       const cellLeft = cell.offsetLeft + cell.offsetWidth  / 2;
       const rowTop   = row.offsetTop   + row.offsetHeight  / 2;
 
-      const slotCode   = committed.turmaCode + (pairDays.length > 1 ? slotLetters[si] : '');
-      const arcTopText = slotCode.toUpperCase();
-      const arcBotText = g.startTime + '–' + g.endTime;
-      const SIZE = 38;
-      const R    = SIZE / 2;
+      const slotCode = codeLabel + (pairDays.length > 1 ? slotLetters[si] : '');
+      const SIZE = 38, R = SIZE / 2;
 
-      // Build circular SVG text paths
-      function arcPath(id, r, sweep) {
-        // sweep=1 → top arc (left-to-right), sweep=0 → bottom arc
-        if (sweep === 1) {
-          return `<path id="${id}" d="M ${R - r},${R} A ${r},${r} 0 0,1 ${R + r},${R}" fill="none"/>`;
-        } else {
-          return `<path id="${id}" d="M ${R - r},${R} A ${r},${r} 0 0,0 ${R + r},${R}" fill="none"/>`;
-        }
-      }
+      // Unique IDs per stamp to avoid textPath href collisions
+      const uid = `${levelKey}-${i}-${si}`.replace(/[|]/g, '-');
 
       const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          ${arcPath('arc-top-${i}-${si}', R - 3.5, 1)}
-          ${arcPath('arc-bot-${i}-${si}', R - 3.5, 0)}
+          <path id="arc-top-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,1 ${R+(R-4)},${R}" fill="none"/>
+          <path id="arc-bot-${uid}" d="M ${R-(R-4)},${R} A ${R-4},${R-4} 0 0,0 ${R+(R-4)},${R}" fill="none"/>
         </defs>
 
-        <!-- Outer ring -->
-        <circle cx="${R}" cy="${R}" r="${R - 1}"   fill="${stampBg}"  stroke="${stampRing}" stroke-width="1.5"/>
-        <!-- Inner ring -->
-        <circle cx="${R}" cy="${R}" r="${R - 5}"   fill="none"        stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4"/>
-        <!-- Innermost solid -->
-        <circle cx="${R}" cy="${R}" r="${R - 8}"   fill="${stampBg}"  stroke="${stampRing}" stroke-width="0.5"/>
+        <!-- Outer fill -->
+        <circle cx="${R}" cy="${R}" r="${R-0.5}" fill="${stampBg}" stroke="${stampRing}" stroke-width="1.5"/>
+        <!-- Dashed inner ring -->
+        <circle cx="${R}" cy="${R}" r="${R-5}" fill="none" stroke="${stampRing}" stroke-width="0.6" stroke-dasharray="1.8 1.4" opacity="0.7"/>
+        <!-- Inner solid -->
+        <circle cx="${R}" cy="${R}" r="${R-9}" fill="${stampBg}" stroke="${stampRing}" stroke-width="0.5"/>
 
-        <!-- Corner dots -->
-        ${[0,90,180,270].map(deg => {
-          const rad = (deg - 45) * Math.PI / 180;
-          const dotR = R - 3;
-          return `<circle cx="${R + dotR * Math.cos(rad)}" cy="${R + dotR * Math.sin(rad)}" r="0.9" fill="${stampRing}"/>`;
+        <!-- Notch dots at 45° -->
+        ${[45, 135, 225, 315].map(deg => {
+          const rad = deg * Math.PI / 180;
+          const dr = R - 2.5;
+          return `<circle cx="${(R + dr * Math.cos(rad)).toFixed(2)}" cy="${(R + dr * Math.sin(rad)).toFixed(2)}" r="1" fill="${stampRing}"/>`;
         }).join('')}
 
-        <!-- Top arc label: slot code -->
-        <text font-family="'IBM Plex Mono', monospace" font-size="4.5" font-weight="700"
-              letter-spacing="0.5" fill="${stampInk}" text-anchor="middle">
-          <textPath href="#arc-top-${i}-${si}" startOffset="50%">${arcTopText}</textPath>
+        <!-- Top arc: slot code -->
+        <text font-family="'IBM Plex Mono',monospace" font-size="4.2" font-weight="700"
+              letter-spacing="0.4" fill="${stampInk}" text-anchor="middle">
+          <textPath href="#arc-top-${uid}" startOffset="50%">${slotCode}</textPath>
         </text>
 
-        <!-- Centre: group number -->
-        <text x="${R}" y="${R + 2.5}" text-anchor="middle"
-              font-family="'IBM Plex Mono', monospace"
-              font-size="8" font-weight="700" fill="${stampInk}">${i + 1}</text>
+        <!-- Centre glyph -->
+        <text x="${R}" y="${R + 3}" text-anchor="middle"
+              font-family="'IBM Plex Mono',monospace"
+              font-size="9" font-weight="700" fill="${stampInk}">${statusGlyph}</text>
 
-        <!-- Bottom arc label: time -->
-        <text font-family="'IBM Plex Mono', monospace" font-size="4" font-weight="600"
-              letter-spacing="0.3" fill="${stampText}" text-anchor="middle">
-          <textPath href="#arc-bot-${i}-${si}" startOffset="50%">${arcBotText}</textPath>
+        <!-- Bottom arc: student count + time -->
+        <text font-family="'IBM Plex Mono',monospace" font-size="3.8" font-weight="600"
+              letter-spacing="0.2" fill="${stampRing}" text-anchor="middle" opacity="0.85">
+          <textPath href="#arc-bot-${uid}" startOffset="50%">${g.students.length}al · ${g.startTime}</textPath>
         </text>
       </svg>`;
 
+      const rotation = -6 + (i % 4) * 4; // subtle hand-stamped tilt per group
+
       const el = document.createElement('div');
       el.style.cssText = `
-        position: absolute;
-        left: ${cellLeft}px;
-        top: ${rowTop}px;
-        transform: translate(-50%, -50%) rotate(${-8 + (i % 3) * 8}deg);
-        pointer-events: all;
-        cursor: pointer;
-        z-index: 11;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
-        animation: pinDrop .35s cubic-bezier(.34,1.56,.64,1) ${i * 0.06}s both;
-        transition: transform .15s, filter .15s;
+        position:absolute;
+        left:${cellLeft}px;
+        top:${rowTop}px;
+        transform:translate(-50%,-50%) rotate(${rotation}deg);
+        pointer-events:all;
+        cursor:pointer;
+        z-index:11;
+        filter:drop-shadow(0 2px 5px rgba(0,0,0,.75));
+        animation:pinDrop .3s cubic-bezier(.34,1.56,.64,1) ${i * 0.055}s both;
+        transition:transform .15s, filter .15s, z-index 0s;
       `;
-      el.title = `${slotCode} · ${DAYS_PT[dayIdx]} · ${g.startTime}–${g.endTime} · ${g.students.length} al`;
+      el.title = `${slotCode} · ${isCert ? '✓ Certificado' : isFail ? '✕ Falha' : isWarn ? '⚠ Aviso' : '○ Proposta'} · ${g.students.length} al · ${g.startTime}–${g.endTime}`;
       el.innerHTML = svg;
 
       el.addEventListener('mouseenter', () => {
-        el.style.transform = `translate(-50%, -50%) rotate(0deg) scale(1.3)`;
-        el.style.filter = `drop-shadow(0 4px 10px rgba(0,0,0,0.9))`;
-        el.style.zIndex = '20';
+        el.style.transform = `translate(-50%,-50%) rotate(0deg) scale(1.35)`;
+        el.style.filter    = `drop-shadow(0 4px 12px ${stampRing}99)`;
+        el.style.zIndex    = '20';
       });
       el.addEventListener('mouseleave', () => {
-        el.style.transform = `translate(-50%, -50%) rotate(${-8 + (i % 3) * 8}deg)`;
-        el.style.filter = `drop-shadow(0 2px 4px rgba(0,0,0,0.7))`;
-        el.style.zIndex = '11';
+        el.style.transform = `translate(-50%,-50%) rotate(${rotation}deg)`;
+        el.style.filter    = `drop-shadow(0 2px 5px rgba(0,0,0,.75))`;
+        el.style.zIndex    = '11';
       });
-      el.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        openGroupModal(levelKey, i);
+      });
 
       overlay.appendChild(el);
     });
   });
 }
-
+  
 function setLCView(v){
   document.getElementById('lc-hm-btn')?.classList.toggle('active',v==='heatmap');
   document.getElementById('lc-pin-btn')?.classList.toggle('active',v==='pins');
