@@ -1198,16 +1198,11 @@ function renderExcBar(){
   }
   bar.className=fails.length>0?'exc-bar fail':'exc-bar';
   lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
- const byLevel={};
-_exceptionQueue.forEach(exc=>{
-  const lbl=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;
-  if(!byLevel[lbl])byLevel[lbl]={f:0,w:0};
-  if(exc.auditResult.status==='fail')byLevel[lbl].f++;
-  else byLevel[lbl].w++;
-});
-items.innerHTML=Object.entries(byLevel).map(([lbl,c])=>
-  `<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lbl} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`
-).join('');
+  items.innerHTML=_exceptionQueue.map(exc=>{
+    const meta=LEVEL_MAP[exc.levelKey]||{},cls=exc.auditResult.status==='fail'?'fail':'warn';
+    const icon=exc.auditResult.status==='fail'?'✕':'⚠';
+    return`<div class="exc-chip ${cls}" onclick="jumpToException('${exc.levelKey}',${exc.groupIdx})">${icon} ${meta.label||exc.levelKey} G${exc.groupIdx+1} <span style="opacity:.7;font-size:6.5px">${exc.auditResult.failCount>0?exc.auditResult.failCount+'F':exc.auditResult.warnCount+'W'}</span></div>`;
+  }).join('');
   if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warns.length} aviso${warns.length!==1?'s':''}`;}
   else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
 }
@@ -1999,7 +1994,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
   let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px">
     <div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
     <div style="font-size:8.5px;color:${dc.color||'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label||''}</div>
-<button onclick="_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button>
+  <button onclick="_ovActiveLevel=null;window._ovCurrentView='heatmap';ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;...">← Visão geral</button>
     <div style="display:flex;gap:0">
       <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div>
       <div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div>
@@ -2081,11 +2076,7 @@ function ovSelectLevel(key){_ovActiveLevel=key;ovRenderTree();ovDrillToFormation
 
   /* ── Sinalizados + student table ── */
   if(_lastResult?.sinalizados?.length) html += buildSinalizadosHTML(_lastResult);
- html += `<div style="margin-top:14px;padding-bottom:20px">
-  <button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">
-    Ver ${allStudents.length} alunos ↗
-  </button>
-</div>`;
+  html += buildStudentTable(allStudents);
 
   el.innerHTML = html;
 
@@ -2154,9 +2145,9 @@ const BRANCH_COLORS={
     const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
     const pEmpty   = Math.max(0, ((cap - total) / maxTotal * 100)).toFixed(1);
 
-    const placedLbl  = '';
-    const waitLbl    = '';
-    const noReqLbl   = '';
+    const placedLbl  = placed  >= 6 ? placed  : '';
+    const waitLbl    = waiting >= 6 ? waiting : '';
+    const noReqLbl   = noReq   >= 6 ? noReq   : '';
     const placedPct  = total > 0 ? Math.round(placed / total * 100) : 0;
 
     const isClean  = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
@@ -2279,28 +2270,28 @@ function ovRenderSummary(){
   const maxD=Math.max(...Object.values(deptCounts),1);
   let totalCert=0;Object.values(_groupCodes).forEach(lvl=>totalCert+=Object.keys(lvl).length);
 
- let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}
-  <span style="font-size:7px;font-weight:600;letter-spacing:.06em;text-transform:none;color:var(--t3);margin-left:4px">
-   ${totalCert>0?'· <span style="color:var(--green)">'+totalCert+' turmas cert.</span>':''}
-   ${_exceptionQueue.length>0?'· <span style="color:var(--amber)">'+_exceptionQueue.length+' excepções</span>':''}
-  </span>
-</div>`;
+  let html=`<div class="sec">Visão geral${_ovActiveLoc!=='all'?' · '+(BRANCH_LABELS[_ovActiveLoc]||_ovActiveLoc):''}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:14px">
+    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--gold2)">${total}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Inscritos</div></div>
+    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${com}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Com pedido</div></div>
+    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--red)">${sem}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Sem pedido</div></div>
+    <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--green)">${totalCert}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Turmas cert.</div></div>
+    ${_exceptionQueue.length>0?`<div style="background:var(--bg2);border:1px solid var(--amber-b);background:var(--amber-a);padding:10px 12px"><div style="font-size:22px;font-weight:700;color:var(--amber)">${_exceptionQueue.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px">Excepções</div></div>`:''}
+  </div>
 
- html += buildBranchBarChart(students);
+  ${buildBranchBarChart(students)}
 
- html += `<div class="sec">Por departamento</div>
+  <div class="sec">Por departamento</div>
   <div style="background:var(--bg2);border:1px solid var(--b);padding:10px 14px;margin-bottom:14px">`;
-
-DEPT_ORDER.forEach(dk=>{
-  const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
-  html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
-    <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
-    <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
-    <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
-  </div>`;
-});
-
-html+=`</div><div class="sec">Próximas acções</div>
+  DEPT_ORDER.forEach(dk=>{
+    const dc=DEPT_CFG[dk]||{},n=deptCounts[dk]||0,pct=Math.round(n/maxD*100);
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--b)">
+      <div style="font-size:10px;font-weight:600;width:65px;flex-shrink:0;color:${dc.color}">${dc.label}</div>
+      <div style="flex:1;height:4px;background:rgba(255,255,255,.04)"><div style="height:100%;width:${pct}%;background:${dc.color};transition:width .8s"></div></div>
+      <div style="font-size:9px;color:var(--t2);width:30px;text-align:right">${n}</div>
+    </div>`;
+  });
+  html+=`</div><div class="sec">Próximas acções</div>
   <div style="background:var(--bg2);border:1px solid var(--b);padding:2px 14px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--b);font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--red)"></div><span style="color:var(--t2)">${sem} aluno${sem!==1?'s':''} sem pedido de horário</span><button onclick="switchCC('audit',document.getElementById('tab-audit'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--b2);color:var(--gold);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Audit →</button></div>
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--b);font-size:9px"><div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--teal)"></div><span style="color:var(--t2)">Formação de turmas em curso</span><button onclick="switchCC('formation',document.getElementById('tab-formation'))" style="margin-left:auto;padding:4px 12px;border:1px solid var(--b2);color:var(--gold);background:transparent;font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer">Formation →</button></div>
@@ -2310,53 +2301,6 @@ html+=`</div><div class="sec">Próximas acções</div>
   el.innerHTML=html;
 }
 
-  function ovOpenStudentModal(levelKey){
-  const meta=LEVEL_MAP[levelKey]||{};
-  const allStudents=(activeLoc==='all'?allE:allE.filter(e=>normB(e.branch)===activeLoc)).filter(e=>lk(e)===levelKey);
-  const turmaByRef={};
-  if(_allResults[levelKey]?.groups){
-    _allResults[levelKey].groups.forEach((g,i)=>{
-      const committed=(_groupCodes[levelKey]||{})[i];
-      const label=committed?committed.turmaCode:`T${i+1}`;
-      g.students.forEach(e=>{turmaByRef[e.ref]={label,color:GROUP_COLORS[i%GROUP_COLORS.length],cert:!!committed};});
-    });
-  }
-  const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  let rows=sorted.map((e,idx)=>{
-    const a=analysePrefs(e.ref);
-    const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
-    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
-    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
-    const turma=turmaByRef[e.ref];
-    return`<div class="stu-row" onclick="document.getElementById('ov-stu-modal').remove();openDossier('${e.ref}')">
-      <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
-      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
-      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
-      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
-      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
-      <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
-    </div>`;
-  }).join('');
-  const existing=document.getElementById('ov-stu-modal');if(existing)existing.remove();
-  const overlay=document.createElement('div');
-  overlay.id='ov-stu-modal';
-  overlay.style.cssText='position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
-  overlay.innerHTML=`<div style="width:min(720px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
-      <div style="font-family:var(--display);font-size:18px;letter-spacing:4px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div>
-      <div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${sorted.length} alunos</div>
-      <button onclick="document.getElementById('ov-stu-modal').remove()" style="margin-left:auto;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:11px">✕</button>
-    </div>
-    <div style="overflow-y:auto;padding:8px 16px 20px">
-      <div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>
-      ${rows}
-    </div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-  
 /* Overview search */
 function ovSearch(val){
   const q=val.trim().toLowerCase();
