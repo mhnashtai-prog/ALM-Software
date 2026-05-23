@@ -878,7 +878,7 @@ let _exceptionQueue=[];
 let _bootComplete=false;
 let _dsData={},_dsTTLoaded=false;
 let watchFilter='all';
-let auditFilters={branch:'all',status:'all',dept:'all'};
+let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='all';
 let _ovOpenDepts={kids:true,kids_juv:false,adults:false,exam:false};
@@ -2095,8 +2095,7 @@ const BRANCH_COLORS={
   CALHETA:'#28C8B0',
 };
 
-function buildBranchBarChart(students) {
-  /* Collect all levels in order */
+  function buildBranchBarChart(students) {
   const byLevel = {};
   students.forEach(e => {
     const key = lk(e), meta = LEVEL_MAP[key] || {};
@@ -2111,22 +2110,16 @@ function buildBranchBarChart(students) {
     else byLevel[key].noReq++;
   });
 
-  /* Pull placed counts from engine results */
   Object.keys(byLevel).forEach(key => {
-  const dbSet = window._dbPlacedByLevel?.[key];
-  if (dbSet) {
-    byLevel[key].placed = dbSet.size;
-  } else {
-    const result = _allResults[key];
-    if (result) byLevel[key].placed = result.placed || 0;
-  }
+    const dbSet = window._dbPlacedByLevel?.[key];
+    if (dbSet) byLevel[key].placed = dbSet.size;
+    else { const result = _allResults[key]; if (result) byLevel[key].placed = result.placed || 0; }
   });
 
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order);
   if (!rows.length) return '';
   const maxTotal = Math.max(...rows.map(r => r.total), 1);
 
-  /* Legend */
   const legend = `<div class="barchart-legend">
     <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div>
     <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--amber)"></div>Com pedido · aguarda</div>
@@ -2134,17 +2127,18 @@ function buildBranchBarChart(students) {
     <div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)"></div>Capacidade restante</div>
   </div>`;
 
-  /* Rows */
   let rowsHTML = `<div class="barchart-rows">`;
+
   rows.forEach(row => {
-    const { key, label, color, total, withReq, placed, noReq } = row;
+    const { key, label, total, withReq, placed, noReq } = row;
     const waiting = withReq - placed;
     const certCount = Object.keys(_groupCodes[key] || {}).length;
     const groupCount = (_allResults[key]?.groups?.length) || 0;
+    const sinalizadosCount = (_allResults[key]?.sinalizados?.length) || 0;
+    const excCount = _exceptionQueue.filter(e=>e.levelKey===key).length;
     const meta = LEVEL_MAP[key] || {};
     const cap = meta.maxCap || total || 1;
 
-    /* Widths as % of maxTotal (so bars are comparable across levels) */
     const pPlaced  = (placed  / maxTotal * 100).toFixed(1);
     const pWait    = (waiting / maxTotal * 100).toFixed(1);
     const pNoReq   = (noReq   / maxTotal * 100).toFixed(1);
@@ -2153,43 +2147,118 @@ function buildBranchBarChart(students) {
     const placedLbl  = placed  >= 6 ? placed  : '';
     const waitLbl    = waiting >= 6 ? waiting : '';
     const noReqLbl   = noReq   >= 6 ? noReq   : '';
+    const placedPct  = total > 0 ? Math.round(placed / total * 100) : 0;
 
-    const placedPct = total > 0 ? Math.round(placed / total * 100) : 0;
-    const certBadge = certCount > 0
-      ? `<span class="barchart-cert">✓ ${certCount}t</span>` : '';
-    const groupBadge = groupCount > 0 && certCount === 0
-      ? `<span class="barchart-cert" style="border-color:var(--amber-b);color:var(--amber);background:var(--amber-a)">${groupCount}g</span>` : '';
+    const isClean  = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
+    const isWarn   = excCount > 0 || sinalizadosCount > 0 || (withReq > 0 && placed === 0 && groupCount > 0);
+    const healthBg = isClean ? 'var(--green)' : isWarn ? 'var(--amber)' : 'var(--red)';
+    const healthTip = isClean ? 'Tudo certificado' : isWarn ? 'Atenção necessária' : 'Requer acção';
+    const healthDot = `<div title="${healthTip}" style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0;margin-right:4px"></div>`;
 
-    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')" title="${label} · ${total} al · ${placed} em turma · ${noReq} sem pedido">
-      <div class="barchart-row-label">${label}</div>
+    const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
+    let icons = '';
+
+    if(certCount > 0)
+      icons += `<span title="Ver grupos certificados" style="${iconStyle}background:var(--green-a);border-color:var(--green-b);color:var(--green)" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${certCount}</span>`;
+
+    if(sinalizadosCount > 0)
+      icons += `<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();drillToSinalizados('${key}')">⚠ ${sinalizadosCount}</span>`;
+
+    if(excCount > 0)
+      icons += `<span title="Ver excepções" style="${iconStyle}background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();jumpToException('${key}',0)">! ${excCount}</span>`;
+
+    icons += `<span title="Ver grelha de disponibilidade" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();drillToGrid('${key}')">≡</span>`;
+    icons += `<span title="Formation completo" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();ovDrillToFormation('${key}')">→</span>`;
+
+    rowsHTML += `<div class="barchart-row" title="${label} · ${total} al · ${placed} em turma · ${noReq} sem pedido" onclick="ovDrillToFormation('${key}')">
+      <div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px">${healthDot}${label}</div>
       <div class="barchart-row-track">
-        ${placed > 0  ? `<div class="barchart-segment" style="width:${pPlaced}%;background:var(--green)">${placedLbl}</div>` : ''}
-        ${waiting > 0 ? `<div class="barchart-segment" style="width:${pWait}%;background:var(--amber)">${waitLbl}</div>` : ''}
-        ${noReq > 0   ? `<div class="barchart-segment" style="width:${pNoReq}%;background:var(--red)">${noReqLbl}</div>` : ''}
+        ${placed > 0  ? `<div class="barchart-segment" title="${placed} em turma" style="width:${pPlaced}%;background:var(--green);cursor:pointer" onclick="event.stopPropagation();drillToGroups('${key}')">${placedLbl}</div>` : ''}
+        ${waiting > 0 ? `<div class="barchart-segment" title="${waiting} aguardam" style="width:${pWait}%;background:var(--amber);cursor:pointer" onclick="event.stopPropagation();drillToSinalizados('${key}')">${waitLbl}</div>` : ''}
+        ${noReq > 0   ? `<div class="barchart-segment" title="${noReq} sem pedido" style="width:${pNoReq}%;background:var(--red);cursor:pointer" onclick="event.stopPropagation();drillToNoRequest('${key}')">${noReqLbl}</div>` : ''}
         ${pEmpty > 0  ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>` : ''}
       </div>
-      <div class="barchart-meta">
-        ${certBadge}${groupBadge}
-        <span class="barchart-pct">${placedPct}%</span>
-        <span class="barchart-total">${total}</span>
-      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px">${icons}</div>
     </div>`;
   });
+
   rowsHTML += `</div>`;
 
-  /* Axis */
-  const ticks = [0, 25, 50, 75, 100].map(p => {
-    const v = Math.round(p / 100 * maxTotal);
+  const ticks = [0,25,50,75,100].map(p=>{
+    const v = Math.round(p/100*maxTotal);
     return `<div class="barchart-axis-tick">${v}</div>`;
   }).join('');
 
   return `<div class="barchart-wrap">
-    <div class="sec" style="margin-bottom:10px">Estado por nível <span style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para abrir em Formation</span></div>
+    <div class="sec" style="margin-bottom:10px">Estado por nível <span style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique na barra para navegar</span></div>
     ${legend}
     ${rowsHTML}
     <div class="barchart-axis">${ticks}</div>
   </div>`;
 }
+
+  function _drillSetupLevel(levelKey){
+  activeLevelKey=levelKey;activeLoc='all';
+  _lastResult=_allResults[levelKey]||null;
+  if(!_lastResult){
+    const withReq=allE.filter(e=>lk(e)===levelKey&&!!rByRef[e.ref]);
+    if(withReq.length>=MIN_G){
+      _lastResult=buildProposals(levelKey,'all');
+      _allResults[levelKey]=_lastResult;
+      if(!_auditResults[levelKey])_auditResults[levelKey]={};
+      _lastResult.groups.forEach((g,i)=>{_auditResults[levelKey][i]=auditGroupSync(g);});
+    }
+  }
+  document.querySelectorAll('#branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));
+  document.querySelector('#branch-strip .branch-pill')?.classList.add('active');
+  const meta=LEVEL_MAP[levelKey]||{};
+  if(meta.dept)openDepts[meta.dept]=true;
+  updateSidebarKPIs();renderTree();renderLevelContent();
+}
+
+function drillToGroups(levelKey){
+  _drillSetupLevel(levelKey);
+  switchCC('formation',document.getElementById('tab-formation'));
+  setTimeout(()=>{
+    const first=document.getElementById('gcard-0');
+    if(first)first.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
+}
+
+function drillToSinalizados(levelKey){
+  _drillSetupLevel(levelKey);
+  switchCC('formation',document.getElementById('tab-formation'));
+  setTimeout(()=>{
+    _sinalOpen=true;
+    const body=document.getElementById('sinal-body');
+    const arr=document.getElementById('sinal-arr');
+    if(body){body.classList.add('open');if(arr)arr.style.transform='rotate(180deg)';}
+    document.querySelector('.sinal-hdr')?.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
+}
+
+function drillToGrid(levelKey){
+  _drillSetupLevel(levelKey);
+  switchCC('formation',document.getElementById('tab-formation'));
+  setTimeout(()=>{
+    const s=document.getElementById('lc-analysis');
+    const h=document.getElementById('lc-analysis-hint');
+    if(s){s.style.display='block';if(h)h.textContent='· clique para fechar';}
+    s?.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
+}
+
+function drillToNoRequest(levelKey){
+  const meta=LEVEL_MAP[levelKey]||{};
+  auditFilters={branch:'all',status:'noreq',dept:meta.dept||'all',levelKey};
+  switchCC('audit',document.getElementById('tab-audit'));
+  document.querySelectorAll('#au-filters .fbt').forEach(b=>b.classList.remove('act'));
+  document.querySelector('#au-filters .fbt[data-ag="branch"][data-av="all"]')?.classList.add('act');
+  document.querySelector('#au-filters .fbt[data-ag="status"][data-av="noreq"]')?.classList.add('act');
+  document.querySelector('#au-filters .fbt[data-ag="dept"][data-av="all"]')?.classList.add('act');
+  renderAudit();
+}
+  
 function ovRenderSummary(){
   const students=ovStudents(),total=students.length;
   const el=document.getElementById('ov-right');
@@ -2256,13 +2325,14 @@ function ovClear(){const i=document.getElementById('ov-search');if(i)i.value='';
    AUDIT
 ══════════════════════════════════════════════ */
 function setAF(btn){
-  const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;
+  const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;auditFilters.levelKey=null;
   document.querySelectorAll(`#au-filters .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));btn.classList.add('act');renderAudit();
 }
 function renderAudit(){
   let students=[...allE];
   if(auditFilters.branch!=='all')students=students.filter(e=>normB(e.branch)===auditFilters.branch);
-  if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
+ if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
+  if(auditFilters.levelKey)students=students.filter(e=>lk(e)===auditFilters.levelKey);
   if(auditFilters.status!=='all')students=students.filter(e=>{
     const req=rByRef[e.ref];
     if(auditFilters.status==='noreq')return !req;
