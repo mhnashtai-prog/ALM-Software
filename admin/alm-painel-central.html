@@ -947,15 +947,15 @@ function turmaCol(code){
 
 function pairCol(pair){
   const map = {
-    '0-2': '#C8A44A',
-    '1-3': '#28C8B0',
-    '2-4': '#9B5ECA',
-    '5-5': '#4A8FF5',
+    '0-2': '#9F974A',
+    '1-3': '#BBB157',
+    '2-4': '#686230',
+    '5-5': '#847C3D',
   };
   const key = `${parseInt(pair.a,10)}-${parseInt(pair.b,10)}`;
   const result = map[key];
   if(!result) console.warn('pairCol: no match for', key, pair);
-  return result || '#E8455A'; /* red fallback — makes misses obvious */
+  return result || '#847C3D';
 }
   
 function parseDayPrefs(raw){
@@ -1057,6 +1057,61 @@ function buildHeatmap(students){
   return map;
 }
 
+  function paintCellHeatmap(containerId, withReq, levelKey, result){
+  const map = buildHeatmap(withReq);
+  const maxVal = Math.max(1, ...DAYS_PT.map(d =>
+    Math.max(0, ...HOUR_COLS.map(h => map[d]?.[h]||0))));
+
+  DAYS_PT.forEach(day => {
+    HOUR_COLS.forEach(h => {
+      const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
+      if(!cell) return;
+      const count = map[day]?.[h] || 0;
+      const intensity = count / maxVal;
+      cell.style.background = intensity > 0
+        ? `rgba(159,151,74,${(intensity * 0.22).toFixed(3)})`
+        : '';
+      cell.style.border = intensity > 0
+        ? `.5px solid rgba(159,151,74,${(intensity * 0.32).toFixed(3)})`
+        : '';
+      cell.removeAttribute('data-group');
+    });
+  });
+
+  if(!result?.groups?.length) return;
+
+  result.groups.forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const ar        = (_auditResults[levelKey] || {})[i];
+    const isFail    = ar?.status === 'fail';
+    const isWarn    = !committed && ar?.status === 'warn';
+    const col       = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+
+    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
+    const startH    = Math.floor(g.startMins / 60);
+    const endH      = Math.floor((g.startMins + CLASS_DUR) / 60);
+
+    pairDays.forEach(dayIdx => {
+      const day = DAYS_PT[dayIdx];
+      for(let h = startH; h < endH; h++){
+        if(!HOUR_COLS.includes(h)) continue;
+        const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
+        if(!cell) continue;
+        cell.style.background = `${col}22`;
+        cell.style.border     = `1px solid ${col}66`;
+        cell.setAttribute('data-group', i);
+      }
+      if(HOUR_COLS.includes(endH)){
+        const tail = document.querySelector(`#${containerId}-row-${day} [data-h="${endH}"]`);
+        if(tail && !tail.getAttribute('data-group')){
+          tail.style.background = `${col}11`;
+          tail.style.border     = `.5px solid ${col}33`;
+        }
+      }
+    });
+  });
+}
+  
 /* Build permanent grid DOM — called once per level, rows always visible */
 function buildPermanentGrid(containerId, withReq){
   const container = document.getElementById(containerId);
@@ -1698,8 +1753,11 @@ function renderLevelContent(){
   area.innerHTML=html;
 
   /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
- buildPermanentGrid('sg-grid-container', withReq);
-drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
+buildPermanentGrid('sg-grid-container', withReq);
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  paintCellHeatmap('sg-grid-container', withReq, activeLevelKey, _lastResult);
+  drawStamps('sg-grid-container', activeLevelKey, _lastResult);
+}));
 }
 
 /* ══════════════════════════════════════════════
@@ -2135,7 +2193,10 @@ function ovDrillToFormation(levelKey){
 
   /* Build grid then draw stamps — both rAF to ensure layout */
 buildPermanentGrid('ov-grid-container', withReq);
-drawStampsSafe('ov-grid-container', levelKey, _lastResult);
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  paintCellHeatmap('ov-grid-container', withReq, levelKey, _lastResult);
+  drawStamps('ov-grid-container', levelKey, _lastResult);
+}));
 }
 
 /* ══════════════════════════════════════════════
