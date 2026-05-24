@@ -945,14 +945,17 @@ function turmaCol(code){
   return palette[Math.abs(h)%palette.length];
 }
 
- function pairCol(pair){
+function pairCol(pair){
   const map = {
-    '0-2': '#C8A44A',   // SEG+QUA — gold
-    '1-3': '#28C8B0',   // TER+QUI — teal
-    '2-4': '#9B5ECA',   // QUA+SEX — purple
-    '5-5': '#4A8FF5',   // SÁB     — blue
+    '0-2': '#C8A44A',
+    '1-3': '#28C8B0',
+    '2-4': '#9B5ECA',
+    '5-5': '#4A8FF5',
   };
-  return map[`${pair.a}-${pair.b}`] || '#C8A44A';
+  const key = `${parseInt(pair.a,10)}-${parseInt(pair.b,10)}`;
+  const result = map[key];
+  if(!result) console.warn('pairCol: no match for', key, pair);
+  return result || '#E8455A'; /* red fallback — makes misses obvious */
 }
   
 function parseDayPrefs(raw){
@@ -1125,8 +1128,7 @@ function drawStamps(containerId, levelKey, result){
     const slotSuffix = ['A','B'];
     const n          = g.students.length;
 
-    /* colour scheme */
-   // In drawStamps, replace the color scheme block:
+  /* colour scheme */
 const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
 const bandBg = isFail ? 'rgba(232,69,90,.25)'
              : isWarn ? 'rgba(232,160,32,.25)'
@@ -1139,7 +1141,6 @@ const borderCol = isFail ? '#E8455A99'
 const inkCol    = isFail ? '#FFB0B8'
                 : isWarn ? '#FFD080'
                 : col;
-
     /* Italian cheese seal SVG — concentric rings + dotted inner + glyph */
     function makeSeal(glyph, fillCol, inkC, certified){
       const dash = certified ? 'none' : '2 2';
