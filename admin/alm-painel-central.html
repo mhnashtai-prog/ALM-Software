@@ -1119,7 +1119,7 @@ function drawStamps(containerId, levelKey, result){
     const isWarn     = ar?.status === 'warn';
 
     const code       = committed?.turmaCode || `T${i+1}`;
-    const groupCol   = turmaCol(code);
+    const groupCol   = pairCol(g.pair);
     const codeLabel  = code;
     const pairDays   = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotSuffix = ['A','B'];
@@ -1169,7 +1169,7 @@ const inkCol    = isFail ? '#FFB0B8'
       </svg>`;
     }
 
-    const sealGlyph = isFail ? '✕' : isWarn ? '!' : String(i+1);
+    const sealGlyph = isFail ? '✕' : String(i+1);
     const sealSVG   = makeSeal(sealGlyph, col, inkCol, isCert);
 
     pairDays.forEach((dayIdx, si) => {
@@ -1709,7 +1709,7 @@ function buildGroupCard(g,i){
   const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
   const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
 
-  const sealGlyph  = isFail ? '✕' : isWarn ? '!' : String(i+1);
+ const sealGlyph  = isFail ? '✕' : String(i+1);
   const dash       = isCert ? 'none' : '2 2';
   const outerStroke = isCert ? col : col + '99';
 
@@ -1741,7 +1741,7 @@ function buildGroupCard(g,i){
       ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:600;color:var(--t)">${i+1}A · ${g.pair.aL} + ${i+1}B · ${g.pair.bL}</div>
+    <div style="font-size:10px;font-weight:600;color:${displayCol}">${g.pair.aL} + ${g.pair.bL}</div>
       <div style="font-size:7.5px;color:var(--t2);margin-top:2px">${g.startTime} – ${g.endTime}</div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
@@ -1764,10 +1764,10 @@ function openGroupModal(levelKey,i){
   const ar=(_auditResults[levelKey]||{})[i];
   const committed=(_groupCodes[levelKey]||{})[i];
   const meta=LEVEL_MAP[levelKey]||{};
-  const col=GROUP_COLORS[i%GROUP_COLORS.length];
+ const col=pairCol(g.pair);
   const isCert=!!committed;
   const isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
-  const sealBg=isCert?turmaCol(committed.turmaCode):isExc?(ar?.status==='fail'?'var(--red)':'var(--amber)'):turmaCol(`T${i+1}`);
+  const sealBg = pairCol(g.pair) + (isCert ? '33' : '18');
   const dept=(meta.dept||'adults');
   const bannerBg=DEPT_GRADS[dept]||DEPT_GRADS.adults;
   const sheet=document.getElementById('gm-sheet');
