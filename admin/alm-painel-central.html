@@ -1075,38 +1075,6 @@ function buildHeatmap(students){
 
   if(!result?.groups?.length) return;
 
-  result.groups.forEach((g, i) => {
-    const committed = (_groupCodes[levelKey] || {})[i];
-    const ar        = (_auditResults[levelKey] || {})[i];
-    const isFail    = ar?.status === 'fail';
-    const isWarn    = !committed && ar?.status === 'warn';
-    const col       = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
-
-    const pairDays  = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
-    const startH    = Math.floor(g.startMins / 60);
-    const endH      = Math.floor((g.startMins + CLASS_DUR) / 60);
-
-    pairDays.forEach(dayIdx => {
-      const day = DAYS_PT[dayIdx];
-      for(let h = startH; h < endH; h++){
-        if(!HOUR_COLS.includes(h)) continue;
-        const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
-        if(!cell) continue;
-        cell.style.background = `${col}22`;
-        cell.style.border     = `1px solid ${col}66`;
-        cell.setAttribute('data-group', i);
-      }
-      if(HOUR_COLS.includes(endH)){
-        const tail = document.querySelector(`#${containerId}-row-${day} [data-h="${endH}"]`);
-        if(tail && !tail.getAttribute('data-group')){
-          tail.style.background = `${col}11`;
-          tail.style.border     = `.5px solid ${col}33`;
-        }
-      }
-    });
-  });
-}
-  
 /* Build permanent grid DOM — called once per level, rows always visible */
 function buildPermanentGrid(containerId, withReq){
   const container = document.getElementById(containerId);
