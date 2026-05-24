@@ -934,7 +934,7 @@ function avCol(name){
 }
 function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 
-  function turmaCol(code){
+function turmaCol(code){
   const base=(code||'').replace(/[AB]$/i,'').trim();
   let h=0;for(let i=0;i<base.length;i++)h=(h*31+base.charCodeAt(i))&0xffffffff;
   const palette=[
@@ -945,6 +945,17 @@ function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').to
   return palette[Math.abs(h)%palette.length];
 }
 
+  function pairCol(pair){
+  const key = `${pair.a}-${pair.b}`;
+  const map = {
+    '0-2': '#686230',   // SEG+QUA → darkest olive
+    '1-3': '#847C3D',   // TER+QUI → dark olive
+    '2-4': '#9F974A',   // QUA+SEX → mid olive
+    '5-5': '#BBB157',   // SÁB     → lightest olive
+  };
+  return map[key] || '#9F974A';
+}
+  
 function parseDayPrefs(raw){
   if(!raw)return[];if(Array.isArray(raw))return raw;
   try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return[];}
@@ -1116,7 +1127,7 @@ function drawStamps(containerId, levelKey, result){
 
     /* colour scheme */
    // In drawStamps, replace the color scheme block:
-const col       = isFail ? 'var(--red)' : isWarn ? 'var(--amber)' : turmaCol(code);
+const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
 const bandBg    = isFail ? 'rgba(232,69,90,.13)'
                 : isWarn ? 'rgba(232,160,32,.13)'
                 : isCert ? col + '22'
@@ -1644,7 +1655,7 @@ function renderLevelContent(){
   /* ── 5. STUDENT TABLE ── */
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const turmaByRef={};
-  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});});}
+  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:pairCol(g.pair),cert:!!committed};});});}
   let stuRows='';
   sorted.forEach((e,idx)=>{
     const a=analysePrefs(e.ref);
@@ -1693,7 +1704,7 @@ function buildGroupCard(g,i){
   const isExc      = isWarn || isFail;
 
   const turmaCode  = committed?.turmaCode || `T${i+1}`;
-  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : turmaCol(turmaCode);
+   const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
   const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
   const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
   const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
@@ -1723,7 +1734,7 @@ function buildGroupCard(g,i){
   const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
   const blockLbl = g.startMins < 720 ? 'Manhã'    : 'Tarde';
   const cardCls  = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
-  const displayCol = turmaCol(turmaCode); // border-left always uses turmaCol, not audit override
+  const displayCol = pairCol(g.pair);
 
   return `<div class="${cardCls}" style="border-left-color:${displayCol}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
     <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
@@ -2222,7 +2233,7 @@ function ovOpenStudentModal(levelKey){
     _allResults[levelKey].groups.forEach((g,i)=>{
       const committed=(_groupCodes[levelKey]||{})[i];
       const label=committed?committed.turmaCode:`T${i+1}`;
-     g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});
+    g.students.forEach(e=>{turmaByRef[e.ref]={label,color:pairCol(g.pair),cert:!!committed};});
     });
   }
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -2364,8 +2375,8 @@ function renderDecTriage(branch){
   if(!_lastResult)return;
   let html='';
   _lastResult.groups.forEach((g,i)=>{
-    const committed2=(_groupCodes[activeLevelKey]||{})[i];
-    const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
+    const committed=(_groupCodes[activeLevelKey]||{})[i];
+    const col=pairCol(g.pair);
     const committed=(_groupCodes[activeLevelKey]||{})[i];
     const ar=(_auditResults[activeLevelKey]||{})[i];
     const isCert=!!committed,isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
@@ -2386,7 +2397,7 @@ function openDecGroup(idx){
   if(!_lastResult?.groups[idx])return;
   _decActiveIdx=idx;renderDecTriage(_decActiveBranch);
   const g=_lastResult.groups[idx];
- const col=turmaCol((_groupCodes[activeLevelKey]||{})[idx]?.turmaCode||`T${idx+1}`);
+const col=pairCol(g.pair);
   const meta=LEVEL_MAP[activeLevelKey]||{};
   const committed=(_groupCodes[activeLevelKey]||{})[idx];
   const ar=(_auditResults[activeLevelKey]||{})[idx];
