@@ -246,8 +246,7 @@ body{display:flex;flex-direction:column}
 .time-gap-lbl{font-size:6px;font-weight:700;letter-spacing:.04em;color:rgba(201,168,76,.28);text-transform:uppercase;white-space:nowrap}
 .grid-row{display:flex;gap:3px;margin-bottom:3px;position:relative;height:var(--row-h)}
 .gcell{height:var(--row-h);border-radius:4px;flex:1;min-width:0;position:relative;cursor:default;transition:border-color .12s,background .12s}
-.gcell[data-h="8"],.gcell[data-h="9"],.gcell[data-h="10"],.gcell[data-h="11"]{background:rgba(201,168,76,.025);border:.5px solid rgba(201,168,76,.07)}
-.gcell[data-h="14"],.gcell[data-h="15"],.gcell[data-h="16"],.gcell[data-h="17"],.gcell[data-h="18"],.gcell[data-h="19"],.gcell[data-h="20"]{background:rgba(74,100,180,.025);border:.5px solid rgba(74,100,180,.07)}
+.gcell{border:.5px solid rgba(255,255,255,.04)}
 .gcell.gap-cell{background:rgba(0,0,0,.55);border:none;flex:0 0 40px;cursor:default;border-radius:0;position:relative;overflow:hidden}
 .gcell.gap-cell::after{content:'12–14';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);font-size:6px;font-weight:700;letter-spacing:.06em;color:rgba(201,168,76,.2);white-space:nowrap;pointer-events:none}
 .day-col-wrap{display:flex}
@@ -945,15 +944,17 @@ function turmaCol(code){
   return palette[Math.abs(h)%palette.length];
 }
 
-  function pairCol(pair){
-  const key = `${pair.a}-${pair.b}`;
+function pairCol(pair){
   const map = {
-    '0-2': '#686230',   // SEG+QUA → darkest olive
-    '1-3': '#847C3D',   // TER+QUI → dark olive
-    '2-4': '#9F974A',   // QUA+SEX → mid olive
-    '5-5': '#BBB157',   // SÁB     → lightest olive
+  '0-2': '#ABCBA0',   
+  '1-3': '#C7A2A2',    
+  '2-4': '#50732A',   
+  '5-5': '#4B2C2A',    
   };
-  return map[key] || '#9F974A';
+  const key = `${parseInt(pair.a,10)}-${parseInt(pair.b,10)}`;
+  const result = map[key];
+  if(!result) console.warn('pairCol: no match for', key, pair);
+  return result || '#847C3D';
 }
   
 function parseDayPrefs(raw){
@@ -1055,6 +1056,26 @@ function buildHeatmap(students){
   return map;
 }
 
+  function paintCellHeatmap(containerId, withReq, levelKey, result){
+  const map = buildHeatmap(withReq);
+  const maxVal = Math.max(1, ...DAYS_PT.map(d =>
+    Math.max(0, ...HOUR_COLS.map(h => map[d]?.[h]||0))));
+
+  DAYS_PT.forEach(day => {
+    HOUR_COLS.forEach(h => {
+      const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
+      if(!cell) return;
+      const count = map[day]?.[h] || 0;
+      const intensity = count / maxVal;
+      cell.style.background = 'rgba(0,0,0,0)';
+      cell.style.border = '.5px solid rgba(255,255,255,.03)';
+      cell.removeAttribute('data-group');
+    });
+  });
+
+  if(!result?.groups?.length) return;
+ }
+
 /* Build permanent grid DOM — called once per level, rows always visible */
 function buildPermanentGrid(containerId, withReq){
   const container = document.getElementById(containerId);
@@ -1110,6 +1131,7 @@ function drawStamps(containerId, levelKey, result){
 
   wrap.querySelectorAll('.sg-stamp').forEach(s => s.remove());
   if(!result?.groups?.length) return;
+  const pairCount = {};
 
   result.groups.forEach((g, i) => {
     const committed  = (_groupCodes[levelKey] || {})[i];
@@ -1125,21 +1147,18 @@ function drawStamps(containerId, levelKey, result){
     const slotSuffix = ['A','B'];
     const n          = g.students.length;
 
-    /* colour scheme */
-   // In drawStamps, replace the color scheme block:
-const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
-const bandBg    = isFail ? 'rgba(232,69,90,.13)'
-                : isWarn ? 'rgba(232,160,32,.13)'
-                : isCert ? col + '22'
-                :          col + '11';
-const borderCol = isFail ? '#E8455A99'
-                : isWarn ? '#E8A02099'
-                : isCert ? col + 'CC'
-                :          col + '66';
-const inkCol    = isFail ? '#FFB0B8'
-                : isWarn ? '#FFD080'
-                : col;
+  /* colour scheme */
+const col = isFail ? '#E8455A' : pairCol(g.pair);
+const bandBg = isFail ? 'rgba(232,69,90,.25)'       
+             : isCert ? col + '28'        
+       :          col + '35';
 
+const borderCol = isFail ? '#E8455A99'
+                : isCert ? col            
+                :          col + 'CC';
+const inkCol    = isFail ? '#FFB0B8'
+                : col;
+    
     /* Italian cheese seal SVG — concentric rings + dotted inner + glyph */
     function makeSeal(glyph, fillCol, inkC, certified){
       const dash = certified ? 'none' : '2 2';
@@ -1151,15 +1170,15 @@ const inkCol    = isFail ? '#FFB0B8'
              fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
       return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- outer ring -->
-        <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${certified?2:1.5}"/>
+       <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="2"/>
         <!-- mid ring -->
-        <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
+      <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
         <!-- dotted inner ring -->
-        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8"
+      <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".8"/>
           stroke-dasharray="${dash}" opacity=".5"/>
         <!-- fill disc -->
         ${certified
-          ? `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".9"/>`
+          ? `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".4"/>`
           : `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>`}
         <!-- glyph -->
         ${certified
@@ -1336,7 +1355,7 @@ function auditGroupSync(g){
 async function generateTurmaCode(branch){
   const prefix=(BRANCH_LABELS[branch]||branch||'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
   try{
-    const existing=await sbGet('classes',`select=turma_code&branch=eq.${encodeURIComponent(branch)}&academic_year=eq.${encodeURIComponent(AY)}`);
+ const existing=await sbGet('classes',`select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
     const usedNums=new Set();
     existing.forEach(c=>{const m=(c.turma_code||'').match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
     _retiredCodes.forEach(code=>{const m=code.match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
@@ -1556,18 +1575,27 @@ function buildPairMatrix(pairCounts){
   let html=`<div class="pair-matrix">`;
   pairCounts.forEach(({pair,count},i)=>{
     const placed=placedInPair(pair),displayN=placed>0?placed:count;
-    const isReady=displayN>=ASSIGN_MIN,isWait=displayN>=MIN_G;
-    const cls=isReady?'viable':isWait?'wait':'low';
-    const icon=isReady?'✓':isWait?'!':'✕';
-    const lbl=placed>0?'alocados':count>=ASSIGN_MIN?'disponíveis':count>=MIN_G?'aguardar':'não abre';
-    const subLbl=placed>0&&count!==placed?`<div class="pm-placed">${count} disponíveis</div>`:'';
+    const isViable=displayN>=ASSIGN_MIN,isWait=displayN>=MIN_G;
+    const olive=pairCol(pair);  // ← the actual pair colour
+    const lbl=placed>0?'alocados':isViable?'disponíveis':isWait?'aguardar':'não abre';
+    const subLbl=placed>0&&count!==placed?`<div style="font-size:6.5px;opacity:.65;margin-top:3px;color:${olive}">${count} disponíveis</div>`:'';
     const firstGroupIdx=_lastResult?.groups?.findIndex(g=>g.pair.a===pair.a&&g.pair.b===pair.b)??-1;
     const clickHandler=firstGroupIdx>=0?`openGroupModal('${activeLevelKey}',${firstGroupIdx})`:'';
-    html+=`<div class="pm-card ${cls}" onclick="${clickHandler}">
-      <div class="pm-icon">${icon}</div>
-      <div class="pm-pair">${pair.aL} + ${pair.bL}</div>
-      <div class="pm-count">${displayN}</div>
-      <div class="pm-sublabel">${lbl}</div>${subLbl}
+    
+    html+=`<div style="
+      border:1px solid ${olive}44;
+      border-left:3px solid ${olive};
+      background:${olive}11;
+      padding:11px 12px;
+      cursor:pointer;
+      transition:all .14s;
+      position:relative;
+    " onclick="${clickHandler}" onmouseover="this.style.background='${olive}22'" onmouseout="this.style.background='${olive}11'">
+      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${olive}">${pair.aL} + ${pair.bL}</div>
+      <div style="font-size:28px;font-weight:700;line-height:1;color:${olive}">${displayN}</div>
+      <div style="font-size:7px;margin-top:3px;color:${olive}">${lbl}</div>
+      ${subLbl}
+      ${isViable?`<div style="position:absolute;top:8px;right:10px;font-size:12px;color:${olive}">✓</div>`:''}
     </div>`;
   });
   return html+`</div>`;
@@ -1687,8 +1715,11 @@ function renderLevelContent(){
   area.innerHTML=html;
 
   /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
- buildPermanentGrid('sg-grid-container', withReq);
-drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
+buildPermanentGrid('sg-grid-container', withReq);
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  paintCellHeatmap('sg-grid-container', withReq, activeLevelKey, _lastResult);
+  drawStamps('sg-grid-container', activeLevelKey, _lastResult);
+}));
 }
 
 /* ══════════════════════════════════════════════
@@ -1704,7 +1735,7 @@ function buildGroupCard(g,i){
   const isExc      = isWarn || isFail;
 
   const turmaCode  = committed?.turmaCode || `T${i+1}`;
-   const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+const col = isFail ? '#E8455A' : pairCol(g.pair);
   const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
   const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
   const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
@@ -2124,7 +2155,10 @@ function ovDrillToFormation(levelKey){
 
   /* Build grid then draw stamps — both rAF to ensure layout */
 buildPermanentGrid('ov-grid-container', withReq);
-drawStampsSafe('ov-grid-container', levelKey, _lastResult);
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  paintCellHeatmap('ov-grid-container', withReq, levelKey, _lastResult);
+  drawStamps('ov-grid-container', levelKey, _lastResult);
+}));
 }
 
 /* ══════════════════════════════════════════════
@@ -2141,11 +2175,10 @@ function buildBranchBarChart(students){
     byLevel[key].total++;
     if(rByRef[e.ref])byLevel[key].withReq++;else byLevel[key].noReq++;
   });
-  Object.keys(byLevel).forEach(key=>{
-    const dbSet=window._dbPlacedByLevel?.[key];
-    if(dbSet)byLevel[key].placed=dbSet.size;
-    else{const result=_allResults[key];if(result)byLevel[key].placed=result.placed||0;}
-  });
+Object.keys(byLevel).forEach(key=>{
+    const result=_allResults[key];
+    if(result)byLevel[key].placed=result.placed||0;
+});
   const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
   if(!rows.length)return'';
   const maxTotal=Math.max(...rows.map(r=>r.total),1);
@@ -2180,7 +2213,7 @@ function buildBranchBarChart(students){
       <div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div>
       <div class="barchart-row-track">
         ${placed>0?`<div class="barchart-segment" style="width:${pPlaced}%;background:var(--green)">${placed>=6?placed:''}</div>`:''}
-        ${waiting>0?`<div class="barchart-segment" style="width:${pWait}%;background:var(--amber)">${waiting>=6?waiting:''}</div>`:''}
+        ${waiting>0&&waiting>=1?`<div class="barchart-segment" style="width:${pWait}%;background:var(--amber)">${waiting}</div>`:''}
         ${noReq>0?`<div class="barchart-segment" style="width:${pNoReq}%;background:var(--red)">${noReq>=6?noReq:''}</div>`:''}
         ${pEmpty>0?`<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(255,255,255,.04)"></div>`:''}
       </div>
