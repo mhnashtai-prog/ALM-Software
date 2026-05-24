@@ -934,7 +934,7 @@ function avCol(name){
 }
 function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 
-  function turmaCol(code){
+function turmaCol(code){
   const base=(code||'').replace(/[AB]$/i,'').trim();
   let h=0;for(let i=0;i<base.length;i++)h=(h*31+base.charCodeAt(i))&0xffffffff;
   const palette=[
@@ -945,6 +945,17 @@ function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').to
   return palette[Math.abs(h)%palette.length];
 }
 
+  function pairCol(pair){
+  const key = `${pair.a}-${pair.b}`;
+  const map = {
+    '0-2': '#686230',   // SEG+QUA → darkest olive
+    '1-3': '#847C3D',   // TER+QUI → dark olive
+    '2-4': '#9F974A',   // QUA+SEX → mid olive
+    '5-5': '#BBB157',   // SÁB     → lightest olive
+  };
+  return map[key] || '#9F974A';
+}
+  
 function parseDayPrefs(raw){
   if(!raw)return[];if(Array.isArray(raw))return raw;
   try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return[];}
@@ -1108,25 +1119,26 @@ function drawStamps(containerId, levelKey, result){
     const isWarn     = ar?.status === 'warn';
 
     const code       = committed?.turmaCode || `T${i+1}`;
-    const groupCol   = turmaCol(code);
+    const groupCol   = pairCol(g.pair);
     const codeLabel  = code;
     const pairDays   = g.pair.a === g.pair.b ? [g.pair.a] : [g.pair.a, g.pair.b];
     const slotSuffix = ['A','B'];
     const n          = g.students.length;
 
     /* colour scheme */
-    const col       = isFail ? '#E8455A' : isWarn ? '#E8A020' : groupCol;
-    const bandBg    = isFail ? 'rgba(232,69,90,.13)'
-                    : isWarn ? 'rgba(232,160,32,.13)'
-                    : isCert ? col + '22'
-                    :          col + '11';
-    const borderCol = isFail ? '#E8455A99'
-                    : isWarn ? '#E8A02099'
-                    : isCert ? col + 'CC'
-                    :          col + '66';
-    const inkCol    = isFail ? '#FFB0B8'
-                    : isWarn ? '#FFD080'
-                    : col;
+   // In drawStamps, replace the color scheme block:
+const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+const bandBg    = isFail ? 'rgba(232,69,90,.13)'
+                : isWarn ? 'rgba(232,160,32,.13)'
+                : isCert ? col + '22'
+                :          col + '11';
+const borderCol = isFail ? '#E8455A99'
+                : isWarn ? '#E8A02099'
+                : isCert ? col + 'CC'
+                :          col + '66';
+const inkCol    = isFail ? '#FFB0B8'
+                : isWarn ? '#FFD080'
+                : col;
 
     /* Italian cheese seal SVG — concentric rings + dotted inner + glyph */
     function makeSeal(glyph, fillCol, inkC, certified){
@@ -1157,7 +1169,7 @@ function drawStamps(containerId, levelKey, result){
       </svg>`;
     }
 
-    const sealGlyph = isFail ? '✕' : isWarn ? '!' : String(i+1);
+    const sealGlyph = isFail ? '✕' : String(i+1);
     const sealSVG   = makeSeal(sealGlyph, col, inkCol, isCert);
 
     pairDays.forEach((dayIdx, si) => {
@@ -1643,7 +1655,7 @@ function renderLevelContent(){
   /* ── 5. STUDENT TABLE ── */
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const turmaByRef={};
-  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});});}
+  if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:pairCol(g.pair),cert:!!committed};});});}
   let stuRows='';
   sorted.forEach((e,idx)=>{
     const a=analysePrefs(e.ref);
@@ -1683,42 +1695,66 @@ drawStampsSafe('sg-grid-container', activeLevelKey, _lastResult);
    GROUP CARD
 ══════════════════════════════════════════════ */
 function buildGroupCard(g,i){
-  const committed2=(_groupCodes[activeLevelKey]||{})[i];
-  const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
-  const ar=(_auditResults[activeLevelKey]||{})[i];
-  const committed=(_groupCodes[activeLevelKey]||{})[i];
-  const status=ar?.status||'pending';
-  const isCert=!!committed;
-  const isExc=!committed&&(status==='fail'||status==='warn');
-  const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
-  const blockLbl=g.startMins<720?'Manhã':'Tarde';
-  const sealBg=isCert?'var(--green)':isExc?(status==='fail'?'var(--red)':'var(--amber)'):col;
-  const sealIcon=isCert
-    ?`<path d="M5 11L9 15.5L17 7" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
-    :isExc&&status==='fail'
-      ?`<path d="M11 7v5m0 3.5v.5" fill="none" stroke="#07060E" stroke-width="2.2" stroke-linecap="round"/>`
-      :isExc&&status==='warn'
-        ?`<text x="11" y="15" text-anchor="middle" font-size="13" font-weight="700" fill="#07060E" font-family="var(--mono)">!</text>`
-        :`<text x="11" y="15" text-anchor="middle" font-size="11" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text>`;
-  const cardCls=`gcard-compact${isCert?' certified':isExc?' exception':''}`;
-  return`<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
-    <div class="gc-seal" style="background:${sealBg}">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">${sealIcon}</svg>
+  const committed  = (_groupCodes[activeLevelKey]||{})[i];
+  const ar         = (_auditResults[activeLevelKey]||{})[i];
+  const status     = ar?.status || 'pending';
+  const isCert     = !!committed;
+  const isWarn     = !isCert && status === 'warn';
+  const isFail     = !isCert && status === 'fail';
+  const isExc      = isWarn || isFail;
+
+  const turmaCode  = committed?.turmaCode || `T${i+1}`;
+   const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+  const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
+  const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
+  const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
+
+ const sealGlyph  = isFail ? '✕' : String(i+1);
+  const dash       = isCert ? 'none' : '2 2';
+  const outerStroke = isCert ? col : col + '99';
+
+  const glyphEl = sealGlyph.length === 1
+    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700"
+         fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
+    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700"
+         fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
+
+  const sealSVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+    <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${isCert?2:1.5}"/>
+    <circle cx="16" cy="16" r="12" stroke="${col}" stroke-width=".8" opacity=".6"/>
+    <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
+    ${isCert
+      ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
+         <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>
+         ${glyphEl}`}
+  </svg>`;
+
+  const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+  const blockLbl = g.startMins < 720 ? 'Manhã'    : 'Tarde';
+  const cardCls  = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
+  const displayCol = pairCol(g.pair);
+
+  return `<div class="${cardCls}" style="border-left-color:${displayCol}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
+    <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+      ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:600;color:var(--t)">${i+1}A · ${g.pair.aL} + ${i+1}B · ${g.pair.bL}</div>
+    <div style="font-size:10px;font-weight:600;color:${displayCol}">${g.pair.aL} + ${g.pair.bL}</div>
       <div style="font-size:7.5px;color:var(--t2);margin-top:2px">${g.startTime} – ${g.endTime}</div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
       <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-      ${isCert?`<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>`:''}
-      ${isExc?`<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${status==='fail'?'var(--red-b)':'var(--amber-b)'};color:${status==='fail'?'var(--red)':'var(--amber)'}">${status==='fail'?'✕ falha':'⚠ aviso'}</div>`:''}
-      <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${g.students.length}</div>
+      ${isCert ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>` : ''}
+      ${isExc  ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${isFail?'var(--red-b)':'var(--amber-b)'};color:${isFail?'var(--red)':'var(--amber)'}">
+                    ${isFail ? '✕ falha' : '⚠ aviso'}
+                  </div>` : ''}
+      <div style="font-size:22px;font-weight:700;color:${displayCol};line-height:1">${g.students.length}</div>
       <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
     </div>
   </div>`;
 }
-
 /* ══════════════════════════════════════════════
    GROUP MODAL
 ══════════════════════════════════════════════ */
@@ -1728,10 +1764,10 @@ function openGroupModal(levelKey,i){
   const ar=(_auditResults[levelKey]||{})[i];
   const committed=(_groupCodes[levelKey]||{})[i];
   const meta=LEVEL_MAP[levelKey]||{};
-  const col=GROUP_COLORS[i%GROUP_COLORS.length];
+ const col=pairCol(g.pair);
   const isCert=!!committed;
   const isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
-  const sealBg=isCert?turmaCol(committed.turmaCode):isExc?(ar?.status==='fail'?'var(--red)':'var(--amber)'):turmaCol(`T${i+1}`);
+  const sealBg = pairCol(g.pair) + (isCert ? '33' : '18');
   const dept=(meta.dept||'adults');
   const bannerBg=DEPT_GRADS[dept]||DEPT_GRADS.adults;
   const sheet=document.getElementById('gm-sheet');
@@ -2197,7 +2233,7 @@ function ovOpenStudentModal(levelKey){
     _allResults[levelKey].groups.forEach((g,i)=>{
       const committed=(_groupCodes[levelKey]||{})[i];
       const label=committed?committed.turmaCode:`T${i+1}`;
-     g.students.forEach(e=>{turmaByRef[e.ref]={label,color:turmaCol(committed?.turmaCode||`T${i+1}`),cert:!!committed};});
+    g.students.forEach(e=>{turmaByRef[e.ref]={label,color:pairCol(g.pair),cert:!!committed};});
     });
   }
   const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -2339,8 +2375,7 @@ function renderDecTriage(branch){
   if(!_lastResult)return;
   let html='';
   _lastResult.groups.forEach((g,i)=>{
-    const committed2=(_groupCodes[activeLevelKey]||{})[i];
-    const col=turmaCol(committed2?.turmaCode||`T${i+1}`);
+   const col=pairCol(g.pair);
     const committed=(_groupCodes[activeLevelKey]||{})[i];
     const ar=(_auditResults[activeLevelKey]||{})[i];
     const isCert=!!committed,isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
@@ -2361,7 +2396,7 @@ function openDecGroup(idx){
   if(!_lastResult?.groups[idx])return;
   _decActiveIdx=idx;renderDecTriage(_decActiveBranch);
   const g=_lastResult.groups[idx];
- const col=turmaCol((_groupCodes[activeLevelKey]||{})[idx]?.turmaCode||`T${idx+1}`);
+const col=pairCol(g.pair);
   const meta=LEVEL_MAP[activeLevelKey]||{};
   const committed=(_groupCodes[activeLevelKey]||{})[idx];
   const ar=(_auditResults[activeLevelKey]||{})[idx];
