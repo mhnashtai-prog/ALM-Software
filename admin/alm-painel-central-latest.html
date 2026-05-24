@@ -2392,93 +2392,99 @@ function renderAudit(){
    DECISION
 ══════════════════════════════════════════════ */
 function renderDecision(){
-  if(!_lastResult){
-    document.getElementById('dec-triage-list').innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px;letter-spacing:.1em">Vá a Formation e seleccione um nível primeiro</div>`;
-    document.getElementById('dec-sidebar-sub').textContent='Sem dados — abra Formation';return;
-  }
-  const{groups,placed,withRequest}=_lastResult;
-  const pct=withRequest>0?Math.round(placed/withRequest*100):0;
-  document.getElementById('dec-progress-fill').style.width=pct+'%';
-  const meta=LEVEL_MAP[activeLevelKey]||{};
-  document.getElementById('dec-sidebar-sub').textContent=`${meta.label||activeLevelKey} · ${placed}/${withRequest} alunos`;
-  renderDecTriage('all');
-}
+  const main = document.getElementById('dec-main');
+  const triage = document.getElementById('dec-triage-list');
+  const sub = document.getElementById('dec-sidebar-sub');
+  const fill = document.getElementById('dec-progress-fill');
 
-function renderDecTriage(branch){
-  if(!_lastResult)return;
+  const totalGroups = Object.values(_allResults).reduce((s,r)=>s+(r.groups?.length||0),0);
+  const totalCert = Object.values(_groupCodes).reduce((s,lvl)=>s+Object.keys(lvl).length,0);
+  const pct = totalGroups ? Math.round(totalCert/totalGroups*100) : 0;
+  if(fill) fill.style.width = pct+'%';
+  if(sub) sub.textContent = `${totalCert}/${totalGroups} grupos certificados · ${_exceptionQueue.length} excepções`;
+
+  /* ── TRIAGE LIST ── */
+  if(!_exceptionQueue.length){
+    triage.innerHTML=`<div style="padding:20px;text-align:center;color:var(--green);font-size:8px;letter-spacing:.1em">✓ Tudo certificado</div>`;
+    main.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon" style="color:var(--green)">✓</div><div class="placeholder-text" style="color:var(--green)">O algoritmo certificou todos os grupos</div></div>`;
+    return;
+  }
+
+  const fails = _exceptionQueue.filter(e=>e.auditResult.status==='fail');
+  const warns = _exceptionQueue.filter(e=>e.auditResult.status==='warn');
+  const sorted = [...fails,...warns];
+
   let html='';
-  _lastResult.groups.forEach((g,i)=>{
-   const col=pairCol(g.pair);
-    const committed=(_groupCodes[activeLevelKey]||{})[i];
-    const ar=(_auditResults[activeLevelKey]||{})[i];
-    const isCert=!!committed,isExc=!committed&&(ar?.status==='fail'||ar?.status==='warn');
-    const relevant=branch==='all'||g.students.some(s=>normB(s.branch)===branch);
-    if(!relevant)return;
-    const statusTxt=isCert?'✓ cert':ar?.status==='fail'?'✕ falha':ar?.status==='warn'?'⚠ aviso':'proposta';
-    const statusCol=isCert?'var(--green)':ar?.status==='fail'?'var(--red)':ar?.status==='warn'?'var(--amber)':'var(--t3)';
-    html+=`<div class="dec-triage-item${_decActiveIdx===i?' active':''}${isCert?' certified':''}${isExc?' exception':''}" onclick="openDecGroup(${i})">
-      <div class="lp-lv-dot" style="background:${col}"></div>
-      <div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">Turma ${i+1} · ${g.pair.aL}+${g.pair.bL}</div><div style="font-size:7px;color:var(--t3);margin-top:1px">${g.startTime}–${g.endTime} · ${g.students.length} al</div></div>
-      <span style="font-size:6.5px;font-weight:700;color:${statusCol};padding:1px 5px;border:1px solid ${statusCol}55;flex-shrink:0">${statusTxt}</span>
+  if(fails.length) html+=`<div class="tr-sec-hdr"><span class="tr-sec-label" style="color:var(--red)">✕ Falhas</span><span class="tr-sec-n" style="color:var(--red)">${fails.length}</span></div>`;
+  sorted.forEach((exc,i)=>{
+    const isFail = exc.auditResult.status==='fail';
+    const meta = LEVEL_MAP[exc.levelKey]||{};
+    const g = exc.group;
+    const col = isFail?'var(--red)':'var(--amber)';
+    const cls = isFail?'ti-low':'ti-urgent';
+    if(!isFail && i===fails.length) html+=`<div class="tr-sec-hdr"><span class="tr-sec-label" style="color:var(--amber)">⚠ Avisos</span><span class="tr-sec-n" style="color:var(--amber)">${warns.length}</span></div>`;
+    html+=`<div class="tr-item ${cls}" onclick="openDecException(${i})">
+      <div class="tr-item-body">
+        <div class="tr-item-label">${meta.label||exc.levelKey} · ${g.pair?.aL||'—'}+${g.pair?.bL||'—'}</div>
+        <div class="tr-item-sub">${g.startTime}–${g.endTime} · ${g.students?.length||0} al · ${exc.auditResult.failCount||0}F ${exc.auditResult.warnCount||0}W</div>
+      </div>
+      <span class="tr-badge ${isFail?'tb-red':'tb-amber'}">${isFail?'FALHA':'AVISO'}</span>
     </div>`;
   });
-  document.getElementById('dec-triage-list').innerHTML=html||`<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px">Nenhum grupo.</div>`;
+
+  triage.innerHTML = html;
+
+  /* ── MAIN — show first exception by default ── */
+  openDecException(0);
 }
 
-function openDecGroup(idx){
-  if(!_lastResult?.groups[idx])return;
-  _decActiveIdx=idx;renderDecTriage(_decActiveBranch);
-  const g=_lastResult.groups[idx];
-const col=pairCol(g.pair);
-  const meta=LEVEL_MAP[activeLevelKey]||{};
-  const committed=(_groupCodes[activeLevelKey]||{})[idx];
-  const ar=(_auditResults[activeLevelKey]||{})[idx];
-  const isCert=!!committed;
-  const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
-  const blockLbl=g.startMins<720?'Manhã':'Tarde';
-  let auditSum='';
-  if(ar){auditSum=`<div style="display:flex;gap:6px;padding:6px 0 10px;border-bottom:1px solid var(--b);margin-bottom:8px;flex-wrap:wrap">
-    <span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--green-a);border-color:var(--green-b);color:var(--green)">✓ ${ar.passCount} ok</span>
-    ${ar.warnCount?`<span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:''}
-    ${ar.failCount?`<span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--red-a);border-color:var(--red-b);color:var(--red)">✕ ${ar.failCount} falha${ar.failCount!==1?'s':''}</span>`:''}
-    <span style="font-size:7px;color:var(--t4);margin-left:auto">auditoria automática</span>
-  </div>`;}
-  const stuRows=[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
-    const verdict=ar?.log?.[e.ref]?.verdict||'pass',reason=ar?.log?.[e.ref]?.reason||'';
-    const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
-    const av=avCol(e.name||e.ref);
-    return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid rgba(201,168,76,.04);cursor:pointer;transition:background .1s" onclick="openDossier('${e.ref}')" onmouseover="this.style.background='rgba(201,168,76,.02)'" onmouseout="this.style.background=''">
+function openDecException(idx){
+  const exc = _exceptionQueue[idx]; if(!exc) return;
+  const {levelKey, groupIdx, group:g, auditResult:ar} = exc;
+  const meta = LEVEL_MAP[levelKey]||{};
+  const col = ar.status==='fail' ? 'var(--red)' : 'var(--amber)';
+  const committed = (_groupCodes[levelKey]||{})[groupIdx];
+  const isCert = !!committed;
+
+  /* highlight active in triage */
+  document.querySelectorAll('#dec-triage-list .tr-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===idx);
+  });
+
+  const auditRows = g.students.map(e=>{
+    const v = ar.log?.[e.ref]?.verdict||'pass';
+    const reason = ar.log?.[e.ref]?.reason||'';
+    const vCol = v==='pass'?'var(--green)':v==='warn'?'var(--amber)':'var(--red)';
+    const av = avCol(e.name||e.ref);
+    return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid var(--b);cursor:pointer" onclick="openDossier('${e.ref}')">
       <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${av.bg};border-color:${av.t}55;color:${av.t}">${avInit(e.name||e.ref)}</div>
-      <div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref}${reason&&verdict!=='pass'?' · '+reason:''}</div></div>
-      <span style="font-size:7px;font-weight:700;color:${vCol};padding:1px 5px;border:1px solid ${vCol}55;flex-shrink:0">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;color:var(--t)">${e.name||'—'}</div>
+        <div style="font-size:7px;color:var(--t3)">${e.ref}${reason?' · '+reason:''}</div>
+      </div>
+      <span style="font-size:7px;font-weight:700;color:${vCol};padding:1px 5px;border:1px solid ${vCol}55">${v==='pass'?'✓':v==='warn'?'⚠':'✕'}</span>
     </div>`;
   }).join('');
+
   document.getElementById('dec-main').innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="font-family:var(--display);font-size:28px;letter-spacing:4px;color:${col}">Turma ${idx+1}</div>
-      <div style="font-size:11px;font-weight:600;color:var(--t);flex:1">${idx+1}A · ${g.pair.aL} + ${idx+1}B · ${g.pair.bL}</div>
-      <div style="font-size:8.5px;color:var(--t2)">${g.startTime}–${g.endTime} · ${meta.label||''}</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--b2)">
+      <div style="font-family:var(--display);font-size:28px;letter-spacing:4px;color:${col}">${meta.label||levelKey}</div>
+      <div style="font-size:10px;font-weight:600;color:var(--t2)">${g.pair?.aL||'—'} + ${g.pair?.bL||'—'} · ${g.startTime}–${g.endTime}</div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        ${!isCert&&ar.status==='warn'
+          ?`<button class="dc-btn dc-btn-create" onclick="overrideException('${levelKey}',${groupIdx});renderDecision()">✓ Aceitar aviso</button>`:''}
+        ${!isCert&&ar.status==='fail'
+          ?`<button class="dc-btn" style="border-color:var(--red-b);color:var(--red)" onclick="overrideException('${levelKey}',${groupIdx});renderDecision()">⚠ Forçar aceitação</button>`:''}
+        <button class="dc-btn dc-btn-csv" onclick="openGroupModal('${levelKey}',${groupIdx})">↗ Ver grupo</button>
+      </div>
     </div>
-    <div class="dec-card open" style="border-left-color:${col}">
-      <div class="dc-hdr" onclick="this.closest('.dec-card').classList.toggle('open')">
-        <div style="font-family:var(--display);font-size:18px;letter-spacing:2px;min-width:32px;color:${col}">${isCert?committed.turmaCode:`T${idx+1}`}</div>
-        <div style="font-size:11px;font-weight:600;color:var(--t);flex:1">${idx+1}A · ${g.pair.aL} + ${idx+1}B · ${g.pair.bL}</div>
-        <div style="font-size:8.5px;color:var(--t2)">${g.startTime} – ${g.endTime}</div>
-        <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-        ${isCert?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;padding:3px 10px;border:1px solid;flex-shrink:0;background:var(--green-a);border-color:var(--green-b);color:var(--green)">✓ CERTIFICADA</span>`:''}
-        <div style="font-size:26px;font-weight:700;line-height:1;flex-shrink:0;color:${col}">${g.students.length}</div>
-        <div style="font-size:6.5px;color:var(--t3);letter-spacing:.08em;flex-shrink:0;align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
-        <div class="dc-arr">▼</div>
-      </div>
-      <div class="dc-body">
-        ${auditSum}
-        <div style="display:flex;gap:6px;padding:0 0 8px;flex-wrap:wrap">
-          ${!isCert&&ar?.status==='warn'?`<button class="dc-btn dc-btn-create" onclick="overrideException('${activeLevelKey}',${idx})">⚠ Aceitar com aviso</button>`:''}
-          <button class="dc-btn dc-btn-csv" onclick="exportGroup('${activeLevelKey}',${idx})">↓ CSV</button>
-        </div>
-        ${stuRows}
-      </div>
-    </div>`;
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--green-a);border-color:var(--green-b);color:var(--green)">✓ ${ar.passCount} ok</span>
+      ${ar.warnCount?`<span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:''}
+      ${ar.failCount?`<span style="font-size:7px;font-weight:700;padding:2px 9px;border:1px solid;background:var(--red-a);border-color:var(--red-b);color:var(--red)">✕ ${ar.failCount} falha${ar.failCount!==1?'s':''}</span>`:''}
+    </div>
+    <div style="font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Alunos · ${g.students?.length||0}</div>
+    ${auditRows}`;
 }
 
 /* ══════════════════════════════════════════════
