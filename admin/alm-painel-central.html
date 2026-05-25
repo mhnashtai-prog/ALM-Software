@@ -1396,14 +1396,20 @@ async function runBootAudit(){
   const levelKeys=Object.keys(LEVEL_MAP);
   const total=levelKeys.length;let done=0;
   setBoot('A agrupar e auditar todos os níveis…');
-  for(const key of levelKeys){
-    const students=allE.filter(e=>lk(e)===key);
-    const withReq=students.filter(e=>!!rByRef[e.ref]);
-    if(withReq.length>=MIN_G){
-      const result=buildProposals(key,'all');
-      _allResults[key]=result;
+for(const key of levelKeys){
+    const allGroups=[];const allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
+    for(const branch of BRANCH_ORDER){
+      const result=buildProposals(key,branch);
+      if(!result.groups.length&&!result.sinalizados.length)continue;
+      const offset=allGroups.length;
+      allGroups.push(...result.groups);
+      allSinal.push(...result.sinalizados);
+      totalPlaced+=result.placed;totalWithReq+=result.withRequest;totalAll+=result.total;
       if(!_auditResults[key])_auditResults[key]={};
-      result.groups.forEach((g,i)=>{_auditResults[key][i]=auditGroupSync(g);});
+      result.groups.forEach((g,i)=>{_auditResults[key][offset+i]=auditGroupSync(g);});
+    }
+    if(allGroups.length){
+      _allResults[key]={groups:allGroups,sinalizados:allSinal,total:totalAll,withRequest:totalWithReq,placed:totalPlaced};
     }
     done++;setBootProgress(40+Math.round(done/total*40));
   }
