@@ -1433,10 +1433,13 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
       result.groups.forEach((g,i)=>{
         if((_groupCodes[key]||{})[i])return;
         const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
-        }
+       if(overlap>=Math.floor(g.students.length*0.7)){
+       if(!_groupCodes[key])_groupCodes[key]={};
+       _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
+       // Write seal for already-committed groups
+       const gData=g;const meta2=LEVEL_MAP[key]||{};
+       fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,Prefer:'resolution=merge-duplicates'},body:JSON.stringify({group_code:gc,turma_code_a:gc+'A',turma_code_b:gc+'B',level_code:(key.split('|')[1]||'').trim(),department:meta2.dept||'adults',branch:normB(gData.students[0]?.branch||''),pair_label:`${DAYS_PT[gData.pair.a]}+${DAYS_PT[gData.pair.b]}`,day_a:DAYS_PT[gData.pair.a],day_b:DAYS_PT[gData.pair.b],start_time:gData.startTime,end_time:gData.endTime,student_refs:gData.students.map(s=>s.ref),academic_year:AY})});
+       }
       });
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
