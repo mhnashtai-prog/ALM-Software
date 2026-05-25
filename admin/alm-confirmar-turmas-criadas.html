@@ -437,7 +437,7 @@ body{display:flex;flex-direction:column}
     <div class="sb-branches" id="sb-branches"></div>
     <div class="sb-search-wrap" onclick="openSearchModal()">
       <div class="sb-search-inner"><span class="sb-search-icon">⌕</span><span class="sb-search-fake">Nome ou 1009 ou ALM-1009…</span></div>
-      <div class="sb-search-hint">⌘K · Nome · Ref · ALM-0001</div>
+      <div class="sb-search-hint">⌘K · Nome · N.º matrícula</div>
     </div>
     <div class="sb-list" id="sb-list"><div class="spinner-wrap" style="padding:16px"><div class="spinner"></div></div></div>
     <div class="triage-panel" id="triage-panel"><div style="padding:18px;text-align:center;color:var(--t3);font-size:8px">A carregar…</div></div>
@@ -975,14 +975,11 @@ function renderMain() {
 
       if(sinal.length) html+=buildSinalCard(key,sinal);
 
-      html+=`</div>`;
-      html+=buildStudentList(key);
-      html+=`</div>`;
+      html+=`</div></div>`;
     });
   });
 
   document.getElementById('main').innerHTML=html||'<div class="spinner-wrap" style="color:var(--t3)">Sem grupos para esta filial.</div>';
-  rebuildBoxes();
   updateProgress();
 }
 
@@ -1004,11 +1001,12 @@ function buildCard(levelKey, idx, g) {
   }
 
   const lockIcon = g.confirmed
-    ? `<div class="gc-icon${g.sent?' sent':''}" title="${g.sent?'Enviado':'Não enviado'}" onclick="toggleSent('${levelKey}',${idx})">${g.sent?'✓':'○'}</div>
-       <div class="gc-icon" title="Ver alunos" onclick="openGroupListFromCard('${levelKey}',${idx})">👁</div>
+    ? `<div class="gc-icon${g.sent?' sent':''}" title="${g.sent?'Enviado':'Não enviado'}" onclick="toggleSent('${levelKey}',${idx})">
+        ${g.sent?'✓':'○'}
+       </div>
        <div class="gc-icon" title="Imprimir" onclick="printGroup('${levelKey}',${idx})">🖨</div>
        <div class="gc-icon delete" title="Eliminar código" onclick="askDelete('${levelKey}',${idx})">✕</div>`
-    : `<div class="gc-icon" title="Ver proposta" onclick="openGroupListFromCard('${levelKey}',${idx})">👁</div>`;
+    : '';
 
   const armStrip = g.armed ? `
     <div class="gc-arm-strip">
@@ -1059,7 +1057,7 @@ function buildSinalCard(levelKey, sinal) {
       <span class="gc-badge sinal">!</span>
     </div>
     <div class="gc-sinal-body">Horários incompatíveis<br>ou sem grupo · atenção manual</div>
-    <div class="gc-sinal-btn" onclick="(function(){const sid='SINAL|'+activeBranch+'|${levelKey}';if(_boxes[sid])openGroupListSinal(sid);else viewSinal('${levelKey}')})()">
+    <div class="gc-sinal-btn" onclick="viewSinal('${levelKey}')">
       <span class="gc-sinal-label">VER ALUNOS</span>
       <span class="gc-sinal-n">${sinal.length}</span>
     </div>
@@ -1107,7 +1105,6 @@ async function confirmToggle(levelKey, idx) {
   _retiredCodes.add(g.code+'A'); _retiredCodes.add(g.code+'B');
 
   refreshCard(levelKey,idx);
-  rebuildBoxes();
   updateProgress();
   renderSidebar();
   showToast(`${g.code} criado ✓`,'ok');
@@ -1870,118 +1867,6 @@ document.addEventListener('keydown', function(e) {
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearchModal(); }
 });
-
-// ═══════════════════════════════════════════════════════
-// MISSING CORE HELPERS (from Doc 2)
-// ═══════════════════════════════════════════════════════
-
-// Element value helper
-const elv = (id, v) => { const n = document.getElementById(id); if (n && v !== undefined) n.textContent = v; return n; };
-
-// Avatar colour from name hash
-function avCol(name) {
-  let h = 0; for (let i = 0; i < (name || '?').length; i++) h = (h * 31 + (name || '?').charCodeAt(i)) & 0xffffffff;
-  const p = [{bg:'#3A2244',text:'#C8A0E0'},{bg:'#1E2E50',text:'#7AABEE'},{bg:'#1A3A2A',text:'#5EC888'},{bg:'#3A2A14',text:'#D4944A'},{bg:'#3A1A1A',text:'#E07878'},{bg:'#282838',text:'#9898D8'},{bg:'#1A2A3A',text:'#5A9EC8'},{bg:'#2A3820',text:'#80B850'}];
-  return p[Math.abs(h) % p.length];
-}
-
-// Avatar initials
-function avInit(n) { return (n || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
-
-// Get level meta for an enrolment
-function getLM(e) {
-  return LEVEL_MAP[lk(e)] || { dept: (e.family || 'adults'), label: (e.level_code || e.level_cefr || '—'), color: 'var(--t3)', order: 99, maxCap: 60 };
-}
-
-// Debug log (silent — no visible panel in this file)
-function dlog(msg, type) { /* no-op — debug panel not in Confirmar */ }
-
-// Supabase upsert for timetable_requests
-async function sbUpsertRequest(ref, payload) {
-  const existing = rByRef[ref];
-  if (existing) {
-    const r = await fetch(
-      `${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}`,
-      { method: 'PATCH', headers: { ...H, Prefer: 'return=representation' }, body: JSON.stringify(payload) }
-    );
-    if (!r.ok) { const txt = await r.text(); console.error('sbUpsertRequest PATCH', r.status, txt); return false; }
-    const rows = await r.json();
-    if (rows.length) Object.assign(rByRef[ref], payload);
-    return rows.length > 0;
-  } else {
-    const enrol = allE.find(e => e.ref === ref);
-    const body = {
-      ref, academic_year: AY,
-      student_name: enrol?.name || ref,
-      branch: enrol?.branch || '',
-      family: enrol?.family || 'adults',
-      level_code: enrol?.level_code || '',
-      level_cefr: enrol?.level_cefr || '',
-      day_preferences: '[]',
-      status: 'atribuido',
-      ...payload
-    };
-    const r = await fetch(`${SB}/rest/v1/timetable_requests`,
-      { method: 'POST', headers: { ...H, Prefer: 'return=representation' }, body: JSON.stringify(body) }
-    );
-    if (!r.ok) { const txt = await r.text(); console.error('sbUpsertRequest POST', r.status, txt); return false; }
-    const rows = await r.json();
-    if (rows.length) { rByRef[ref] = rows[0]; allR.push(rows[0]); }
-    return rows.length > 0;
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// FULL STUDENT LIST — per level, collapsible in main
-// ═══════════════════════════════════════════════════════
-function buildStudentList(levelKey) {
-  const students = allE.filter(e => normB(e.branch) === activeBranch && lk(e) === levelKey);
-  const sorted = [...students].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (!sorted.length) return '';
-
-  // Map ref → turma info from _groups
-  const turmaByRef = {};
-  (_groups[levelKey] || []).forEach((g, i) => {
-    const code = g.code || `T${i + 1}`;
-    const col = pairCol(g.pair);
-    g.students.forEach(e => { turmaByRef[e.ref] = { code, col, confirmed: g.confirmed }; });
-  });
-
-  const rows = sorted.map((e, idx) => {
-    const a = analysePrefs(e.ref);
-    const slots = a ? a.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
-    const req = rByRef[e.ref];
-    const st = req ? normS(req.status) : 'sem_pedido';
-    const stCol = st === 'atribuido' ? 'var(--green)' : st === 'sem_pedido' ? 'var(--red)' : 'var(--amber)';
-    const stTxt = st === 'atribuido' ? 'atribuído' : st === 'sem_pedido' ? 'sem pedido' : 'pendente';
-    const turma = turmaByRef[e.ref];
-    const col = avCol(e.name || e.ref);
-    const init = avInit(e.name || e.ref);
-    return `<div style="display:flex;align-items:center;gap:9px;padding:6px 12px;border-bottom:.5px solid rgba(201,168,76,.04);cursor:pointer;transition:background .1s" onmouseover="this.style.background='rgba(201,168,76,.03)'" onmouseout="this.style.background=''" onclick="openDossier('${e.ref}')">
-      <div style="font-size:8px;color:var(--t4);width:20px;flex-shrink:0;font-family:var(--mono)">${idx + 1}</div>
-      <div style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;background:${col.bg};color:${col.text};border:1px solid ${col.text}44">${init}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:9px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name || '—'}</div>
-        <div style="font-size:7px;color:var(--t3);margin-top:1px">${e.ref} · ${slots || '—'}</div>
-      </div>
-      ${turma ? `<span style="font-size:7px;font-weight:700;color:${turma.col};padding:1px 7px;border:1px solid ${turma.col}44;flex-shrink:0;white-space:nowrap">${turma.code}${turma.confirmed ? ' ✓' : ''}</span>` : '<span style="font-size:7px;color:var(--t4);flex-shrink:0">—</span>'}
-      <span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55;flex-shrink:0;white-space:nowrap">${stTxt}</span>
-      <span style="font-size:9px;color:var(--t3);flex-shrink:0">↗</span>
-    </div>`;
-  }).join('');
-
-  return `<div style="margin-top:14px">
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--b);cursor:pointer;user-select:none;background:var(--bg2)" onclick="const b=document.getElementById('stu-list-${levelKey.replace(/[|]/g,'_')}');const o=b.style.display!=='none';b.style.display=o?'none':'block';this.querySelector('.stu-arr').style.transform=o?'':'rotate(180deg)'">
-      <span style="font-size:7px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)">Alunos · ${sorted.length}</span>
-      <span class="stu-arr" style="font-size:8px;color:var(--t4);transition:transform .18s;margin-left:auto">▼</span>
-    </div>
-    <div id="stu-list-${levelKey.replace(/[|]/g,'_')}" style="display:none;border:1px solid var(--b2);border-top:none">
-      <div style="display:grid;grid-template-columns:20px 24px 1fr auto auto auto;gap:0;padding:5px 12px;font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t4);border-bottom:1px solid var(--b2)">#<span></span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>
-      ${rows}
-    </div>
-  </div>`;
-}
-
 
 boot();
 </script>
