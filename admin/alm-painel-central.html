@@ -1354,7 +1354,7 @@ function auditGroupSync(g){
 async function generateTurmaCode(branch){
   const prefix=(BRANCH_LABELS[branch]||branch||'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
   try{
- const existing=await sbGet('classes',`select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+ const existing=await sbGet('classes',`select=turma_code,level_code,department,student_refs&academic_year=eq.${AY}`);
     const usedNums=new Set();
     existing.forEach(c=>{const m=(c.turma_code||'').match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
     _retiredCodes.forEach(code=>{const m=code.match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
@@ -1409,7 +1409,7 @@ async function runBootAudit(){
   }
   setBoot('A verificar turmas existentes…');
   try{
-    const existing=await sbGet('classes',`select=turma_code,level_code,family,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+    const existing=await sbGet('classes',`select=turma_code,level_code,family,student_refs&academic_year=eq.${AY}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
@@ -2484,7 +2484,7 @@ async function openDossier(ref){
 
   const [enrols,reqs,hist]=await Promise.all([
     sbGet('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,enrolment_date,academic_year,returning_student,guardian_name,guardian_phone,notes&limit=1`),
-    sbGet('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,slots,day_preferences,sessions_per_week,status,created_at,notes&limit=1`),
+    sbGet('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,slots,day_preferences,sessions_per_week,status,created_at,notes&limit=1`),
     sbGet('turma_students',`ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,family,outcome,absences,grade_final,notes&order=academic_year.desc`),
   ]).catch(()=>[[],[],[]]);
 
@@ -2672,8 +2672,8 @@ async function boot(){
   try{
     setBoot('A carregar inscrições e pedidos…');setBootProgress(5);
     const [enrol,reqs]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&order=ref`),
-      sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${encodeURIComponent(AY)}`),
+      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${AY}&order=ref`),
+      sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
     allE=enrol||[];allR=reqs||[];rByRef={};
