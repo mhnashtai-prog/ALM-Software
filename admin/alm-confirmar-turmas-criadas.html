@@ -727,14 +727,11 @@ async function sbGet(table,qs){
 
 // ═══════════════════════════════════════════════════════════════
 // LOAD — reads only classes + enrolments, exactly like OVERVIEW
-// ═══════════════════════════════════════════════════════════════
 async function loadAll(){
   try{
-    const [classRows, enrolRows] = await Promise.all([
-      // Fetch ALL session rows — 108 rows for 54 groups (A + B each)
-      sbGet('classes',
-        `select=group_code,turma_code,level_code,department,branch,day_of_week,start_time,end_time,student_refs`
-        +`&academic_year=eq.${AY}&status=eq.confirmed&order=turma_code&limit=2000`),
+    const [sealRows, enrolRows] = await Promise.all([
+      sbGet('certification_seals',
+        `select=*&academic_year=eq.${AY}&order=certified_at`),
       sbGet('enrolments',
         `select=ref,name,branch,lang,family,level_code`
         +`&academic_year=eq.${AY}&order=ref&limit=2000`),
@@ -744,72 +741,37 @@ async function loadAll(){
     const enrolByRef = {};
     allE.forEach(e=>{ enrolByRef[e.ref]=e; });
 
-    // ── Build session objects — one per turma_code (FUN-01A, FUN-01B…) ──
-    // group_code (FUN-01) links the pair; sessions share student_refs
-    const sessionMap = {}; // turma_code → session object
-    const groupIndex  = {}; // group_code → [turmaCodeA, turmaCodeB]
-
-    (classRows||[]).forEach(row=>{
-      const tc = row.turma_code, gc = row.group_code;
-      if(!tc||!gc) return;
-
-      // Parse student_refs — same on A and B
-      let refs = [];
-      try{ refs = Array.isArray(row.student_refs)?row.student_refs:JSON.parse(row.student_refs||'[]'); }catch{}
-
-      sessionMap[tc] = {
-        turma_code:  tc,
-        group_code:  gc,
-        suffix:      tc.replace(gc,''),          // 'A' or 'B'
-        level_code:  row.level_code||'',
-        department:  row.department||'',
-        branch:      normB(row.branch||''),
-        day_of_week: row.day_of_week||'',
-        start_time:  row.start_time||'',
-        end_time:    row.end_time||'',
+    allGroups = (sealRows||[]).map(row=>{
+      const refs = Array.isArray(row.student_refs)?row.student_refs:[];
+      const students = refs.map(r=>enrolByRef[r]).filter(Boolean);
+      const days = [row.day_a, row.day_b].filter(Boolean);
+      const sessions = [
+        {turma_code:row.turma_code_a, suffix:'A', day_of_week:row.day_a, start_time:row.start_time, end_time:row.end_time, block:blockFromTime(row.start_time)},
+        ...(row.turma_code_b?[{turma_code:row.turma_code_b, suffix:'B', day_of_week:row.day_b, start_time:row.start_time, end_time:row.end_time, block:blockFromTime(row.start_time)}]:[]),
+      ];
+      return {
+        group_code:   row.group_code,
+        sessions,
+        level_code:   row.level_code,
+        department:   row.department,
+        branch:       normB(row.branch||''),
+        meta:         getLM(row.level_code||''),
+        students,
         student_refs: refs,
-        students:    refs.map(r=>enrolByRef[r]).filter(Boolean),
-        meta:        getLM(row.level_code||''),
-        block:       blockFromTime(row.start_time||''),
+        pairLabel:    pairLabelFromDays(days),
+        pairCol:      pairColFromDays(days),
+        block:        blockFromTime(row.start_time),
+        start_time:   row.start_time,
+        end_time:     row.end_time,
       };
-
-      if(!groupIndex[gc]) groupIndex[gc]=[];
-      groupIndex[gc].push(tc);
-    });
-
-    // ── Build allGroups: one entry per group_code, with sessions[] ──
-    // This is what renders as a paired block in the grid
-    const groupMap = {};
-    Object.entries(groupIndex).forEach(([gc, tcs])=>{
-      const sessions = tcs.map(tc=>sessionMap[tc]).filter(Boolean)
-        .sort((a,b)=>a.suffix.localeCompare(b.suffix)); // A before B
-      const first = sessions[0]; if(!first) return;
-      const days  = sessions.map(s=>s.day_of_week).filter(Boolean);
-
-      groupMap[gc] = {
-        group_code:  gc,
-        sessions,                              // [sessionA, sessionB]
-        level_code:  first.level_code,
-        department:  first.department,
-        branch:      first.branch,
-        meta:        first.meta,
-        students:    first.students,           // same on all sessions
-        student_refs: first.student_refs,
-        pairLabel:   pairLabelFromDays(days),
-        pairCol:     pairColFromDays(days),
-        block:       first.block,
-        start_time:  first.start_time,
-      };
-    });
-
-    allGroups = Object.values(groupMap).sort((a,b)=>{
+    }).sort((a,b)=>{
       const oa=a.meta.order||99, ob=b.meta.order||99;
       if(oa!==ob) return oa-ob;
       return a.group_code.localeCompare(b.group_code);
     });
 
     const branches=[...new Set(allGroups.map(g=>g.branch).filter(Boolean))];
-    const orderedBranches = BO.filter(b=>branches.includes(b));
+    const orderedBranches=BO.filter(b=>branches.includes(b));
     if(orderedBranches.length&&!orderedBranches.includes(activeLoc)) activeLoc=orderedBranches[0];
 
     elv('pill-status','Supabase OK');
@@ -819,9 +781,7 @@ async function loadAll(){
 
     renderBranches(orderedBranches);
     renderAll();
-    // 54 groups = 108 session cards
-    const totalSessions = allGroups.reduce((s,g)=>s+g.sessions.length,0);
-    showToast(`${allGroups.length} grupos · ${totalSessions} sessões carregadas da BD`,'ok');
+    showToast(`${allGroups.length} grupos carregados dos selos`,'ok');
 
   }catch(err){
     document.getElementById('live-dot').className='tb-dot err';
@@ -832,7 +792,7 @@ async function loadAll(){
     showToast('Erro BD: '+err.message,'err');
   }
 }
-
+  
 // ═══════════════════════════════════════════════════════════════
 // BRANCH TABS
 // ═══════════════════════════════════════════════════════════════
