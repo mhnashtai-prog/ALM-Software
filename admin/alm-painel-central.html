@@ -1431,14 +1431,14 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
       const result=_allResults[key];if(!result)return;
       const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
    result.groups.forEach((g,i)=>{
-          const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-          if(overlap>=Math.floor(g.students.length*0.7)){
-            if(!_groupCodes[key])_groupCodes[key]={};
-            _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
-            fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,Prefer:'resolution=merge-duplicates'},body:JSON.stringify({group_code:gc,turma_code_a:gc+'A',turma_code_b:gc+'B',level_code:(key.split('|')[1]||'').trim(),department:(c.department||c.family||'adults'),branch:normB(c.branch||''),pair_label:c.day_of_week||'',day_a:c.day_of_week||'',day_b:null,start_time:c.start_time||'',end_time:c.end_time||'',student_refs:refs,academic_year:AY})});
-          }
-        });
+        if((_groupCodes[key]||{})[i])return;
+        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap>=Math.floor(g.students.length*0.7)){
+          if(!_groupCodes[key])_groupCodes[key]={};
+          _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
+        }
       });
+    });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
   setBootProgress(85);
   _exceptionQueue=[];
