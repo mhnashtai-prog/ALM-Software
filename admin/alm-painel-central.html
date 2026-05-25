@@ -394,25 +394,6 @@ body{display:flex;flex-direction:column}
 .kpi-v{font-size:22px;font-weight:700;line-height:1}
 .kpi-l{font-size:6.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px}
 
-/* ══ WATCHLIST ══ */
-.watch-wrap{padding:0 20px 40px;overflow-y:auto;height:100%}
-.watch-card{background:var(--bg2);border:1px solid var(--b2);border-left:3px solid var(--amber);margin-bottom:8px;transition:border-color .15s}
-.watch-card:hover{border-color:var(--b3)}
-.watch-card-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
-.watch-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;border:1px solid}
-.watch-name{font-size:10px;font-weight:600;color:var(--t);flex:1}
-.watch-meta{font-size:7px;color:var(--t3);margin-top:1px}
-.watch-btn{padding:3px 9px;border:1px solid;font-family:var(--mono);font-size:7.5px;cursor:pointer;background:transparent;transition:all .12s}
-.watch-btn-open{border-color:var(--b2);color:var(--gold)}.watch-btn-open:hover{background:var(--gold3)}
-.watch-btn-unpin{border-color:var(--b);color:var(--t3)}.watch-btn-unpin:hover{border-color:var(--red-b);color:var(--red)}
-.watch-body{display:none;padding:0 14px 12px;border-top:1px solid var(--b)}
-.watch-card.open .watch-body{display:block}
-.watch-note-row{padding:6px 10px;background:rgba(255,255,255,.02);border:1px solid var(--b);margin-bottom:4px;font-size:8.5px;color:var(--t2);line-height:1.5}
-.watch-note-meta{font-size:6.5px;color:var(--t3);margin-top:3px}
-.watch-note-inp{width:100%;background:var(--bg3);border:1px solid var(--b2);padding:6px 9px;font-family:var(--mono);font-size:9px;color:var(--t);outline:none;resize:none;min-height:48px;line-height:1.5;margin-bottom:6px}
-.watch-note-inp::placeholder{color:var(--t3)}.watch-note-inp:focus{border-color:var(--gold)}
-.watch-save-btn{padding:4px 12px;border:1px solid var(--green-b);color:var(--green);font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;transition:all .12s}
-.watch-save-btn:hover{background:var(--green-a)}
 
 /* ══ V10 DOSSIER ══ */
 .ds-overlay{display:none;position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.58);backdrop-filter:blur(24px) saturate(180%);align-items:center;justify-content:center;padding:20px}
@@ -578,9 +559,6 @@ body{display:flex;flex-direction:column}
  <a class="tb-pill-nav" id="tab-decision" href="/admin/alm-confirmar-turmas-criadas">
   Decision <span class="pn-badge amber" id="badge-pending">0</span>
 </a>
-    <div class="tb-pill-nav" id="tab-watch" onclick="switchCC('watch',this)">
-      Watch <span class="pn-badge amber" id="badge-watch">0</span>
-    </div>
     <div class="tb-pill-sep"></div>
     <a class="tb-pill-ext" href="/admin/alm-atribuir-turmas">Assign ↗</a>
   </div>
@@ -903,7 +881,6 @@ let _retiredCodes=new Set();
 let _exceptionQueue=[];
 let _bootComplete=false;
 let _dsData={},_dsTTLoaded=false;
-let watchFilter='all';
 let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='all';
@@ -1560,7 +1537,6 @@ function switchCC(panel,el){
   document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
   const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
   if(el)el.classList.add('active');
-  if(panel==='watch')renderWatchlist();
   if(panel==='audit')renderAudit();
   if(panel==='decision')renderDecision();
   if(panel==='overview'){_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();}
@@ -1905,7 +1881,7 @@ function buildSinalizadosHTML(result){
           <div class="sinal-why">${why}</div>
           <div style="margin-top:3px">${slots}</div>
         </div>
-        <span class="pin-btn" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
+       
       </div>`;
     }).join('');
   });
@@ -2396,65 +2372,6 @@ function renderAudit(){
 }
 
 /* ══════════════════════════════════════════════
-   WATCHLIST
-══════════════════════════════════════════════ */
-function getWatchlist(){try{return JSON.parse(localStorage.getItem('alm-watchlist')||'[]');}catch{return[];}}
-function saveWatchlist(l){localStorage.setItem('alm-watchlist',JSON.stringify(l));updateWatchBadge();}
-function getWatchNotes(r){try{return JSON.parse(localStorage.getItem(`alm-watch-notes-${r}`)||'[]');}catch{return[];}}
-function saveWatchNote(r,t){const n=getWatchNotes(r);n.unshift({text:t,ts:new Date().toISOString()});localStorage.setItem(`alm-watch-notes-${r}`,JSON.stringify(n));}
-
-function pinStudent(ref,name){
-  const list=getWatchlist();
-  if(list.find(s=>s.ref===ref)){showToast(`${name} já está na lista`,'warn');return;}
-  const enrol=allE.find(e=>e.ref===ref),meta=enrol?(getLM(enrol)||{}):{};
-  list.push({ref,name,level:meta.label||'—',pinned:new Date().toISOString(),resolved:false});
-  saveWatchlist(list);updateWatchBadge();showToast(`${name} → acompanhamento 📌`,'ok');
-}
-function unpinStudent(ref){saveWatchlist(getWatchlist().filter(s=>s.ref!==ref));renderWatchlist();showToast('Removido','ok');}
-function resolveStudent(ref){saveWatchlist(getWatchlist().map(s=>s.ref===ref?{...s,resolved:true}:s));renderWatchlist();showToast('Resolvido ✓','ok');}
-function clearResolvedWatch(){saveWatchlist(getWatchlist().filter(s=>!s.resolved));renderWatchlist();showToast('Resolvidos removidos','ok');}
-function setWF(btn){watchFilter=btn.dataset.wf;document.querySelectorAll('#panel-watch .fbt[data-wf]').forEach(b=>b.classList.remove('act'));btn.classList.add('act');renderWatchlist();}
-function updateWatchBadge(){const n=getWatchlist().filter(s=>!s.resolved).length;const b=document.getElementById('badge-watch');if(b)b.textContent=n||'0';}
-
-function renderWatchlist(){
-  let list=getWatchlist();
-  if(watchFilter==='pending')list=list.filter(s=>!s.resolved);
-  if(watchFilter==='resolved')list=list.filter(s=>s.resolved);
-  const all=getWatchlist();
-  document.getElementById('w-total').textContent=all.length;
-  document.getElementById('w-sem').textContent=all.filter(s=>!s.resolved).length;
-  document.getElementById('w-ok').textContent=all.filter(s=>s.resolved).length;
-  if(!list.length){document.getElementById('watch-rows').innerHTML=`<div style="padding:40px;text-align:center;color:var(--t3);font-size:9px">Sem alunos na lista.</div>`;return;}
-  document.getElementById('watch-rows').innerHTML=list.map(s=>{
-    const req=rByRef[s.ref],status=req?normS(req.status):'sem_pedido';
-    const stCol=status==='atribuido'?'var(--green)':status==='sem_pedido'?'var(--red)':'var(--amber)';
-    const notes=getWatchNotes(s.ref),col=avCol(s.name);
-    const border=s.resolved?'var(--green)':'var(--amber)';
-    return`<div class="watch-card" id="wc-${s.ref}" style="border-left-color:${border}">
-      <div class="watch-card-hdr" onclick="this.closest('.watch-card').classList.toggle('open')">
-        <div class="watch-av" style="background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(s.name)}</div>
-        <div style="flex:1;min-width:0"><div class="watch-name">${s.name||s.ref}</div><div class="watch-meta">${s.ref} · ${s.level} · ${new Date(s.pinned).toLocaleDateString('pt-PT')}</div></div>
-        <div style="display:flex;gap:5px;align-items:center;margin-right:8px">
-          <span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55">${status==='atribuido'?'atribuído':status==='sem_pedido'?'sem pedido':'pendente'}</span>
-          ${s.resolved?'<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 5px;border:1px solid var(--green-b)">✓</span>':''}
-          ${notes.length?`<span style="font-size:7px;font-weight:700;color:var(--gold2);padding:1px 5px;border:1px solid var(--b2)">${notes.length}</span>`:''}
-        </div>
-        <div style="display:flex;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
-          <button class="watch-btn watch-btn-open" onclick="openDossier('${s.ref}')">Dossier ↗</button>
-          ${!s.resolved?`<button class="watch-btn" style="border-color:var(--green-b);color:var(--green)" onclick="resolveStudent('${s.ref}')">✓</button>`:''}
-          <button class="watch-btn watch-btn-unpin" onclick="unpinStudent('${s.ref}')">✕</button>
-        </div>
-      </div>
-      <div class="watch-body">
-        <div>${notes.length?notes.map(n=>`<div class="watch-note-row"><div>${n.text}</div><div class="watch-note-meta">${new Date(n.ts).toLocaleString('pt-PT')}</div></div>`).join(''):'<div style="font-size:8px;color:var(--t3);padding:4px 0">Sem notas ainda.</div>'}</div>
-        <textarea class="watch-note-inp" id="wi-${s.ref}" placeholder="Adicionar nota…"></textarea>
-        <button class="watch-save-btn" onclick="(function(){const v=document.getElementById('wi-${s.ref}').value.trim();if(!v)return;saveWatchNote('${s.ref}',v);renderWatchlist();setTimeout(()=>{const c=document.getElementById('wc-${s.ref}');if(c)c.classList.add('open');},50);showToast('Nota guardada ✓','ok')})()">✓ Guardar nota</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-/* ══════════════════════════════════════════════
    V10 DOSSIER
 ══════════════════════════════════════════════ */
 const DS_FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
@@ -2516,7 +2433,6 @@ async function openDossier(ref){
   if(enrol?.age)items.push(`<span class="ds-ci">${enrol.age} anos</span>`);
   if(enrol?.phone)items.push(`<a class="ds-ci ds-ci-link" href="tel:${enrol.phone}">📞 ${enrol.phone}</a>`);
   if(enrol?.email)items.push(`<a class="ds-ci ds-ci-link" href="mailto:${enrol.email}">✉ ${enrol.email}</a>`);
-  items.push(`<span class="ds-ci ds-ci-link" onclick="pinStudent('${ref}','${(enrol?.name||ref).replace(/'/g,"\\'")}')" style="cursor:pointer">📌 Acompanhar</span>`);
   document.getElementById('ds-strip').innerHTML=items.join(`<span class="ds-ci-sep">·</span>`);
 
   let turmaInfo='—';
@@ -2696,7 +2612,6 @@ async function boot(){
     document.getElementById('pill-status').textContent='Supabase OK';
     document.getElementById('pill-status').className='tb-status ok';
     updateSidebarKPIs();initBranchStrip();renderTree();
-    updateWatchBadge();renderExcBar();
 
     document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
     document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
@@ -2720,7 +2635,6 @@ async function boot(){
   }
 }
 
-updateWatchBadge();
 boot();
 </script>
 </body>
