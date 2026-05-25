@@ -1441,15 +1441,16 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
   setBootProgress(85);
-  _exceptionQueue=[];
-  for(const key of Object.keys(_allResults)){
-    const result=_allResults[key];
-    result.groups.forEach((g,i)=>{
-      const ar=(_auditResults[key]||{})[i];
-      if(!ar||ar.status==='pass')return;
-      _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
-    });
-  }
+_exceptionQueue=[];
+for(const key of Object.keys(_allResults)){
+  const result=_allResults[key];
+  result.groups.forEach((g,i)=>{
+    const ar=(_auditResults[key]||{})[i];
+    if(!ar||ar.status==='pass')return;
+    if((_groupCodes[key]||{})[i])return; // already committed — skip
+    _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
+  });
+}
   setBoot('A certificar grupos limpos…');
   const passing=[];
   for(const key of Object.keys(_allResults)){
