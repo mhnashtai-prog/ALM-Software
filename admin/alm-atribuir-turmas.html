@@ -1220,6 +1220,49 @@ function enterQA(tid){
   document.getElementById('grid-area').classList.add('qa-mode-on');
   drawBands();renderTeacherList();
 }
+/* ══════════════════════════════════════════════
+   POPUP MODE — Mesmo / Partilhado
+══════════════════════════════════════════════ */
+function setPopMode(mode){
+  POP_MODE=mode;POP_SEL_B=null;
+  const btnMesmo=document.getElementById('pop-mode-mesmo');
+  const btnPart=document.getElementById('pop-mode-part');
+  const partB=document.getElementById('pop-part-b');
+  btnMesmo.style.background  =mode==='mesmo'?'var(--green-a)':'transparent';
+  btnMesmo.style.borderColor =mode==='mesmo'?'var(--green-b)':'var(--b2)';
+  btnMesmo.style.color       =mode==='mesmo'?'var(--green)':'var(--t3)';
+  btnPart.style.background   =mode==='partilhado'?'var(--amber-a)':'transparent';
+  btnPart.style.borderColor  =mode==='partilhado'?'var(--amber-b)':'var(--b2)';
+  btnPart.style.color        =mode==='partilhado'?'var(--amber)':'var(--t3)';
+  partB.style.display=mode==='partilhado'?'block':'none';
+  if(mode==='partilhado')renderPartBList();
+}
+
+function renderPartBList(){
+  const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
+  const gc=c.group_code||(POP_TURMA.replace(/[AB]$/,''));
+  const classB=CLASSES.find(x=>x.group_code===gc&&x.turma_code!==POP_TURMA);
+  const dayBLabel=classB?(DAYS_FULL[classB.day_of_week]||classB.day_of_week):'Sessão B';
+  const lbl=document.getElementById('pop-part-b-label');
+  if(lbl)lbl.textContent=`Professor para ${dayBLabel}:`;
+  const ranked=getRanked(POP_TURMA,c.day_of_week,c.hour,c.lang||'EN');
+  document.getElementById('pop-part-b-list').innerHTML=ranked.map(r=>{
+    const av=avCol(r.t.name);const isSel=r.t.id===POP_SEL_B;
+    return`<div onclick="POP_SEL_B='${r.t.id}';renderPartBList();document.getElementById('pop-confirm').disabled=false"
+      style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;
+      border-bottom:.5px solid var(--b);
+      background:${isSel?'var(--amber-a)':'transparent'};
+      border-left:${isSel?'2px solid var(--amber)':'2px solid transparent'}">
+      <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+        justify-content:center;font-size:7px;font-weight:700;
+        background:${av.bg};color:${av.t};flex-shrink:0">${avInit(r.t.name)}</div>
+      <div style="flex:1;font-size:9px;color:var(--t)">${r.t.name}</div>
+      <div style="font-size:7px;font-weight:700;color:${r.hCls==='ok'?'var(--green)':r.hCls==='warn'?'var(--amber)':'var(--red)'}">${r.h.toFixed(0)}/${r.t.contractH}h</div>
+      ${isSel?`<span style="font-size:7px;color:var(--amber)">✓</span>`:''}
+    </div>`;
+  }).join('');
+}
+
 function cancelQA(){
   QA_TEACHER=null;
   document.getElementById('qa-banner').classList.remove('show');
