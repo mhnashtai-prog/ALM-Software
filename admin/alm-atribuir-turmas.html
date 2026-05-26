@@ -18,7 +18,7 @@
   --b:rgba(201,168,76,.09);--b2:rgba(201,168,76,.18);--b3:rgba(201,168,76,.32);
   --t:rgba(240,222,175,.94);--t2:rgba(215,193,145,.65);--t3:rgba(215,193,145,.38);--t4:rgba(215,193,145,.14);
   --mono:'IBM Plex Mono',monospace;--display:'Bebas Neue',sans-serif;
-  --c-inf:#4A8FF5;--c-juv:#2ECC8A;--c-ger:#C8943A;--c-exa:#A060D8;
+  --c-inf:#D1E8D1;--c-juv:#9B1B30;--c-ger:#6F4C3E;--c-exa:#3B5B3A;
   --row-h:50px;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
@@ -133,12 +133,14 @@ body{display:flex;flex-direction:column}
 .lbr-stub-sub{font-size:7px;color:var(--t3);letter-spacing:.04em}
 .lbr-track-wrap{flex:1;display:flex;align-items:center;gap:0;position:relative;height:32px}
 .lbr-track{flex:1;height:22px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.07);position:relative;overflow:hidden}
-.lbr-fill{height:100%;transition:width .7s cubic-bezier(.4,0,.2,1);position:relative;display:flex;align-items:center;justify-content:flex-end;padding-right:8px}
-.lbr-fill-label{font-size:8px;font-weight:700;color:rgba(7,6,14,.8);white-space:nowrap}
+.lbr-fill{height:100%;transition:width .7s cubic-bezier(.4,0,.2,1);position:relative;}
+.lbr-fill-label{display:none}
+.lbr-frac{font-size:9px;font-weight:700;flex-shrink:0;padding:0 8px;white-space:nowrap;min-width:44px;text-align:center}
 .lbr-bubble{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid;margin-left:-2px;z-index:2;transition:transform .15s}
 .level-bar-row:hover .lbr-bubble{transform:scale(1.08)}
 .lbr-bubble-v{font-size:11px;font-weight:700;line-height:1;font-family:var(--display)}
 .lbr-bubble-l{font-size:5.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-top:1px}
+.lbr-bubble{display:none}
 .lbr-teachers{display:flex;gap:3px;flex-wrap:wrap;padding-left:10px;max-width:130px;align-items:center}
 .lbr-t-pill{font-size:6.5px;font-weight:700;padding:2px 6px;border:1px solid rgba(201,168,76,.25);color:var(--t3);background:rgba(201,168,76,.05);white-space:nowrap}
 .lbr-t-pill.assigned{color:var(--gold2);border-color:rgba(201,168,76,.45);background:rgba(201,168,76,.1)}
@@ -561,12 +563,24 @@ async function sbGet(table, qs) {
   return all;
 }
 
+/* Patch ALL sessions in a pair (A+B) — used for "mesmo professor" */
 async function patchTurma(groupCode, payload) {
   const r = await fetch(
     `${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${encodeURIComponent(AY)}`,
     { method:'PATCH', headers:H, body:JSON.stringify(payload) }
   );
   if(!r.ok) throw new Error(`PATCH HTTP ${r.status}`);
+  setConnState(true);
+  return r.json();
+}
+
+/* Patch a SINGLE session by turma_code — used for split/partilhado */
+async function patchSingleTurma(turmaCode, payload) {
+  const r = await fetch(
+    `${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(turmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`,
+    { method:'PATCH', headers:H, body:JSON.stringify(payload) }
+  );
+  if(!r.ok) throw new Error(`PATCH single HTTP ${r.status}`);
   setConnState(true);
   return r.json();
 }
@@ -614,10 +628,10 @@ const BL = {FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHI
 const BO = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
 
 const DEPT_GRADS = {
-  kids:'linear-gradient(145deg,#1A3A6A,#0D2248)',
-  kids_juv:'linear-gradient(145deg,#0D4A3A,#062A20)',
-  adults:'linear-gradient(145deg,#3A2A10,#201408)',
-  exam:'linear-gradient(145deg,#3A1A3A,#200D20)',
+  kids:'linear-gradient(145deg,#1A2E1A,#0D1A0D)',
+  kids_juv:'linear-gradient(145deg,#2E0810,#180408)',
+  adults:'linear-gradient(145deg,#1E1410,#100A06)',
+  exam:'linear-gradient(145deg,#0E1A0E,#060E06)',
 };
 
 function turmaCol(code){
@@ -840,10 +854,21 @@ function renderDashboard(){
       const pct=total?Math.round(assigned/total*100):0;
       const allOk=assigned===total&&total>0;
       const lmeta=getLM(lv.code);
-      const col=allOk?'var(--green)':assigned>0?'var(--amber)':'var(--red)';
-      const fillCol=allOk?'#1DB87A':assigned>0?'#E8A020':'#3A1A1A';
-      const bubbleBg=allOk?'rgba(29,184,122,.15)':assigned>0?'rgba(232,160,32,.12)':'rgba(232,69,90,.12)';
-      const bubbleBorder=allOk?'#1DB87A':assigned>0?'#E8A020':'#E8455A';
+      /* Dept colour is the base; completion state controls opacity/brightness */
+      const deptHex={
+        kids:'#D1E8D1',kids_juv:'#9B1B30',adults:'#8A6654',exam:'#3B5B3A'
+      }[dept]||'#8A6654';
+      /* Fill: full=dept colour bright, partial=dept colour mid, none=very dim red tint */
+      const fillCol  = allOk ? deptHex : assigned>0 ? deptHex : '#5A1A22';
+      const fillAlpha= allOk ? 'CC'    : assigned>0 ? '66'    : '99';
+      const borderAlpha= allOk ? 'FF'  : assigned>0 ? 'AA'    : '44';
+      /* Fraction label: full=bright dept, partial=dept muted, none=red */
+      const col = allOk
+        ? deptHex
+        : assigned>0
+          ? deptHex+'BB'
+          : '#E8455A';
+      const fracShadow = allOk ? `text-shadow:0 0 8px ${deptHex}66` : '';
 
       const teacherIds=[...lv.teachers];
       const tPills=teacherIds.slice(0,4).map(tid=>{
@@ -859,14 +884,9 @@ function renderDashboard(){
         </div>
         <div class="lbr-track-wrap">
           <div class="lbr-track">
-            <div class="lbr-fill" style="width:${pct}%;background:${fillCol}66;border-right:2px solid ${fillCol}">
-              ${assigned>=3?`<div class="lbr-fill-label">${assigned}</div>`:''}
-            </div>
+            <div class="lbr-fill" style="width:${pct}%;background:${fillCol}${fillAlpha};border-right:2px solid ${fillCol}${borderAlpha}"></div>
           </div>
-          <div class="lbr-bubble" style="background:${bubbleBg};border-color:${bubbleBorder}">
-            <div class="lbr-bubble-v" style="color:${col}">${assigned}</div>
-            <div class="lbr-bubble-l" style="color:${col}">/${total}</div>
-          </div>
+          <div class="lbr-frac" style="color:${col};${fracShadow}">${assigned}<span style="color:var(--t4);font-size:7px">/${total}</span></div>
         </div>
         <div class="lbr-teachers">${tPills}${morePill}${!teacherIds.length?'<div class="lbr-t-pill" style="color:var(--red);border-color:rgba(232,69,90,.3)">sem prof</div>':''}</div>
         <div class="lbr-arrow">›</div>
@@ -984,9 +1004,16 @@ function drawOneBand(c, rowEl){
   const tc=TEACHERS.find(t=>t.id===c.teacher_id);
   const isAssigned=!!tc;
   const col=turmaCol(c.turma_code);
-  const bandBg=isAssigned?col+'30':col+'18';
-  const borderCol=isAssigned?col+'CC':col+'66';
-  const inkCol=col;
+
+  /* Assigned: strong filled background, bright border, bright text
+     Unassigned: ghost/dashed feel, muted */
+  const bandBg      = isAssigned ? col+'88' : col+'14';
+  const borderCol   = isAssigned ? col+'FF' : col+'55';
+  const borderTop   = isAssigned ? col+'66' : col+'22';
+  const inkCol      = isAssigned ? 'rgba(255,255,255,.92)' : col;
+  const teacherCol  = isAssigned ? 'rgba(255,255,255,.65)' : 'rgba(215,193,145,.35)';
+  const countCol    = isAssigned ? 'rgba(255,255,255,.55)' : col;
+
   const n=(c.student_refs||[]).length;
 
   const startTime=c.start_time||(c.hour+':00');
@@ -1001,7 +1028,7 @@ function drawOneBand(c, rowEl){
 
   const band=document.createElement('div');
   band.className=`sg-stamp${isAssigned?' assigned':' unassigned'}`;
-  band.style.cssText=`left:${pos.left}px;top:2px;width:${pos.width}px;height:${rowEl.offsetHeight-4}px;background:${bandBg};border-left:3px solid ${borderCol};border-top:.5px solid ${col}40;border-right:.5px solid ${col}18;border-bottom:.5px solid ${col}18;${isDimmed?'opacity:.07':''}`;
+  band.style.cssText=`left:${pos.left}px;top:2px;width:${pos.width}px;height:${rowEl.offsetHeight-4}px;background:${bandBg};border-left:3px solid ${borderCol};border-top:.5px solid ${borderTop};border-right:.5px solid ${col}22;border-bottom:.5px solid ${col}22;${isDimmed?'opacity:.07':''}`;
 
   const showText=pos.width>70;
   const showCount=pos.width>50;
@@ -1010,10 +1037,10 @@ function drawOneBand(c, rowEl){
   band.innerHTML=`
     <div class="sg-stamp-seal">${makeSealSVG(sealGlyph,col,isAssigned)}</div>
     ${showText?`<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden">
-      <span class="sg-stamp-code" style="color:${inkCol}">${c.turma_code.replace(/^[^-]+-/,'')}</span>
-      <span class="sg-stamp-teacher">${isAssigned?firstName:'sem prof'}</span>
+      <span class="sg-stamp-code" style="color:${inkCol};text-shadow:${isAssigned?'0 1px 3px rgba(0,0,0,.5)':' none'}">${c.turma_code.replace(/^[^-]+-/,'')}</span>
+      <span class="sg-stamp-teacher" style="color:${teacherCol}">${isAssigned?firstName:'sem prof'}</span>
     </div>`:''}
-    ${showCount?`<span class="sg-stamp-count" style="color:${inkCol}">${n}/${MAX_G}</span>`:''}`;
+    ${showCount?`<span class="sg-stamp-count" style="color:${countCol}">${n}/${MAX_G}</span>`:''}`;
 
   band.addEventListener('click',e=>{
     e.stopPropagation();
@@ -1438,31 +1465,85 @@ function popSelect(tid){
 }
 
 /* ── popConfirm — IMMEDIATE write ── */
+/* ── popConfirm — IMMEDIATE write, handles mesmo AND partilhado ── */
 async function popConfirm(){
   const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
-  const t=POP_SEL?TEACHERS.find(x=>x.id===POP_SEL):null;
-  const prev={id:c.teacher_id,code:c.teacher_code};
-  const groupCode=c.group_code||POP_TURMA;
+  const tA=POP_SEL?TEACHERS.find(x=>x.id===POP_SEL):null;
   const btn=document.getElementById('pop-confirm');
   btn.disabled=true;btn.textContent='A guardar…';
 
-  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{
-    x.teacher_id=POP_SEL||null;x.teacher_code=(t&&t.code)||null;x.teacher_name=(t&&t.name)||null;
-  });
+  const groupCode=c.group_code||POP_TURMA;
+  const sibling=CLASSES.find(x=>x.group_code===groupCode&&x.turma_code!==POP_TURMA);
 
-  try{
-    await patchTurma(groupCode,{teacher_id:POP_SEL||null,teacher_name:(t&&t.name)||null,teacher_code:(t&&t.code)||null});
-    if(POP_SEL) pushUndo(c.turma_code,prev.id,prev.code,POP_SEL,(t&&t.code)||null);
-    showToast(t?`${groupCode} (A+B) → ${t.code} ✓`:'Professor removido','ok');
-    document.getElementById('bot-src').textContent=`Guardado ✓ (A+B)`;
-  }catch{
-    CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=prev.id;x.teacher_code=prev.code;x.teacher_name=null;});
-    showToast('Erro ao guardar','err');
+  if(POP_MODE==='mesmo'||!sibling){
+    /* MESMO: write same teacher to both A and B via group_code */
+    const prevA={id:c.teacher_id,code:c.teacher_code};
+
+    CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{
+      x.teacher_id=POP_SEL||null;
+      x.teacher_code=(tA&&tA.code)||null;
+      x.teacher_name=(tA&&tA.name)||null;
+    });
+
+    try{
+      await patchTurma(groupCode,{
+        teacher_id:POP_SEL||null,
+        teacher_name:(tA&&tA.name)||null,
+        teacher_code:(tA&&tA.code)||null,
+      });
+      if(POP_SEL) pushUndo(POP_TURMA,prevA.id,prevA.code,POP_SEL,(tA&&tA.code)||null);
+      showToast(tA?`${groupCode} (A+B) → ${tA.code} ✓`:'Professor removido (A+B)','ok');
+      document.getElementById('bot-src').textContent='Guardado ✓ (A+B)';
+    }catch{
+      CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{
+        x.teacher_id=prevA.id;x.teacher_code=prevA.code;x.teacher_name=null;
+      });
+      showToast('Erro ao guardar','err');
+    }
+
+  }else{
+    /* PARTILHADO: write A and B to different teachers with separate turma_code patches */
+    const tB=POP_SEL_B?TEACHERS.find(x=>x.id===POP_SEL_B):null;
+    if(!tB){
+      showToast('Seleccione professor para sessão B','warn');
+      btn.disabled=false;btn.textContent='Confirmar';
+      return;
+    }
+
+    const prevA={id:c.teacher_id,code:c.teacher_code};
+    const prevB={id:sibling.teacher_id,code:sibling.teacher_code};
+
+    /* Optimistic: each session gets its own teacher */
+    c.teacher_id=POP_SEL;c.teacher_code=(tA&&tA.code)||null;c.teacher_name=(tA&&tA.name)||null;
+    sibling.teacher_id=POP_SEL_B;sibling.teacher_code=(tB&&tB.code)||null;sibling.teacher_name=(tB&&tB.name)||null;
+
+    try{
+      /* Two independent writes — one per turma_code, NOT by group_code */
+      await Promise.all([
+        patchSingleTurma(POP_TURMA,{
+          teacher_id:POP_SEL||null,
+          teacher_name:(tA&&tA.name)||null,
+          teacher_code:(tA&&tA.code)||null,
+        }),
+        patchSingleTurma(sibling.turma_code,{
+          teacher_id:POP_SEL_B||null,
+          teacher_name:(tB&&tB.name)||null,
+          teacher_code:(tB&&tB.code)||null,
+        }),
+      ]);
+      pushUndo(POP_TURMA,prevA.id,prevA.code,POP_SEL,(tA&&tA.code)||null);
+      showToast(`${POP_TURMA}→${tA?tA.code:'—'} · ${sibling.turma_code}→${tB?tB.code:'—'} ✓`,'ok');
+      document.getElementById('bot-src').textContent='Guardado ✓ (partilhado)';
+    }catch{
+      c.teacher_id=prevA.id;c.teacher_code=prevA.code;c.teacher_name=null;
+      sibling.teacher_id=prevB.id;sibling.teacher_code=prevB.code;sibling.teacher_name=null;
+      showToast('Erro ao guardar (partilhado)','err');
+    }
   }
+
   closePopup();
   renderAll();renderDashboard();
 }
-
 async function popRemove(){
   const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
   const prev={id:c.teacher_id,code:c.teacher_code};
