@@ -1358,10 +1358,11 @@ async function commitGroup(levelKey,groupIdx){
     status:'confirmed',audit_log:ar.log||{},audited_at:new Date().toISOString(),
     pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0,
   };
-  const sessions=g.pair.a===g.pair.b
-    ?[{...base,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]}]
-    :[{...base,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]},{...base,turma_code:codeB,day_of_week:DAYS_PT[g.pair.b]}];
-  const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(sessions)});
+ const sessionBase={...base,group_code:groupCode};
+const sessions=g.pair.a===g.pair.b
+  ?[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]}]
+  :[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]},{...sessionBase,turma_code:codeB,day_of_week:DAYS_PT[g.pair.b]}];
+    const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(sessions)});
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
   _retiredCodes.add(codeA);_retiredCodes.add(codeB);
   if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
@@ -1391,9 +1392,10 @@ for(const key of levelKeys){
     }
     done++;setBootProgress(40+Math.round(done/total*40));
   }
+ // ── STEP 1: Load existing DB classes FIRST — before commit loop ──
   setBoot('A verificar turmas existentes…');
   try{
-const existing = await sbGet('classes', `select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+    const existing = await sbGet('classes', `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
@@ -1403,11 +1405,11 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
     existing.forEach(c=>{
-      const gc=c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null;if(!gc)return;
+      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
       const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
       const result=_allResults[key];if(!result)return;
       const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-   result.groups.forEach((g,i)=>{
+      result.groups.forEach((g,i)=>{
         if((_groupCodes[key]||{})[i])return;
         const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
         if(overlap>=Math.floor(g.students.length*0.7)){
@@ -1418,16 +1420,20 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
   setBootProgress(85);
-_exceptionQueue=[];
-for(const key of Object.keys(_allResults)){
-  const result=_allResults[key];
-  result.groups.forEach((g,i)=>{
-    const ar=(_auditResults[key]||{})[i];
-    if(!ar||ar.status==='pass')return;
-    if((_groupCodes[key]||{})[i])return; // already committed — skip
-    _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
-  });
-}
+
+  // ── STEP 2: Build exception queue — _groupCodes now populated from DB ──
+  _exceptionQueue=[];
+  for(const key of Object.keys(_allResults)){
+    const result=_allResults[key];
+    result.groups.forEach((g,i)=>{
+      const ar=(_auditResults[key]||{})[i];
+      if(!ar||ar.status==='pass')return;
+      if((_groupCodes[key]||{})[i])return; // already committed — skip
+      _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
+    });
+  }
+
+  // ── STEP 3: Commit only passing groups not already in DB ──
   setBoot('A certificar grupos limpos…');
   const passing=[];
   for(const key of Object.keys(_allResults)){
@@ -1454,6 +1460,8 @@ for(const key of Object.keys(_allResults)){
     });
   }
   setBootProgress(100);
+
+  // ── STEP 4: Reconcile DB vs engine ──
   (function reconcileDBvsEngine(){
     const warnings=[];
     Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
@@ -1466,10 +1474,9 @@ for(const key of Object.keys(_allResults)){
   })();
   return{committed,exceptions:_exceptionQueue.length};
 }
-
 function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
-
+  
 /* ══════════════════════════════════════════════
    EXCEPTION BAR
 ══════════════════════════════════════════════ */
