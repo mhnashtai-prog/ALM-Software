@@ -727,10 +727,11 @@ function refreshCard(groupCode){
 // ═══════════════════════════════════════
 // CERTIFY
 // ═══════════════════════════════════════
-function toggleCert(groupCode){
-  if(certifiedSet.has(groupCode))certifiedSet.delete(groupCode);
-  else certifiedSet.add(groupCode);
-  saveCertified();
+async function toggleCert(groupCode){
+  const isNowSent = !certifiedSet.has(groupCode);
+  if(isNowSent) certifiedSet.add(groupCode);
+  else certifiedSet.delete(groupCode);
+  await saveCertified(groupCode, isNowSent);
   refreshCard(groupCode);
   const groups=allGroups.filter(g=>g.branch===activeLoc);
   const cert=groups.filter(g=>certifiedSet.has(g.group_code)).length;
@@ -743,10 +744,10 @@ function toggleCert(groupCode){
   if(_glGroupCode===groupCode) refreshGLFooter(groupCode);
 }
 
-function certifyLevel(lc){
+async function certifyLevel(lc){
   const groups=allGroups.filter(g=>g.branch===activeLoc&&g.level_code===lc);
   groups.forEach(g=>certifiedSet.add(g.group_code));
-  saveCertified();
+  await Promise.all(groups.map(g=>saveCertified(g.group_code, true)));
   groups.forEach(g=>refreshCard(g.group_code));
   const all=allGroups.filter(g=>g.branch===activeLoc);
   const cert=all.filter(g=>certifiedSet.has(g.group_code)).length;
@@ -757,10 +758,10 @@ function certifyLevel(lc){
   showToast(`${groups.length} turmas de ${getLM(lc).label} enviadas`,'ok');
 }
 
-function certifyAll(){
+async function certifyAll(){
   const groups=allGroups.filter(g=>g.branch===activeLoc);
   groups.forEach(g=>certifiedSet.add(g.group_code));
-  saveCertified();
+  await Promise.all(groups.map(g=>saveCertified(g.group_code, true)));
   renderAll();
   showToast(`${groups.length} turmas enviadas para ASSIGN`,'ok');
 }
@@ -939,8 +940,7 @@ document.addEventListener('keydown',e=>{
 // ═══════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════
-loadCertified();
-loadAll();
+loadCertified().then(() => { loadAll(); });
 </script>
 </body>
 </html>
