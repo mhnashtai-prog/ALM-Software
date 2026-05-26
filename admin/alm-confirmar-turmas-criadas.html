@@ -371,9 +371,20 @@ function pairColFromDays(days){
 
 function blockFrom(t){ const h=parseInt((t||'').split(':')[0],10); return !isNaN(h)&&h<=13?'manha':'tarde'; }
 
-function loadCertified(){ try{ certifiedSet=new Set(JSON.parse(localStorage.getItem(LS_KEY)||'[]')); }catch{ certifiedSet=new Set(); } }
-function saveCertified(){ try{ localStorage.setItem(LS_KEY,JSON.stringify([...certifiedSet])); }catch{} }
+async function loadCertified(){
+  const rows = await sbGet('certification_seals',
+    `select=group_code,confirmed&academic_year=eq.${AY_ENC}&confirmed=eq.true`
+  );
+  certifiedSet = new Set(rows.map(r => r.group_code));
+}
 
+async function saveCertified(groupCode, isConfirmed){
+  await fetch(
+    `${SB}/rest/v1/certification_seals?group_code=eq.${encodeURIComponent(groupCode)}&academic_year=eq.${AY_ENC}`,
+    { method:'PATCH', headers:{...H, Prefer:'return=minimal'},
+      body: JSON.stringify({confirmed: isConfirmed}) }
+  );
+}
 let _toastT;
 function showToast(msg,type='ok'){
   const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast ${type} show`;
