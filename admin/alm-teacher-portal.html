@@ -1135,6 +1135,11 @@ const DEPT_COLOURS={kids:'var(--c-inf)',kids_juv:'var(--c-juv)',adults:'var(--c-
 const PAIR_COLS=['#4B2C2A','#A8CBA0','#6B8E23','#C4D600','#8B0000','#C9A84C'];
 const PAIR_MAP={SEG:0,QUA:0,TER:1,QUI:1,SEX:2,'SÁB':5};
 function pairColFromDay(day){return PAIR_COLS[PAIR_MAP[(day||'').toUpperCase()]??5];}
+function turmaCol(code){
+  const base=(code||'').replace(/[AB]$/,'');
+  let h=0;for(let i=0;i<base.length;i++)h=(h*31+base.charCodeAt(i))&0xffffffff;
+  return PAIR_COLS[Math.abs(h)%PAIR_COLS.length];
+}  
 const AV_POOL=[{bg:'#49281f',t:'#cfb590'},{bg:'#564334',t:'#9e9a41'},{bg:'#49281f',t:'#9e9a41'},{bg:'#564334',t:'#cfb590'},{bg:'#49281f',t:'#758918'},{bg:'#3d2a1a',t:'#cfb590'},{bg:'#564334',t:'#758918'},{bg:'#3d2a1a',t:'#9e9a41'},{bg:'#49281f',t:'#b8a870'},{bg:'#564334',t:'#c8b878'}];
 function avCol(n){let h=0;for(let i=0;i<(n||'').length;i++)h=(h*31+(n||'').charCodeAt(i))&0xffffffff;return AV_POOL[Math.abs(h)%AV_POOL.length];}
 function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
@@ -1302,7 +1307,7 @@ function slotCell(day,h,nowMin,isToday,dayIso){
     const[sh,sm]=(s.start||'9:00').split(':').map(Number),[eh,em]=(s.end||'10:30').split(':').map(Number);
     const isNow=isToday&&nowMin>=sh*60+sm&&nowMin<eh*60+em;
     const isDone=dayIso&&Object.keys((ATTEND_WEEK[dayIso]||{})[s.turmaCode]||{}).length>0;
-   const dc=getDC(s),av=avCol(ME?.name||'?'),pc=pairColFromDay(day);
+   const dc=getDC(s),av=avCol(ME?.name||'?'),pc=turmaCol(s.turmaCode);
     const lNum=dayIso?lessonNumber(day,dayIso):0,lTotal=totalLessons(day);
     const lNumStr=lNum>0?`<div class="slot-lesson-num">Aula ${String(lNum).padStart(3,'0')}/${lTotal}</div>`:'';
     return`<td class="slot-cell"><div class="slot-inner booked${isDone?' done-slot':''}" style="background:${pc}40;border-left:4px solid ${pc};border-top:.5px solid ${pc}88" onclick="openSlot('${day}',${h},'${dayIso}')">
