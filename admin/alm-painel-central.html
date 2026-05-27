@@ -1379,7 +1379,15 @@ function auditGroupSync(g){
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
   });
-  return{status:failCount>0?'fail':warnCount>0?'warn':'pass',passCount,warnCount,failCount,log};
+  const sizeStatus = g.students.length < ASSIGN_MIN ? 'warn' : 'pass';
+const auditStatus = failCount>0 ? 'fail' : (warnCount>0 || sizeStatus==='warn') ? 'warn' : 'pass';
+if(sizeStatus==='warn'){
+  // Add size warning to each student's log without overriding individual verdicts
+  Object.keys(log).forEach(ref=>{
+    if(log[ref].verdict==='pass') log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;
+  });
+}
+return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
 }
 
 async function generateTurmaCode(branch){
