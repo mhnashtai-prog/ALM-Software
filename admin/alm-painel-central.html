@@ -1691,7 +1691,14 @@ function buildPairMatrix(pairCounts){
   pairCounts.forEach(({pair,count},i)=>{
     const placed=placedInPair(pair),displayN=placed>0?placed:count;
     const isViable=displayN>=ASSIGN_MIN,isWait=displayN>=MIN_G;
-    const olive=pairCol(pair);  // ← the actual pair colour
+  const ar = _lastResult?.groups
+  ?.map((g,i) => g.pair.a===pair.a && g.pair.b===pair.b 
+    ? (_auditResults[activeLevelKey]||{})[i] : null)
+  ?.find(a => a);
+const isWarnPair = ar?.status === 'warn' && !(_lastResult?.groups
+  ?.some((g,i) => g.pair.a===pair.a && g.pair.b===pair.b 
+    && !!(_groupCodes[activeLevelKey]||{})[i]));
+const olive = isWarnPair ? '#E8A020' : pairCol(pair);
     const lbl=placed>0?'alocados':isViable?'disponíveis':isWait?'aguardar':'não abre';
     const subLbl=placed>0&&count!==placed?`<div style="font-size:6.5px;opacity:.65;margin-top:3px;color:${olive}">${count} disponíveis</div>`:'';
     const firstGroupIdx=_lastResult?.groups?.findIndex(g=>g.pair.a===pair.a&&g.pair.b===pair.b)??-1;
