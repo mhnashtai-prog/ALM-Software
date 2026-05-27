@@ -2148,9 +2148,12 @@ function ovDrillToFormation(levelKey){
 
   /* Build grid then draw stamps — both rAF to ensure layout */
 buildPermanentGrid('ov-grid-container', withReq);
+const _ovCapturedKey = levelKey;
+const _ovCapturedResult = _lastResult;
 requestAnimationFrame(() => requestAnimationFrame(() => {
-  paintCellHeatmap('ov-grid-container', withReq, levelKey, _lastResult);
-  drawStamps('ov-grid-container', levelKey, _lastResult);
+  if (_ovActiveLevel !== _ovCapturedKey) return;
+  paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
+  drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
 }));
 }
 
@@ -2170,7 +2173,9 @@ function buildBranchBarChart(students){
   });
 Object.keys(byLevel).forEach(key=>{
     const result=_allResults[key];
-    if(result)byLevel[key].placed=result.placed||0;
+    const enginePlaced=result?result.placed||0:0;
+    const dbPlaced=window._dbPlacedByLevel?.[key]?.size||0;
+    byLevel[key].placed=Math.max(enginePlaced,dbPlaced);
 });
   const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
   if(!rows.length)return'';
