@@ -921,16 +921,17 @@ function turmaCol(code){
 }
 
 function pairCol(pair){
-  const map = {
-  '0-2': '#ABCBA0',   
-  '1-3': '#C7A2A2',    
-  '2-4': '#50732A',   
-  '5-5': '#4B2C2A',    
-  };
-  const key = `${parseInt(pair.a,10)}-${parseInt(pair.b,10)}`;
-  const result = map[key];
-  if(!result) console.warn('pairCol: no match for', key, pair);
-  return result || '#847C3D';
+  const a = parseInt(pair.a, 10);
+  const b = parseInt(pair.b, 10);
+  const palette = [
+    '#ABCBA0','#C7A2A2','#50732A','#9B7B4A',
+    '#6B5B8A','#7A9EC8','#C8A44A','#4A7C6F',
+    '#8A6B4A','#5A8A6B','#A07A5A','#6A4A8A',
+    '#8A7A4A','#4A6B8A','#7A4A6B','#5A7A4A',
+  ];
+  // Deterministic colour from day pair
+  const idx = (a * 6 + b) % palette.length;
+  return palette[idx];
 }
   
 function parseDayPrefs(raw){
@@ -1228,78 +1229,120 @@ const inkCol    = isFail ? '#FFB0B8'
 /* ══════════════════════════════════════════════
    GROUPING ENGINE
 ══════════════════════════════════════════════ */
-function buildProposals(levelKey,branch){
-  const STEP=30;
-  const all=allE.filter(e=>{if(lk(e)!==levelKey)return false;if(branch!=='all'&&normB(e.branch)!==branch)return false;return true;});
-  const withReq=all.filter(e=>!!rByRef[e.ref]);
-  const dept=(LEVEL_MAP[levelKey]||{}).dept||'adults';
-  const placed=new Set(),groups=[];
-  const sameDayB=withReq.filter(e=>{const a=analysePrefs(e.ref);return a&&a.sameDay;});
-  sameDayB.forEach(e=>placed.add(e.ref));
-  const invalidB=withReq.filter(e=>{if(placed.has(e.ref))return false;const a=analysePrefs(e.ref);return !a||a.windows.length===0;});
-  invalidB.forEach(e=>placed.add(e.ref));
-  const eligible=withReq.filter(e=>!placed.has(e.ref));
+function buildProposals(levelKey, branch){
+  const STEP = 30;
+  const all = allE.filter(e => {
+    if(lk(e) !== levelKey) return false;
+    if(branch !== 'all' && normB(e.branch) !== branch) return false;
+    return true;
+  });
+  const withReq = all.filter(e => !!rByRef[e.ref]);
 
-  function overlapMins(w,s){return Math.min(w.latest,s+CLASS_DUR)-Math.max(w.earliest,s);}
-  function canAttend(e,dayIdx,s){
-    if(placed.has(e.ref))return false;
-    const a=analysePrefs(e.ref);if(!a)return false;
-    const w=a.windows.find(x=>x.dayIdx===dayIdx);if(!w)return false;
-    return overlapMins(w,s)>=CLASS_DUR-30;
-  }
-  function getGroup(pool,pair,sA,sB){
-    return pool.filter(e=>{
-      if(placed.has(e.ref))return false;
-      const a=analysePrefs(e.ref);if(!a)return false;
-      const wA=a.windows.find(x=>x.dayIdx===pair.a),wB=a.windows.find(x=>x.dayIdx===pair.b);
-      if(!wA||!wB)return false;
-      return overlapMins(wA,sA)>=CLASS_DUR-30&&overlapMins(wB,sB)>=CLASS_DUR-30;
+  /* ── 1. Extract all (dayIdx, startMins) windows per student ── */
+  const studentWindows = {};
+  withReq.forEach(e => {
+    const a = analysePrefs(e.ref);
+    if(!a || !a.windows.length) return;
+    studentWindows[e.ref] = a.windows; // [{dayIdx, earliest, latest}]
+  });
+
+  /* ── 2. Generate all (dayA, slotA, dayB, slotB) candidates per student ── */
+  // For each student, find every compatible time slot per day,
+  // then generate all cross-day pairs
+  const SLOTS = [];
+  for(let t = 8*60; t <= 20*60 - CLASS_DUR; t += STEP) SLOTS.push(t);
+
+  function getCompatibleSlots(windows, dayIdx){
+    return SLOTS.filter(t => {
+      const w = windows.find(x => x.dayIdx === dayIdx);
+      if(!w) return false;
+      return Math.min(w.latest, t + CLASS_DUR) - Math.max(w.earliest, t) >= CLASS_DUR - 30;
     });
-  }
-  function whyNoGroup(e){
-    const a=analysePrefs(e.ref);if(!a)return 'Sem janelas de disponibilidade';
-    const reasons=[];
-    ALM_PAIRS.forEach(pair=>{
-      if(pair.examOnly&&dept!=='exam')return;
-      const hasA=a.windows.find(w=>w.dayIdx===pair.a),hasB=a.windows.find(w=>w.dayIdx===pair.b);
-      if(!hasA&&!hasB)return;
-      if(hasA&&!hasB)reasons.push(`Falta ${pair.bL}`);
-      else if(!hasA&&hasB)reasons.push(`Falta ${pair.aL}`);
-      else reasons.push(`${pair.label} · grupo não atingiu mínimo`);
-    });
-    return reasons.length?reasons.join(' · '):'Nenhum par compatível disponível';
   }
 
-  ALM_PAIRS.forEach(pair=>{
-    if(pair.examOnly&&dept!=='exam')return;
-    const pairPool=eligible.filter(e=>{
-      if(placed.has(e.ref))return false;
-      const a=analysePrefs(e.ref);if(!a)return false;
-      return a.windows.find(x=>x.dayIdx===pair.a)&&a.windows.find(x=>x.dayIdx===pair.b);
-    });
-    if(pairPool.length<MIN_G)return;
-    let remaining=[...pairPool];
-    while(remaining.length>=MIN_G){
-      let bestStart=null,bestCount=0;
-      for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP){
-        const count=Math.min(remaining.filter(e=>canAttend(e,pair.a,t)).length,remaining.filter(e=>canAttend(e,pair.b,t)).length);
-        if(count>bestCount){bestCount=count;bestStart=t;}
+  /* ── 3. Build frequency map: "dayA|slotA|dayB|slotB" → Set of refs ── */
+  const freqMap = {};
+
+  withReq.forEach(e => {
+    const windows = studentWindows[e.ref];
+    if(!windows) return;
+    const days = [...new Set(windows.map(w => w.dayIdx))].sort((a,b) => a-b);
+
+    for(let i = 0; i < days.length; i++){
+      for(let j = i + 1; j < days.length; j++){
+        const dA = days[i], dB = days[j];
+        const slotsA = getCompatibleSlots(windows, dA);
+        const slotsB = getCompatibleSlots(windows, dB);
+        slotsA.forEach(sA => {
+          slotsB.forEach(sB => {
+            const key = `${dA}|${sA}|${dB}|${sB}`;
+            if(!freqMap[key]) freqMap[key] = new Set();
+            freqMap[key].add(e.ref);
+          });
+        });
       }
-      if(!bestStart||bestCount<MIN_G)break;
-      const candidates=getGroup(remaining,pair,bestStart,bestStart);
-      if(candidates.length<MIN_G)break;
-      const gs=candidates.slice(0,MAX_G);
-      gs.forEach(e=>{placed.add(e.ref);remaining=remaining.filter(r=>r.ref!==e.ref);});
-      groups.push({pair,startMins:bestStart,startTime:minsToT(bestStart),endTime:minsToT(bestStart+CLASS_DUR),students:gs});
     }
   });
 
-  const sinalizados=[
-    ...sameDayB.map(e=>({e,reason:'same-day',why:'Disponibilidade num único dia — necessita par'})),
-    ...invalidB.map(e=>({e,reason:'invalid-window',why:'Horário sem janelas válidas reconhecidas'})),
-    ...eligible.filter(e=>!placed.has(e.ref)).map(e=>({e,reason:'no-group',why:whyNoGroup(e)})),
+  /* ── 4. Sort candidates by count DESC ── */
+  const candidates = Object.entries(freqMap)
+    .map(([key, refs]) => ({ key, refs, count: refs.size }))
+    .filter(c => c.count >= MIN_G)
+    .sort((a, b) => b.count - a.count);
+
+  /* ── 5. Greedy assignment ── */
+  const placed = new Set();
+  const groups = [];
+
+  candidates.forEach(({ key, refs }) => {
+    // Filter out already placed students
+    const available = [...refs].filter(r => !placed.has(r));
+    if(available.length < MIN_G) return;
+
+    const [dA, sA, dB, sB] = key.split('|').map(Number);
+    const students = available.slice(0, MAX_G).map(r => allE.find(e => e.ref === r)).filter(Boolean);
+
+    students.forEach(e => placed.add(e.ref));
+
+    groups.push({
+      pair: { a: dA, b: dB, aL: DAYS_PT[dA], bL: DAYS_PT[dB], label: `${DAYS_PT[dA]}+${DAYS_PT[dB]}` },
+      startMins: sA,
+      startMinsB: sB,
+      startTime: minsToT(sA),
+      endTime: minsToT(sA + CLASS_DUR),
+      startTimeB: minsToT(sB),
+      endTimeB: minsToT(sB + CLASS_DUR),
+      students,
+    });
+  });
+
+  /* ── 6. Sinalizados ── */
+  const noWindows = withReq.filter(e => !studentWindows[e.ref]);
+  const noGroup   = withReq.filter(e => studentWindows[e.ref] && !placed.has(e.ref));
+
+  function whyNoGroup(e){
+    const windows = studentWindows[e.ref];
+    if(!windows) return 'Sem janelas de disponibilidade válidas';
+    const days = [...new Set(windows.map(w => w.dayIdx))];
+    if(days.length < 2) return 'Disponibilidade num único dia — necessita par';
+    return 'Combinação de dias sem grupo suficiente (< 5 alunos compatíveis)';
+  }
+
+  const sinalizados = [
+    ...noWindows.map(e => ({ e, reason: 'invalid-window', why: 'Horário sem janelas válidas reconhecidas' })),
+    ...noGroup.map(e   => ({ e, reason: 'no-group',       why: whyNoGroup(e) })),
   ];
-  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:groups.reduce((s,g)=>s+g.students.length,0),sameDayCt:sameDayB.length,invalidWinCt:invalidB.length,noGroupCt:eligible.filter(e=>!placed.has(e.ref)).length};
+
+  return {
+    groups,
+    sinalizados,
+    total:       all.length,
+    withRequest: withReq.length,
+    placed:      placed.size,
+    sameDayCt:   0,
+    invalidWinCt: noWindows.length,
+    noGroupCt:   noGroup.length,
+  };
 }
 
 /* ══════════════════════════════════════════════
