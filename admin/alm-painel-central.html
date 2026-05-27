@@ -1290,14 +1290,24 @@ function buildProposals(levelKey, branch){
     .filter(c => c.count >= MIN_G)
     .sort((a, b) => b.count - a.count);
 
-  /* ── 5. Greedy assignment ── */
-  const placed = new Set();
-  const groups = [];
+/* ── 5. Greedy assignment — exclusive-first ── */
+const placed = new Set();
+const groups = [];
 
-  candidates.forEach(({ key, refs }) => {
-    // Filter out already placed students
-    const available = [...refs].filter(r => !placed.has(r));
-    if(available.length < MIN_G) return;
+// Count how many viable candidates each student appears in
+const studentCandidateCount = {};
+candidates.forEach(({ refs }) => {
+  refs.forEach(r => {
+    studentCandidateCount[r] = (studentCandidateCount[r] || 0) + 1;
+  });
+});
+
+candidates.forEach(({ key, refs }) => {
+  // Prioritise students who have fewer options (exclusive to this slot)
+  const available = [...refs]
+    .filter(r => !placed.has(r))
+    .sort((a, b) => (studentCandidateCount[a] || 0) - (studentCandidateCount[b] || 0));
+  if(available.length < MIN_G) return;
 
     const [dA, sA, dB, sB] = key.split('|').map(Number);
     const students = available.slice(0, MAX_G).map(r => allE.find(e => e.ref === r)).filter(Boolean);
