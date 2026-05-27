@@ -97,7 +97,7 @@ body{display:flex;flex-direction:column}
 .exc-confirm-btn{font-size:7.5px;font-weight:700;padding:4px 12px;border:1px solid;font-family:var(--mono);cursor:pointer;transition:all .13s;letter-spacing:.06em}
 .exc-confirm-btn.ready{border-color:var(--green-b);color:var(--green);background:var(--green-a)}
 .exc-confirm-btn.ready:hover{background:rgba(29,184,122,.25)}
-.exc-confirm-btn.disabled{border-color:var(--b);color:var(--t4);cursor:default}
+.exc-confirm-btn.disabled{border-color:var(--b);color:var(--t4);cursor:default;display:none}
 .exc-dismiss-btn{font-size:7.5px;padding:4px 9px;border:1px solid var(--b);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;transition:all .12s}
 .exc-dismiss-btn:hover{border-color:var(--b2);color:var(--t2)}
 
@@ -1361,9 +1361,10 @@ function auditGroupSync(g){
     for(const dayIdx of pairDays){
       const daySlots=byDay[dayIdx]||[];
       if(!daySlots.length){verdict='fail';reason=`Não pediu ${DAYS_PT[dayIdx]}`;break;}
-      const propEnd=g.startMins+CLASS_DUR;
-      const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=propEnd);
-      if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(g.startMins)}–${minsToT(propEnd)} não cabe na janela declarada`;}
+     const slotStart=(dayIdx===g.pair.b&&g.pair.a!==g.pair.b)?(g.startMinsB??g.startMins):g.startMins;
+      const propEnd=slotStart+CLASS_DUR;
+      const fitsInWindow=daySlots.some(s=>s.fromMins<=slotStart&&s.toMins>=propEnd);
+      if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(slotStart)}–${minsToT(propEnd)} não cabe na janela declarada`;}
     }
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
@@ -1533,10 +1534,25 @@ function renderExcBar(){
   const lbl=document.getElementById('exc-bar-lbl');
   const items=document.getElementById('exc-items');
   const btn=document.getElementById('exc-confirm-btn');
-  if(total===0){
+ if(total===0){
     bar.className='exc-bar clear';lbl.textContent='✓ TUDO CERTIFICADO';
-    items.innerHTML=`<span style="font-size:8px;color:var(--green);padding:0 14px">Todos os grupos foram auditados e certificados automaticamente.</span>`;
-    btn.className='exc-confirm-btn disabled';btn.textContent='✓ Confirmado';return;
+    // Count total certified groups and students placed
+    let totalGroups=0,totalPlaced=0;
+    Object.keys(_groupCodes).forEach(key=>{
+      const n=Object.keys(_groupCodes[key]||{}).length;
+      totalGroups+=n;
+      const result=_allResults[key];
+      if(result)totalPlaced+=result.placed||0;
+    });
+    const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))].length;
+    items.innerHTML=`
+      <span style="font-size:8px;color:var(--green);padding:0 14px;display:flex;align-items:center;gap:18px">
+        <span>Todos os grupos auditados e certificados automaticamente.</span>
+        <span style="font-size:9px;font-weight:700;color:var(--green);border-left:1px solid var(--green-b);padding-left:14px">${totalGroups} turma${totalGroups!==1?'s':''} criada${totalGroups!==1?'s':''}</span>
+        <span style="font-size:9px;font-weight:700;color:var(--teal)">${totalPlaced} alunos alocados</span>
+        <span style="font-size:8px;color:rgba(29,184,122,.5)">${allE.length} inscritos · ${branches} filiai${branches!==1?'s':''}</span>
+      </span>`;
+    btn.className='exc-confirm-btn disabled';btn.style.display='none';return;
   }
   bar.className=fails.length>0?'exc-bar fail':'exc-bar';
   lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
