@@ -394,25 +394,6 @@ body{display:flex;flex-direction:column}
 .kpi-v{font-size:22px;font-weight:700;line-height:1}
 .kpi-l{font-size:6.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px}
 
-/* ══ WATCHLIST ══ */
-.watch-wrap{padding:0 20px 40px;overflow-y:auto;height:100%}
-.watch-card{background:var(--bg2);border:1px solid var(--b2);border-left:3px solid var(--amber);margin-bottom:8px;transition:border-color .15s}
-.watch-card:hover{border-color:var(--b3)}
-.watch-card-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
-.watch-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;border:1px solid}
-.watch-name{font-size:10px;font-weight:600;color:var(--t);flex:1}
-.watch-meta{font-size:7px;color:var(--t3);margin-top:1px}
-.watch-btn{padding:3px 9px;border:1px solid;font-family:var(--mono);font-size:7.5px;cursor:pointer;background:transparent;transition:all .12s}
-.watch-btn-open{border-color:var(--b2);color:var(--gold)}.watch-btn-open:hover{background:var(--gold3)}
-.watch-btn-unpin{border-color:var(--b);color:var(--t3)}.watch-btn-unpin:hover{border-color:var(--red-b);color:var(--red)}
-.watch-body{display:none;padding:0 14px 12px;border-top:1px solid var(--b)}
-.watch-card.open .watch-body{display:block}
-.watch-note-row{padding:6px 10px;background:rgba(255,255,255,.02);border:1px solid var(--b);margin-bottom:4px;font-size:8.5px;color:var(--t2);line-height:1.5}
-.watch-note-meta{font-size:6.5px;color:var(--t3);margin-top:3px}
-.watch-note-inp{width:100%;background:var(--bg3);border:1px solid var(--b2);padding:6px 9px;font-family:var(--mono);font-size:9px;color:var(--t);outline:none;resize:none;min-height:48px;line-height:1.5;margin-bottom:6px}
-.watch-note-inp::placeholder{color:var(--t3)}.watch-note-inp:focus{border-color:var(--gold)}
-.watch-save-btn{padding:4px 12px;border:1px solid var(--green-b);color:var(--green);font-family:var(--mono);font-size:8px;font-weight:700;cursor:pointer;background:transparent;transition:all .12s}
-.watch-save-btn:hover{background:var(--green-a)}
 
 /* ══ V10 DOSSIER ══ */
 .ds-overlay{display:none;position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.58);backdrop-filter:blur(24px) saturate(180%);align-items:center;justify-content:center;padding:20px}
@@ -578,9 +559,6 @@ body{display:flex;flex-direction:column}
  <a class="tb-pill-nav" id="tab-decision" href="/admin/alm-confirmar-turmas-criadas">
   Decision <span class="pn-badge amber" id="badge-pending">0</span>
 </a>
-    <div class="tb-pill-nav" id="tab-watch" onclick="switchCC('watch',this)">
-      Watch <span class="pn-badge amber" id="badge-watch">0</span>
-    </div>
     <div class="tb-pill-sep"></div>
     <a class="tb-pill-ext" href="/admin/alm-atribuir-turmas">Assign ↗</a>
   </div>
@@ -830,9 +808,9 @@ const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
 const ROW_H=48;
 
 const ALM_PAIRS = [
-  {a:0,b:2,aL:'SEG',bL:'QUA',label:'SEG+QUA'},
   {a:1,b:3,aL:'TER',bL:'QUI',label:'TER+QUI'},
   {a:2,b:4,aL:'QUA',bL:'SEX',label:'QUA+SEX'},
+  {a:0,b:2,aL:'SEG',bL:'QUA',label:'SEG+QUA'},
   {a:5,b:5,aL:'SÁB',bL:'SÁB',label:'SÁB',examOnly:true},
 ];
 
@@ -894,7 +872,8 @@ const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1'
 ══════════════════════════════════════════════ */
 let allE=[],allR=[],rByRef={};
 let activeLoc='all',activeLevelKey=null;
-let openDepts={kids:true,kids_juv:false,adults:false,exam:false};
+let openDepts={kids:true,kids_juv:false,adults:false,exam:true};
+let _ovOpenDepts2={kids:true,kids_juv:false,adults:false,exam:true};
 let _lastResult=null;
 let _allResults={};
 let _auditResults={};
@@ -903,11 +882,9 @@ let _retiredCodes=new Set();
 let _exceptionQueue=[];
 let _bootComplete=false;
 let _dsData={},_dsTTLoaded=false;
-let watchFilter='all';
 let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='all';
-let _ovOpenDepts2={kids:true,kids_juv:false,adults:false,exam:false};
 let _decActiveIdx=null,_decActiveBranch='all';
 
 /* Current grid state — tracks what's built in DOM */
@@ -944,16 +921,17 @@ function turmaCol(code){
 }
 
 function pairCol(pair){
-  const map = {
-  '0-2': '#ABCBA0',   
-  '1-3': '#C7A2A2',    
-  '2-4': '#50732A',   
-  '5-5': '#4B2C2A',    
-  };
-  const key = `${parseInt(pair.a,10)}-${parseInt(pair.b,10)}`;
-  const result = map[key];
-  if(!result) console.warn('pairCol: no match for', key, pair);
-  return result || '#847C3D';
+  const a = parseInt(pair.a, 10);
+  const b = parseInt(pair.b, 10);
+  const palette = [
+    '#ABCBA0','#C7A2A2','#50732A','#9B7B4A',
+    '#6B5B8A','#7A9EC8','#C8A44A','#4A7C6F',
+    '#8A6B4A','#5A8A6B','#A07A5A','#6A4A8A',
+    '#8A7A4A','#4A6B8A','#7A4A6B','#5A7A4A',
+  ];
+  // Deterministic colour from day pair
+  const idx = (a * 6 + b) % palette.length;
+  return palette[idx];
 }
   
 function parseDayPrefs(raw){
@@ -1251,78 +1229,120 @@ const inkCol    = isFail ? '#FFB0B8'
 /* ══════════════════════════════════════════════
    GROUPING ENGINE
 ══════════════════════════════════════════════ */
-function buildProposals(levelKey,branch){
-  const STEP=30;
-  const all=allE.filter(e=>{if(lk(e)!==levelKey)return false;if(branch!=='all'&&normB(e.branch)!==branch)return false;return true;});
-  const withReq=all.filter(e=>!!rByRef[e.ref]);
-  const dept=(LEVEL_MAP[levelKey]||{}).dept||'adults';
-  const placed=new Set(),groups=[];
-  const sameDayB=withReq.filter(e=>{const a=analysePrefs(e.ref);return a&&a.sameDay;});
-  sameDayB.forEach(e=>placed.add(e.ref));
-  const invalidB=withReq.filter(e=>{if(placed.has(e.ref))return false;const a=analysePrefs(e.ref);return !a||a.windows.length===0;});
-  invalidB.forEach(e=>placed.add(e.ref));
-  const eligible=withReq.filter(e=>!placed.has(e.ref));
+function buildProposals(levelKey, branch){
+  const STEP = 30;
+  const all = allE.filter(e => {
+    if(lk(e) !== levelKey) return false;
+    if(branch !== 'all' && normB(e.branch) !== branch) return false;
+    return true;
+  });
+  const withReq = all.filter(e => !!rByRef[e.ref]);
 
-  function overlapMins(w,s){return Math.min(w.latest,s+CLASS_DUR)-Math.max(w.earliest,s);}
-  function canAttend(e,dayIdx,s){
-    if(placed.has(e.ref))return false;
-    const a=analysePrefs(e.ref);if(!a)return false;
-    const w=a.windows.find(x=>x.dayIdx===dayIdx);if(!w)return false;
-    return overlapMins(w,s)>=CLASS_DUR-30;
-  }
-  function getGroup(pool,pair,sA,sB){
-    return pool.filter(e=>{
-      if(placed.has(e.ref))return false;
-      const a=analysePrefs(e.ref);if(!a)return false;
-      const wA=a.windows.find(x=>x.dayIdx===pair.a),wB=a.windows.find(x=>x.dayIdx===pair.b);
-      if(!wA||!wB)return false;
-      return overlapMins(wA,sA)>=CLASS_DUR-30&&overlapMins(wB,sB)>=CLASS_DUR-30;
+  /* ── 1. Extract all (dayIdx, startMins) windows per student ── */
+  const studentWindows = {};
+  withReq.forEach(e => {
+    const a = analysePrefs(e.ref);
+    if(!a || !a.windows.length) return;
+    studentWindows[e.ref] = a.windows; // [{dayIdx, earliest, latest}]
+  });
+
+  /* ── 2. Generate all (dayA, slotA, dayB, slotB) candidates per student ── */
+  // For each student, find every compatible time slot per day,
+  // then generate all cross-day pairs
+  const SLOTS = [];
+  for(let t = 8*60; t <= 20*60 - CLASS_DUR; t += STEP) SLOTS.push(t);
+
+  function getCompatibleSlots(windows, dayIdx){
+    return SLOTS.filter(t => {
+      const w = windows.find(x => x.dayIdx === dayIdx);
+      if(!w) return false;
+      return Math.min(w.latest, t + CLASS_DUR) - Math.max(w.earliest, t) >= CLASS_DUR - 30;
     });
-  }
-  function whyNoGroup(e){
-    const a=analysePrefs(e.ref);if(!a)return 'Sem janelas de disponibilidade';
-    const reasons=[];
-    ALM_PAIRS.forEach(pair=>{
-      if(pair.examOnly&&dept!=='exam')return;
-      const hasA=a.windows.find(w=>w.dayIdx===pair.a),hasB=a.windows.find(w=>w.dayIdx===pair.b);
-      if(!hasA&&!hasB)return;
-      if(hasA&&!hasB)reasons.push(`Falta ${pair.bL}`);
-      else if(!hasA&&hasB)reasons.push(`Falta ${pair.aL}`);
-      else reasons.push(`${pair.label} · grupo não atingiu mínimo`);
-    });
-    return reasons.length?reasons.join(' · '):'Nenhum par compatível disponível';
   }
 
-  ALM_PAIRS.forEach(pair=>{
-    if(pair.examOnly&&dept!=='exam')return;
-    const pairPool=eligible.filter(e=>{
-      if(placed.has(e.ref))return false;
-      const a=analysePrefs(e.ref);if(!a)return false;
-      return a.windows.find(x=>x.dayIdx===pair.a)&&a.windows.find(x=>x.dayIdx===pair.b);
-    });
-    if(pairPool.length<MIN_G)return;
-    let remaining=[...pairPool];
-    while(remaining.length>=MIN_G){
-      let bestStart=null,bestCount=0;
-      for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP){
-        const count=Math.min(remaining.filter(e=>canAttend(e,pair.a,t)).length,remaining.filter(e=>canAttend(e,pair.b,t)).length);
-        if(count>bestCount){bestCount=count;bestStart=t;}
+  /* ── 3. Build frequency map: "dayA|slotA|dayB|slotB" → Set of refs ── */
+  const freqMap = {};
+
+  withReq.forEach(e => {
+    const windows = studentWindows[e.ref];
+    if(!windows) return;
+    const days = [...new Set(windows.map(w => w.dayIdx))].sort((a,b) => a-b);
+
+    for(let i = 0; i < days.length; i++){
+      for(let j = i + 1; j < days.length; j++){
+        const dA = days[i], dB = days[j];
+        const slotsA = getCompatibleSlots(windows, dA);
+        const slotsB = getCompatibleSlots(windows, dB);
+        slotsA.forEach(sA => {
+          slotsB.forEach(sB => {
+            const key = `${dA}|${sA}|${dB}|${sB}`;
+            if(!freqMap[key]) freqMap[key] = new Set();
+            freqMap[key].add(e.ref);
+          });
+        });
       }
-      if(!bestStart||bestCount<MIN_G)break;
-      const candidates=getGroup(remaining,pair,bestStart,bestStart);
-      if(candidates.length<MIN_G)break;
-      const gs=candidates.slice(0,MAX_G);
-      gs.forEach(e=>{placed.add(e.ref);remaining=remaining.filter(r=>r.ref!==e.ref);});
-      groups.push({pair,startMins:bestStart,startTime:minsToT(bestStart),endTime:minsToT(bestStart+CLASS_DUR),students:gs});
     }
   });
 
-  const sinalizados=[
-    ...sameDayB.map(e=>({e,reason:'same-day',why:'Disponibilidade num único dia — necessita par'})),
-    ...invalidB.map(e=>({e,reason:'invalid-window',why:'Horário sem janelas válidas reconhecidas'})),
-    ...eligible.filter(e=>!placed.has(e.ref)).map(e=>({e,reason:'no-group',why:whyNoGroup(e)})),
+  /* ── 4. Sort candidates by count DESC ── */
+  const candidates = Object.entries(freqMap)
+    .map(([key, refs]) => ({ key, refs, count: refs.size }))
+    .filter(c => c.count >= MIN_G)
+    .sort((a, b) => b.count - a.count);
+
+  /* ── 5. Greedy assignment ── */
+  const placed = new Set();
+  const groups = [];
+
+  candidates.forEach(({ key, refs }) => {
+    // Filter out already placed students
+    const available = [...refs].filter(r => !placed.has(r));
+    if(available.length < MIN_G) return;
+
+    const [dA, sA, dB, sB] = key.split('|').map(Number);
+    const students = available.slice(0, MAX_G).map(r => allE.find(e => e.ref === r)).filter(Boolean);
+
+    students.forEach(e => placed.add(e.ref));
+
+    groups.push({
+      pair: { a: dA, b: dB, aL: DAYS_PT[dA], bL: DAYS_PT[dB], label: `${DAYS_PT[dA]}+${DAYS_PT[dB]}` },
+      startMins: sA,
+      startMinsB: sB,
+      startTime: minsToT(sA),
+      endTime: minsToT(sA + CLASS_DUR),
+      startTimeB: minsToT(sB),
+      endTimeB: minsToT(sB + CLASS_DUR),
+      students,
+    });
+  });
+
+  /* ── 6. Sinalizados ── */
+  const noWindows = withReq.filter(e => !studentWindows[e.ref]);
+  const noGroup   = withReq.filter(e => studentWindows[e.ref] && !placed.has(e.ref));
+
+  function whyNoGroup(e){
+    const windows = studentWindows[e.ref];
+    if(!windows) return 'Sem janelas de disponibilidade válidas';
+    const days = [...new Set(windows.map(w => w.dayIdx))];
+    if(days.length < 2) return 'Disponibilidade num único dia — necessita par';
+    return 'Combinação de dias sem grupo suficiente (< 5 alunos compatíveis)';
+  }
+
+  const sinalizados = [
+    ...noWindows.map(e => ({ e, reason: 'invalid-window', why: 'Horário sem janelas válidas reconhecidas' })),
+    ...noGroup.map(e   => ({ e, reason: 'no-group',       why: whyNoGroup(e) })),
   ];
-  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:groups.reduce((s,g)=>s+g.students.length,0),sameDayCt:sameDayB.length,invalidWinCt:invalidB.length,noGroupCt:eligible.filter(e=>!placed.has(e.ref)).length};
+
+  return {
+    groups,
+    sinalizados,
+    total:       all.length,
+    withRequest: withReq.length,
+    placed:      placed.size,
+    sameDayCt:   0,
+    invalidWinCt: noWindows.length,
+    noGroupCt:   noGroup.length,
+  };
 }
 
 /* ══════════════════════════════════════════════
@@ -1381,10 +1401,11 @@ async function commitGroup(levelKey,groupIdx){
     status:'confirmed',audit_log:ar.log||{},audited_at:new Date().toISOString(),
     pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0,
   };
-  const sessions=g.pair.a===g.pair.b
-    ?[{...base,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]}]
-    :[{...base,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]},{...base,turma_code:codeB,day_of_week:DAYS_PT[g.pair.b]}];
-  const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(sessions)});
+ const sessionBase={...base,group_code:groupCode};
+const sessions=g.pair.a===g.pair.b
+  ?[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]}]
+  :[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]},{...sessionBase,turma_code:codeB,day_of_week:DAYS_PT[g.pair.b]}];
+    const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(sessions)});
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
   _retiredCodes.add(codeA);_retiredCodes.add(codeB);
   if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
@@ -1414,9 +1435,10 @@ for(const key of levelKeys){
     }
     done++;setBootProgress(40+Math.round(done/total*40));
   }
+ // ── STEP 1: Load existing DB classes FIRST — before commit loop ──
   setBoot('A verificar turmas existentes…');
   try{
-const existing = await sbGet('classes', `select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+    const existing = await sbGet('classes', `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
@@ -1426,11 +1448,11 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
     existing.forEach(c=>{
-      const gc=c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null;if(!gc)return;
+      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
       const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
       const result=_allResults[key];if(!result)return;
       const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-   result.groups.forEach((g,i)=>{
+      result.groups.forEach((g,i)=>{
         if((_groupCodes[key]||{})[i])return;
         const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
         if(overlap>=Math.floor(g.students.length*0.7)){
@@ -1441,16 +1463,20 @@ const existing = await sbGet('classes', `select=turma_code,level_code,department
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
   setBootProgress(85);
-_exceptionQueue=[];
-for(const key of Object.keys(_allResults)){
-  const result=_allResults[key];
-  result.groups.forEach((g,i)=>{
-    const ar=(_auditResults[key]||{})[i];
-    if(!ar||ar.status==='pass')return;
-    if((_groupCodes[key]||{})[i])return; // already committed — skip
-    _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
-  });
-}
+
+  // ── STEP 2: Build exception queue — _groupCodes now populated from DB ──
+  _exceptionQueue=[];
+  for(const key of Object.keys(_allResults)){
+    const result=_allResults[key];
+    result.groups.forEach((g,i)=>{
+      const ar=(_auditResults[key]||{})[i];
+      if(!ar||ar.status==='pass')return;
+      if((_groupCodes[key]||{})[i])return; // already committed — skip
+      _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
+    });
+  }
+
+  // ── STEP 3: Commit only passing groups not already in DB ──
   setBoot('A certificar grupos limpos…');
   const passing=[];
   for(const key of Object.keys(_allResults)){
@@ -1477,6 +1503,8 @@ for(const key of Object.keys(_allResults)){
     });
   }
   setBootProgress(100);
+
+  // ── STEP 4: Reconcile DB vs engine ──
   (function reconcileDBvsEngine(){
     const warnings=[];
     Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
@@ -1489,10 +1517,9 @@ for(const key of Object.keys(_allResults)){
   })();
   return{committed,exceptions:_exceptionQueue.length};
 }
-
 function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
-
+  
 /* ══════════════════════════════════════════════
    EXCEPTION BAR
 ══════════════════════════════════════════════ */
@@ -1560,7 +1587,6 @@ function switchCC(panel,el){
   document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
   const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
   if(el)el.classList.add('active');
-  if(panel==='watch')renderWatchlist();
   if(panel==='audit')renderAudit();
   if(panel==='decision')renderDecision();
   if(panel==='overview'){_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();}
@@ -1723,9 +1749,12 @@ function renderLevelContent(){
 
   /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
 buildPermanentGrid('sg-grid-container', withReq);
+const _capturedKey = activeLevelKey;
+const _capturedResult = _lastResult;
 requestAnimationFrame(() => requestAnimationFrame(() => {
-  paintCellHeatmap('sg-grid-container', withReq, activeLevelKey, _lastResult);
-  drawStamps('sg-grid-container', activeLevelKey, _lastResult);
+  if (activeLevelKey !== _capturedKey) return;
+  paintCellHeatmap('sg-grid-container', _capturedKey, withReq, _capturedKey, _capturedResult);
+  drawStamps('sg-grid-container', _capturedKey, _capturedResult);
 }));
 }
 
@@ -1905,7 +1934,7 @@ function buildSinalizadosHTML(result){
           <div class="sinal-why">${why}</div>
           <div style="margin-top:3px">${slots}</div>
         </div>
-        <span class="pin-btn" onclick="pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span>
+       
       </div>`;
     }).join('');
   });
@@ -2162,9 +2191,12 @@ function ovDrillToFormation(levelKey){
 
   /* Build grid then draw stamps — both rAF to ensure layout */
 buildPermanentGrid('ov-grid-container', withReq);
+const _ovCapturedKey = levelKey;
+const _ovCapturedResult = _lastResult;
 requestAnimationFrame(() => requestAnimationFrame(() => {
-  paintCellHeatmap('ov-grid-container', withReq, levelKey, _lastResult);
-  drawStamps('ov-grid-container', levelKey, _lastResult);
+  if (_ovActiveLevel !== _ovCapturedKey) return;
+  paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
+  drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
 }));
 }
 
@@ -2184,7 +2216,9 @@ function buildBranchBarChart(students){
   });
 Object.keys(byLevel).forEach(key=>{
     const result=_allResults[key];
-    if(result)byLevel[key].placed=result.placed||0;
+    const enginePlaced=result?result.placed||0:0;
+    const dbPlaced=window._dbPlacedByLevel?.[key]?.size||0;
+    byLevel[key].placed=Math.max(enginePlaced,dbPlaced);
 });
   const rows=Object.values(byLevel).sort((a,b)=>a.order-b.order);
   if(!rows.length)return'';
@@ -2396,65 +2430,6 @@ function renderAudit(){
 }
 
 /* ══════════════════════════════════════════════
-   WATCHLIST
-══════════════════════════════════════════════ */
-function getWatchlist(){try{return JSON.parse(localStorage.getItem('alm-watchlist')||'[]');}catch{return[];}}
-function saveWatchlist(l){localStorage.setItem('alm-watchlist',JSON.stringify(l));updateWatchBadge();}
-function getWatchNotes(r){try{return JSON.parse(localStorage.getItem(`alm-watch-notes-${r}`)||'[]');}catch{return[];}}
-function saveWatchNote(r,t){const n=getWatchNotes(r);n.unshift({text:t,ts:new Date().toISOString()});localStorage.setItem(`alm-watch-notes-${r}`,JSON.stringify(n));}
-
-function pinStudent(ref,name){
-  const list=getWatchlist();
-  if(list.find(s=>s.ref===ref)){showToast(`${name} já está na lista`,'warn');return;}
-  const enrol=allE.find(e=>e.ref===ref),meta=enrol?(getLM(enrol)||{}):{};
-  list.push({ref,name,level:meta.label||'—',pinned:new Date().toISOString(),resolved:false});
-  saveWatchlist(list);updateWatchBadge();showToast(`${name} → acompanhamento 📌`,'ok');
-}
-function unpinStudent(ref){saveWatchlist(getWatchlist().filter(s=>s.ref!==ref));renderWatchlist();showToast('Removido','ok');}
-function resolveStudent(ref){saveWatchlist(getWatchlist().map(s=>s.ref===ref?{...s,resolved:true}:s));renderWatchlist();showToast('Resolvido ✓','ok');}
-function clearResolvedWatch(){saveWatchlist(getWatchlist().filter(s=>!s.resolved));renderWatchlist();showToast('Resolvidos removidos','ok');}
-function setWF(btn){watchFilter=btn.dataset.wf;document.querySelectorAll('#panel-watch .fbt[data-wf]').forEach(b=>b.classList.remove('act'));btn.classList.add('act');renderWatchlist();}
-function updateWatchBadge(){const n=getWatchlist().filter(s=>!s.resolved).length;const b=document.getElementById('badge-watch');if(b)b.textContent=n||'0';}
-
-function renderWatchlist(){
-  let list=getWatchlist();
-  if(watchFilter==='pending')list=list.filter(s=>!s.resolved);
-  if(watchFilter==='resolved')list=list.filter(s=>s.resolved);
-  const all=getWatchlist();
-  document.getElementById('w-total').textContent=all.length;
-  document.getElementById('w-sem').textContent=all.filter(s=>!s.resolved).length;
-  document.getElementById('w-ok').textContent=all.filter(s=>s.resolved).length;
-  if(!list.length){document.getElementById('watch-rows').innerHTML=`<div style="padding:40px;text-align:center;color:var(--t3);font-size:9px">Sem alunos na lista.</div>`;return;}
-  document.getElementById('watch-rows').innerHTML=list.map(s=>{
-    const req=rByRef[s.ref],status=req?normS(req.status):'sem_pedido';
-    const stCol=status==='atribuido'?'var(--green)':status==='sem_pedido'?'var(--red)':'var(--amber)';
-    const notes=getWatchNotes(s.ref),col=avCol(s.name);
-    const border=s.resolved?'var(--green)':'var(--amber)';
-    return`<div class="watch-card" id="wc-${s.ref}" style="border-left-color:${border}">
-      <div class="watch-card-hdr" onclick="this.closest('.watch-card').classList.toggle('open')">
-        <div class="watch-av" style="background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(s.name)}</div>
-        <div style="flex:1;min-width:0"><div class="watch-name">${s.name||s.ref}</div><div class="watch-meta">${s.ref} · ${s.level} · ${new Date(s.pinned).toLocaleDateString('pt-PT')}</div></div>
-        <div style="display:flex;gap:5px;align-items:center;margin-right:8px">
-          <span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55">${status==='atribuido'?'atribuído':status==='sem_pedido'?'sem pedido':'pendente'}</span>
-          ${s.resolved?'<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 5px;border:1px solid var(--green-b)">✓</span>':''}
-          ${notes.length?`<span style="font-size:7px;font-weight:700;color:var(--gold2);padding:1px 5px;border:1px solid var(--b2)">${notes.length}</span>`:''}
-        </div>
-        <div style="display:flex;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
-          <button class="watch-btn watch-btn-open" onclick="openDossier('${s.ref}')">Dossier ↗</button>
-          ${!s.resolved?`<button class="watch-btn" style="border-color:var(--green-b);color:var(--green)" onclick="resolveStudent('${s.ref}')">✓</button>`:''}
-          <button class="watch-btn watch-btn-unpin" onclick="unpinStudent('${s.ref}')">✕</button>
-        </div>
-      </div>
-      <div class="watch-body">
-        <div>${notes.length?notes.map(n=>`<div class="watch-note-row"><div>${n.text}</div><div class="watch-note-meta">${new Date(n.ts).toLocaleString('pt-PT')}</div></div>`).join(''):'<div style="font-size:8px;color:var(--t3);padding:4px 0">Sem notas ainda.</div>'}</div>
-        <textarea class="watch-note-inp" id="wi-${s.ref}" placeholder="Adicionar nota…"></textarea>
-        <button class="watch-save-btn" onclick="(function(){const v=document.getElementById('wi-${s.ref}').value.trim();if(!v)return;saveWatchNote('${s.ref}',v);renderWatchlist();setTimeout(()=>{const c=document.getElementById('wc-${s.ref}');if(c)c.classList.add('open');},50);showToast('Nota guardada ✓','ok')})()">✓ Guardar nota</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-/* ══════════════════════════════════════════════
    V10 DOSSIER
 ══════════════════════════════════════════════ */
 const DS_FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
@@ -2516,7 +2491,6 @@ async function openDossier(ref){
   if(enrol?.age)items.push(`<span class="ds-ci">${enrol.age} anos</span>`);
   if(enrol?.phone)items.push(`<a class="ds-ci ds-ci-link" href="tel:${enrol.phone}">📞 ${enrol.phone}</a>`);
   if(enrol?.email)items.push(`<a class="ds-ci ds-ci-link" href="mailto:${enrol.email}">✉ ${enrol.email}</a>`);
-  items.push(`<span class="ds-ci ds-ci-link" onclick="pinStudent('${ref}','${(enrol?.name||ref).replace(/'/g,"\\'")}')" style="cursor:pointer">📌 Acompanhar</span>`);
   document.getElementById('ds-strip').innerHTML=items.join(`<span class="ds-ci-sep">·</span>`);
 
   let turmaInfo='—';
@@ -2696,7 +2670,7 @@ async function boot(){
     document.getElementById('pill-status').textContent='Supabase OK';
     document.getElementById('pill-status').className='tb-status ok';
     updateSidebarKPIs();initBranchStrip();renderTree();
-    updateWatchBadge();renderExcBar();
+    renderExcBar();
 
     document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
     document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
@@ -2720,7 +2694,6 @@ async function boot(){
   }
 }
 
-updateWatchBadge();
 boot();
 </script>
 </body>
