@@ -762,18 +762,18 @@ const H   = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'applicatio
    Both alm-mensagens.html and alm-ficha-professor.html use this same shape.
 */
 function noticePayload({recipient, teacherId, turmaCode, urgency, subject, body, studentRef, documentUrl}){
+  const isIndividual = teacherId && recipient !== 'all' && recipient !== 'today';
   return {
-    recipient:    recipient   || 'all',       // 'all' | 'today' | teacher_uuid
-    teacher_id:   teacherId   || null,        // null when recipient is 'all'/'today'
+    recipient:    isIndividual ? null : (recipient || 'all'),
+    teacher_id:   teacherId   || null,
     turma_code:   turmaCode   || null,
     urgency:      urgency     || 'informativo',
     subject:      subject,
     body:         body        || null,
     document_url: documentUrl || null,
-    student_ref:  studentRef  || null,        // links to enrolments.ref
+    student_ref:  studentRef  || null,
     status:       'pending',
     created_at:   new Date().toISOString(),
-    // read_at intentionally omitted — set on PATCH when teacher reads
   };
 }
 
