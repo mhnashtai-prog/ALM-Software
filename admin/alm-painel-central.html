@@ -1608,17 +1608,27 @@ async function refreshData(){
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r;});
     document.getElementById('pill-total').textContent=`${allE.length} al`;
+    // Always re-run engine for every level — never skip cached results
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
       if(withReq.length>=MIN_G){
         _allResults[key]=buildProposals(key,'all');
-        if(!_auditResults[key])_auditResults[key]={};
+        _auditResults[key]={};
         _allResults[key].groups.forEach((g,i)=>{
           if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);
         });
+      } else {
+        // Level fell below minimum — clear stale result
+        delete _allResults[key];
       }
     }
     updateSidebarKPIs();initBranchStrip();renderExcBar();
+    renderTree();
+    // Re-render active level if one is selected
+    if(activeLevelKey){
+      _lastResult=_allResults[activeLevelKey]||null;
+      renderLevelContent();
+    }
     document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
     document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
   }catch(err){setConn(false);console.warn('refreshData error',err);}
@@ -2046,11 +2056,17 @@ function toggleDept(dk){openDepts[dk]=!openDepts[dk];renderTree();}
 
 function selectLevel(key){
   activeLevelKey=key;_sinalOpen=false;
-  _lastResult=_allResults[key]||null;
-  if(!_lastResult){
-    const withReq=locStu().filter(e=>lk(e)===key&&!!rByRef[e.ref]);
-    if(withReq.length>=MIN_G){_lastResult=buildProposals(key,'all');_allResults[key]=_lastResult;if(!_auditResults[key])_auditResults[key]={};_lastResult.groups.forEach((g,i)=>{_auditResults[key][i]=auditGroupSync(g);});}
+  const withReq=locStu().filter(e=>lk(e)===key&&!!rByRef[e.ref]);
+  if(withReq.length>=MIN_G){
+    _allResults[key]=buildProposals(key,'all');
+    _auditResults[key]={};
+    _allResults[key].groups.forEach((g,i)=>{
+      if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);
+    });
+  } else {
+    delete _allResults[key];
   }
+  _lastResult=_allResults[key]||null;
   renderTree();renderLevelContent();
 }
 
@@ -2724,6 +2740,10 @@ async function boot(){
 }
 
 boot();
+// Poll for new data every 60 seconds
+setInterval(()=>{
+  if(_bootComplete) refreshData();
+}, 60000);
 </script>
 </body>
 </html>
