@@ -1834,18 +1834,15 @@ function buildPresencas(tm){
     const refs=slot.student_refs||[];
     if(!refs.length) return;
 
-    // Build all lesson dates for this slot
     const dates=buildDatesForDow(slot.day_of_week).filter(d=>d<=todayISO());
     if(!dates.length) return;
 
-    // Build attendance lookup: { student_ref: { date: status } }
     const lookup={};
     refs.forEach(ref=>{lookup[ref]={};});
     ATTEND.filter(a=>a.turma_code===tc).forEach(a=>{
       if(lookup[a.student_ref]) lookup[a.student_ref][a.date]=a.status;
     });
 
-    // Per-student totals
     const stuTotals={};
     refs.forEach(ref=>{
       let p=0,f=0,l=0;
@@ -1858,7 +1855,6 @@ function buildPresencas(tm){
       stuTotals[ref]={p,f,l,total:dates.length};
     });
 
-    // Per-lesson totals
     const lessonTotals={};
     dates.forEach(d=>{
       let p=0,f=0,l=0;
@@ -1871,55 +1867,65 @@ function buildPresencas(tm){
       lessonTotals[d]={p,f,l};
     });
 
-    const subDate=tm.submissions[tc]?.slotDate||todayISO();
-    const info=getLessonInfo(slot.day_of_week,subDate);
     const todayKey=DAY_JS[new Date().getDay()];
     const isToday=slot.day_of_week===todayKey;
     const hasTodaySub=!!(tm.submissions[tc]?.isToday);
+    const subDate=tm.submissions[tc]?.slotDate||todayISO();
+    const info=getLessonInfo(slot.day_of_week,subDate);
 
-    html+=`<div style="margin-bottom:28px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:${col}">${tc}</span>
+    html+=`
+    <div style="margin-bottom:32px">
+
+      <!-- Class header -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;padding:0 2px">
+        <span style="font-family:var(--display);font-size:22px;letter-spacing:3px;color:${col}">${tc}</span>
         <span style="font-size:9px;color:var(--teal);font-weight:700">${slot.start_time||slot.hour+'h'}–${slot.end_time||''}</span>
         <span style="font-size:8px;color:var(--t3)">${DAY_FULL[slot.day_of_week]||slot.day_of_week}</span>
-        <span style="font-size:8px;color:var(--t3)">${dates.length} aulas registadas</span>
-        ${isToday?(hasTodaySub?'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)">✓ Hoje submetido</span>':'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)">⚠ Hoje pendente</span>'):''}
+        <span style="font-size:8px;color:var(--t3)">${dates.length} aulas · ${refs.length} alunos</span>
+        ${isToday?(hasTodaySub
+          ?'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--green-c);border:.5px solid var(--green-b);color:var(--green)">✓ Hoje submetido</span>'
+          :'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:var(--red-a);border:.5px solid var(--red-b);color:var(--red)">⚠ Hoje pendente</span>')
+        :''}
       </div>
 
-      <div style="overflow-x:auto;border:.5px solid var(--b2);border-radius:6px">
-        <table style="border-collapse:collapse;min-width:100%;font-family:var(--mono)">
+      <!-- Register table -->
+      <div style="overflow-x:auto;border-radius:4px;border:.5px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.5)">
+        <table style="border-collapse:collapse;font-family:var(--mono);background:#fff">
 
           <!-- HEADER ROW 1: lesson numbers -->
           <thead>
-            <tr style="background:rgba(0,0,0,.35)">
-              <th style="position:sticky;left:0;z-index:10;background:#0E0C1A;padding:5px 10px;text-align:left;font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--t3);border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b2);white-space:nowrap;min-width:160px">ALUNO</th>
-              <th style="padding:4px 6px;font-size:7px;font-weight:700;letter-spacing:.08em;color:var(--t3);border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b2);text-align:center;white-space:nowrap">Nº Mat</th>
+            <tr style="background:#f0f0f0">
+              <th style="position:sticky;left:0;z-index:10;background:#e8e8e8;padding:5px 8px;text-align:center;font-size:7px;font-weight:700;letter-spacing:.08em;color:#444;border-right:1px solid #bbb;border-bottom:1px solid #bbb;white-space:nowrap;min-width:64px">Nº Mat</th>
+              <th style="position:sticky;left:64px;z-index:10;background:#e8e8e8;padding:5px 10px;text-align:left;font-size:7px;font-weight:700;letter-spacing:.08em;color:#444;border-right:2px solid #999;border-bottom:1px solid #bbb;white-space:nowrap;min-width:160px">NOME</th>
               ${dates.map((d,i)=>{
                 const isT=d===todayISO();
                 const lNum=String(i+1).padStart(2,'0');
-                return`<th style="padding:4px 3px;font-size:8px;font-weight:700;color:${isT?'var(--green)':'var(--gold2)'};border-right:.5px solid var(--b);border-bottom:.5px solid var(--b2);text-align:center;min-width:28px;background:${isT?'rgba(29,184,122,.1)':'transparent'}">${lNum}</th>`;
+                const dt=new Date(d+'T12:00:00');
+                const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                return`<th title="${fullDate}" style="padding:4px 2px;font-size:8px;font-weight:700;color:${isT?'#1a8a5a':'#555'};border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;min-width:28px;background:${isT?'#e8fff5':'#f0f0f0'};cursor:default">${lNum}</th>`;
               }).join('')}
-              <th style="padding:4px 8px;font-size:7px;font-weight:700;letter-spacing:.08em;color:var(--green);border-left:.5px solid var(--b2);border-bottom:.5px solid var(--b2);text-align:center;white-space:nowrap">P</th>
-              <th style="padding:4px 8px;font-size:7px;font-weight:700;letter-spacing:.08em;color:var(--red);border-right:.5px solid var(--b);border-bottom:.5px solid var(--b2);text-align:center;white-space:nowrap">F</th>
-              <th style="padding:4px 8px;font-size:7px;font-weight:700;letter-spacing:.08em;color:var(--amber);border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b2);text-align:center;white-space:nowrap">A</th>
-              <th style="padding:4px 8px;font-size:7px;font-weight:700;letter-spacing:.08em;color:var(--teal);border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b2);text-align:center;white-space:nowrap">%</th>
+              <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#1a8a5a;border-left:2px solid #999;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">P</th>
+              <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#c03030;border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">F</th>
+              <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#a06010;border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">A</th>
+              <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#1a5a8a;border-right:1px solid #bbb;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">%</th>
             </tr>
 
-            <!-- HEADER ROW 2: dates -->
-            <tr style="background:rgba(0,0,0,.2)">
-            <th style="position:sticky;left:0;z-index:10;background:#0E0C1A;border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b3)"></th>
-             <th style="border-right:.5px solid var(--b2);border-bottom:.5px solid var(--b3)"></th>
+            <!-- HEADER ROW 2: day numbers -->
+            <tr style="background:#f8f8f8">
+              <th style="position:sticky;left:0;z-index:10;background:#f0f0f0;border-right:1px solid #bbb;border-bottom:2px solid #999"></th>
+              <th style="position:sticky;left:64px;z-index:10;background:#f0f0f0;border-right:2px solid #999;border-bottom:2px solid #999"></th>
               ${dates.map(d=>{
-              const isT=d===todayISO();
-              const dt=new Date(d+'T12:00:00');
-              const dd=String(dt.getDate()).padStart(2,'0');
-              const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-               return`<th title="${fullDate}" style="padding:2px 1px;font-size:6px;color:${isT?'var(--green)':'var(--t3)'};border-right:.5px solid var(--b);border-bottom:.5px solid var(--b3);text-align:center;white-space:nowrap;background:${isT?'rgba(29,184,122,.08)':'transparent'};cursor:default">${dd}</th>`;
-                }).join('')}
-               <th colspan="4" style="border-left:.5px solid var(--b2);border-bottom:.5px solid var(--b3)"></th>
-               </tr>
+                const isT=d===todayISO();
+                const dt=new Date(d+'T12:00:00');
+                const dd=String(dt.getDate()).padStart(2,'0');
+                const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                return`<th title="${fullDate}" style="padding:2px 1px;font-size:6.5px;font-weight:600;color:${isT?'#1a8a5a':'#888'};border-right:1px solid #ddd;border-bottom:2px solid #999;text-align:center;background:${isT?'#e8fff5':'#f8f8f8'};cursor:default">${dd}</th>`;
+              }).join('')}
+              <th colspan="4" style="border-left:2px solid #999;border-bottom:2px solid #999;background:#f0f0f0"></th>
+            </tr>
+          </thead>
 
-          <!-- BODY: one row per student -->
+          <!-- BODY -->
           <tbody>
             ${refs.map((ref,ri)=>{
               const enr=ENROL_MAP[ref]||{name:ref};
@@ -1927,53 +1933,57 @@ function buildPresencas(tm){
               const pct=tot.total>0?Math.round(tot.p/tot.total*100):0;
               const alerted=isAlerted(ref), minor=isMinorMap[ref]??false;
               const justified=justifiedRefs.has(ref);
-              const rowBg=ri%2===0?'rgba(255,255,255,.012)':'transparent';
-              const nameCol=alerted?(minor?'var(--red)':'var(--amber)'):'var(--t)';
-              const pctCol=pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
-              return`<tr style="background:${rowBg};transition:background .1s" onmouseover="this.style.background='rgba(201,168,76,.06)'" onmouseout="this.style.background='${rowBg}'">
-                <td style="position:sticky;left:0;z-index:5;background:${ri%2===0?'#0f0d1c':'#0E0C1A'};padding:4px 10px;border-right:.5px solid var(--b2);border-bottom:.5px solid rgba(255,255,255,.03);white-space:nowrap;cursor:pointer" onclick="openStuModal(event,'${ref}','${tc}','${SEL_TEACHER||''}')">
+              const rowBg=ri%2===0?'#ffffff':'#f7f7f7';
+              const nameCol=alerted?(minor?'#c03030':'#a06010'):'#1a1a1a';
+              const pctCol=pct>=80?'#1a8a5a':pct>=60?'#a06010':'#c03030';
+              return`<tr style="background:${rowBg}" onmouseover="this.style.background='#fffde8'" onmouseout="this.style.background='${rowBg}'">
+                <td style="position:sticky;left:0;z-index:5;background:${rowBg};padding:3px 8px;border-right:1px solid #bbb;border-bottom:1px solid #e8e8e8;text-align:center;white-space:nowrap;font-size:8.5px;font-weight:700;color:#555;cursor:pointer" onclick="openStuModal(event,'${ref}','${tc}','${SEL_TEACHER||''}')">${ref}</td>
+                <td style="position:sticky;left:64px;z-index:5;background:${rowBg};padding:3px 10px;border-right:2px solid #999;border-bottom:1px solid #e8e8e8;white-space:nowrap;cursor:pointer" onclick="openStuModal(event,'${ref}','${tc}','${SEL_TEACHER||''}')">
                   <span style="font-size:9.5px;font-weight:500;color:${nameCol}">${enr.name||ref}</span>
-                  ${alerted?`<span style="font-size:7px;margin-left:4px;color:${minor?'var(--red)':'var(--amber)'}">${minor?'🚨':'⚠'}</span>`:''}
-                  ${justified?'<span style="font-size:7px;margin-left:3px;color:var(--green)">✓J</span>':''}
+                  ${alerted?`<span style="font-size:7px;margin-left:4px;color:${minor?'#c03030':'#a06010'}">${minor?'🚨':'⚠'}</span>`:''}
+                  ${justified?'<span style="font-size:7px;margin-left:3px;color:#1a8a5a">✓J</span>':''}
                 </td>
-                <td style="padding:4px 6px;font-size:8px;color:var(--t3);border-right:.5px solid var(--b2);border-bottom:.5px solid rgba(255,255,255,.03);text-align:center">${ref}</td>
                 ${dates.map(d=>{
                   const s=lookup[ref]?.[d];
                   const isT=d===todayISO();
                   const dt=new Date(d+'T12:00:00');
-                  const dateStr=dt.toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'});
-                  let bg='transparent', symbol='', symCol='var(--t4)';
-                  if(s==='present'){bg='rgba(29,184,122,.15)';symbol='●';symCol='var(--green)';}
-                  else if(s==='absent'){bg='rgba(232,69,90,.12)';symbol='✕';symCol='var(--red)';}
-                  else if(s==='late'){bg='rgba(232,160,32,.12)';symbol='▲';symCol='var(--amber)';}
-                  else if(isT){bg='rgba(201,168,76,.06)';}
-                  return`<td style="padding:3px 2px;text-align:center;background:${bg};border-right:.5px solid rgba(255,255,255,.04);border-bottom:.5px solid rgba(255,255,255,.03)" title="${dateStr} · ${s||'sem registo'}">
-                    <span style="font-size:9px;color:${symCol};line-height:1">${symbol||''}</span>
+                  const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                  let bg, symbol, symCol, fw='700';
+                  if(s==='present')     {bg='#e8fff2';symbol='●';symCol='#1a8a5a';}
+                  else if(s==='absent') {bg='#fff0f0';symbol='✕';symCol='#c03030';}
+                  else if(s==='late')   {bg='#fff8e8';symbol='▲';symCol='#a06010';}
+                  else if(isT)          {bg='#fffde8';symbol='';symCol='transparent';}
+                  else                  {bg=ri%2===0?'#ffffff':'#f7f7f7';symbol='';symCol='#ccc';}
+                  return`<td title="${fullDate} · ${s||'sem registo'}" style="padding:3px 2px;text-align:center;background:${bg};border-right:1px solid #e0e0e0;border-bottom:1px solid #e8e8e8;cursor:default">
+                    <span style="font-size:9px;font-weight:${fw};color:${symCol};line-height:1;display:block">${symbol}</span>
                   </td>`;
                 }).join('')}
-                <td style="padding:4px 8px;font-size:9px;font-weight:700;color:var(--green);border-left:.5px solid var(--b2);border-bottom:.5px solid rgba(255,255,255,.03);text-align:center">${tot.p}</td>
-                <td style="padding:4px 8px;font-size:9px;font-weight:700;color:${tot.f>0?'var(--red)':'var(--t3)'};border-right:.5px solid var(--b);border-bottom:.5px solid rgba(255,255,255,.03);text-align:center">${tot.f}</td>
-                <td style="padding:4px 8px;font-size:9px;font-weight:700;color:${tot.l>0?'var(--amber)':'var(--t3)'};border-right:.5px solid var(--b2);border-bottom:.5px solid rgba(255,255,255,.03);text-align:center">${tot.l}</td>
-                <td style="padding:4px 8px;font-size:9px;font-weight:700;color:${pctCol};border-right:.5px solid var(--b2);border-bottom:.5px solid rgba(255,255,255,.03);text-align:center">${tot.total>0?pct+'%':'—'}</td>
+                <td style="padding:3px 6px;font-size:9px;font-weight:700;color:#1a8a5a;border-left:2px solid #999;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.p}</td>
+                <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${tot.f>0?'#c03030':'#aaa'};border-right:1px solid #ddd;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.f}</td>
+                <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${tot.l>0?'#a06010':'#aaa'};border-right:1px solid #ddd;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.l}</td>
+                <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${pctCol};border-right:1px solid #bbb;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.total>0?pct+'%':'—'}</td>
               </tr>`;
             }).join('')}
           </tbody>
 
-          <!-- FOOTER: per-lesson totals -->
+          <!-- FOOTER: per-lesson attendance totals -->
           <tfoot>
-            <tr style="background:rgba(0,0,0,.3)">
-              <td style="position:sticky;left:0;z-index:5;background:#0a0914;padding:4px 10px;font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--t3);border-right:.5px solid var(--b2);border-top:.5px solid var(--b2)">TOTAL PRESENTES</td>
-              <td style="border-right:.5px solid var(--b2);border-top:.5px solid var(--b2)"></td>
+            <tr style="background:#f0f0f0">
+              <td style="position:sticky;left:0;z-index:5;background:#e8e8e8;padding:3px 8px;font-size:7px;font-weight:700;letter-spacing:.08em;color:#555;border-right:1px solid #bbb;border-top:2px solid #999;text-align:center">—</td>
+              <td style="position:sticky;left:64px;z-index:5;background:#e8e8e8;padding:3px 10px;font-size:7px;font-weight:700;letter-spacing:.08em;color:#555;border-right:2px solid #999;border-top:2px solid #999;white-space:nowrap">PRESENTES / TURMA</td>
               ${dates.map(d=>{
                 const lt=lessonTotals[d], total=refs.length;
                 const pct=total>0?Math.round(lt.p/total*100):0;
-                const bg=pct>=80?'rgba(29,184,122,.12)':pct>=60?'rgba(232,160,32,.1)':'rgba(232,69,90,.1)';
-                const fc=pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
-                return`<td style="padding:3px 2px;text-align:center;background:${bg};border-right:.5px solid rgba(255,255,255,.04);border-top:.5px solid var(--b2)" title="${lt.p}/${total} · ${pct}%">
+                const bg=pct>=80?'#e8fff2':pct>=60?'#fff8e8':'#fff0f0';
+                const fc=pct>=80?'#1a8a5a':pct>=60?'#a06010':'#c03030';
+                const isT=d===todayISO();
+                const dt=new Date(d+'T12:00:00');
+                const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                return`<td title="${fullDate} · ${lt.p}/${total} · ${pct}%" style="padding:3px 2px;text-align:center;background:${isT?'#e8fff5':bg};border-right:1px solid #ddd;border-top:2px solid #999">
                   <span style="font-size:7.5px;font-weight:700;color:${fc}">${lt.p}</span>
                 </td>`;
               }).join('')}
-              <td colspan="4" style="border-left:.5px solid var(--b2);border-top:.5px solid var(--b2)"></td>
+              <td colspan="4" style="border-left:2px solid #999;border-top:2px solid #999;background:#e8e8e8"></td>
             </tr>
           </tfoot>
 
@@ -1981,13 +1991,14 @@ function buildPresencas(tm){
       </div>
 
       <!-- Legend -->
-      <div style="display:flex;gap:12px;margin-top:6px;padding:0 2px">
-        <span style="font-size:7.5px;color:var(--green)">● Presente</span>
-        <span style="font-size:7.5px;color:var(--red)">✕ Falta</span>
-        <span style="font-size:7.5px;color:var(--amber)">▲ Atraso</span>
-        <span style="font-size:7.5px;color:var(--t3)">· Sem registo</span>
-        <span style="font-size:7.5px;color:var(--t3);margin-left:auto">Clique no nome para acções rápidas</span>
+      <div style="display:flex;gap:14px;margin-top:5px;padding:0 2px;align-items:center">
+        <span style="font-size:7.5px;color:#1a8a5a;font-weight:700">● Presente</span>
+        <span style="font-size:7.5px;color:#c03030;font-weight:700">✕ Falta</span>
+        <span style="font-size:7.5px;color:#a06010;font-weight:700">▲ Atraso</span>
+        <span style="font-size:7.5px;color:#aaa">· Sem registo</span>
+        <span style="font-size:7.5px;color:#888;margin-left:auto;font-style:italic">Passe o rato sobre uma aula para ver a data · clique no aluno para acções</span>
       </div>
+
     </div>`;
   });
 
