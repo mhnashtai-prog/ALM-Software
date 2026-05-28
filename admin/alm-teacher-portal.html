@@ -618,6 +618,17 @@ select.sf-inp{cursor:pointer}
   </div>
 
 </div>
+  <!-- ═══ PAUTA ANUAL ═══ -->
+<div class="shell" style="padding:0">
+  <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;background:rgba(0,0,0,.18);border-bottom:1px solid var(--b);border-top:1px solid var(--b)">
+    <span style="font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)">Pauta Anual</span>
+    <span style="font-size:8px;color:var(--t3)" id="pauta-status">—</span>
+    <button onclick="togglePauta()" id="pauta-toggle-btn" style="margin-left:auto;padding:2px 10px;border:.5px solid var(--b2);background:transparent;color:var(--t3);font-family:var(--mono);font-size:8px;cursor:pointer;border-radius:2px;letter-spacing:.06em">▼ Mostrar</button>
+  </div>
+  <div id="pauta-wrap" style="display:none;padding:16px 12px;background:var(--bg2);border-bottom:1px solid var(--b)">
+    <div id="pauta-content" style="color:var(--t3);font-size:10px;font-style:italic">A carregar…</div>
+  </div>
+</div>
 
 <!-- ═══ ACTION MODAL ═══ -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
@@ -1151,7 +1162,7 @@ function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').to
 function getDept(c){if(c.department)return c.department;if(c.group_key){const last=(c.group_key||'').split('-').pop().toLowerCase();if(['kids','kids_juv','exam','adults'].includes(last))return last;}return LEVEL_MAP[(c.level_code||'').trim()]?.dept||'adults';}
 function getDC(c){return DEPT_CONFIG[getDept(c)]||DEPT_CONFIG.adults;}
 
-let ALL_TEACHERS=[],ME=null,MY_CLASSES=[],SCHEDULE={},ENROL_BY_REF={},ATTEND_WEEK={};
+let ALL_TEACHERS=[],ME=null,MY_CLASSES=[],SCHEDULE={},ENROL_BY_REF={},ATTEND_WEEK={},ATTEND_YEAR={};
 let currentSlot=null,currentStuIdx=null,stuModalMode=null,isSaving=false;
 let _connFails=0;
 
@@ -1206,6 +1217,21 @@ async function loadTeacherData(){
       const weekDates=currentWeekDates();
       try{const attRows=await sbGet('attendance',`turma_code=in.(${turmaCodes.join(',')})&date=in.(${weekDates.join(',')})&select=turma_code,student_ref,status,date&limit=5000`);attRows.forEach(row=>{if(!ATTEND_WEEK[row.date])ATTEND_WEEK[row.date]={};if(!ATTEND_WEEK[row.date][row.turma_code])ATTEND_WEEK[row.date][row.turma_code]={};ATTEND_WEEK[row.date][row.turma_code][row.student_ref]=row.status;});}catch(e){console.warn('attendance week:',e);}
     }
+    
+      // Full year attendance
+    if(turmaCodes.length){
+      try{
+        const yearRows=await sbGet('attendance',
+          `turma_code=in.(${turmaCodes.join(',')})&date=gte.${YEAR_START}&date=lte.${YEAR_END}&select=turma_code,student_ref,status,date&limit=50000`
+        );
+        yearRows.forEach(row=>{
+          if(!ATTEND_YEAR[row.turma_code]) ATTEND_YEAR[row.turma_code]={};
+          if(!ATTEND_YEAR[row.turma_code][row.student_ref]) ATTEND_YEAR[row.turma_code][row.student_ref]={};
+          ATTEND_YEAR[row.turma_code][row.student_ref][row.date]=row.status;
+        });
+      }catch(e){console.warn('attendance year:',e);}
+    }
+    
     classes.forEach(cls=>{
       let refs=[];if(Array.isArray(cls.student_refs))refs=cls.student_refs;else try{refs=JSON.parse(cls.student_refs||'[]');}catch{}
       const DAY_ABBRS=new Set(['SEG','TER','QUA','QUI','SEX','SAB','SÁB']);
@@ -1239,9 +1265,15 @@ async function loadTeacherData(){
     setSb('ok','Supabase ✓');
     renderHeroStats(totalStu);
   }catch(e){setConnState(false);setSb('err','Erro Supabase: '+e.message);showToast('Erro ao carregar turmas','err');console.error(e);}
-  buildGrid();buildTodayStrip();
+buildGrid();buildTodayStrip();
+  _pautaBuilt=false;
+  if(_pautaOpen){
+    document.getElementById('pauta-content').innerHTML=buildPresencas();
+    const count=MY_CLASSES.filter(c=>c.students.length>0).length;
+    document.getElementById('pauta-status').textContent=`${count} turma${count!==1?'s':''} · ${AY||''}`;
+  }
 }
-
+  
 function currentWeekDates(){const now=new Date(),dow=now.getDay()||7,mon=new Date(now);mon.setDate(now.getDate()-(dow-1));const dates=[];for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);dates.push(d.toISOString().slice(0,10));}return dates;}
 function dayDateMap(){const map={};currentWeekDates().forEach(iso=>{const dow=new Date(iso+'T12:00:00').getDay();const key=DAY_JS[dow];if(key)map[key]=iso;});return map;}
 
@@ -1732,6 +1764,231 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter')confirmAction();
 });
 
+  function buildPresencas(tm){
+  if(!MY_CLASSES.length) return `<div style="padding:24px;text-align:center;font-size:10px;color:var(--t3)">Sem turmas atribuídas</div>`;
+
+  let html='';
+
+  MY_CLASSES.forEach(slot=>{
+    const tc=slot.turmaCode;
+    const dept=slot.dept||'adults';
+    const col=DEPT_COLOURS[dept]||'var(--c-ger)';
+    const refs=(slot.students||[]).map(s=>s.ref);
+    if(!refs.length) return;
+
+    // Build all lesson dates for this slot
+    const dow=DOW_MAP[(slot.day||'').toUpperCase().trim()];
+    if(!dow) return;
+    const allDates=[];
+    if(YEAR_START&&YEAR_END){
+      const d=new Date(YEAR_START+'T12:00:00'), end=new Date(YEAR_END+'T12:00:00');
+      while(d<=end){
+        if(d.getDay()===dow){
+          const iso=d.toISOString().slice(0,10);
+          if(isTeachingDay(iso)) allDates.push(iso);
+        }
+        d.setDate(d.getDate()+1);
+      }
+    }
+    const dates=allDates.filter(d=>d<=todayISO());
+    if(!dates.length) return;
+
+    // Build lookup from ATTEND_YEAR
+    const lookup={};
+    refs.forEach(ref=>{lookup[ref]={};});
+    if(ATTEND_YEAR[tc]){
+      refs.forEach(ref=>{
+        if(ATTEND_YEAR[tc][ref]){
+          dates.forEach(d=>{
+            if(ATTEND_YEAR[tc][ref][d]) lookup[ref][d]=ATTEND_YEAR[tc][ref][d];
+          });
+        }
+      });
+    }
+
+    // Per-student totals
+    const stuTotals={};
+    refs.forEach(ref=>{
+      let p=0,f=0,l=0;
+      dates.forEach(d=>{
+        const s=lookup[ref]?.[d];
+        if(s==='present') p++;
+        else if(s==='absent') f++;
+        else if(s==='late') l++;
+      });
+      stuTotals[ref]={p,f,l,total:dates.length};
+    });
+
+    // Per-lesson totals
+    const lessonTotals={};
+    dates.forEach(d=>{
+      let p=0,f=0,l=0;
+      refs.forEach(ref=>{
+        const s=lookup[ref]?.[d];
+        if(s==='present') p++;
+        else if(s==='absent') f++;
+        else if(s==='late') l++;
+      });
+      lessonTotals[d]={p,f,l};
+    });
+
+    const todayKey=DAY_JS[new Date().getDay()];
+    const isToday=slot.day===todayKey;
+    const hasTodaySub=slot.hasSubmission&&isToday;
+    const lNum=isToday?lessonNumber(slot.day,todayISO()):0;
+    const lTotal=totalLessons(slot.day);
+
+    html+=`
+    <div style="margin-bottom:32px">
+      <div style="border-left:4px solid;border-color:${col};padding-left:12px;border-radius:0 4px 4px 0">
+
+        <!-- Class header -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;padding:0 2px">
+          <span style="font-family:var(--display);font-size:22px;letter-spacing:3px;color:${col}">${tc}</span>
+          <span style="font-size:9px;color:var(--teal);font-weight:700">${slot.start||slot.h+'h'}–${slot.end||''}</span>
+          <span style="font-size:8px;color:var(--t3)">${DAY_FULL[slot.day]||slot.day}</span>
+          <span style="font-size:8px;color:var(--t3)">${dates.length} aulas · ${refs.length} alunos</span>
+          ${isToday?(hasTodaySub
+            ?'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:rgba(29,184,122,.1);border:.5px solid rgba(29,184,122,.38);color:var(--green)">✓ Hoje submetido</span>'
+            :'<span style="font-size:8px;font-weight:700;padding:2px 8px;border-radius:2px;background:rgba(232,69,90,.13);border:.5px solid rgba(232,69,90,.32);color:var(--red)">⚠ Hoje pendente</span>')
+          :''}
+        </div>
+
+        <!-- Register table -->
+        <div style="overflow-x:auto;border-radius:4px;border:.5px solid #ccc;box-shadow:0 2px 12px rgba(0,0,0,.5)">
+          <table style="border-collapse:collapse;font-family:var(--mono);background:#fff">
+
+            <!-- HEADER ROW 1: lesson numbers -->
+            <thead>
+              <tr style="background:#f0f0f0">
+                <th style="position:sticky;left:0;z-index:10;background:#e8e8e8;padding:5px 8px;text-align:center;font-size:7px;font-weight:700;letter-spacing:.08em;color:#444;border-right:1px solid #bbb;border-bottom:1px solid #bbb;white-space:nowrap;min-width:64px">Nº Mat</th>
+                <th style="position:sticky;left:64px;z-index:10;background:#e8e8e8;padding:5px 10px;text-align:left;font-size:7px;font-weight:700;letter-spacing:.08em;color:#444;border-right:2px solid #999;border-bottom:1px solid #bbb;white-space:nowrap;min-width:160px">NOME</th>
+                ${dates.map((d,i)=>{
+                  const isT=d===todayISO();
+                  const lNum=String(i+1).padStart(2,'0');
+                  const dt=new Date(d+'T12:00:00');
+                  const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                  return`<th title="${fullDate}" style="padding:4px 2px;font-size:8px;font-weight:700;color:${isT?'#1a8a5a':'#555'};border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;min-width:28px;background:${isT?'#e8fff5':'#f0f0f0'};cursor:default">${lNum}</th>`;
+                }).join('')}
+                <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#1a8a5a;border-left:2px solid #999;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">P</th>
+                <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#c03030;border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">F</th>
+                <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#a06010;border-right:1px solid #ddd;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">A</th>
+                <th style="padding:4px 6px;font-size:7px;font-weight:700;color:#1a5a8a;border-right:1px solid #bbb;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;background:#f0f0f0">%</th>
+              </tr>
+
+              <!-- HEADER ROW 2: day numbers -->
+              <tr style="background:#f8f8f8">
+                <th style="position:sticky;left:0;z-index:10;background:#f0f0f0;border-right:1px solid #bbb;border-bottom:2px solid #999"></th>
+                <th style="position:sticky;left:64px;z-index:10;background:#f0f0f0;border-right:2px solid #999;border-bottom:2px solid #999"></th>
+                ${dates.map(d=>{
+                  const isT=d===todayISO();
+                  const dt=new Date(d+'T12:00:00');
+                  const dd=String(dt.getDate()).padStart(2,'0');
+                  const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                  return`<th title="${fullDate}" style="padding:2px 1px;font-size:6.5px;font-weight:600;color:${isT?'#1a8a5a':'#888'};border-right:1px solid #ddd;border-bottom:2px solid #999;text-align:center;background:${isT?'#e8fff5':'#f8f8f8'};cursor:default">${dd}</th>`;
+                }).join('')}
+                <th colspan="4" style="border-left:2px solid #999;border-bottom:2px solid #999;background:#f0f0f0"></th>
+              </tr>
+            </thead>
+
+            <!-- BODY -->
+            <tbody>
+              ${slot.students.map((stu,ri)=>{
+                const ref=stu.ref;
+                const enrName=stu.name||ref;
+                const tot=stuTotals[ref]||{p:0,f:0,l:0,total:0};
+                const pct=tot.total>0?Math.round(tot.p/tot.total*100):0;
+                const rowBg=ri%2===0?'#ffffff':'#f7f7f7';
+                const pctCol=pct>=80?'#1a8a5a':pct>=60?'#a06010':'#c03030';
+                // Flag students approaching absence limit
+                const absLimit=12, alertMinor=2, alertAdult=3;
+                const isMinor=ENROL_BY_REF[ref]?.age<18||false;
+                const alerted=isMinor?tot.f>=alertMinor:tot.f>=alertAdult;
+                const nameCol=alerted?(isMinor?'#c03030':'#a06010'):'#1a1a1a';
+                return`<tr style="background:${rowBg}" onmouseenter="this.style.background='#fffde8'" onmouseleave="this.style.background='${rowBg}'">
+                  <td style="position:sticky;left:0;z-index:5;background:${rowBg};padding:3px 8px;border-right:1px solid #bbb;border-bottom:1px solid #e8e8e8;text-align:center;white-space:nowrap;font-size:8.5px;font-weight:700;color:#555;cursor:pointer" onclick="openDossier('${ref}','teacher')">${ref}</td>
+                  <td style="position:sticky;left:64px;z-index:5;background:${rowBg};padding:3px 10px;border-right:2px solid #999;border-bottom:1px solid #e8e8e8;white-space:nowrap;cursor:pointer" onclick="openDossier('${ref}','teacher')">
+                    <span style="font-size:9.5px;font-weight:500;color:${nameCol}">${enrName}</span>
+                    ${alerted?`<span style="font-size:7px;margin-left:4px;color:${isMinor?'#c03030':'#a06010'}">${isMinor?'🚨':'⚠'}</span>`:''}
+                  </td>
+                  ${dates.map(d=>{
+                    const s=lookup[ref]?.[d];
+                    const isT=d===todayISO();
+                    const dt=new Date(d+'T12:00:00');
+                    const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                    let bg,symbol,symCol;
+                    if(s==='present')     {bg='#e8fff2';symbol='●';symCol='#1a8a5a';}
+                    else if(s==='absent') {bg='#fff0f0';symbol='✕';symCol='#c03030';}
+                    else if(s==='late')   {bg='#fff8e8';symbol='▲';symCol='#a06010';}
+                    else if(isT)          {bg='#fffde8';symbol='';symCol='transparent';}
+                    else                  {bg=ri%2===0?'#ffffff':'#f7f7f7';symbol='';symCol='#ccc';}
+                    return`<td title="${fullDate} · ${s||'sem registo'}" style="padding:3px 2px;text-align:center;background:${bg};border-right:1px solid #e0e0e0;border-bottom:1px solid #e8e8e8;cursor:default">
+                      <span style="font-size:9px;font-weight:700;color:${symCol};line-height:1;display:block">${symbol}</span>
+                    </td>`;
+                  }).join('')}
+                  <td style="padding:3px 6px;font-size:9px;font-weight:700;color:#1a8a5a;border-left:2px solid #999;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.p}</td>
+                  <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${tot.f>0?'#c03030':'#aaa'};border-right:1px solid #ddd;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.f}</td>
+                  <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${tot.l>0?'#a06010':'#aaa'};border-right:1px solid #ddd;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.l}</td>
+                  <td style="padding:3px 6px;font-size:9px;font-weight:700;color:${pctCol};border-right:1px solid #bbb;border-bottom:1px solid #e8e8e8;text-align:center;background:${rowBg}">${tot.total>0?pct+'%':'—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+
+            <!-- FOOTER: per-lesson totals -->
+            <tfoot>
+              <tr style="background:#f0f0f0">
+                <td style="position:sticky;left:0;z-index:5;background:#e8e8e8;padding:3px 8px;font-size:7px;font-weight:700;color:#555;border-right:1px solid #bbb;border-top:2px solid #999;text-align:center">—</td>
+                <td style="position:sticky;left:64px;z-index:5;background:#e8e8e8;padding:3px 10px;font-size:7px;font-weight:700;color:#555;border-right:2px solid #999;border-top:2px solid #999;white-space:nowrap">PRESENTES / TURMA</td>
+                ${dates.map(d=>{
+                  const lt=lessonTotals[d], total=refs.length;
+                  const pct=total>0?Math.round(lt.p/total*100):0;
+                  const bg=pct>=80?'#e8fff2':pct>=60?'#fff8e8':'#fff0f0';
+                  const fc=pct>=80?'#1a8a5a':pct>=60?'#a06010':'#c03030';
+                  const isT=d===todayISO();
+                  const dt=new Date(d+'T12:00:00');
+                  const fullDate=dt.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                  return`<td title="${fullDate} · ${lt.p}/${total} · ${pct}%" style="padding:3px 2px;text-align:center;background:${isT?'#e8fff5':bg};border-right:1px solid #ddd;border-top:2px solid #999">
+                    <span style="font-size:7.5px;font-weight:700;color:${fc}">${lt.p}</span>
+                  </td>`;
+                }).join('')}
+                <td colspan="4" style="border-left:2px solid #999;border-top:2px solid #999;background:#e8e8e8"></td>
+              </tr>
+            </tfoot>
+
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;gap:14px;margin-top:5px;padding:0 2px;align-items:center">
+          <span style="font-size:7.5px;color:#1a8a5a;font-weight:700">● Presente</span>
+          <span style="font-size:7.5px;color:#c03030;font-weight:700">✕ Falta</span>
+          <span style="font-size:7.5px;color:#a06010;font-weight:700">▲ Atraso</span>
+          <span style="font-size:7.5px;color:#aaa">· Sem registo</span>
+          <span style="font-size:7.5px;color:#888;margin-left:auto;font-style:italic">Passe o rato sobre uma aula para ver a data · clique no aluno para o dossier</span>
+        </div>
+
+      </div>
+    </div>`;
+  });
+
+  return html||`<div style="padding:24px;text-align:center;font-size:10px;color:var(--t3)">Sem dados de presenças</div>`;
+}
+  
+let _pautaOpen=false,_pautaBuilt=false;
+function togglePauta(){
+  _pautaOpen=!_pautaOpen;
+  const wrap=document.getElementById('pauta-wrap');
+  const btn=document.getElementById('pauta-toggle-btn');
+  wrap.style.display=_pautaOpen?'block':'none';
+  btn.textContent=_pautaOpen?'▲ Ocultar':'▼ Mostrar';
+  if(_pautaOpen&&!_pautaBuilt){
+    _pautaBuilt=true;
+    document.getElementById('pauta-content').innerHTML=buildPresencas();
+    const count=MY_CLASSES.filter(c=>c.students.length>0).length;
+    document.getElementById('pauta-status').textContent=`${count} turma${count!==1?'s':''} · ${AY||''}`;
+  }
+}
+  
 tick();setInterval(tick,1000);updateDate();boot();
 </script>
 </body>
