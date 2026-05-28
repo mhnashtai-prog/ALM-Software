@@ -1361,12 +1361,12 @@ async function boot(){
     if(AY) document.getElementById('brand-yr').textContent=AY;
     try{const rows=await sbGet('school_holidays','select=date&limit=500');HOLIDAYS=new Set(rows.map(r=>r.date));}catch{}
     try{const rows=await sbGet('school_breaks','select=start_date,end_date&limit=100');BREAKS=rows.map(r=>[r.start_date,r.end_date]);}catch{}
-
+    setBotSrc('A carregar presenças do ano lectivo…');
     const [teachers,classes,enrols,attend,absences,justifiedAbs,sumarios,messages,requests,officeNotices]=await Promise.all([
       sbGet('teachers','select=*&limit=200'),
       sbGet('classes','select=*&order=hour&limit=500').catch(()=>[]),
       sbGet('enrolments','select=ref,name,lang,level_code,is_minor&limit=3000').catch(()=>[]),
-      sbGet('attendance',`select=*&date=gte.${thirtyDaysAgo()}&limit=10000`).catch(()=>[]),
+     sbGet('attendance',`select=*&date=gte.${YEAR_START}&date=lte.${YEAR_END}&limit=50000`).catch(()=>[]),
       sbGet('attendance',`select=student_ref&status=eq.absent&date=gte.${YEAR_START}&date=lte.${YEAR_END}&limit=10000`).catch(()=>[]),
       sbGet('justified_absences',`select=student_ref,lesson_date&lesson_date=gte.${YEAR_START}&limit=5000`).catch(()=>[]),
       sbGet('lesson_summaries','select=*&order=date.desc&limit=1000').catch(()=>[]),
