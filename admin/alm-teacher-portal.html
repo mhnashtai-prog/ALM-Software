@@ -1910,8 +1910,10 @@ document.addEventListener('keydown',e=>{
                 const absLimit=12, alertMinor=2, alertAdult=3;
                 const isMinor=ENROL_BY_REF[ref]?.age<18||false;
                 const alerted=isMinor?tot.f>=alertMinor:tot.f>=alertAdult;
-                const nameCol=alerted?(isMinor?'var(--red)':'var(--amber)'):'var(--t)';
-              return`<tr style="background:${rowBg}" onmouseenter="this.style.background='rgba(201,168,76,.12)'" onmouseleave="this.style.background='${rowBg}'">
+                const nameCol=alerted?(isMinor?'#c03030':'#a06010'):'#1a1a1a';
+                return`<tr style="background:${rowBg}" 
+                 onmouseenter="this.style.background='#fffde8';this.querySelectorAll('td[style*=sticky]').forEach(td=>td.style.background='#fffde8')" 
+                 onmouseleave="this.style.background='${rowBg}';this.querySelectorAll('td[style*=sticky]').forEach(td=>td.style.background='${rowBg}')">
                   <td style="position:sticky;left:0;z-index:5;background:${rowBg};padding:3px 8px;border-right:1px solid #bbb;border-bottom:1px solid #e8e8e8;text-align:center;white-space:nowrap;font-size:8.5px;font-weight:700;color:#333;cursor:pointer" onclick="openDossier('${ref}','teacher')">${ref}</td>
                   <td style="position:sticky;left:64px;z-index:5;background:${rowBg};padding:3px 10px;border-right:2px solid #999;border-bottom:1px solid #e8e8e8;white-space:nowrap;cursor:pointer" onclick="openDossier('${ref}','teacher')">
                     <span style="font-size:9.5px;font-weight:500;color:${nameCol}">${enrName}</span>
@@ -1927,7 +1929,7 @@ document.addEventListener('keydown',e=>{
                     else if(s==='absent') {bg='#fff0f0';symbol='✕';symCol='#c03030';}
                     else if(s==='late')   {bg='#fff8e8';symbol='▲';symCol='#a06010';}
                     else if(isT)          {bg='#fffde8';symbol='';symCol='transparent';}
-                  else{bg=ri%2===0?'var(--bg3)':'var(--bg2)';symbol='';symCol='rgba(215,193,145,.15)';}
+                   else{bg=ri%2===0?'#ffffff':'#f7f7f7';symbol='';symCol='#ccc';}
                     return`<td title="${fullDate} · ${s||'sem registo'}" style="padding:3px 2px;text-align:center;background:${bg};border-right:1px solid #e0e0e0;border-bottom:1px solid #e8e8e8;cursor:default">
                       <span style="font-size:9px;font-weight:700;color:${symCol};line-height:1;display:block">${symbol}</span>
                     </td>`;
@@ -2015,7 +2017,17 @@ function togglePautaView(){
     pauta.style.display='block';
     if(!currentSlot)return;
     const slot=MY_CLASSES.find(c=>c.turmaCode===currentSlot.turmaCode);
-    pauta.innerHTML=slot?buildPresencas([slot]):'<div style="padding:20px;color:var(--t3)">Turma não encontrada</div>';
+    if(slot){
+  const saved=MY_CLASSES;
+  const _MY_CLASSES_BAK=MY_CLASSES.slice();
+  MY_CLASSES.length=0;
+  MY_CLASSES.push(slot);
+  pauta.innerHTML=buildPresencas();
+  MY_CLASSES.length=0;
+  _MY_CLASSES_BAK.forEach(c=>MY_CLASSES.push(c));
+  }else{
+  pauta.innerHTML='<div style="padding:20px;color:var(--t3)">Turma não encontrada</div>';
+   }
   }else{
     list.style.display='flex';
     list.style.flexDirection='column';
