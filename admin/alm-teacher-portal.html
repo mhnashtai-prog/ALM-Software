@@ -1978,18 +1978,33 @@ document.addEventListener('keydown',e=>{
   return html||`<div style="padding:24px;text-align:center;font-size:10px;color:var(--t3)">Sem dados de presenças</div>`;
 }
   
-let _pautaOpen=false,_pautaBuilt=false;
-function togglePauta(){
-  _pautaOpen=!_pautaOpen;
-  const wrap=document.getElementById('pauta-wrap');
-  const btn=document.getElementById('pauta-toggle-btn');
-  wrap.style.display=_pautaOpen?'block':'none';
-  btn.textContent=_pautaOpen?'▲ Ocultar':'▼ Mostrar';
-  if(_pautaOpen&&!_pautaBuilt){
-    _pautaBuilt=true;
-    document.getElementById('pauta-content').innerHTML=buildPresencas();
-    const count=MY_CLASSES.filter(c=>c.students.length>0).length;
-    document.getElementById('pauta-status').textContent=`${count} turma${count!==1?'s':''} · ${AY||''}`;
+let _pautaViewOpen=false;
+function togglePautaView(){
+  _pautaViewOpen=!_pautaViewOpen;
+  const list=document.getElementById('student-list');
+  const pauta=document.getElementById('pauta-view');
+  const btn=document.getElementById('btn-pauta-toggle');
+  const bulk=document.querySelector('.att-bulk');
+  if(_pautaViewOpen){
+    list.style.display='none';
+    bulk.style.display='none';
+    btn.textContent='✕ Fechar pauta';
+    btn.style.background='rgba(232,69,90,.1)';
+    btn.style.borderColor='rgba(232,69,90,.3)';
+    btn.style.color='var(--red)';
+    pauta.style.display='block';
+    if(!currentSlot)return;
+    const slot=MY_CLASSES.find(c=>c.turmaCode===currentSlot.turmaCode);
+    pauta.innerHTML=slot?buildPresencas([slot]):'<div style="padding:20px;color:var(--t3)">Turma não encontrada</div>';
+  }else{
+    list.style.display='flex';
+    list.style.flexDirection='column';
+    bulk.style.display='flex';
+    btn.textContent='⊞ Ver pauta anual';
+    btn.style.background='rgba(201,168,76,.08)';
+    btn.style.borderColor='rgba(201,168,76,.25)';
+    btn.style.color='var(--gold2)';
+    pauta.style.display='none';
   }
 }
   
