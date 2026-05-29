@@ -1270,7 +1270,7 @@ async function loadTeacherData(){
     renderHeroStats(totalStu);
   }catch(e){setConnState(false);setSb('err','Erro Supabase: '+e.message);showToast('Erro ao carregar turmas','err');console.error(e);}
 buildGrid();buildTodayStrip();
-  _pautaBuilt=false;
+_pautaBuilt=false;
   if(_pautaOpen){
     document.getElementById('pauta-content').innerHTML=buildPresencas();
     const count=MY_CLASSES.filter(c=>c.students.length>0).length;
@@ -1980,7 +1980,25 @@ document.addEventListener('keydown',e=>{
   return html||`<div style="padding:24px;text-align:center;font-size:10px;color:var(--t3)">Sem dados de presenças</div>`;
 }
   
-let _pautaViewOpen=false;
+let _pautaViewOpen=false,_pautaOpen=false,_pautaBuilt=false;
+function togglePauta(){
+  _pautaOpen=!_pautaOpen;
+  const wrap=document.getElementById('pauta-wrap');
+  const btn=document.getElementById('pauta-toggle-btn');
+  if(_pautaOpen){
+    wrap.style.display='block';
+    btn.textContent='▲ Ocultar';
+    if(!_pautaBuilt){
+      _pautaBuilt=true;
+      document.getElementById('pauta-content').innerHTML=buildPresencas();
+      const count=MY_CLASSES.filter(c=>c.students.length>0).length;
+      document.getElementById('pauta-status').textContent=`${count} turma${count!==1?'s':''} · ${AY||''}`;
+    }
+  }else{
+    wrap.style.display='none';
+    btn.textContent='▼ Mostrar';
+  }
+}
 function togglePautaView(){
   _pautaViewOpen=!_pautaViewOpen;
   const list=document.getElementById('student-list');
