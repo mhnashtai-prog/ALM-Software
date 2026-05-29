@@ -1510,8 +1510,10 @@ async function saveAttendance(){
   try{
     await saveAttendanceRecords(records);setConnState(true);
     const ld=currentSlot.lessonDate;if(!ATTEND_WEEK[ld])ATTEND_WEEK[ld]={};if(!ATTEND_WEEK[ld][currentSlot.turmaCode])ATTEND_WEEK[ld][currentSlot.turmaCode]={};records.forEach(r=>{ATTEND_WEEK[ld][currentSlot.turmaCode][r.student_ref]=r.status;});
+    records.forEach(r=>{if(!ATTEND_YEAR[r.turma_code])ATTEND_YEAR[r.turma_code]={};if(!ATTEND_YEAR[r.turma_code][r.student_ref])ATTEND_YEAR[r.turma_code][r.student_ref]={};ATTEND_YEAR[r.turma_code][r.student_ref][r.date]=r.status;});
     const cls=SCHEDULE[currentSlot.day]?.[currentSlot.h];if(cls)cls.hasSubmission=true;currentSlot.hasSubmission=true;
     buildGrid();buildTodayStrip();
+    if(_pautaViewOpen){_pautaViewOpen=false;togglePautaView();}
     const msg=`✓ ${records.length} presenças guardadas`;setSb('ok','Supabase ✓');showToast(msg,'ok');showSaveStatus('saved',`✓ ${records.length} registos guardados`);
     document.getElementById('mh-submit-badge').style.display='inline-flex';flash();
   }catch(e){setConnState(false);setSb('err','Erro: '+e.message);showToast('Erro: '+e.message,'err');showSaveStatus('error','✕ '+e.message.slice(0,60));}
