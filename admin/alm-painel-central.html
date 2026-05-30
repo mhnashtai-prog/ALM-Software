@@ -2249,17 +2249,19 @@ async function swConfirm(){
 
 /* Patch student_refs on both FROM and TO turma rows in classes table */
 async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
-  // Fetch all class rows for from and to group codes
   const codes = [fromGroupCode, toGroupCode].filter(Boolean);
   if(!codes.length) return;
 
-  // Build filter: group_code=in.(FUN-01,FUN-02) + academic_year
-  const inFilter = codes.map(c => encodeURIComponent(c)).join(',');
-  const rows = await sbGet('classes',
-    `select=id,turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&group_code=in.(${inFilter})`
-  );
+  // Fetch rows for each code separately to avoid in() encoding issues
+  const allRows = [];
+  for(const code of codes){
+    const rows = await sbGet('classes',
+      `select=turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&group_code=eq.${encodeURIComponent(code)}`
+    );
+    allRows.push(...rows);
+  }
 
-  const patchPromises = rows.map(async row => {
+  const patchPromises = allRows.map(async row => {
     let refs = Array.isArray(row.student_refs) ? [...row.student_refs] : [];
     let changed = false;
 
@@ -2273,15 +2275,19 @@ async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
     }
     if(!changed) return;
 
+    // Use turma_code as the row identifier (primary key), not id
     const r = await fetch(
-      `${SB}/rest/v1/classes?id=eq.${encodeURIComponent(row.id)}`,
+      `${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(row.turma_code)}&academic_year=eq.${encodeURIComponent(AY)}`,
       {
         method: 'PATCH',
         headers: {...H, 'Content-Type': 'application/json', Prefer: 'return=minimal'},
         body: JSON.stringify({ student_refs: refs }),
       }
     );
-    if(!r.ok) throw new Error(`classes PATCH failed for ${row.turma_code}: HTTP ${r.status}`);
+    if(!r.ok){
+      const body = await r.text().catch(()=>'');
+      throw new Error(`classes PATCH failed for ${row.turma_code}: HTTP ${r.status} ${body}`);
+    }
   });
 
   await Promise.all(patchPromises);
