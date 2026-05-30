@@ -2837,8 +2837,105 @@ async function boot(){
     showToast('Erro Supabase: '+err.message,'err');
   }
 }
+/* ══════════════════════════════════════════════
+   ROSTER STORE (rs*) — Stage 1, code-keyed, inert
+   Imported model from the Decision file. Reads
+   assigned_turma as authoritative. Nothing renders
+   from this yet; it only populates _rsBoxes + logs.
+══════════════════════════════════════════════ */
+let _rsBoxes = {};
+let _rsSchedByCode = {};
 
-boot();
+function rsCaptureSchedules(rows){
+  _rsSchedByCode = {};
+  (rows||[]).forEach(c=>{
+    const code = c.group_code || (c.turma_code ? String(c.turma_code).replace(/[A-D]$/,'') : null);
+    if(!code) return;
+    if(!_rsSchedByCode[code]){
+      _rsSchedByCode[code] = {
+        code, days: [],
+        startTime: c.start_time || null,
+        endTime:   c.end_time   || null,
+        hour: (c.hour!=null ? c.hour : (c.start_time ? parseInt(String(c.start_time).split(':')[0],10) : null)),
+        levelCode: (c.level_code||'').trim(),
+        dept: (c.department||'').toLowerCase(),
+      };
+    }
+    const d = c.day_of_week;
+    if(d && !_rsSchedByCode[code].days.includes(d)) _rsSchedByCode[code].days.push(d);
+  });
+}
+
+function rsBuildBoxes(){
+  _rsBoxes = {};
+  allE.forEach(e=>{
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma) return;
+    if(normS(r.status)!=='atribuido') return;
+    const code = String(r.assigned_turma).replace(/[A-D]$/,'').trim();
+    if(!code) return;
+    if(!_rsBoxes[code]){
+      const levelKey = lk(e);
+      _rsBoxes[code] = {
+        code, levelKey,
+        dept: (LEVEL_MAP[levelKey]||{}).dept || (e.family||'adults').toLowerCase(),
+        schedule: _rsSchedByCode[code] || {},
+        students: [], refs: [], confirmed: true,
+      };
+    }
+    _rsBoxes[code].students.push(e);
+    _rsBoxes[code].refs.push(e.ref);
+  });
+}
+
+function rsCountStudents(){ return Object.values(_rsBoxes).reduce((s,b)=>s+b.students.length,0); }
+
+async function rsUpsertRequest(ref, payload){
+  const headers = {...H, 'Content-Type':'application/json', Prefer:'return=representation'};
+  if(rByRef[ref]){
+    const url = `${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}`;
+    const r = await fetch(url, {method:'PATCH', headers, body: JSON.stringify(payload)});
+    if(!r.ok){ console.warn('[rs] PATCH failed', r.status, await r.text().catch(()=>'')); return false; }
+    return (await r.json()).length > 0;
+  } else {
+    const enrol = allE.find(e=>e.ref===ref) || {};
+    const body = { ref, academic_year: AY, branch: enrol.branch||'', family: enrol.family||'',
+      level_code: enrol.level_code||enrol.level_cefr||'', level_cefr: enrol.level_cefr||enrol.level_code||'',
+      day_preferences:'[]', status:'atribuido', ...payload };
+    const r = await fetch(`${SB}/rest/v1/timetable_requests`, {method:'POST', headers, body: JSON.stringify(body)});
+    if(!r.ok){ console.warn('[rs] POST failed', r.status, await r.text().catch(()=>'')); return false; }
+    return (await r.json()).length > 0;
+  }
+}
+
+function rsMoveStudent(ref, targetCode){
+  const enrol = allE.find(e=>e.ref===ref); if(!enrol) return;
+  targetCode = String(targetCode).replace(/[A-D]$/,'').trim();
+  Object.values(_rsBoxes).forEach(b=>{
+    const i = b.students.findIndex(s=>s.ref===ref);
+    if(i>=0){ b.students.splice(i,1); const j=b.refs.indexOf(ref); if(j>=0) b.refs.splice(j,1); }
+  });
+  let box = _rsBoxes[targetCode];
+  if(!box){
+    box = _rsBoxes[targetCode] = { code:targetCode, levelKey:lk(enrol),
+      dept:(LEVEL_MAP[lk(enrol)]||{}).dept||'adults', schedule:_rsSchedByCode[targetCode]||{},
+      students:[], refs:[], confirmed:true };
+  }
+  if(!box.refs.includes(ref)){ box.students.push(enrol); box.refs.push(ref); }
+  if(rByRef[ref]){ rByRef[ref].assigned_turma = targetCode; rByRef[ref].status='atribuido'; }
+}
+
+async function rsInit(){
+  try{
+    const rows = await sbGet('classes',
+      `select=turma_code,group_code,level_code,department,start_time,end_time,hour,day_of_week,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=eq.confirmed&limit=2000`);
+    rsCaptureSchedules(rows);
+    rsBuildBoxes();
+    console.log(`[rs] roster built: ${Object.keys(_rsBoxes).length} committed turmas · ${rsCountStudents()} students placed`);
+  }catch(e){ console.warn('[rs] rsInit failed', e); }
+}
+  
+boot().then(()=>{ try{ rsInit(); }catch(e){ console.warn('[rs] init',e); } });
 // Poll for new data every 60 seconds
 setInterval(()=>{
   if(_bootComplete) refreshData();
