@@ -1897,19 +1897,24 @@ function renderLevelContent(){
   </div>`;
 
   /* ── 2. PAIR MATRIX ── */
-  html+=buildPairMatrix(pairCounts);
-
-  /* ── 3. GROUPS ── */
-  if(_lastResult?.groups?.length){
-    html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-     ${certCount>0?`<span style="font-size:6px;font-weight:700;color:var(--green);padding:1px 4px;border:1px solid var(--green-b);background:var(--green-a)">✓${certCount}</span>`:''}
+/* ── 2. MATRIX + GROUPS from DB roster (one card per session slot) ── */
+  const rosterData = buildGroupsFromRoster(activeLevelKey);
+  if(rosterData.count > 0){
+    html += rosterData.matrixHTML;
+    html += `<div class="sec">Turmas Certificadas · ${rosterData.count} sessão${rosterData.count!==1?'s':''}
+      <span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${rosterData.count} ✓ cert</span>
       ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
     </div>`;
-    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+    html += rosterData.cardsHTML;
   } else {
-    html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
+    html += buildPairMatrix(pairCounts);
+    if(_lastResult?.groups?.length){
+      html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}</div>`;
+      _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+    } else {
+      html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
+    }
   }
-
   /* ── 4. SINALIZADOS ── */
   if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
 
@@ -2218,6 +2223,7 @@ function openSwapCard(ref, fromCode, levelKey){
 }
 
 // Helper: does this student's availability cover a given day+time?
+// Helper: does this student's availability cover a given day+time?
 function _sessionFits(availData, dayIdx, startTimeStr){
   if(!availData || !availData.windows.length) return false;
   const start = toMins(startTimeStr);
@@ -2227,10 +2233,62 @@ function _sessionFits(availData, dayIdx, startTimeStr){
   const w = availData.windows.find(x => x.dayIdx === dayIdx);
   return !!(w && w.earliest <= start && w.latest >= end);
 }
-  /* ── STAGE 4c — write to Supabase, then apply locally ── */
+
+let _swArmed = false;
+
+async function swConfirm(){
+  if(!_swSelected) return;
+  const ov = document.getElementById('sw-overlay');
+  const ref = ov.dataset.ref, fromCode = ov.dataset.from||null, levelKey = ov.dataset.level;
+  const tgtEl = document.querySelector(`#sw-targets .sw-tgt[data-code="${_swSelected}"]`);
+  const fits = tgtEl && tgtEl.dataset.fits==='1';
+  const btn = document.getElementById('sw-confirm');
+
+  if(!fits && !_swArmed){
+    _swArmed = true;
+    btn.textContent = 'Confirmar mesmo assim';
+    btn.style.background = 'var(--amber-d)';
+    let warn = document.getElementById('sw-warn');
+    if(!warn){
+      warn = document.createElement('div'); warn.id = 'sw-warn';
+      warn.style.cssText = 'font-size:9px;color:var(--amber-d);text-align:center;padding:8px 18px 0;line-height:1.5';
+      document.querySelector('.sw-foot').insertAdjacentElement('beforebegin', warn);
+    }
+    warn.textContent = `${_swSelected} está fora da disponibilidade declarada — confirmar mesmo assim?`;
+    return;
+  }
+
   const toCode = _swSelected;
   btn.disabled = true;
   btn.textContent = '⏳ A guardar…';
+
+  try {
+    const reqOk = await rsUpsertRequest(ref, {
+      assigned_turma: toCode,
+      status: 'atribuido',
+    });
+    if(!reqOk) throw new Error('timetable_requests write returned no rows');
+
+    await swPatchClassRefs(ref, fromCode, toCode);
+
+    rsMoveStudent(ref, toCode);
+
+    showToast(`${ref} movido para ${toCode} ✓`, 'ok');
+    closeSwapCard();
+
+    if(document.getElementById('panel-overview')?.classList.contains('active') && _ovActiveLevel){
+      ovDrillToFormation(_ovActiveLevel);
+    } else if(activeLevelKey){
+      _lastResult = _allResults[activeLevelKey] || _lastResult;
+      renderLevelContent();
+    }
+  } catch(err){
+    console.error('[swap] DB write failed', err);
+    showToast('Erro ao guardar: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
+  }
+}
 
   try {
     // 1. Update timetable_requests: set assigned_turma + status
@@ -3220,56 +3278,244 @@ function rsMoveStudent(ref, targetCode){
 
 function rsSeedFromClasses(rows){
   (rows||[]).forEach(c=>{
-    const code = c.group_code || (c.turma_code ? String(c.turma_code).replace(/[A-D]$/,'') : null);
-    if(!code) return;
+    const turmaCode = c.turma_code;
+    if(!turmaCode) return;
     let refs = c.student_refs;
     if(typeof refs === 'string'){ try{ refs = JSON.parse(refs); }catch{ refs = []; } }
     if(!Array.isArray(refs)) return;
-    refs.forEach(ref=>{
-      const e = allE.find(x=>x.ref===ref); if(!e) return;
-      if(!_rsBoxes[code]){
-        const levelKey = lk(e);
-        _rsBoxes[code] = { code, levelKey,
-          dept:(LEVEL_MAP[levelKey]||{}).dept||(e.family||'adults').toLowerCase(),
-          schedule:_rsSchedByCode[code]||{}, students:[], refs:[], confirmed:true };
+    const e0 = allE.find(x => refs.includes(x.ref));
+    if(!e0 && !refs.length) return;
+    const levelKey = e0 ? lk(e0) : `${(c.department||'adults').toLowerCase()}|${(c.level_code||'').trim()}`;
+    if(!_rsBoxes[turmaCode]){
+      _rsBoxes[turmaCode] = {
+        code: turmaCode,
+        groupCode: c.group_code || turmaCode.replace(/[A-Z]$/,''),
+        levelKey,
+        dept: (c.department||'adults').toLowerCase(),
+        schedule: _rsSchedByCode[c.group_code || turmaCode.replace(/[A-Z]$/,'')] || {},
+        day: c.day_of_week || null,
+        startTime: c.start_time || null,
+        endTime: c.end_time || null,
+        students: [], refs: [], confirmed: true,
+      };
+    }
+    refs.forEach(ref => {
+      const e = allE.find(x => x.ref === ref); if(!e) return;
+      if(!_rsBoxes[turmaCode].refs.includes(ref)){
+        _rsBoxes[turmaCode].students.push(e);
+        _rsBoxes[turmaCode].refs.push(ref);
       }
-      if(!_rsBoxes[code].refs.includes(ref)){ _rsBoxes[code].students.push(e); _rsBoxes[code].refs.push(ref); }
     });
   });
 }
+    
+    let refs = c.student_refs;
+    if(typeof refs === 'string'){ try{ refs = JSON.parse(refs); }catch{ refs = []; } }
+    if(!Array.isArray(refs)) return;
 
-async function rsInit(){
-  try{
-    const rows = await sbGet('classes',
-      `select=turma_code,group_code,level_code,department,start_time,end_time,hour,day_of_week,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=eq.confirmed&limit=2000`);
-    rsCaptureSchedules(rows);
-    _rsBoxes = {};
-    rsSeedFromClasses(rows);          // base roster from classes.student_refs
-    rsApplyAssignedOverrides();       // assigned_turma wins where present
-    console.log(`[rs] roster built: ${Object.keys(_rsBoxes).length} committed turmas · ${rsCountStudents()} students placed`);
-  }catch(e){ console.warn('[rs] rsInit failed', e); }
+    const e0 = allE.find(x => refs.includes(x.ref));
+    if(!e0 && !refs.length) return;
+
+    const levelKey = e0 ? lk(e0) : `${(c.department||'adults').toLowerCase()}|${(c.level_code||'').trim()}`;
+
+    if(!_rsBoxes[turmaCode]){
+      _rsBoxes[turmaCode] = {
+        code: turmaCode,
+        groupCode: c.group_code || turmaCode.replace(/[A-Z]$/,''),
+        levelKey,
+        dept: (c.department||'adults').toLowerCase(),
+        schedule: _rsSchedByCode[c.group_code || turmaCode.replace(/[A-Z]$/,'')] || {},
+        day: c.day_of_week || null,   // the specific day for THIS session
+        startTime: c.start_time || null,
+        endTime: c.end_time || null,
+        students: [],
+        refs: [],
+        confirmed: true,
+      };
+    }
+
+    refs.forEach(ref => {
+      const e = allE.find(x => x.ref === ref); if(!e) return;
+      if(!_rsBoxes[turmaCode].refs.includes(ref)){
+        _rsBoxes[turmaCode].students.push(e);
+        _rsBoxes[turmaCode].refs.push(ref);
+      }
+    });
+  });
 }
 
 function rsApplyAssignedOverrides(){
-  allE.forEach(e=>{
+  allE.forEach(e => {
     const r = rByRef[e.ref];
-    if(!r || !r.assigned_turma || normS(r.status)!=='atribuido') return;
-    const code = String(r.assigned_turma).replace(/[A-D]$/,'').trim();
-    if(!code) return;
-    Object.values(_rsBoxes).forEach(b=>{
-      if(b.code===code) return;
-      const i=b.refs.indexOf(e.ref);
-      if(i>=0){ b.refs.splice(i,1); const j=b.students.findIndex(s=>s.ref===e.ref); if(j>=0) b.students.splice(j,1); }
+    if(!r || !r.assigned_turma || normS(r.status) !== 'atribuido') return;
+    
+    // assigned_turma may be "FUN-01" or "FUN-01A" — find all matching turma_code boxes
+    const raw = String(r.assigned_turma).trim();
+    const isFullCode = /[A-Z]$/.test(raw); // FUN-01A vs FUN-01
+    
+    const matchingCodes = isFullCode
+      ? [raw]
+      : Object.keys(_rsBoxes).filter(k => k.replace(/[A-Z]$/,'') === raw);
+
+    // Remove from any box that isn't in the matching set
+    Object.entries(_rsBoxes).forEach(([code, box]) => {
+      if(matchingCodes.includes(code)) return;
+      const i = box.refs.indexOf(e.ref);
+      if(i >= 0){ box.refs.splice(i,1); box.students.splice(box.students.findIndex(s=>s.ref===e.ref),1); }
     });
-    if(!_rsBoxes[code]){
-      _rsBoxes[code] = { code, levelKey:lk(e), dept:(LEVEL_MAP[lk(e)]||{}).dept||'adults',
-        schedule:_rsSchedByCode[code]||{}, students:[], refs:[], confirmed:true };
-    }
-    if(!_rsBoxes[code].refs.includes(e.ref)){ _rsBoxes[code].students.push(e); _rsBoxes[code].refs.push(e.ref); }
+
+    // Add to all matching boxes (both A and B sessions)
+    matchingCodes.forEach(code => {
+      if(!_rsBoxes[code]) return;
+      if(!_rsBoxes[code].refs.includes(e.ref)){
+        _rsBoxes[code].students.push(e);
+        _rsBoxes[code].refs.push(e.ref);
+      }
+    });
   });
 }
-  
-boot().then(()=>{ try{ rsInit(); }catch(e){ console.warn('[rs] init',e); } });
+  /* ══════════════════════════════════════════════
+   UNIFIED GROUP DISPLAY — reads from _rsBoxes
+   One card per turma_code (FUN-01A, FUN-01B etc)
+   matching exactly the cells in the grid
+══════════════════════════════════════════════ */
+function buildGroupsFromRoster(levelKey){
+  const boxes = Object.values(_rsBoxes)
+    .filter(b => b.levelKey === levelKey)
+    .sort((a,b) => a.code.localeCompare(b.code));
+
+  if(!boxes.length) return { matrixHTML:'', cardsHTML:'', count:0 };
+
+  let matrixHTML = `<div class="pair-matrix">`;
+  let cardsHTML  = '';
+
+  boxes.forEach(box => {
+    const col       = turmaCol(box.code);
+    const day       = box.day || '—';
+    const startTime = box.startTime ? String(box.startTime).slice(0,5) : '—';
+    const endTime   = box.endTime   ? String(box.endTime).slice(0,5)   : '—';
+    const n         = box.students.length;
+    const isManha   = startTime < '12:00';
+    const blockCls  = isManha ? 'bk-manha' : 'bk-tarde';
+    const blockLbl  = isManha ? 'Manhã' : 'Tarde';
+
+    matrixHTML += `<div style="
+        border:1px solid ${col}44;border-left:3px solid ${col};
+        background:${col}11;padding:11px 12px;cursor:pointer;
+        transition:all .14s;position:relative;"
+      onclick="openRosterGroupModal('${box.code}','${levelKey}')"
+      onmouseover="this.style.background='${col}22'"
+      onmouseout="this.style.background='${col}11'">
+      <div style="font-size:7px;font-weight:700;color:${col};margin-bottom:2px">${box.code}</div>
+      <div style="font-size:9px;font-weight:700;color:${col};margin-bottom:2px">${day}</div>
+      <div style="font-size:7.5px;color:${col};opacity:.7;margin-bottom:4px">${startTime}–${endTime}</div>
+      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${n}</div>
+      <div style="font-size:7px;margin-top:3px;color:${col}">alocados</div>
+      <div style="position:absolute;top:8px;right:10px;font-size:12px;color:${col}">✓</div>
+    </div>`;
+
+    cardsHTML += `<div class="gcard-compact certified"
+        style="border-left-color:${col};cursor:pointer"
+        onclick="openRosterGroupModal('${box.code}','${levelKey}')">
+      <div class="gc-seal" style="background:${col}22;border:1px solid ${col}88;
+           border-radius:50%;width:38px;height:38px;display:flex;align-items:center;
+           justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
+          <circle cx="16" cy="16" r="15" stroke="${col}" stroke-width="2"/>
+          <circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
+          <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:600;color:${col}">${box.code} · ${day}</div>
+        <div style="font-size:7.5px;color:var(--t2);margin-top:2px">${startTime}–${endTime}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+        <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
+        <div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);
+             color:var(--green);background:var(--green-a)">CERT · ${box.groupCode||box.code.replace(/[A-Z]$/,'')}</div>
+        <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${n}</div>
+        <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
+      </div>
+    </div>`;
+  });
+
+  matrixHTML += `</div>`;
+  return { matrixHTML, cardsHTML, count: boxes.length };
+}
+
+function openRosterGroupModal(turmaCode, levelKey){
+  const box = _rsBoxes[turmaCode]; if(!box) return;
+  const meta = LEVEL_MAP[levelKey] || {};
+  const col  = turmaCol(turmaCode);
+  const dept = (meta.dept||'adults');
+  const n    = box.students.length;
+  const day  = box.day || '—';
+  const startTime = box.startTime ? String(box.startTime).slice(0,5) : '—';
+  const endTime   = box.endTime   ? String(box.endTime).slice(0,5)   : '—';
+  const isManha   = startTime < '12:00';
+
+  const sheet = document.getElementById('gm-sheet');
+  sheet.classList.remove('gm-exit');
+  document.getElementById('gm-overlay').classList.add('open');
+  document.getElementById('gm-banner').style.background = DEPT_GRADS[dept]||DEPT_GRADS.adults;
+
+  const seal = document.getElementById('gm-seal');
+  seal.style.background = col + '33';
+  seal.innerHTML = `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="11" stroke="${col}" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="7" fill="${col}" opacity=".9"/>
+    <path d="M8 14L12.5 19.5L20 9" fill="none" stroke="#07060E"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+
+  document.getElementById('gm-title').textContent = turmaCode;
+  document.getElementById('gm-sub-text').textContent =
+    `${day} · ${startTime}–${endTime} · ${meta.label||''} · CERTIFIED`;
+  document.getElementById('gm-pills').innerHTML =
+    `<span class="gc-block-tag ${isManha?'bk-manha':'bk-tarde'}">${isManha?'Manhã':'Tarde'}</span>
+     <span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${box.groupCode||turmaCode.replace(/[A-Z]$/,'')}</span>`;
+
+  document.getElementById('gm-strip').innerHTML =
+    `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${n}</div><div class="gm-stat-l">alunos</div></div>
+     <div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${n}</div><div class="gm-stat-l">ok</div></div>
+     <div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:13px">${turmaCode}</div><div class="gm-stat-l">código</div></div>`;
+
+  const stuRows = [...box.students]
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''))
+    .map(e => {
+      const av = avCol(e.name||e.ref);
+      const a2 = analysePrefs(e.ref);
+      const slots = a2 ? a2.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+      return `<div class="gm-stu" onclick="closeGroupModal();setTimeout(()=>openDossier('${e.ref}'),240)">
+        <div class="gm-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name||e.ref)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--text-d)">${e.name||'—'}</div>
+          <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">
+            ${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
+        </div>
+        <span class="gm-mudar" onclick="event.stopPropagation();openSwapCard('${e.ref}','${turmaCode}','${levelKey}')">⇄ Mudar</span>
+        <span class="gm-verd pass">✓</span>
+        <span style="font-size:9px;color:var(--sub-d)">↗</span>
+      </div>`;
+    }).join('');
+
+  document.getElementById('gm-body').innerHTML = stuRows;
+  document.getElementById('gm-foot').innerHTML =
+    `<button class="gm-btn gm-btn-csv" onclick="exportRosterGroup('${turmaCode}')">↓ CSV</button>
+     <div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${n} aluno${n!==1?'s':''}</div>`;
+}
+
+function exportRosterGroup(turmaCode){
+  const box = _rsBoxes[turmaCode]; if(!box) return;
+  const rows = [`ALM · ${turmaCode} · ${box.day||''} · ${box.startTime||''}`, '', 'Nome,Ref,Filial,Status'];
+  box.students.forEach(e => {
+    rows.push(`"${e.name||''}","${e.ref||''}","${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}","atribuído"`);
+  });
+  dlCSV(rows.join('\n'), `ALM-${turmaCode}.csv`);
+  showToast(`CSV ${turmaCode} exportado`, 'ok');
+}
 // Poll for new data every 60 seconds
 setInterval(()=>{
   if(_bootComplete) refreshData();
