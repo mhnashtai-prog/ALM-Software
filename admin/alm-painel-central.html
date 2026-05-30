@@ -2110,50 +2110,88 @@ let _swSelected = null;
 function openSwapCard(ref, fromCode, levelKey){
   const enrol = allE.find(e=>e.ref===ref) || {};
   if(!levelKey) levelKey = lk(enrol);
-  fromCode = fromCode ? String(fromCode).replace(/[A-D]$/,'').trim() : null;
+  // fromCode arrives as e.g. "FUN-02" (already stripped) or "FUN-02A" — normalise both ways
+  const fromGroupCode = fromCode ? String(fromCode).replace(/[A-Z]$/,'').trim() : null;
   _swSelected = null;
+  _swArmed = false;
 
   const meta = LEVEL_MAP[levelKey] || {};
   const a = analysePrefs(ref);
   const slots = a ? a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
-  const fromBox = fromCode ? _rsBoxes[fromCode] : null;
 
-  /* fit test: does this student's declared availability cover the turma's day+time? */
-  function turmaFits(code){
-    if(!a || !a.windows.length) return false;       // no declared availability → can't confirm fit
-    const sched = _rsSchedByCode[code] || {};
-    const days = (sched.days||[]).map(d=>normDay(d)).filter(d=>d!=null);
-    if(!days.length) return false;
-    const start = sched.startTime ? toMins(sched.startTime) : (sched.hour!=null ? sched.hour*60 : null);
-    if(start==null) return false;
-    const end = start + CLASS_DUR;
-    return days.every(di=>{
-      const w = a.windows.find(x=>x.dayIdx===di);
-      return w && w.earliest<=start && w.latest>=end;
-    });
-  }
+  // Build targets from _rsSchedByCode — one entry per turma_code (A and B separately)
+  // Collect all individual session rows for this level, excluding current group
+  const levelDept = (meta.dept||'adults').toLowerCase();
+  const levelCode = (levelKey.split('|')[1]||'').trim();
 
-  const targets = Object.values(_rsBoxes)
-    .filter(b => b.levelKey===levelKey && b.code!==fromCode)
-    .sort((x,y)=> x.code.localeCompare(y.code));
+  // Get all individual turma_code rows for this level from _rsSchedByCode
+  // _rsSchedByCode is keyed by group_code; we need the session rows from classes
+  // Instead, derive from _rsBoxes: each box has a group code, find its session turma_codes
+  // We stored schedules in _rsSchedByCode keyed by group_code
+  // The actual A/B rows are in the classes table — re-fetch or use what we have
 
-  const currentHTML = fromCode
-    ? `<div class="sw-cur"><div class="sw-cur-code">${fromCode}</div><div class="sw-cur-meta">${fromBox?fromBox.students.length+' alunos':''}</div></div>`
-    : `<div class="sw-cur sw-cur-empty"><div class="sw-cur-code">Sem turma</div><div class="sw-cur-meta">não alocado</div></div>`;
+  // Build target list: one card per SESSION (turma_code), not per group
+  // We need to know which turma_codes exist — derive from _rsBoxes keys + suffix from sched
+  const sessionTargets = []; // {turmaCode, groupCode, day, startTime, studentCount, fits}
 
-  const targetsHTML = targets.length
-    ? targets.map(b=>{
-        const sched=_rsSchedByCode[b.code]||{};
-        const time=sched.startTime?String(sched.startTime).slice(0,5):'';
-        const days=(sched.days||[]).join('+');
-        const fits=turmaFits(b.code);
-        const fitTag = fits
+  Object.entries(_rsBoxes).forEach(([groupCode, box]) => {
+    if(box.levelKey !== levelKey) return;
+    if(groupCode === fromGroupCode) return;
+
+    const sched = _rsSchedByCode[groupCode] || {};
+    const days = sched.days || [];
+    const start = sched.startTime ? String(sched.startTime).slice(0,5) : '';
+
+    if(days.length === 0){
+      // No schedule info — show as single entry
+      sessionTargets.push({
+        turmaCode: groupCode + 'A',
+        groupCode,
+        day: '?',
+        startTime: start,
+        studentCount: box.students.length,
+        fits: _sessionFits(a, null, start),
+      });
+    } else {
+      // One card per session day (A, B)
+      const suffixes = ['A','B','C'];
+      days.forEach((day, idx) => {
+        sessionTargets.push({
+          turmaCode: groupCode + suffixes[idx],
+          groupCode,
+          day: (day||'').toUpperCase().slice(0,3),
+          startTime: start,
+          studentCount: box.students.length,
+          fits: _sessionFits(a, normDay(day), start),
+        });
+      });
+    }
+  });
+
+  sessionTargets.sort((a,b) => a.turmaCode.localeCompare(b.turmaCode));
+
+  // Current turma display
+  const fromBox = fromGroupCode ? _rsBoxes[fromGroupCode] : null;
+  const fromSched = fromGroupCode ? (_rsSchedByCode[fromGroupCode]||{}) : {};
+  const fromDays = (fromSched.days||[]).join('+');
+  const fromTime = fromSched.startTime ? String(fromSched.startTime).slice(0,5) : '';
+
+  const currentHTML = fromGroupCode
+    ? `<div class="sw-cur">
+        <div class="sw-cur-code">${fromGroupCode}</div>
+        <div class="sw-cur-meta">${fromDays}${fromTime?' · '+fromTime:''} · ${fromBox?fromBox.students.length+' alunos':''}</div>
+       </div>`
+    : `<div class="sw-cur sw-cur-empty"><div class="sw-cur-code">Sem turma</div></div>`;
+
+  const targetsHTML = sessionTargets.length
+    ? sessionTargets.map(t => {
+        const fitTag = t.fits
           ? `<span style="font-size:7px;font-weight:700;color:var(--green-d)">✓ compatível</span>`
           : `<span style="font-size:7px;font-weight:700;color:var(--amber-d)">⚠ fora da disponibilidade</span>`;
-        return `<div class="sw-tgt" data-code="${b.code}" data-fits="${fits?1:0}" onclick="swSelectTarget('${b.code}',this)">
+        return `<div class="sw-tgt" data-code="${t.groupCode}" data-turma="${t.turmaCode}" data-fits="${t.fits?1:0}" onclick="swSelectTarget('${t.groupCode}',this)">
           <div style="flex:1;min-width:0">
-            <div class="sw-tgt-code">${b.code}</div>
-            <div class="sw-tgt-meta">${days}${time?' · '+time:''} · ${b.students.length} al</div>
+            <div class="sw-tgt-code">${t.turmaCode}</div>
+            <div class="sw-tgt-meta">${t.day}${t.startTime?' · '+t.startTime:''} · ${t.studentCount} al</div>
             <div style="margin-top:3px">${fitTag}</div>
           </div>
           <span class="sw-tgt-check">○</span>
@@ -2165,50 +2203,30 @@ function openSwapCard(ref, fromCode, levelKey){
   document.getElementById('sw-sub').textContent = `${ref} · ${meta.label||''} · ${slots}`;
   document.getElementById('sw-current').innerHTML = currentHTML;
   document.getElementById('sw-targets').innerHTML = targetsHTML;
-  const btn=document.getElementById('sw-confirm'); btn.disabled=true; btn.classList.add('disabled'); btn.textContent='Confirmar';
 
-  const ov=document.getElementById('sw-overlay');
-  ov.dataset.ref=ref; ov.dataset.from=fromCode||''; ov.dataset.level=levelKey;
-  const sheet=document.getElementById('sw-sheet'); sheet.classList.remove('sw-exit');
+  const btn = document.getElementById('sw-confirm');
+  btn.disabled = true; btn.classList.add('disabled'); btn.textContent = 'Confirmar';
+  btn.style.background = 'var(--green-d)';
+
+  const ov = document.getElementById('sw-overlay');
+  ov.dataset.ref = ref;
+  ov.dataset.from = fromGroupCode || '';
+  ov.dataset.level = levelKey;
+  const sheet = document.getElementById('sw-sheet');
+  sheet.classList.remove('sw-exit');
   ov.classList.add('open');
 }
-let _swArmed = false;  // true once an incompatible move has been acknowledged
 
-function swSelectTarget(code, el){
-  _swSelected = code;
-  _swArmed = false;
-  document.querySelectorAll('#sw-targets .sw-tgt').forEach(t=>{
-    t.classList.toggle('sel', t===el);
-    const chk=t.querySelector('.sw-tgt-check'); if(chk) chk.textContent=(t===el)?'●':'○';
-  });
-  const fits = el.dataset.fits==='1';
-  const btn=document.getElementById('sw-confirm');
-  btn.disabled=false; btn.classList.remove('disabled');
-  btn.textContent = fits ? 'Confirmar' : 'Confirmar';
-  btn.style.background = fits ? 'var(--green-d)' : 'var(--amber-d)';
+// Helper: does this student's availability cover a given day+time?
+function _sessionFits(availData, dayIdx, startTimeStr){
+  if(!availData || !availData.windows.length) return false;
+  const start = toMins(startTimeStr);
+  if(start == null) return false;
+  const end = start + CLASS_DUR;
+  if(dayIdx == null) return false;
+  const w = availData.windows.find(x => x.dayIdx === dayIdx);
+  return !!(w && w.earliest <= start && w.latest >= end);
 }
-
-async function swConfirm(){
-  if(!_swSelected) return;
-  const ov=document.getElementById('sw-overlay');
-  const ref=ov.dataset.ref, fromCode=ov.dataset.from||null, levelKey=ov.dataset.level;
-  const tgtEl=document.querySelector(`#sw-targets .sw-tgt[data-code="${_swSelected}"]`);
-  const fits = tgtEl && tgtEl.dataset.fits==='1';
-  const btn=document.getElementById('sw-confirm');
-
-  if(!fits && !_swArmed){
-    _swArmed = true;
-    btn.textContent = 'Confirmar mesmo assim';
-    let warn = document.getElementById('sw-warn');
-    if(!warn){
-      warn=document.createElement('div'); warn.id='sw-warn';
-      warn.style.cssText='font-size:9px;color:var(--amber-d);text-align:center;padding:8px 18px 0;line-height:1.5';
-      document.querySelector('.sw-foot').insertAdjacentElement('beforebegin', warn);
-    }
-    warn.textContent = `${_swSelected} está fora da disponibilidade declarada — confirmar mesmo assim?`;
-    return;
-  }
-
   /* ── STAGE 4c — write to Supabase, then apply locally ── */
   const toCode = _swSelected;
   btn.disabled = true;
