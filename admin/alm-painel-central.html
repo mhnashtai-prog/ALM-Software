@@ -2223,7 +2223,6 @@ function openSwapCard(ref, fromCode, levelKey){
 }
 
 // Helper: does this student's availability cover a given day+time?
-// Helper: does this student's availability cover a given day+time?
 function _sessionFits(availData, dayIdx, startTimeStr){
   if(!availData || !availData.windows.length) return false;
   const start = toMins(startTimeStr);
@@ -2235,6 +2234,20 @@ function _sessionFits(availData, dayIdx, startTimeStr){
 }
 
 let _swArmed = false;
+
+function swSelectTarget(groupCode, el){
+  _swSelected = groupCode;
+  _swArmed = false;
+  document.querySelectorAll('#sw-targets .sw-tgt').forEach(t => {
+    t.classList.remove('sel');
+    t.querySelector('.sw-tgt-check').textContent = '○';
+  });
+  el.classList.add('sel');
+  el.querySelector('.sw-tgt-check').textContent = '✓';
+  const btn = document.getElementById('sw-confirm');
+  btn.disabled = false;
+  btn.classList.remove('disabled');
+}
 
 async function swConfirm(){
   if(!_swSelected) return;
@@ -2268,14 +2281,10 @@ async function swConfirm(){
       status: 'atribuido',
     });
     if(!reqOk) throw new Error('timetable_requests write returned no rows');
-
     await swPatchClassRefs(ref, fromCode, toCode);
-
     rsMoveStudent(ref, toCode);
-
     showToast(`${ref} movido para ${toCode} ✓`, 'ok');
     closeSwapCard();
-
     if(document.getElementById('panel-overview')?.classList.contains('active') && _ovActiveLevel){
       ovDrillToFormation(_ovActiveLevel);
     } else if(activeLevelKey){
@@ -2289,40 +2298,7 @@ async function swConfirm(){
     btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
   }
 }
-
-  try {
-    // 1. Update timetable_requests: set assigned_turma + status
-    const reqOk = await rsUpsertRequest(ref, {
-      assigned_turma: toCode,
-      status: 'atribuido',
-    });
-    if(!reqOk) throw new Error('timetable_requests write returned no rows');
-
-    // 2. Update classes table student_refs for FROM and TO turma rows
-    //    Classes are stored with suffix A/B — update all rows whose group_code matches
-    await swPatchClassRefs(ref, fromCode, toCode);
-
-    // 3. Apply locally so UI reflects immediately without a full reload
-    rsMoveStudent(ref, toCode);
-
-    showToast(`${ref} movido para ${toCode} ✓`, 'ok');
-    closeSwapCard();
-
-    // Re-render active view
-    if(document.getElementById('panel-overview')?.classList.contains('active') && _ovActiveLevel){
-      ovDrillToFormation(_ovActiveLevel);
-    } else if(activeLevelKey){
-      _lastResult = _allResults[activeLevelKey] || _lastResult;
-      renderLevelContent();
-    }
-  } catch(err) {
-    console.error('[swap] DB write failed', err);
-    showToast('Erro ao guardar: ' + err.message, 'err');
-    btn.disabled = false;
-    btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
-  }
-}
-
+  
 /* Patch student_refs on both FROM and TO turma rows in classes table */
 async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
   const codes = [fromGroupCode, toGroupCode].filter(Boolean);
@@ -3308,72 +3284,7 @@ function rsSeedFromClasses(rows){
     });
   });
 }
-    
-    let refs = c.student_refs;
-    if(typeof refs === 'string'){ try{ refs = JSON.parse(refs); }catch{ refs = []; } }
-    if(!Array.isArray(refs)) return;
 
-    const e0 = allE.find(x => refs.includes(x.ref));
-    if(!e0 && !refs.length) return;
-
-    const levelKey = e0 ? lk(e0) : `${(c.department||'adults').toLowerCase()}|${(c.level_code||'').trim()}`;
-
-    if(!_rsBoxes[turmaCode]){
-      _rsBoxes[turmaCode] = {
-        code: turmaCode,
-        groupCode: c.group_code || turmaCode.replace(/[A-Z]$/,''),
-        levelKey,
-        dept: (c.department||'adults').toLowerCase(),
-        schedule: _rsSchedByCode[c.group_code || turmaCode.replace(/[A-Z]$/,'')] || {},
-        day: c.day_of_week || null,   // the specific day for THIS session
-        startTime: c.start_time || null,
-        endTime: c.end_time || null,
-        students: [],
-        refs: [],
-        confirmed: true,
-      };
-    }
-
-    refs.forEach(ref => {
-      const e = allE.find(x => x.ref === ref); if(!e) return;
-      if(!_rsBoxes[turmaCode].refs.includes(ref)){
-        _rsBoxes[turmaCode].students.push(e);
-        _rsBoxes[turmaCode].refs.push(ref);
-      }
-    });
-  });
-}
-
-function rsApplyAssignedOverrides(){
-  allE.forEach(e => {
-    const r = rByRef[e.ref];
-    if(!r || !r.assigned_turma || normS(r.status) !== 'atribuido') return;
-    
-    // assigned_turma may be "FUN-01" or "FUN-01A" — find all matching turma_code boxes
-    const raw = String(r.assigned_turma).trim();
-    const isFullCode = /[A-Z]$/.test(raw); // FUN-01A vs FUN-01
-    
-    const matchingCodes = isFullCode
-      ? [raw]
-      : Object.keys(_rsBoxes).filter(k => k.replace(/[A-Z]$/,'') === raw);
-
-    // Remove from any box that isn't in the matching set
-    Object.entries(_rsBoxes).forEach(([code, box]) => {
-      if(matchingCodes.includes(code)) return;
-      const i = box.refs.indexOf(e.ref);
-      if(i >= 0){ box.refs.splice(i,1); box.students.splice(box.students.findIndex(s=>s.ref===e.ref),1); }
-    });
-
-    // Add to all matching boxes (both A and B sessions)
-    matchingCodes.forEach(code => {
-      if(!_rsBoxes[code]) return;
-      if(!_rsBoxes[code].refs.includes(e.ref)){
-        _rsBoxes[code].students.push(e);
-        _rsBoxes[code].refs.push(e.ref);
-      }
-    });
-  });
-}
   /* ══════════════════════════════════════════════
    UNIFIED GROUP DISPLAY — reads from _rsBoxes
    One card per turma_code (FUN-01A, FUN-01B etc)
