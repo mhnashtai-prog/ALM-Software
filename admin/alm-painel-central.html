@@ -2252,47 +2252,53 @@ async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
   const codes = [fromGroupCode, toGroupCode].filter(Boolean);
   if(!codes.length) return;
 
-  // Fetch rows for each code separately to avoid in() encoding issues
+  // Fetch all session rows for both group codes using turma_code prefix (LIKE)
+  // FUN-01 matches FUN-01A and FUN-01B
   const allRows = [];
   for(const code of codes){
     const rows = await sbGet('classes',
-      `select=turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&group_code=eq.${encodeURIComponent(code)}`
+      `select=turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&turma_code=like.${encodeURIComponent(code + '*')}`
     );
+    console.log(`[swPatch] rows for ${code}:`, rows.map(r=>r.turma_code));
+    // Tag each row with which group it belongs to so we know add vs remove
+    rows.forEach(r => r._targetGroupCode = code);
     allRows.push(...rows);
   }
 
   const patchPromises = allRows.map(async row => {
-    let refs = Array.isArray(row.student_refs) ? [...row.student_refs] : [];
+    let refs = Array.isArray(row.student_refs)
+      ? [...row.student_refs]
+      : (typeof row.student_refs === 'string' ? JSON.parse(row.student_refs || '[]') : []);
+
     let changed = false;
 
-    if(row.group_code === fromGroupCode && refs.includes(ref)){
+    if(row._targetGroupCode === fromGroupCode && refs.includes(ref)){
       refs = refs.filter(r => r !== ref);
       changed = true;
+      console.log(`[swPatch] REMOVE ${ref} from ${row.turma_code}`);
     }
-    if(row.group_code === toGroupCode && !refs.includes(ref)){
+    if(row._targetGroupCode === toGroupCode && !refs.includes(ref)){
       refs = [...refs, ref];
       changed = true;
+      console.log(`[swPatch] ADD ${ref} to ${row.turma_code}`);
     }
     if(!changed) return;
 
-    // Use turma_code as the row identifier (primary key), not id
     const r = await fetch(
       `${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(row.turma_code)}&academic_year=eq.${encodeURIComponent(AY)}`,
       {
         method: 'PATCH',
-        headers: {...H, 'Content-Type': 'application/json', Prefer: 'return=minimal'},
+        headers: {...H, 'Content-Type': 'application/json', Prefer: 'return=representation'},
         body: JSON.stringify({ student_refs: refs }),
       }
     );
-    if(!r.ok){
-      const body = await r.text().catch(()=>'');
-      throw new Error(`classes PATCH failed for ${row.turma_code}: HTTP ${r.status} ${body}`);
-    }
+    const body = await r.text();
+    console.log(`[swPatch] ${row.turma_code} → ${r.status}`, body);
+    if(!r.ok) throw new Error(`PATCH ${row.turma_code}: HTTP ${r.status} ${body}`);
   });
 
   await Promise.all(patchPromises);
 }
-
 function closeSwapCard(){
   const s=document.getElementById('sw-sheet'); if(!s) return;
   s.classList.add('sw-exit');
