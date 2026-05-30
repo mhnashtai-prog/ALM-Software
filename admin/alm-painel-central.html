@@ -2925,14 +2925,55 @@ function rsMoveStudent(ref, targetCode){
   if(rByRef[ref]){ rByRef[ref].assigned_turma = targetCode; rByRef[ref].status='atribuido'; }
 }
 
+function rsSeedFromClasses(rows){
+  (rows||[]).forEach(c=>{
+    const code = c.group_code || (c.turma_code ? String(c.turma_code).replace(/[A-D]$/,'') : null);
+    if(!code) return;
+    let refs = c.student_refs;
+    if(typeof refs === 'string'){ try{ refs = JSON.parse(refs); }catch{ refs = []; } }
+    if(!Array.isArray(refs)) return;
+    refs.forEach(ref=>{
+      const e = allE.find(x=>x.ref===ref); if(!e) return;
+      if(!_rsBoxes[code]){
+        const levelKey = lk(e);
+        _rsBoxes[code] = { code, levelKey,
+          dept:(LEVEL_MAP[levelKey]||{}).dept||(e.family||'adults').toLowerCase(),
+          schedule:_rsSchedByCode[code]||{}, students:[], refs:[], confirmed:true };
+      }
+      if(!_rsBoxes[code].refs.includes(ref)){ _rsBoxes[code].students.push(e); _rsBoxes[code].refs.push(ref); }
+    });
+  });
+}
+
 async function rsInit(){
   try{
     const rows = await sbGet('classes',
       `select=turma_code,group_code,level_code,department,start_time,end_time,hour,day_of_week,student_refs&academic_year=eq.${encodeURIComponent(AY)}&status=eq.confirmed&limit=2000`);
     rsCaptureSchedules(rows);
-    rsBuildBoxes();
+    _rsBoxes = {};
+    rsSeedFromClasses(rows);          // base roster from classes.student_refs
+    rsApplyAssignedOverrides();       // assigned_turma wins where present
     console.log(`[rs] roster built: ${Object.keys(_rsBoxes).length} committed turmas · ${rsCountStudents()} students placed`);
   }catch(e){ console.warn('[rs] rsInit failed', e); }
+}
+
+function rsApplyAssignedOverrides(){
+  allE.forEach(e=>{
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma || normS(r.status)!=='atribuido') return;
+    const code = String(r.assigned_turma).replace(/[A-D]$/,'').trim();
+    if(!code) return;
+    Object.values(_rsBoxes).forEach(b=>{
+      if(b.code===code) return;
+      const i=b.refs.indexOf(e.ref);
+      if(i>=0){ b.refs.splice(i,1); const j=b.students.findIndex(s=>s.ref===e.ref); if(j>=0) b.students.splice(j,1); }
+    });
+    if(!_rsBoxes[code]){
+      _rsBoxes[code] = { code, levelKey:lk(e), dept:(LEVEL_MAP[lk(e)]||{}).dept||'adults',
+        schedule:_rsSchedByCode[code]||{}, students:[], refs:[], confirmed:true };
+    }
+    if(!_rsBoxes[code].refs.includes(e.ref)){ _rsBoxes[code].students.push(e); _rsBoxes[code].refs.push(e.ref); }
+  });
 }
   
 boot().then(()=>{ try{ rsInit(); }catch(e){ console.warn('[rs] init',e); } });
