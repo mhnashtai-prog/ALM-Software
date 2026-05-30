@@ -533,6 +533,42 @@ body{display:flex;flex-direction:column}
 .gc-seal{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
 .gc-seal::after{content:'';position:absolute;inset:4px;border-radius:50%;border:1px solid rgba(7,6,14,.2)}
 .gc-seal::before{content:'';position:absolute;inset:9px;border-radius:50%;border:.8px dashed rgba(7,6,14,.15)} 
+
+  /* ══ SWAP CARD (Stage 4) ══ */
+.gm-mudar{font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--b2);border-radius:999px;color:var(--gold2);background:transparent;cursor:pointer;flex-shrink:0;transition:all .12s;letter-spacing:.04em}
+.gm-mudar:hover{border-color:var(--gold);background:var(--gold4)}
+.sw-overlay{display:none;position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,.62);backdrop-filter:blur(20px) saturate(160%);align-items:center;justify-content:center;padding:20px}
+.sw-overlay.open{display:flex}
+.sw-sheet{width:min(560px,95vw);max-height:85dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .26s cubic-bezier(.32,.72,0,1)}
+.sw-sheet.sw-exit{animation:shDn .2s cubic-bezier(.32,.72,0,1) forwards}
+.sw-banner{flex-shrink:0;padding:18px 18px 14px;display:flex;align-items:flex-start;gap:12px;background:var(--bg2-d);border-bottom:.5px solid var(--sep-d)}
+.sw-name{font-family:var(--display);font-size:26px;letter-spacing:4px;color:#fff;line-height:1}
+.sw-sub{font-size:9px;color:var(--sub-d);font-family:var(--mono);margin-top:5px;letter-spacing:.04em}
+.sw-close{width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.32);border:none;cursor:pointer;color:rgba(255,255,255,.8);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.sw-cols{flex:1;display:flex;overflow:hidden;min-height:0}
+.sw-col{display:flex;flex-direction:column;overflow:hidden;padding:14px}
+.sw-col-left{border-right:.5px solid var(--sep-d);flex:0 0 38%}
+.sw-col-right{flex:1}
+.sw-col-hdr{font-size:7.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:10px}
+.sw-cur{border:1px solid var(--sep-d);border-left:3px solid var(--sub-d);border-radius:8px;padding:11px 12px;opacity:.62}
+.sw-cur-code{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text-d);text-decoration:line-through;text-decoration-color:var(--sub-d)}
+.sw-cur-meta{font-size:9px;color:var(--sub-d);margin-top:3px}
+.sw-cur-empty .sw-cur-code{text-decoration:none;color:var(--sub-d)}
+.sw-tgt-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--bg3-d) transparent}
+.sw-tgt{display:flex;align-items:center;gap:8px;border:1px solid var(--sep-d);border-left:3px solid transparent;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .12s}
+.sw-tgt:hover{background:var(--bg2-d);border-color:rgba(255,255,255,.16)}
+.sw-tgt.sel{border-left-color:var(--green-d);background:rgba(48,192,96,.10)}
+.sw-tgt-code{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text-d)}
+.sw-tgt-meta{font-size:8.5px;color:var(--sub-d);margin-top:2px}
+.sw-tgt-check{font-size:11px;color:var(--sub-d);flex-shrink:0}
+.sw-tgt.sel .sw-tgt-check{color:var(--green-d)}
+.sw-empty{font-size:10px;color:var(--sub-d);text-align:center;padding:24px 8px;line-height:1.6}
+.sw-foot{flex-shrink:0;display:flex;gap:8px;padding:12px 18px;border-top:.5px solid var(--sep-d);background:var(--bg2-d)}
+.sw-btn{flex:1;font-family:var(--dm);font-size:12px;font-weight:600;padding:9px 14px;border-radius:9px;border:none;cursor:pointer;transition:opacity .12s}
+.sw-btn-ghost{background:var(--bg3-d);color:var(--text-d)}
+.sw-btn-confirm{background:var(--green-d);color:#06140C}
+.sw-btn-confirm.disabled{opacity:.35;cursor:default}
+.sw-btn:hover:not(.disabled){opacity:.85}
   
 </style>
 </head>
@@ -768,6 +804,33 @@ body{display:flex;flex-direction:column}
   </div>
 </div>
 
+  <!-- SWAP CARD (Stage 4) -->
+<div class="sw-overlay" id="sw-overlay" onclick="if(event.target===this)closeSwapCard()">
+  <div class="sw-sheet" id="sw-sheet">
+    <div class="sw-banner">
+      <div style="flex:1;min-width:0">
+        <div class="sw-name" id="sw-name">—</div>
+        <div class="sw-sub" id="sw-sub"></div>
+      </div>
+      <button class="sw-close" onclick="closeSwapCard()">✕</button>
+    </div>
+    <div class="sw-cols">
+      <div class="sw-col sw-col-left">
+        <div class="sw-col-hdr">Turma actual</div>
+        <div id="sw-current"></div>
+      </div>
+      <div class="sw-col sw-col-right">
+        <div class="sw-col-hdr">Mover para</div>
+        <div id="sw-targets" class="sw-tgt-list"></div>
+      </div>
+    </div>
+    <div class="sw-foot">
+      <button class="sw-btn sw-btn-ghost" onclick="closeSwapCard()">Cancelar</button>
+      <button class="sw-btn sw-btn-confirm disabled" id="sw-confirm" onclick="swConfirm()" disabled>Confirmar</button>
+    </div>
+  </div>
+</div>
+  
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2022,6 +2085,7 @@ const stuRows=[...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).
 <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
         ${reason&&verdict!=='pass'?`<div style="font-size:6.5px;color:var(--amber-d);margin-top:1px">${reason}</div>`:''}
       </div>
+    ${isCert?`<span class="gm-mudar" onclick="event.stopPropagation();openSwapCard('${e.ref}','${committed.turmaCode}','${levelKey}')">⇄ Mudar</span>`:''}
       <span class="gm-verd ${verdict}">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
       <span style="font-size:9px;color:var(--sub-d)">↗</span>
     </div>`;
@@ -2037,6 +2101,80 @@ function closeGroupModal(){
   const s=document.getElementById('gm-sheet');if(!s)return;
   s.classList.add('gm-exit');
   setTimeout(()=>{document.getElementById('gm-overlay')?.classList.remove('open');s.classList.remove('gm-exit');},220);
+}
+  /* ══════════════════════════════════════════════
+   SWAP CARD (Stage 4a) — NO WRITE. Logs intent only.
+══════════════════════════════════════════════ */
+let _swSelected = null;
+
+function openSwapCard(ref, fromCode, levelKey){
+  const enrol = allE.find(e=>e.ref===ref) || {};
+  if(!levelKey) levelKey = lk(enrol);
+  fromCode = fromCode ? String(fromCode).replace(/[A-D]$/,'').trim() : null;
+  _swSelected = null;
+
+  const meta = LEVEL_MAP[levelKey] || {};
+  const a = analysePrefs(ref);
+  const slots = a ? a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+  const fromBox = fromCode ? _rsBoxes[fromCode] : null;
+
+  const targets = Object.values(_rsBoxes)
+    .filter(b => b.levelKey===levelKey && b.code!==fromCode)
+    .sort((x,y)=> x.code.localeCompare(y.code));
+
+  const currentHTML = fromCode
+    ? `<div class="sw-cur"><div class="sw-cur-code">${fromCode}</div><div class="sw-cur-meta">${fromBox?fromBox.students.length+' alunos':''}</div></div>`
+    : `<div class="sw-cur sw-cur-empty"><div class="sw-cur-code">Sem turma</div><div class="sw-cur-meta">não alocado</div></div>`;
+
+  const targetsHTML = targets.length
+    ? targets.map(b=>{
+        const sched=_rsSchedByCode[b.code]||{};
+        const time=sched.startTime?String(sched.startTime).slice(0,5):'';
+        const days=(sched.days||[]).join('+');
+        return `<div class="sw-tgt" data-code="${b.code}" onclick="swSelectTarget('${b.code}',this)">
+          <div style="flex:1;min-width:0">
+            <div class="sw-tgt-code">${b.code}</div>
+            <div class="sw-tgt-meta">${days}${time?' · '+time:''} · ${b.students.length} al</div>
+          </div>
+          <span class="sw-tgt-check">○</span>
+        </div>`;
+      }).join('')
+    : `<div class="sw-empty">Sem outras turmas certificadas neste nível</div>`;
+
+  document.getElementById('sw-name').textContent = enrol.name || ref;
+  document.getElementById('sw-sub').textContent = `${ref} · ${meta.label||''} · ${slots}`;
+  document.getElementById('sw-current').innerHTML = currentHTML;
+  document.getElementById('sw-targets').innerHTML = targetsHTML;
+  const btn=document.getElementById('sw-confirm'); btn.disabled=true; btn.classList.add('disabled');
+
+  const ov=document.getElementById('sw-overlay');
+  ov.dataset.ref=ref; ov.dataset.from=fromCode||''; ov.dataset.level=levelKey;
+  const sheet=document.getElementById('sw-sheet'); sheet.classList.remove('sw-exit');
+  ov.classList.add('open');
+}
+
+function swSelectTarget(code, el){
+  _swSelected = code;
+  document.querySelectorAll('#sw-targets .sw-tgt').forEach(t=>{
+    t.classList.toggle('sel', t===el);
+    const chk=t.querySelector('.sw-tgt-check'); if(chk) chk.textContent=(t===el)?'●':'○';
+  });
+  const btn=document.getElementById('sw-confirm'); btn.disabled=false; btn.classList.remove('disabled');
+}
+
+function swConfirm(){
+  if(!_swSelected) return;
+  const ov=document.getElementById('sw-overlay');
+  const ref=ov.dataset.ref, fromCode=ov.dataset.from||null, levelKey=ov.dataset.level;
+  console.log('[swap] intended move', {ref, fromCode, toCode:_swSelected, levelKey});  // STAGE 4a — NO WRITE
+  showToast(`[4a] ${ref}: ${fromCode||'sem turma'} → ${_swSelected} (sem escrita)`, 'warn');
+  closeSwapCard();
+}
+
+function closeSwapCard(){
+  const s=document.getElementById('sw-sheet'); if(!s) return;
+  s.classList.add('sw-exit');
+  setTimeout(()=>{document.getElementById('sw-overlay')?.classList.remove('open');s.classList.remove('sw-exit');},220);
 }
 
 function exportGroup(levelKey,idx){
@@ -2792,7 +2930,8 @@ document.addEventListener('click',e=>{
   }
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
+if(e.key==='Escape'){
+    if(document.getElementById('sw-overlay')?.classList.contains('open')){closeSwapCard();return;}
     if(document.getElementById('ds-overlay')?.classList.contains('open')){closeDossier();return;}
     closeGroupModal();
   }
