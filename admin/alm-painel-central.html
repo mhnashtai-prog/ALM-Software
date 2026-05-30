@@ -134,7 +134,7 @@ body{display:flex;flex-direction:column}
 .lp-dept-hdr:hover{background:rgba(255,255,255,.015)}
 .lp-dept-bar{width:3px;height:13px;flex-shrink:0}
 .lp-dept-name{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex:1}
-.lp-dept-n{font-size:8px;color:var(--t3)}
+.lp-dept-n{font-size:8px;color:var(--t2);}
 .lp-dept-arr{font-size:7px;color:var(--t4);transition:transform .18s}
 .lp-dept-arr.open{transform:rotate(90deg)}
 .lp-lv-list{display:none}.lp-lv-list.open{display:block}
@@ -143,7 +143,7 @@ body{display:flex;flex-direction:column}
 .lp-lv.active{background:var(--gold4);border-left-color:var(--gold)}
 .lp-lv-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .lp-lv-name{font-size:9px;font-weight:600;flex:1}
-.lp-lv-n{font-size:8px;color:var(--t3);min-width:24px;text-align:right}
+.lp-lv-n{font-size:8px;color:var(--t2);min-width:24px;text-align:right}
 .lv-audit{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .lv-audit.pass{background:var(--green)}.lv-audit.warn{background:var(--amber)}.lv-audit.fail{background:var(--red)}.lv-audit.pending{background:var(--t4)}
 
@@ -1536,8 +1536,25 @@ for(const key of levelKeys){
       const diff=Math.abs(dbCount-engineCount);
       if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
     });
-    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
+  if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
   })();
+
+  // ── STEP 5: Publish dashboard summary (floating + pending) ──
+  try{
+    let floating=0;
+    for(const key of Object.keys(_allResults)){
+      floating += (_allResults[key].sinalizados?.length)||0;
+    }
+    const pending = allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length;
+    const difficult = floating + pending;
+    await fetch(`${SB}/rest/v1/dashboard_summary?key=eq.current`,{
+      method:'PATCH',
+      headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({floating_count:floating,pending_count:pending,difficult_count:difficult,updated_at:new Date().toISOString()}),
+    });
+    console.log(`ALM summary published: ${difficult} difficult (${floating} floating + ${pending} pending)`);
+  }catch(sErr){console.warn('ALM: dashboard_summary write failed',sErr);}
+
   return{committed,exceptions:_exceptionQueue.length};
 }
 function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
