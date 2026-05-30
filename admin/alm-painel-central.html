@@ -2210,6 +2210,22 @@ function swConfirm(){
     return;
   }
 
+  /* ── STAGE 4b — optimistic LOCAL move only. NO DB write. ── */
+  const toCode = _swSelected;
+  rsMoveStudent(ref, toCode);                 // mutates _rsBoxes + rByRef in memory
+  console.log('[swap] LOCAL move applied', {ref, fromCode, toCode, fits});
+  showToast(`[4b] ${ref}: ${fromCode||'sem turma'} → ${toCode} (local — não gravado)`, fits?'ok':'warn');
+  closeSwapCard();
+
+  /* re-render whichever view is active so the move shows immediately */
+  if(document.getElementById('panel-overview')?.classList.contains('active') && _ovActiveLevel){
+    ovDrillToFormation(_ovActiveLevel);
+  } else if(activeLevelKey){
+    _lastResult = _allResults[activeLevelKey] || _lastResult;
+    renderLevelContent();
+  }
+}
+
   console.log('[swap] intended move', {ref, fromCode, toCode:_swSelected, levelKey, fits});  // STAGE 4a — NO WRITE
   showToast(`[4a] ${ref}: ${fromCode||'sem turma'} → ${_swSelected}${fits?'':' (override)'} (sem escrita)`, fits?'ok':'warn');
   closeSwapCard();
