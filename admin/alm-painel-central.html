@@ -1963,8 +1963,10 @@ function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
   const g=result.groups[i];if(!g)return;
   const ar=(_auditResults[levelKey]||{})[i];
-  const committed=(_groupCodes[levelKey]||{})[i];
+ const committed=(_groupCodes[levelKey]||{})[i];
   const meta=LEVEL_MAP[levelKey]||{};
+  const _rsBox = committed ? _rsBoxes[committed.turmaCode] : null;
+  const students = (_rsBox && _rsBox.students.length) ? _rsBox.students : g.students;
 const isCert=!!committed;
 const isWarn=!isCert&&ar?.status==='warn';
 const isFail=!isCert&&ar?.status==='fail';
@@ -1991,8 +1993,8 @@ document.getElementById('gm-sub-text').textContent=`${i+1}A · ${g.pair.aL} + ${
     (isCert?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${committed.turmaCode}</span>`:'')
     +(isExc?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'');
   document.getElementById('gm-strip').innerHTML=
-    `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${g.students.length}</div><div class="gm-stat-l">alunos</div></div>`+
-    `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount??g.students.length}</div><div class="gm-stat-l">ok</div></div>`+
+   `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${students.length}</div><div class="gm-stat-l">alunos</div></div>`+
+    `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount??students.length}</div><div class="gm-stat-l">ok</div></div>`+
     (ar?.warnCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--amber)">${ar.warnCount}</div><div class="gm-stat-l">avisos</div></div>`:'')
     +(ar?.failCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--red)">${ar.failCount}</div><div class="gm-stat-l">falhas</div></div>`:'')
     +(isCert?`<div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:13px">${committed.turmaCode}</div><div class="gm-stat-l">código</div></div>`:'');
@@ -2002,7 +2004,7 @@ document.getElementById('gm-sub-text').textContent=`${i+1}A · ${g.pair.aL} + ${
     +(ar.failCount?`<span class="gm-ap fail">✕ ${ar.failCount} falha${ar.failCount!==1?'s':''}</span>`:'')
     +`<span style="font-size:6.5px;color:var(--t4);margin-left:auto;align-self:center">auditoria automática</span>`
     :'';
-  const stuRows=[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
+const stuRows=[...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
     const av=avCol(e.name||e.ref);
     const verdict=ar?.log?.[e.ref]?.verdict||'pass';
     const reason=ar?.log?.[e.ref]?.reason||'';
@@ -2022,8 +2024,8 @@ document.getElementById('gm-sub-text').textContent=`${i+1}A · ${g.pair.aL} + ${
   document.getElementById('gm-body').innerHTML=`<div class="gm-audit">${auditPills}</div>${stuRows}`;
   document.getElementById('gm-foot').innerHTML=
     `<button class="gm-btn gm-btn-csv" onclick="exportGroup('${levelKey}',${i})">↓ CSV</button>`+
-    `<button class="gm-btn gm-btn-ghost" onclick="closeGroupModal();setTimeout(()=>openDossier('${g.students[0]?.ref}'),240)">Primeiro dossier ↗</button>`+
-    `<div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${g.students.length} aluno${g.students.length!==1?'s':''}</div>`;
+   `<button class="gm-btn gm-btn-ghost" onclick="closeGroupModal();setTimeout(()=>openDossier('${students[0]?.ref}'),240)">Primeiro dossier ↗</button>`+
+    `<div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${students.length} aluno${students.length!==1?'s':''}</div>`;
 }
 
 function closeGroupModal(){
