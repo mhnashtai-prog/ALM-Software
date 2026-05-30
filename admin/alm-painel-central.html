@@ -2188,7 +2188,7 @@ function swSelectTarget(code, el){
   btn.style.background = fits ? 'var(--green-d)' : 'var(--amber-d)';
 }
 
-function swConfirm(){
+async function swConfirm(){
   if(!_swSelected) return;
   const ov=document.getElementById('sw-overlay');
   const ref=ov.dataset.ref, fromCode=ov.dataset.from||null, levelKey=ov.dataset.level;
@@ -2197,7 +2197,6 @@ function swConfirm(){
   const btn=document.getElementById('sw-confirm');
 
   if(!fits && !_swArmed){
-    // soft block: first click on an incompatible target → warn, require second click
     _swArmed = true;
     btn.textContent = 'Confirmar mesmo assim';
     let warn = document.getElementById('sw-warn');
@@ -2210,25 +2209,83 @@ function swConfirm(){
     return;
   }
 
-  /* ── STAGE 4b — optimistic LOCAL move only. NO DB write. ── */
+  /* ── STAGE 4c — write to Supabase, then apply locally ── */
   const toCode = _swSelected;
-  rsMoveStudent(ref, toCode);                 // mutates _rsBoxes + rByRef in memory
-  console.log('[swap] LOCAL move applied', {ref, fromCode, toCode, fits});
-  showToast(`[4b] ${ref}: ${fromCode||'sem turma'} → ${toCode} (local — não gravado)`, fits?'ok':'warn');
-  closeSwapCard();
+  btn.disabled = true;
+  btn.textContent = '⏳ A guardar…';
 
-/* re-render whichever view is active so the move shows immediately */
+  try {
+    // 1. Update timetable_requests: set assigned_turma + status
+    const reqOk = await rsUpsertRequest(ref, {
+      assigned_turma: toCode,
+      status: 'atribuido',
+    });
+    if(!reqOk) throw new Error('timetable_requests write returned no rows');
 
-if (
-    document.getElementById('panel-overview')?.classList.contains('active') &&
-    _ovActiveLevel
-) {
-    ovDrillToFormation(_ovActiveLevel);
-} else if (activeLevelKey) {
-    _lastResult = _allResults[activeLevelKey] || _lastResult;
-    renderLevelContent();
-   }   
+    // 2. Update classes table student_refs for FROM and TO turma rows
+    //    Classes are stored with suffix A/B — update all rows whose group_code matches
+    await swPatchClassRefs(ref, fromCode, toCode);
+
+    // 3. Apply locally so UI reflects immediately without a full reload
+    rsMoveStudent(ref, toCode);
+
+    showToast(`${ref} movido para ${toCode} ✓`, 'ok');
+    closeSwapCard();
+
+    // Re-render active view
+    if(document.getElementById('panel-overview')?.classList.contains('active') && _ovActiveLevel){
+      ovDrillToFormation(_ovActiveLevel);
+    } else if(activeLevelKey){
+      _lastResult = _allResults[activeLevelKey] || _lastResult;
+      renderLevelContent();
+    }
+  } catch(err) {
+    console.error('[swap] DB write failed', err);
+    showToast('Erro ao guardar: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
   }
+}
+
+/* Patch student_refs on both FROM and TO turma rows in classes table */
+async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
+  // Fetch all class rows for from and to group codes
+  const codes = [fromGroupCode, toGroupCode].filter(Boolean);
+  if(!codes.length) return;
+
+  // Build filter: group_code=in.(FUN-01,FUN-02) + academic_year
+  const inFilter = codes.map(c => encodeURIComponent(c)).join(',');
+  const rows = await sbGet('classes',
+    `select=id,turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&group_code=in.(${inFilter})`
+  );
+
+  const patchPromises = rows.map(async row => {
+    let refs = Array.isArray(row.student_refs) ? [...row.student_refs] : [];
+    let changed = false;
+
+    if(row.group_code === fromGroupCode && refs.includes(ref)){
+      refs = refs.filter(r => r !== ref);
+      changed = true;
+    }
+    if(row.group_code === toGroupCode && !refs.includes(ref)){
+      refs = [...refs, ref];
+      changed = true;
+    }
+    if(!changed) return;
+
+    const r = await fetch(
+      `${SB}/rest/v1/classes?id=eq.${encodeURIComponent(row.id)}`,
+      {
+        method: 'PATCH',
+        headers: {...H, 'Content-Type': 'application/json', Prefer: 'return=minimal'},
+        body: JSON.stringify({ student_refs: refs }),
+      }
+    );
+    if(!r.ok) throw new Error(`classes PATCH failed for ${row.turma_code}: HTTP ${r.status}`);
+  });
+
+  await Promise.all(patchPromises);
+}
 
 function closeSwapCard(){
   const s=document.getElementById('sw-sheet'); if(!s) return;
