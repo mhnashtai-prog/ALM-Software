@@ -1485,7 +1485,22 @@ if(!r.ok)throw new Error(`HTTP ${r.status}`);
 await fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify({group_code:groupCode,turma_code_a:codeA,turma_code_b:g.pair.a===g.pair.b?null:codeB,level_code:(levelKey.split('|')[1]||'').trim(),department:meta.dept||'adults',branch,pair_label:`${DAYS_PT[g.pair.a]}+${DAYS_PT[g.pair.b]}`,day_a:DAYS_PT[g.pair.a],day_b:g.pair.a===g.pair.b?null:DAYS_PT[g.pair.b],start_time:g.startTime,end_time:g.endTime,student_refs:g.students.map(s=>s.ref),academic_year:AY})});
   return groupCode;
 }
-
+// After loading allE/allR, before runBootAudit:
+async function loadNextSeqBase() {
+  try {
+    const rows = await sbGet('classes',
+      `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
+    );
+    rows.forEach(r => {
+      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
+      if (!m) return;
+      const [, prefix, num] = m;
+      const n = parseInt(num, 10);
+      if (!_nextSeqBase[prefix] || n >= _nextSeqBase[prefix])
+        _nextSeqBase[prefix] = n + 1;
+    });
+  } catch(e) { console.warn('loadNextSeqBase failed', e); }
+}
 async function runBootAudit(){
   const levelKeys=Object.keys(LEVEL_MAP);
   const total=levelKeys.length;let done=0;
