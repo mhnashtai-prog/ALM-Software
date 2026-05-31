@@ -1757,48 +1757,66 @@ function placedInPair(pair){
 /* Pair matrix */
 function buildPairMatrix(pairCounts){
   if(!_lastResult?.groups?.length) return buildPairMatrixLegacy(pairCounts);
+ 
   let html = `<div class="pair-matrix">`;
+ 
   _lastResult.groups.forEach((g, i) => {
     const committed = (_groupCodes[activeLevelKey]||{})[i];
-    const ar = (_auditResults[activeLevelKey]||{})[i];
-    const isCert = !!committed;
-    const isWarn = !isCert && ar?.status === 'warn';
-    const col = isWarn ? '#E8A020' : pairCol(g.pair);
-    const lbl = isCert ? 'alocados' : isWarn ? 'aguardar' : 'disponíveis';
-    const code = committed?.turmaCode || `T${i+1}`;
-    html += `<div style="
-      border:1px solid ${col}44;
-      border-left:3px solid ${col};
-      background:${col}11;
-      padding:11px 12px;
-      cursor:pointer;
-      transition:all .14s;
-      position:relative;
-    " onclick="openGroupModal('${activeLevelKey}',${i})"
-      onmouseover="this.style.background='${col}22'"
-      onmouseout="this.style.background='${col}11'">
-      <div style="font-size:7px;font-weight:700;color:${col};margin-bottom:2px;letter-spacing:.06em">${code}</div>
-      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col}">${g.pair.aL} + ${g.pair.bL}</div>
-      <div style="font-size:7.5px;color:${col};opacity:.7;margin-bottom:4px">${g.startTime}–${g.endTime}</div>
-      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${g.students.length}</div>
-      <div style="font-size:7px;margin-top:3px;color:${col}">${lbl}</div>
-      ${isCert ? `<div style="position:absolute;top:8px;right:10px;font-size:12px;color:${col}">✓</div>` : ''}
-      ${isWarn ? `<div style="position:absolute;top:8px;right:10px;font-size:10px;color:${col}">⚠</div>` : ''}
-    </div>`;
+    const ar        = (_auditResults[activeLevelKey]||{})[i];
+    const isCert    = !!committed;
+    const isWarn    = !isCert && ar?.status === 'warn';
+    const col       = isWarn ? '#E8A020' : pairCol(g.pair);
+    const baseCode  = committed?.turmaCode || `T${i+1}`;
+ 
+    const sessions = g.pair.a === g.pair.b
+      ? [{ suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins }]
+      : [
+          { suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins },
+          { suffix:'B', dayIdx:g.pair.b, dayL:g.pair.bL, startMins:g.startMinsB??g.startMins },
+        ];
+ 
+    sessions.forEach(({ suffix, dayL, startMins }) => {
+      const code  = baseCode + suffix;
+      const start = minsToT(startMins);
+      const end   = minsToT(startMins + CLASS_DUR);
+      const lbl   = isCert ? 'alocados' : isWarn ? 'aguardar' : 'disponíveis';
+ 
+      html += `<div style="
+        border:1px solid ${col}44;
+        border-left:3px solid ${col};
+        background:${col}11;
+        padding:11px 12px;
+        cursor:pointer;
+        transition:all .14s;
+        position:relative;
+      " onclick="openGroupModal('${activeLevelKey}',${i})"
+        onmouseover="this.style.background='${col}22'"
+        onmouseout="this.style.background='${col}11'">
+        <div style="font-size:7px;font-weight:700;color:${col};margin-bottom:2px;letter-spacing:.06em">${code}</div>
+        <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col}">${dayL}</div>
+        <div style="font-size:7.5px;color:${col};opacity:.7;margin-bottom:4px">${start}–${end}</div>
+        <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${g.students.length}</div>
+        <div style="font-size:7px;margin-top:3px;color:${col}">${lbl}</div>
+        ${isCert ? `<div style="position:absolute;top:8px;right:10px;font-size:12px;color:${col}">✓</div>` : ''}
+        ${isWarn ? `<div style="position:absolute;top:8px;right:10px;font-size:10px;color:${col}">⚠</div>` : ''}
+      </div>`;
+    });
   });
-  // Add empty pairs that have no group yet
+ 
+  /* Pairs with NO group yet (unplaced) — keep legacy dim cards */
   pairCounts.forEach(({pair, count}) => {
     const hasGroup = _lastResult.groups.some(g => g.pair.a===pair.a && g.pair.b===pair.b);
     if(hasGroup) return;
-    const col = pairCol(pair);
+    const col2 = pairCol(pair);
     const isViable = count >= ASSIGN_MIN, isWait = count >= MIN_G;
     const lbl = isViable ? 'disponíveis' : isWait ? 'aguardar' : 'não abre';
-    html += `<div style="border:1px solid ${col}44;border-left:3px solid ${col}44;background:${col}08;padding:11px 12px;opacity:.5">
-      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col}">${pair.aL} + ${pair.bL}</div>
-      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${count}</div>
-      <div style="font-size:7px;margin-top:3px;color:${col}">${lbl}</div>
+    html += `<div style="border:1px solid ${col2}44;border-left:3px solid ${col2}44;background:${col2}08;padding:11px 12px;opacity:.5">
+      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col2}">${pair.aL} + ${pair.bL}</div>
+      <div style="font-size:28px;font-weight:700;line-height:1;color:${col2}">${count}</div>
+      <div style="font-size:7px;margin-top:3px;color:${col2}">${lbl}</div>
     </div>`;
   });
+ 
   return html + `</div>`;
 }
 
@@ -1872,8 +1890,11 @@ function renderLevelContent(){
     html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
      ${certCount>0?`<span style="font-size:6px;font-weight:700;color:var(--green);padding:1px 4px;border:1px solid var(--green-b);background:var(--green-a)">✓${certCount}</span>`:''}
       ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
-    </div>`;
-    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+    </div>`;_lastResult.groups.forEach((g,i)=>{
+  const isSameDay = g.pair.a === g.pair.b;
+  html += buildGroupCard(g, i, 'A');
+  if(!isSameDay) html += buildGroupCard(g, i, 'B');
+});
   } else {
     html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
   }
@@ -1929,7 +1950,7 @@ paintCellHeatmap('sg-grid-container', withReq, _capturedKey, _capturedResult);
 /* ══════════════════════════════════════════════
    GROUP CARD
 ══════════════════════════════════════════════ */
-function buildGroupCard(g,i){
+function buildGroupCard(g, i, session){
   const committed  = (_groupCodes[activeLevelKey]||{})[i];
   const ar         = (_auditResults[activeLevelKey]||{})[i];
   const status     = ar?.status || 'pending';
@@ -1937,27 +1958,46 @@ function buildGroupCard(g,i){
   const isWarn     = !isCert && status === 'warn';
   const isFail     = !isCert && status === 'fail';
   const isExc      = isWarn || isFail;
-
-  const turmaCode  = committed?.turmaCode || `T${i+1}`;
-const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+ 
+  const baseCode   = committed?.turmaCode || `T${i+1}`;
+  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
   const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
   const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
   const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
-
- const sealGlyph  = isFail ? '✕' : String(i+1);
+ 
+  /* Resolve session-specific values */
+  const isSameDay  = g.pair.a === g.pair.b;
+  const sessions   = isSameDay
+    ? [{ suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins }]
+    : [
+        { suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins },
+        { suffix:'B', dayIdx:g.pair.b, dayL:g.pair.bL, startMins:g.startMinsB??g.startMins },
+      ];
+ 
+  const sess       = session
+    ? sessions.find(s => s.suffix === session) || sessions[0]
+    : null;
+ 
+  const dayLabel   = sess ? sess.dayL : `${g.pair.aL} + ${g.pair.bL}`;
+  const startMins  = sess ? sess.startMins : g.startMins;
+  const startT     = minsToT(startMins);
+  const endT       = minsToT(startMins + CLASS_DUR);
+  const turmaCode  = sess ? baseCode + sess.suffix : baseCode;
+ 
+  const sealGlyph  = isFail ? '✕' : String(i+1);
   const dash       = isCert ? 'none' : '2 2';
   const outerStroke = isCert ? col : col + '99';
-
+ 
   const glyphEl = sealGlyph.length === 1
     ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700"
          fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
     : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700"
          fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
-
+ 
   const sealSVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
     <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${isCert?2:1.5}"/>
     <circle cx="16" cy="16" r="12" stroke="${col}" stroke-width=".8" opacity=".6"/>
-   <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
+    <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
     ${isCert
       ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
          <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
@@ -1965,19 +2005,26 @@ const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
       : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>
          ${glyphEl}`}
   </svg>`;
-
-  const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
-  const blockLbl = g.startMins < 720 ? 'Manhã'    : 'Tarde';
+ 
+  const blockCls = startMins < 720 ? 'bk-manha' : 'bk-tarde';
+  const blockLbl = startMins < 720 ? 'Manhã'    : 'Tarde';
   const cardCls  = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
- const displayCol = col; // already amber for warn, red for fail
-
-  return `<div class="${cardCls}" style="border-left-color:${displayCol}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
+ 
+  /* Suffix label for card subtitle */
+  const suffixBadge = sess
+    ? `<span style="font-size:6.5px;font-weight:700;letter-spacing:.08em;padding:1px 6px;border:1px solid ${col}55;color:${col};background:${col}11">${turmaCode}</span>`
+    : '';
+ 
+  return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}${sess?'-'+sess.suffix:''}">
     <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
       ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
-    <div style="font-size:10px;font-weight:600;color:${displayCol}">${g.pair.aL} + ${g.pair.bL}</div>
-      <div style="font-size:7.5px;color:var(--t2);margin-top:2px">${g.startTime} – ${g.endTime}</div>
+      <div style="font-size:10px;font-weight:600;color:${col}">${dayLabel}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <span style="font-size:7.5px;color:var(--t2)">${startT} – ${endT}</span>
+        ${suffixBadge}
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
       <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
@@ -1985,11 +2032,12 @@ const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
       ${isExc  ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${isFail?'var(--red-b)':'var(--amber-b)'};color:${isFail?'var(--red)':'var(--amber)'}">
                     ${isFail ? '✕ falha' : '⚠ aviso'}
                   </div>` : ''}
-      <div style="font-size:22px;font-weight:700;color:${displayCol};line-height:1">${g.students.length}</div>
+      <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${g.students.length}</div>
       <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
     </div>
   </div>`;
 }
+  
 /* ══════════════════════════════════════════════
    GROUP MODAL
 ══════════════════════════════════════════════ */
@@ -2352,7 +2400,11 @@ function ovDrillToFormation(levelKey){
     /* Save activeLevelKey so buildGroupCard uses correct key */
     const savedKey=activeLevelKey;
     activeLevelKey=levelKey;
-    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+   _lastResult.groups.forEach((g,i)=>{
+   const isSameDay = g.pair.a === g.pair.b;
+  html += buildGroupCard(g, i, 'A');
+  if(!isSameDay) html += buildGroupCard(g, i, 'B');
+});
     activeLevelKey=savedKey;
   }
 
