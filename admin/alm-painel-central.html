@@ -938,6 +938,31 @@ let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='FUNCHAL';
 let _decActiveIdx=null,_decActiveBranch='all';
 let _nextSeqBase = {};
+/* ══ LOCK LAYER ══ */
+let _lockedRefs = {};   // { levelKey: Set(ref) }
+let _lockMeta   = {};   // { ref: {turma_code, source, tier, by, reason} }
+
+async function loadLocks(){
+  _lockedRefs = {}; _lockMeta = {};
+  try{
+    const rows = await sbGet('classes',
+      `select=turma_code,group_code,level_code,department,student_refs,locked,assignment_source,override_tier,override_by,override_reason&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    rows.forEach(c=>{
+      const key = `${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const refs = Array.isArray(c.student_refs)?c.student_refs:[];
+      if(!_lockedRefs[key]) _lockedRefs[key] = new Set();
+      refs.forEach(r=>{
+        _lockedRefs[key].add(r);
+        _lockMeta[r] = {
+          turma_code: c.turma_code, group_code: c.group_code,
+          source: c.assignment_source||'engine',
+          tier: c.override_tier||null,
+          by: c.override_by||null, reason: c.override_reason||null,
+        };
+      });
+    });
+  }catch(e){ console.warn('loadLocks failed', e); }
+}  
   
 /* Current grid state — tracks what's built in DOM */
 let _gridLevelKey=null;
@@ -2925,6 +2950,8 @@ async function boot(){
     document.getElementById('boot-count').textContent=allE.length;
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     setBootProgress(35);
+    setBoot('A carregar fixações…');
+    await loadLocks();
 
     const{committed,exceptions}=await runBootAudit();
     _bootComplete=true;
