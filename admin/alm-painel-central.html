@@ -3142,6 +3142,33 @@ async function confirmMudarTurma() {
     /* Update local state */
     if (!rByRef[_mtRef]) { rByRef[_mtRef] = { ref: _mtRef, academic_year: AY }; allR.push(rByRef[_mtRef]); }
     rByRef[_mtRef].assigned_turma = _mtSelectedCode; rByRef[_mtRef].status = 'atribuido';
+    /* ── WRITE LOCK to classes — both session rows of the target group ──
+       Staff move = immediate lock, no approval. This is what makes the
+       move survive a regroup: loadLocks picks it up, the engine filter
+       keeps her out of the candidate pool. */
+    try {
+      const enrolL = allE.find(e => e.ref === _mtRef) || {};
+      const lockBody = {
+        locked: true,
+        assignment_source: 'staff_move',
+        locked_at: new Date().toISOString(),
+        override_by: null, override_reason: null, override_tier: null,
+      };
+      // Add this student's ref to the target session rows' student_refs,
+      // and set the lock fields. The group_code is the turma minus A/B.
+      const gc = _mtSelectedCode.replace(/[AB]$/i, '');
+      // Patch every classes row whose group_code matches (covers A and B sessions)
+      await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(gc)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+        method: 'PATCH',
+        headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(lockBody)
+      });
+      // Refresh the in-memory lock set so the next render/regroup honours it
+      await loadLocks();
+    } catch (lockErr) {
+      console.warn('lock write failed', lockErr);
+      showToast('Aviso: mudança guardada mas fixação falhou', 'warn');
+    }
 
     /* Move student between engine groups */
     const enrol = allE.find(e => e.ref === _mtRef);
