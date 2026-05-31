@@ -3501,6 +3501,539 @@ setInterval(()=>{
 }, 60000);
 
 boot();
-</script>
+</script>/* ALM Roster Patch v2 — add <script src="alm-roster-patch-v2.js"></script> before </body> */
+/* ══════════════════════════════════════════════
+   PATCHED ROSTER STORE — keyed by turma_code (FUN-02A / FUN-02B)
+   Each session row in `classes` becomes one _rsBoxes entry.
+   The group_code (FUN-02) is stored as box.groupCode for display.
+══════════════════════════════════════════════ */
+
+/* rsCaptureSchedules — unchanged, still keyed by group_code for schedule lookup */
+function rsCaptureSchedules(rows){
+  _rsSchedByCode = {};
+  (rows||[]).forEach(c=>{
+    // Key by FULL turma_code so we can look up per-session schedule
+    const tc = c.turma_code;
+    if(!tc) return;
+    if(!_rsSchedByCode[tc]){
+      _rsSchedByCode[tc] = {
+        turmaCode: tc,
+        groupCode: c.group_code || tc.replace(/[A-Z]$/,''),
+        day: c.day_of_week || null,
+        startTime: c.start_time || null,
+        endTime:   c.end_time   || null,
+        hour: (c.hour!=null ? c.hour : (c.start_time ? parseInt(String(c.start_time).split(':')[0],10) : null)),
+        levelCode: (c.level_code||'').trim(),
+        dept: (c.department||'').toLowerCase(),
+      };
+    }
+  });
+}
+
+/* rsSeedFromClasses — one _rsBoxes entry per turma_code row */
+function rsSeedFromClasses(rows){
+  (rows||[]).forEach(c=>{
+    const turmaCode = c.turma_code;
+    if(!turmaCode) return;
+
+    let refs = c.student_refs;
+    if(typeof refs === 'string'){ try{ refs = JSON.parse(refs); }catch{ refs = []; } }
+    if(!Array.isArray(refs)) refs = [];
+
+    // Derive levelKey from enrolment data or from the classes row itself
+    const e0 = refs.length ? allE.find(x => refs.includes(x.ref)) : null;
+    const deptRaw = (c.department||'adults').toLowerCase();
+    const lvCode  = (c.level_code||'').trim();
+    const levelKey = e0 ? lk(e0) : `${deptRaw}|${lvCode}`;
+
+    if(!_rsBoxes[turmaCode]){
+      _rsBoxes[turmaCode] = {
+        code:      turmaCode,                                    // e.g. "FUN-02A"
+        groupCode: c.group_code || turmaCode.replace(/[A-Z]$/,''), // e.g. "FUN-02"
+        levelKey,
+        dept:      deptRaw,
+        day:       c.day_of_week || null,
+        startTime: c.start_time  || null,
+        endTime:   c.end_time    || null,
+        students:  [],
+        refs:      [],
+        confirmed: true,
+      };
+    }
+
+    refs.forEach(ref => {
+      const e = allE.find(x => x.ref === ref);
+      if(!e) return;
+      if(!_rsBoxes[turmaCode].refs.includes(ref)){
+        _rsBoxes[turmaCode].students.push(e);
+        _rsBoxes[turmaCode].refs.push(ref);
+      }
+    });
+  });
+}
+
+/* rsBuildBoxes — still used for assigned_turma-based boxes;
+   now normalises to the FULL turma_code if possible, or group_code as fallback */
+function rsBuildBoxes(){
+  // Don't clear — rsSeedFromClasses already populated from classes table.
+  // This function adds boxes for students whose timetable_requests.assigned_turma
+  // points to a code that isn't yet in _rsBoxes (edge case: orphaned assignments).
+  allE.forEach(e=>{
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma) return;
+    if(normS(r.status)!=='atribuido') return;
+
+    const raw  = String(r.assigned_turma).trim();
+    // Try exact match first, then try with 'A' suffix
+    const code = _rsBoxes[raw]
+      ? raw
+      : (_rsBoxes[raw+'A'] ? raw+'A' : raw);  // normalise to existing key
+
+    if(!_rsBoxes[code]){
+      const levelKey = lk(e);
+      _rsBoxes[code] = {
+        code, groupCode: raw.replace(/[A-Z]$/,''), levelKey,
+        dept: (LEVEL_MAP[levelKey]||{}).dept || (e.family||'adults').toLowerCase(),
+        day: null, startTime: null, endTime: null,
+        students: [], refs: [], confirmed: true,
+      };
+    }
+    if(!_rsBoxes[code].refs.includes(e.ref)){
+      _rsBoxes[code].students.push(e);
+      _rsBoxes[code].refs.push(e.ref);
+    }
+  });
+}
+
+/* rsApplyAssignedOverrides — reconcile timetable_requests with _rsBoxes */
+function rsApplyAssignedOverrides(){
+  allE.forEach(e => {
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma || normS(r.status) !== 'atribuido') return;
+
+    const raw = String(r.assigned_turma).trim();
+
+    // Find all _rsBoxes keys whose groupCode matches (covers both A and B sessions)
+    const matchingKeys = Object.keys(_rsBoxes).filter(k => {
+      const b = _rsBoxes[k];
+      return b.code === raw || b.groupCode === raw ||
+             b.code === raw+'A' || b.code === raw+'B';
+    });
+
+    if(!matchingKeys.length) return;
+
+    // Remove from any box NOT in matchingKeys
+    Object.keys(_rsBoxes).forEach(k => {
+      if(matchingKeys.includes(k)) return;
+      const b = _rsBoxes[k];
+      const i = b.refs.indexOf(e.ref);
+      if(i >= 0){ b.refs.splice(i,1); b.students.splice(b.students.findIndex(s=>s.ref===e.ref),1); }
+    });
+
+    // Add to matching boxes
+    matchingKeys.forEach(k => {
+      if(!_rsBoxes[k].refs.includes(e.ref)){
+        _rsBoxes[k].students.push(e);
+        _rsBoxes[k].refs.push(e.ref);
+      }
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════
+   buildGroupsFromRoster — 6 matrix boxes + 6 cards
+   Groups A+B visually as a paired row in the cards list,
+   but every turma_code gets its own matrix tile.
+══════════════════════════════════════════════ */
+function buildGroupsFromRoster(levelKey){
+  // Collect all boxes for this level, one per turma_code
+  const boxes = Object.values(_rsBoxes)
+    .filter(b => b.levelKey === levelKey)
+    .sort((a,b) => a.code.localeCompare(b.code));
+
+  if(!boxes.length) return { matrixHTML:'', cardsHTML:'', count:0 };
+
+  // Group A+B session pairs by groupCode for the card list
+  const byGroup = {};
+  boxes.forEach(b => {
+    const gc = b.groupCode || b.code.replace(/[A-Z]$/,'');
+    if(!byGroup[gc]) byGroup[gc] = [];
+    byGroup[gc].push(b);
+  });
+
+  /* ── Matrix: one tile per turma_code ── */
+  let matrixHTML = `<div class="pair-matrix">`;
+  boxes.forEach(box => {
+    const col       = turmaCol(box.code);
+    const day       = box.day || '—';
+    const startTime = box.startTime ? String(box.startTime).slice(0,5) : '—';
+    const endTime   = box.endTime   ? String(box.endTime).slice(0,5)   : '—';
+    const n         = box.students.length;
+    const isManha   = startTime < '12:00';
+
+    matrixHTML += `<div style="
+        border:1px solid ${col}44;border-left:3px solid ${col};
+        background:${col}11;padding:11px 12px;cursor:pointer;
+        transition:all .14s;position:relative;"
+      onclick="openRosterGroupModal('${box.code}','${levelKey}')"
+      onmouseover="this.style.background='${col}22'"
+      onmouseout="this.style.background='${col}11'">
+      <div style="font-size:7px;font-weight:700;color:${col};margin-bottom:2px;letter-spacing:.06em">${box.code}</div>
+      <div style="font-size:9px;font-weight:700;color:${col};margin-bottom:2px">${day}</div>
+      <div style="font-size:7.5px;color:${col};opacity:.7;margin-bottom:4px">${startTime}–${endTime}</div>
+      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${n}</div>
+      <div style="font-size:7px;margin-top:3px;color:${col}">alocados</div>
+      <div style="position:absolute;top:8px;right:10px;font-size:12px;color:${col}">✓</div>
+    </div>`;
+  });
+  matrixHTML += `</div>`;
+
+  /* ── Cards: one card per GROUP (showing both sessions) ── */
+  let cardsHTML = '';
+  Object.entries(byGroup).sort(([a],[b])=>a.localeCompare(b)).forEach(([gc, gbxs]) => {
+    // Use the first session box for display metadata (schedule)
+    const boxA = gbxs.find(b => /A$/.test(b.code)) || gbxs[0];
+    const boxB = gbxs.find(b => /B$/.test(b.code));
+    const col  = turmaCol(gc); // colour from group_code (same for A+B)
+
+    const dayA  = boxA.day || '—';
+    const dayB  = boxB?.day || null;
+    const startTime = boxA.startTime ? String(boxA.startTime).slice(0,5) : '—';
+    const endTime   = boxA.endTime   ? String(boxA.endTime).slice(0,5)   : '—';
+    const isManha   = startTime < '12:00';
+    const blockCls  = isManha ? 'bk-manha' : 'bk-tarde';
+    const blockLbl  = isManha ? 'Manhã' : 'Tarde';
+
+    // Count: show boxA students (they mirror boxB for the same group)
+    const n = boxA.students.length;
+    const pairLabel = dayB ? `${dayA} + ${dayB}` : dayA;
+
+    cardsHTML += `<div class="gcard-compact certified"
+        style="border-left-color:${col};cursor:pointer"
+        onclick="openRosterGroupModal('${boxA.code}','${levelKey}')">
+      <div class="gc-seal" style="background:${col}22;border:1px solid ${col}88;
+           border-radius:50%;width:38px;height:38px;display:flex;align-items:center;
+           justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
+          <circle cx="16" cy="16" r="15" stroke="${col}" stroke-width="2"/>
+          <circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
+          <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:600;color:${col}">${gc} · ${pairLabel}</div>
+        <div style="font-size:7.5px;color:var(--t2);margin-top:2px">${startTime}–${endTime}</div>
+        ${boxB ? `<div style="font-size:6.5px;color:var(--t3);margin-top:1px">${boxA.code} + ${boxB.code}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+        <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
+        <div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);
+             color:var(--green);background:var(--green-a)">CERT · ${gc}</div>
+        <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${n}</div>
+        <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
+      </div>
+    </div>`;
+  });
+
+  return { matrixHTML, cardsHTML, count: boxes.length };
+}
+
+/* ══════════════════════════════════════════════
+   openRosterGroupModal — opens modal for a single turma_code box
+   Shows the Mudar button with correct full turma_code
+══════════════════════════════════════════════ */
+function openRosterGroupModal(turmaCode, levelKey){
+  const box = _rsBoxes[turmaCode]; if(!box) return;
+  const meta = LEVEL_MAP[levelKey] || {};
+  const col  = turmaCol(turmaCode);
+  const dept = (meta.dept||'adults');
+  const n    = box.students.length;
+  const day  = box.day || '—';
+  const startTime = box.startTime ? String(box.startTime).slice(0,5) : '—';
+  const endTime   = box.endTime   ? String(box.endTime).slice(0,5)   : '—';
+  const isManha   = startTime < '12:00';
+  const gc        = box.groupCode || turmaCode.replace(/[A-Z]$/,'');
+
+  const sheet = document.getElementById('gm-sheet');
+  sheet.classList.remove('gm-exit');
+  document.getElementById('gm-overlay').classList.add('open');
+  document.getElementById('gm-banner').style.background = DEPT_GRADS[dept]||DEPT_GRADS.adults;
+
+  const seal = document.getElementById('gm-seal');
+  seal.style.background = col + '33';
+  seal.innerHTML = `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="11" stroke="${col}" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="7" fill="${col}" opacity=".9"/>
+    <path d="M8 14L12.5 19.5L20 9" fill="none" stroke="#07060E"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+
+  document.getElementById('gm-title').textContent = turmaCode;
+  document.getElementById('gm-sub-text').textContent =
+    `${day} · ${startTime}–${endTime} · ${meta.label||''} · CERTIFIED`;
+  document.getElementById('gm-pills').innerHTML =
+    `<span class="gc-block-tag ${isManha?'bk-manha':'bk-tarde'}">${isManha?'Manhã':'Tarde'}</span>
+     <span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${gc}</span>`;
+
+  document.getElementById('gm-strip').innerHTML =
+    `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${n}</div><div class="gm-stat-l">alunos</div></div>
+     <div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${n}</div><div class="gm-stat-l">ok</div></div>
+     <div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:13px">${turmaCode}</div><div class="gm-stat-l">código</div></div>`;
+
+  const stuRows = [...box.students]
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''))
+    .map(e => {
+      const av = avCol(e.name||e.ref);
+      const a2 = analysePrefs(e.ref);
+      const slots = a2 ? a2.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+      return `<div class="gm-stu" onclick="closeGroupModal();setTimeout(()=>openDossier('${e.ref}'),240)">
+        <div class="gm-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name||e.ref)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--text-d)">${e.name||'—'}</div>
+          <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">
+            ${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
+        </div>
+        <span class="gm-mudar" onclick="event.stopPropagation();openSwapCard('${e.ref}','${turmaCode}','${levelKey}')">⇄ Mudar</span>
+        <span class="gm-verd pass">✓</span>
+        <span style="font-size:9px;color:var(--sub-d)">↗</span>
+      </div>`;
+    }).join('');
+
+  document.getElementById('gm-body').innerHTML = stuRows;
+  document.getElementById('gm-foot').innerHTML =
+    `<button class="gm-btn gm-btn-csv" onclick="exportRosterGroup('${turmaCode}')">↓ CSV</button>
+     <div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${n} aluno${n!==1?'s':''}</div>`;
+}
+
+/* ══════════════════════════════════════════════
+   openSwapCard — PATCHED
+   fromCode is now the FULL turma_code (e.g. "FUN-02A")
+   Targets are ALL other turma_code boxes at the same levelKey
+══════════════════════════════════════════════ */
+function openSwapCard(ref, fromTurmaCode, levelKey){
+  const enrol = allE.find(e=>e.ref===ref) || {};
+  if(!levelKey) levelKey = lk(enrol);
+
+  _swSelected = null;
+  _swArmed = false;
+
+  const meta = LEVEL_MAP[levelKey] || {};
+  const a    = analysePrefs(ref);
+  const slots = a ? a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+
+  // Derive the group_code from the full turma_code for display only
+  const fromGroupCode = fromTurmaCode
+    ? String(fromTurmaCode).replace(/[A-Z]$/,'').trim()
+    : null;
+
+  // Current turma display
+  const fromBox   = _rsBoxes[fromTurmaCode] || null;
+  const fromDay   = fromBox?.day || '—';
+  const fromStart = fromBox?.startTime ? String(fromBox.startTime).slice(0,5) : '';
+
+  const currentHTML = fromTurmaCode
+    ? `<div class="sw-cur">
+        <div class="sw-cur-code">${fromTurmaCode}</div>
+        <div class="sw-cur-meta">${fromDay}${fromStart?' · '+fromStart:''} · ${fromBox?fromBox.students.length+' alunos':''}</div>
+       </div>`
+    : `<div class="sw-cur sw-cur-empty"><div class="sw-cur-code">Sem turma</div></div>`;
+
+  // Targets: all turma_code boxes at same levelKey, excluding the current one
+  // Show BOTH A and B sessions so the user can pick either
+  const targetBoxes = Object.values(_rsBoxes)
+    .filter(b => b.levelKey === levelKey && b.code !== fromTurmaCode)
+    .sort((a,b) => a.code.localeCompare(b.code));
+
+  const targetsHTML = targetBoxes.length
+    ? targetBoxes.map(t => {
+        const day   = t.day || '—';
+        const start = t.startTime ? String(t.startTime).slice(0,5) : '—';
+        const dayIdx = normDay(t.day);
+        const fits  = _sessionFits(a, dayIdx, t.startTime);
+        const fitTag = fits
+          ? `<span style="font-size:7px;font-weight:700;color:var(--green-d)">✓ compatível</span>`
+          : `<span style="font-size:7px;font-weight:700;color:var(--amber-d)">⚠ fora da disponibilidade</span>`;
+        const gc = t.groupCode || t.code.replace(/[A-Z]$/,'');
+        return `<div class="sw-tgt" data-code="${t.code}" data-group="${gc}" data-fits="${fits?1:0}" onclick="swSelectTarget('${t.code}',this)">
+          <div style="flex:1;min-width:0">
+            <div class="sw-tgt-code">${t.code}</div>
+            <div class="sw-tgt-meta">${day}${start?' · '+start:''} · ${t.students.length} al · ${gc}</div>
+            <div style="margin-top:3px">${fitTag}</div>
+          </div>
+          <span class="sw-tgt-check">○</span>
+        </div>`;
+      }).join('')
+    : `<div class="sw-empty">Sem outras turmas certificadas neste nível</div>`;
+
+  document.getElementById('sw-name').textContent = enrol.name || ref;
+  document.getElementById('sw-sub').textContent  = `${ref} · ${meta.label||''} · ${slots}`;
+  document.getElementById('sw-current').innerHTML = currentHTML;
+  document.getElementById('sw-targets').innerHTML = targetsHTML;
+
+  const btn = document.getElementById('sw-confirm');
+  btn.disabled = true; btn.classList.add('disabled'); btn.textContent = 'Confirmar';
+  btn.style.background = 'var(--green-d)';
+
+  const ov = document.getElementById('sw-overlay');
+  ov.dataset.ref   = ref;
+  ov.dataset.from  = fromTurmaCode || '';   // FULL turma_code e.g. "FUN-02A"
+  ov.dataset.level = levelKey;
+  const sheet = document.getElementById('sw-sheet');
+  sheet.classList.remove('sw-exit');
+  ov.classList.add('open');
+}
+
+/* swSelectTarget — now receives full turma_code */
+function swSelectTarget(turmaCode, el){
+  _swSelected = turmaCode;
+  _swArmed = false;
+  document.querySelectorAll('#sw-targets .sw-tgt').forEach(t => {
+    t.classList.remove('sel');
+    t.querySelector('.sw-tgt-check').textContent = '○';
+  });
+  el.classList.add('sel');
+  el.querySelector('.sw-tgt-check').textContent = '✓';
+  const btn = document.getElementById('sw-confirm');
+  btn.disabled = false;
+  btn.classList.remove('disabled');
+}
+
+/* swConfirm — operates on full turma_codes; patches both A+B sessions in the DB */
+async function swConfirm(){
+  if(!_swSelected) return;
+  const ov       = document.getElementById('sw-overlay');
+  const ref      = ov.dataset.ref;
+  const fromCode = ov.dataset.from || null;   // e.g. "FUN-02A"
+  const toCode   = _swSelected;               // e.g. "FUN-01A"
+  const levelKey = ov.dataset.level;
+
+  const tgtEl = document.querySelector(`#sw-targets .sw-tgt[data-code="${toCode}"]`);
+  const fits  = tgtEl && tgtEl.dataset.fits==='1';
+  const btn   = document.getElementById('sw-confirm');
+
+  if(!fits && !_swArmed){
+    _swArmed = true;
+    btn.textContent = 'Confirmar mesmo assim';
+    btn.style.background = 'var(--amber-d)';
+    let warn = document.getElementById('sw-warn');
+    if(!warn){
+      warn = document.createElement('div'); warn.id = 'sw-warn';
+      warn.style.cssText = 'font-size:9px;color:var(--amber-d);text-align:center;padding:8px 18px 0;line-height:1.5';
+      document.querySelector('.sw-foot').insertAdjacentElement('beforebegin', warn);
+    }
+    warn.textContent = `${toCode} está fora da disponibilidade declarada — confirmar mesmo assim?`;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ A guardar…';
+
+  try {
+    // Derive group_code from turma_code for the timetable_requests record
+    const toGroupCode = toCode.replace(/[A-Z]$/,'');
+
+    const reqOk = await rsUpsertRequest(ref, {
+      assigned_turma: toGroupCode,   // store group_code (without A/B) in requests
+      status: 'atribuido',
+    });
+    if(!reqOk) throw new Error('timetable_requests write returned no rows');
+
+    // Patch classes table: remove from ALL sessions of fromGroup, add to ALL sessions of toGroup
+    const fromGroupCode = fromCode ? fromCode.replace(/[A-Z]$/,'') : null;
+    await swPatchClassRefsByGroup(ref, fromGroupCode, toGroupCode);
+
+    // Update in-memory roster
+    rsMoveStudentFull(ref, toGroupCode);
+
+    showToast(`${ref} movido para ${toGroupCode} ✓`, 'ok');
+    closeSwapCard();
+
+    if(activeLevelKey){
+      _lastResult = _allResults[activeLevelKey] || _lastResult;
+      renderLevelContent();
+    }
+  } catch(err){
+    console.error('[swap] DB write failed', err);
+    showToast('Erro ao guardar: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
+  }
+}
+
+/* Patch ALL session rows (A and B) for both from and to group_codes */
+async function swPatchClassRefsByGroup(ref, fromGroupCode, toGroupCode){
+  const codes = [fromGroupCode, toGroupCode].filter(Boolean);
+  if(!codes.length) return;
+
+  // Fetch all session rows matching either group_code prefix
+  const allRows = [];
+  for(const gc of codes){
+    // turma_code LIKE "FUN-02%" matches FUN-02A and FUN-02B
+    const rows = await sbGet('classes',
+      `select=turma_code,group_code,student_refs&academic_year=eq.${encodeURIComponent(AY)}&group_code=eq.${encodeURIComponent(gc)}`
+    );
+    rows.forEach(r => { r._targetGroupCode = gc; });
+    allRows.push(...rows);
+  }
+
+  await Promise.all(allRows.map(async row => {
+    let refs = Array.isArray(row.student_refs)
+      ? [...row.student_refs]
+      : (typeof row.student_refs === 'string' ? JSON.parse(row.student_refs||'[]') : []);
+
+    let changed = false;
+    if(row._targetGroupCode === fromGroupCode && refs.includes(ref)){
+      refs = refs.filter(r => r !== ref); changed = true;
+    }
+    if(row._targetGroupCode === toGroupCode && !refs.includes(ref)){
+      refs = [...refs, ref]; changed = true;
+    }
+    if(!changed) return;
+
+    const r = await fetch(
+      `${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(row.turma_code)}&academic_year=eq.${encodeURIComponent(AY)}`,
+      { method:'PATCH', headers:{...H,'Content-Type':'application/json',Prefer:'return=representation'},
+        body: JSON.stringify({ student_refs: refs }) }
+    );
+    if(!r.ok) throw new Error(`PATCH ${row.turma_code}: HTTP ${r.status}`);
+  }));
+}
+
+/* rsMoveStudentFull — move student across ALL session boxes for the group */
+function rsMoveStudentFull(ref, toGroupCode){
+  const enrol = allE.find(e=>e.ref===ref); if(!enrol) return;
+
+  // Remove from all current boxes
+  Object.values(_rsBoxes).forEach(b=>{
+    const i = b.students.findIndex(s=>s.ref===ref);
+    if(i>=0){ b.students.splice(i,1); const j=b.refs.indexOf(ref); if(j>=0) b.refs.splice(j,1); }
+  });
+
+  // Add to all boxes whose groupCode matches toGroupCode
+  const targets = Object.values(_rsBoxes).filter(b =>
+    b.groupCode === toGroupCode || b.code === toGroupCode ||
+    b.code === toGroupCode+'A' || b.code === toGroupCode+'B'
+  );
+  targets.forEach(b => {
+    if(!b.refs.includes(ref)){ b.students.push(enrol); b.refs.push(ref); }
+  });
+
+  if(rByRef[ref]){ rByRef[ref].assigned_turma = toGroupCode; rByRef[ref].status='atribuido'; }
+}
+
+/* ══════════════════════════════════════════════
+   exportRosterGroup — unchanged but referenced here for completeness
+══════════════════════════════════════════════ */
+function exportRosterGroup(turmaCode){
+  const box = _rsBoxes[turmaCode]; if(!box) return;
+  const rows = [`ALM · ${turmaCode} · ${box.day||''} · ${box.startTime||''}`, '', 'Nome,Ref,Filial,Status'];
+  box.students.forEach(e => {
+    rows.push(`"${e.name||''}","${e.ref||''}","${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'}","atribuído"`);
+  });
+  dlCSV(rows.join('\n'), `ALM-${turmaCode}.csv`);
+  showToast(`CSV ${turmaCode} exportado`, 'ok');
+}
+  
 </body>
 </html>
