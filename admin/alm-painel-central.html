@@ -1913,20 +1913,21 @@ function renderLevelContent(){
     html += rosterData.cardsHTML;
   } else {
 
-const rosterData = buildGroupsFromRoster(levelKey);
+const rosterData = buildGroupsFromRoster(activeLevelKey);
   if(rosterData.count > 0){
     html += rosterData.matrixHTML;
-    html += `<div class="sec" style="margin-top:14px">Turmas Certificadas · ${rosterData.count} sessão${rosterData.count!==1?'es':''}
+    html += `<div class="sec">Turmas Certificadas · ${rosterData.count} sessão${rosterData.count!==1?'es':''}
       <span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${rosterData.count} ✓ cert</span>
+      ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
     </div>`;
     html += rosterData.cardsHTML;
   } else {
     html += buildPairMatrix(pairCounts);
     if(_lastResult?.groups?.length){
-      const savedKey=activeLevelKey; activeLevelKey=levelKey;
-      html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}</div>`;
+      html += `<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}</div>`;
       _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
-      activeLevelKey=savedKey;
+    } else {
+      html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
     }
   }
   /* ── 4. SINALIZADOS ── */
@@ -2675,20 +2676,21 @@ function ovDrillToFormation(levelKey){
     </div>
   </div>`;
 
-  html+=buildPairMatrix(pairCounts);
-
-  if(_lastResult?.groups?.length){
-    const lvCert=Object.keys(_groupCodes[levelKey]||{}).length;
-    const lvExc=_exceptionQueue.filter(e=>e.levelKey===levelKey).length;
-    html+=`<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-      ${lvCert>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${lvCert} ✓ cert</span>`:''}
-      ${lvExc>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${lvExc} ⚠ exc</span>`:''}
+  const rosterData = buildGroupsFromRoster(levelKey);
+  if(rosterData.count > 0){
+    html += rosterData.matrixHTML;
+    html += `<div class="sec" style="margin-top:14px">Turmas Certificadas · ${rosterData.count} sessão${rosterData.count!==1?'es':''}
+      <span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">${rosterData.count} ✓ cert</span>
     </div>`;
-    /* Save activeLevelKey so buildGroupCard uses correct key */
-    const savedKey=activeLevelKey;
-    activeLevelKey=levelKey;
-    _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
-    activeLevelKey=savedKey;
+    html += rosterData.cardsHTML;
+  } else {
+    html += buildPairMatrix(pairCounts);
+    if(_lastResult?.groups?.length){
+      const savedKey=activeLevelKey; activeLevelKey=levelKey;
+      html += `<div class="sec" style="margin-top:14px">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}</div>`;
+      _lastResult.groups.forEach((g,i)=>{html+=buildGroupCard(g,i);});
+      activeLevelKey=savedKey;
+    }
   }
 
   if(_lastResult?.sinalizados?.length)html+=buildSinalizadosHTML(_lastResult);
@@ -2702,14 +2704,14 @@ function ovDrillToFormation(levelKey){
   el.innerHTML=html;
 
   /* Build grid then draw stamps — both rAF to ensure layout */
-buildPermanentGrid('ov-grid-container', withReq);
-const _ovCapturedKey = levelKey;
-const _ovCapturedResult = _lastResult;
-requestAnimationFrame(() => requestAnimationFrame(() => {
-  if (_ovActiveLevel !== _ovCapturedKey) return;
-  paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
-  drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
-}));
+  buildPermanentGrid('ov-grid-container', withReq);
+  const _ovCapturedKey = levelKey;
+  const _ovCapturedResult = _lastResult;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (_ovActiveLevel !== _ovCapturedKey) return;
+    paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
+    drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
+  }));
 }
 
 /* ══════════════════════════════════════════════
