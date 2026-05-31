@@ -1314,7 +1314,12 @@ function buildProposals(levelKey, branch){
     if(branch !== 'all' && normB(e.branch) !== branch) return false;
     return true;
   });
-  const withReq = all.filter(e => !!rByRef[e.ref]);
+/* ── LOCK FILTER: pull locked students out of the candidate pool ──
+     A locked student was fixed by a human decision; the engine must not
+     try to regroup them. They are removed here so the greedy pass never
+     places them. Their group is reconstructed separately (later patch). */
+  const lockedHere = _lockedRefs[levelKey] || new Set();
+  const withReq = all.filter(e => !!rByRef[e.ref] && !lockedHere.has(e.ref));
 
   /* ── 1. Extract all (dayIdx, startMins) windows per student ── */
   const studentWindows = {};
