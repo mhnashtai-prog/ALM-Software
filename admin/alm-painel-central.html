@@ -1460,7 +1460,7 @@ return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0
 async function generateTurmaCode(branch){
   const prefix=(BRANCH_LABELS[branch]||branch||'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
   try{
-const existing = await sbGet('classes', `select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+    const existing = await sbGet('classes', `select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
     const usedNums=new Set();
     existing.forEach(c=>{const m=(c.turma_code||'').match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
     _retiredCodes.forEach(code=>{const m=code.match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
@@ -1525,8 +1525,12 @@ for(const key of levelKeys){
  // ── STEP 1: Load existing DB classes FIRST — before commit loop ──
   setBoot('A verificar turmas existentes…');
   try{
-    const existing = await sbGet('classes', `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
-    if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
+const existing = await sbGet('classes', `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+rsCaptureSchedules(existing);
+rsSeedFromClasses(existing);
+rsBuildBoxes();
+rsApplyAssignedOverrides();
+if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
       const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
@@ -2834,7 +2838,8 @@ let allStudents=(_ovActiveLoc==='all'?allE:allE.filter(e=>normB(e.branch)===_ovA
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
   <div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:${meta.color||'var(--gold2)'}"> ${meta.label||levelKey}</div>
 <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${filter==='noreq'?'var(--red)':'var(--t3)'}">${sorted.length} ${filter==='noreq'?'sem pedido':'alunos'}</div>
-<button onclick="document.getElementById('ov-stu-modal').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
+<button onclick="document.getElementById('ov-stu-modal').remove()" ...>✕</button>
+    </div>
     <div style="overflow-y:auto;padding:10px 20px 24px">
       <div style="display:grid;grid-template-columns:36px 100px 1fr 110px 90px 40px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:6px 0 9px;border-bottom:1px solid var(--b2)">
         <span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span>
@@ -3245,6 +3250,37 @@ function rsBuildBoxes(){
   });
 }
 
+function rsApplyAssignedOverrides(){
+  allE.forEach(e => {
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma || normS(r.status) !== 'atribuido') return;
+    
+    // assigned_turma may be "FUN-01" or "FUN-01A" — find all matching turma_code boxes
+    const raw = String(r.assigned_turma).trim();
+    const isFullCode = /[A-Z]$/.test(raw); // FUN-01A vs FUN-01
+    
+    const matchingCodes = isFullCode
+      ? [raw]
+      : Object.keys(_rsBoxes).filter(k => k.replace(/[A-Z]$/,'') === raw);
+
+    // Remove from any box that isn't in the matching set
+    Object.entries(_rsBoxes).forEach(([code, box]) => {
+      if(matchingCodes.includes(code)) return;
+      const i = box.refs.indexOf(e.ref);
+      if(i >= 0){ box.refs.splice(i,1); box.students.splice(box.students.findIndex(s=>s.ref===e.ref),1); }
+    });
+
+    // Add to all matching boxes (both A and B sessions)
+    matchingCodes.forEach(code => {
+      if(!_rsBoxes[code]) return;
+      if(!_rsBoxes[code].refs.includes(e.ref)){
+        _rsBoxes[code].students.push(e);
+        _rsBoxes[code].refs.push(e.ref);
+      }
+    });
+  });
+}
+  
 function rsCountStudents(){ return Object.values(_rsBoxes).reduce((s,b)=>s+b.students.length,0); }
 
 async function rsUpsertRequest(ref, payload){
