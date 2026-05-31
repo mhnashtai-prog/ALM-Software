@@ -963,6 +963,63 @@ async function loadLocks(){
     });
   }catch(e){ console.warn('loadLocks failed', e); }
 }  
+ /* ── RECONSTRUCT locked groups from DB rows ──
+   A locked group exists because a human fixed it. We rebuild it from the
+   classes rows (not from the engine) and inject it into _allResults so it
+   renders. Called after the engine runs, per level. */
+async function reconstructLockedGroups(){
+  let rows;
+  try{
+    rows = await sbGet('classes',
+      `select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs,locked,assignment_source,override_tier&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+  }catch(e){ console.warn('reconstructLockedGroups fetch failed', e); return; }
+  if(!rows?.length) return;
+
+  // Group the session rows by group_code
+  const byGroup = {};
+  rows.forEach(c=>{
+    if(!byGroup[c.group_code]) byGroup[c.group_code] = [];
+    byGroup[c.group_code].push(c);
+  });
+
+  Object.entries(byGroup).forEach(([gc, sessions])=>{
+    const first = sessions[0];
+    const levelKey = `${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
+    // Resolve refs to full student objects from allE (ignore branch filter)
+    const refs = Array.isArray(first.student_refs)?first.student_refs:[];
+    const students = refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
+    if(!students.length) return;
+
+    // Rebuild pair from the A/B session day_of_week
+    const dayA = DAYS_PT.indexOf((sessions[0].day_of_week||'').toUpperCase());
+    const sessB = sessions[1];
+    const dayB = sessB ? DAYS_PT.indexOf((sessB.day_of_week||'').toUpperCase()) : dayA;
+    const aIdx = dayA>=0?dayA:0, bIdx = dayB>=0?dayB:aIdx;
+    const startMins = timeToMins(first.start_time) ?? 8*60;
+
+    const lockedGroup = {
+      pair: { a:aIdx, b:bIdx, aL:DAYS_PT[aIdx], bL:DAYS_PT[bIdx], label:`${DAYS_PT[aIdx]}+${DAYS_PT[bIdx]}` },
+      startMins, startMinsB:startMins,
+      startTime: minsToT(startMins), endTime: minsToT(startMins+CLASS_DUR),
+      startTimeB: minsToT(startMins), endTimeB: minsToT(startMins+CLASS_DUR),
+      students,
+      _locked: true, _lockSource: first.assignment_source||'staff_move',
+    };
+
+    // Inject into _allResults — append as a new group at this level
+    if(!_allResults[levelKey]){
+      _allResults[levelKey] = { groups:[], sinalizados:[], total:students.length, withRequest:students.length, placed:students.length };
+    }
+    const idx = _allResults[levelKey].groups.length;
+    _allResults[levelKey].groups.push(lockedGroup);
+    // Mark it certified-style so it renders as committed
+    if(!_groupCodes[levelKey]) _groupCodes[levelKey] = {};
+    _groupCodes[levelKey][idx] = { turmaCode: gc, sentAt:'', status:'pass', locked:true };
+    // Audit it as pass (it's human-fixed)
+    if(!_auditResults[levelKey]) _auditResults[levelKey] = {};
+    _auditResults[levelKey][idx] = auditGroupSync(lockedGroup);
+  });
+}
   
 /* Current grid state — tracks what's built in DOM */
 let _gridLevelKey=null;
@@ -1567,6 +1624,7 @@ for(const key of levelKeys){
     });
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
   setBootProgress(85);
+  await reconstructLockedGroups();
 
   // ── STEP 2: Build exception queue — _groupCodes now populated from DB ──
   _exceptionQueue=[];
