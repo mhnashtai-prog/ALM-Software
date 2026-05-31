@@ -3201,32 +3201,66 @@ async function confirmMudarTurma() {
     /* Update local state */
     if (!rByRef[_mtRef]) { rByRef[_mtRef] = { ref: _mtRef, academic_year: AY }; allR.push(rByRef[_mtRef]); }
     rByRef[_mtRef].assigned_turma = _mtSelectedCode; rByRef[_mtRef].status = 'atribuido';
-    /* ── WRITE LOCK to classes — both session rows of the target group ──
-       Staff move = immediate lock, no approval. This is what makes the
-       move survive a regroup: loadLocks picks it up, the engine filter
-       keeps her out of the candidate pool. */
+    
+/* ── ROSTER MOVE + LOCK ──
+       Two PATCHes, each hits both A+B rows via group_code filter.
+       ORDER: add-to-target FIRST, remove-from-source SECOND.
+       If the 2nd write fails, student is briefly in BOTH (visible,
+       recoverable) rather than NEITHER (invisible, lost). */
     try {
-      const enrolL = allE.find(e => e.ref === _mtRef) || {};
-      const lockBody = {
-        locked: true,
-        assignment_source: 'staff_move',
-        locked_at: new Date().toISOString(),
-        override_by: null, override_reason: null, override_tier: null,
-      };
-      // Add this student's ref to the target session rows' student_refs,
-      // and set the lock fields. The group_code is the turma minus A/B.
-      const gc = _mtSelectedCode.replace(/[AB]$/i, '');
-      // Patch every classes row whose group_code matches (covers A and B sessions)
-      await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(gc)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+      const targetGC = _mtSelectedCode.replace(/[AB]$/i, '');
+
+      /* find source group_code (the group the student is leaving) */
+      let sourceGC = null;
+      for (const [key, result] of Object.entries(_allResults)) {
+        result.groups.forEach((g, i) => {
+          if (g.students.find(s => s.ref === _mtRef)) {
+            const committed = (_groupCodes[key] || {})[i];
+            if (committed) sourceGC = committed.turmaCode.replace(/[AB]$/i, '');
+          }
+        });
+      }
+
+      /* read current target roster (one row is enough — A and B share it) */
+      const tRows = await sbGet('classes',
+        `select=student_refs&group_code=eq.${encodeURIComponent(targetGC)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+      const tRefs = new Set(Array.isArray(tRows[0]?.student_refs) ? tRows[0].student_refs : []);
+      tRefs.add(_mtRef);
+
+      /* 1. ADD to target (both A+B) + lock it */
+      const rT = await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(targetGC)}&academic_year=eq.${encodeURIComponent(AY)}`, {
         method: 'PATCH',
         headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify(lockBody)
+        body: JSON.stringify({
+          student_refs: [...tRefs],
+          locked: true,
+          assignment_source: 'staff_move',
+          locked_at: new Date().toISOString(),
+        })
       });
-      // Refresh the in-memory lock set so the next render/regroup honours it
+      if (!rT.ok) throw new Error('target write failed HTTP ' + rT.status);
+
+      /* 2. REMOVE from source (both A+B) — only if there is a source */
+      if (sourceGC && sourceGC !== targetGC) {
+        const sRows = await sbGet('classes',
+          `select=student_refs&group_code=eq.${encodeURIComponent(sourceGC)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+        const sRefs = (Array.isArray(sRows[0]?.student_refs) ? sRows[0].student_refs : [])
+          .filter(r => r !== _mtRef);
+        const rS = await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(sourceGC)}&academic_year=eq.${encodeURIComponent(AY)}`, {
+          method: 'PATCH',
+          headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ student_refs: sRefs })
+        });
+        if (!rS.ok) {
+          console.warn('source roster write failed — student is in both groups', rS.status);
+          showToast('Aviso: aluno adicionado mas não removido do grupo anterior', 'warn');
+        }
+      }
+
       await loadLocks();
     } catch (lockErr) {
-      console.warn('lock write failed', lockErr);
-      showToast('Aviso: mudança guardada mas fixação falhou', 'warn');
+      console.warn('roster move failed', lockErr);
+      showToast('Erro: mudança de turma falhou na base de dados', 'warn');
     }
 
     /* Move student between engine groups */
