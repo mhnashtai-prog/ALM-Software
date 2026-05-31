@@ -937,7 +937,8 @@ let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
 let _ovActiveLevel=null,_ovActiveLoc='FUNCHAL';
 let _decActiveIdx=null,_decActiveBranch='all';
-
+let _nextSeqBase = {};
+  
 /* Current grid state — tracks what's built in DOM */
 let _gridLevelKey=null;
 let _gridWithReq=[];
@@ -1459,7 +1460,7 @@ async function commitGroup(levelKey,groupIdx){
   const g=result.groups[groupIdx];if(!g)return null;
   const meta=LEVEL_MAP[levelKey]||{};
   const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-  const groupCode=await generateTurmaCode(branch);
+  const groupCode=generateTurmaCodeSync(branch);
   const codeA=groupCode+'A',codeB=groupCode+'B';
   const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
   const base={
@@ -1486,25 +1487,11 @@ await fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,'Co
   return groupCode;
 }
 // After loading allE/allR, before runBootAudit:
-async function loadNextSeqBase() {
-  try {
-    const rows = await sbGet('classes',
-      `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
-    );
-    rows.forEach(r => {
-      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
-      if (!m) return;
-      const [, prefix, num] = m;
-      const n = parseInt(num, 10);
-      if (!_nextSeqBase[prefix] || n >= _nextSeqBase[prefix])
-        _nextSeqBase[prefix] = n + 1;
-    });
-  } catch(e) { console.warn('loadNextSeqBase failed', e); }
-}
 async function runBootAudit(){
   const levelKeys=Object.keys(LEVEL_MAP);
   const total=levelKeys.length;let done=0;
-  setBoot('A agrupar e auditar todos os níveis…');
+  await loadNextSeqBase();
+setBoot('A agrupar e auditar todos os níveis…');
 for(const key of levelKeys){
     const allGroups=[];const allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
     for(const branch of BRANCH_ORDER){
@@ -2795,7 +2782,32 @@ function dsLoadTimetable(){
   }else{html+=`<div class="ds-empty">Nenhum pedido de horário.</div>`;}
   el.innerHTML=html;
 }
+  
+async function loadNextSeqBase() {
+  try {
+    const rows = await sbGet('classes',
+      `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
+    );
+    rows.forEach(r => {
+      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
+      if (!m) return;
+      const [, prefix, num] = m;
+      const n = parseInt(num, 10);
+      if (!_nextSeqBase[prefix] || n >= _nextSeqBase[prefix])
+        _nextSeqBase[prefix] = n + 1;
+    });
+  } catch(e) { console.warn('loadNextSeqBase failed', e); }
+}
 
+  function generateTurmaCodeSync(branch) {
+  const prefix = (BRANCH_LABELS[branch] || branch || 'ALM')
+    .slice(0, 3).toUpperCase().replace(/[\s\.]/g, '');
+  if (!_nextSeqBase[prefix]) _nextSeqBase[prefix] = 1;
+  const num = _nextSeqBase[prefix]++;
+  return `${prefix}-${String(num).padStart(2, '0')}`;
+}
+  
+  
 async function dsSaveNote(ref){
   const txt=document.getElementById('ds-note')?.value?.trim();if(txt==null)return;
   const ok=await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(ref)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:txt})}).then(r=>r.ok).catch(()=>false);
@@ -2816,6 +2828,8 @@ function closeDossier(){
 /* ══════════════════════════════════════════════
    UTILITIES
 ══════════════════════════════════════════════ */
+
+  
 function dlCSV(content,filename){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));
