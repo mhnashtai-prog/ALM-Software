@@ -2298,6 +2298,36 @@ async function swConfirm(){
     btn.textContent = fits ? 'Confirmar' : 'Confirmar mesmo assim';
   }
 }
+  function rsApplyAssignedOverrides(){
+  allE.forEach(e => {
+    const r = rByRef[e.ref];
+    if(!r || !r.assigned_turma || normS(r.status) !== 'atribuido') return;
+    
+    // assigned_turma may be "FUN-01" or "FUN-01A" — find all matching turma_code boxes
+    const raw = String(r.assigned_turma).trim();
+    const isFullCode = /[A-Z]$/.test(raw); // FUN-01A vs FUN-01
+    
+    const matchingCodes = isFullCode
+      ? [raw]
+      : Object.keys(_rsBoxes).filter(k => k.replace(/[A-Z]$/,'') === raw);
+
+    // Remove from any box that isn't in the matching set
+    Object.entries(_rsBoxes).forEach(([code, box]) => {
+      if(matchingCodes.includes(code)) return;
+      const i = box.refs.indexOf(e.ref);
+      if(i >= 0){ box.refs.splice(i,1); box.students.splice(box.students.findIndex(s=>s.ref===e.ref),1); }
+    });
+
+    // Add to all matching boxes (both A and B sessions)
+    matchingCodes.forEach(code => {
+      if(!_rsBoxes[code]) return;
+      if(!_rsBoxes[code].refs.includes(e.ref)){
+        _rsBoxes[code].students.push(e);
+        _rsBoxes[code].refs.push(e.ref);
+      }
+    });
+  });
+}
   
 /* Patch student_refs on both FROM and TO turma rows in classes table */
 async function swPatchClassRefs(ref, fromGroupCode, toGroupCode) {
