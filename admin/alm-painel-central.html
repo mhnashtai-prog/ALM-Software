@@ -1759,18 +1759,154 @@ function overrideException(levelKey,groupIdx){
 /* ══════════════════════════════════════════════
    CC NAVIGATION
 ══════════════════════════════════════════════ */
-function switchCC(panel,el){
-  document.querySelectorAll('.cc-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
-  const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
-  if(el)el.classList.add('active');
-  if(panel==='audit')renderAudit();
-  if(panel==='decision')renderDecision();
-if(panel==='overview'){
-    _ovActiveLevel=null;
-    refreshData().then(()=>{ovRenderStats();ovRenderTree();ovRenderSummary();});
+/* ══════════════════════════════════════════════
+   DECISION PANEL
+══════════════════════════════════════════════ */
+function renderDecision(){
+  const triageEl = document.getElementById('dec-triage-list');
+  const mainEl   = document.getElementById('dec-main');
+  if(!triageEl || !mainEl) return;
+
+  /* Collect all pending groups (not yet committed) */
+  const pending = [];
+  Object.keys(_allResults).forEach(key => {
+    const result = _allResults[key];
+    if(!result?.groups?.length) return;
+    result.groups.forEach((g, i) => {
+      if((_groupCodes[key]||{})[i]) return; // already committed
+      const ar = (_auditResults[key]||{})[i];
+      pending.push({ levelKey:key, groupIdx:i, group:g, ar });
+    });
+  });
+
+  /* Sidebar triage list */
+  const totalAll  = Object.values(_allResults).reduce((s,r)=>s+(r?.groups?.length||0),0);
+  const certified = Object.values(_groupCodes).reduce((s,lvl)=>s+Object.keys(lvl).length,0);
+  const pct       = totalAll > 0 ? Math.round(certified/totalAll*100) : 0;
+
+  document.getElementById('dec-sidebar-sub').textContent =
+    `${certified} certificadas · ${pending.length} por aprovar`;
+  const fill = document.getElementById('dec-progress-fill');
+  if(fill) fill.style.width = pct + '%';
+
+  if(!pending.length){
+    triageEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--green);font-size:8px;letter-spacing:.1em">✓ Todas as turmas certificadas</div>`;
+    mainEl.innerHTML   = `<div class="placeholder-main"><div class="placeholder-icon" style="color:var(--green)">✓</div><div class="placeholder-text">Pipeline completo</div></div>`;
+    return;
+  }
+
+  /* Group pending by level for triage list */
+  const byLevel = {};
+  pending.forEach(p => {
+    if(!byLevel[p.levelKey]) byLevel[p.levelKey] = [];
+    byLevel[p.levelKey].push(p);
+  });
+
+  triageEl.innerHTML = Object.entries(byLevel).map(([key, items]) => {
+    const meta  = LEVEL_MAP[key] || {};
+    const fails = items.filter(p => p.ar?.status === 'fail').length;
+    const warns = items.filter(p => p.ar?.status === 'warn').length;
+    const col   = fails > 0 ? 'var(--red)' : warns > 0 ? 'var(--amber)' : 'var(--green)';
+    return `<div class="dec-triage-item${fails?'exception':''}" onclick="decShowLevel('${key}')">
+      <div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;font-weight:600;color:var(--t)">${meta.label||key}</div>
+        <div style="font-size:7px;color:var(--t3);margin-top:1px">${items.length} grupo${items.length!==1?'s':''}</div>
+      </div>
+      <span style="font-size:7px;font-weight:700;color:${col};padding:1px 6px;border:1px solid ${col}55">${fails?fails+'F':warns?warns+'W':'OK'}</span>
+    </div>`;
+  }).join('');
+
+  /* Default: show first level */
+  const firstKey = Object.keys(byLevel)[0];
+  if(firstKey) decShowLevel(firstKey);
+}
+
+function decShowLevel(levelKey){
+  const mainEl  = document.getElementById('dec-main');
+  const pending = [];
+  const result  = _allResults[levelKey];
+  if(!result?.groups?.length){ mainEl.innerHTML='<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>'; return; }
+
+  result.groups.forEach((g, i) => {
+    if((_groupCodes[levelKey]||{})[i]) return;
+    const ar = (_auditResults[levelKey]||{})[i];
+    pending.push({ groupIdx:i, group:g, ar });
+  });
+
+  const meta = LEVEL_MAP[levelKey] || {};
+
+  let html = `<div class="sec" style="margin-bottom:14px">${meta.label||levelKey} · ${pending.length} por certificar</div>`;
+
+  pending.forEach(({ groupIdx, group:g, ar }) => {
+    const col      = ar?.status==='fail'?'var(--red)':ar?.status==='warn'?'var(--amber)':'var(--green)';
+    const pairCol2 = pairCol(g.pair);
+    const isSame   = g.pair.a === g.pair.b;
+    const sessions = isSame
+      ? `${g.pair.aL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`
+      : `${g.pair.aL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} + ${g.pair.bL} ${minsToT(g.startMinsB??g.startMins)}–${minsToT((g.startMinsB??g.startMins)+CLASS_DUR)}`;
+
+    const auditSummary = ar
+      ? `<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 6px;border:1px solid var(--green-b);background:var(--green-a)">✓ ${ar.passCount}</span>`
+      + (ar.warnCount?`<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>`:'')
+      + (ar.failCount?`<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>`:'')
+      : '';
+
+    html += `<div class="dec-card" id="dec-card-${groupIdx}" style="border-left-color:${pairCol2}">
+      <div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dc-arr">›</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:600;color:${pairCol2}">${sessions}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">${auditSummary}</div>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:${pairCol2};line-height:1;margin-right:10px">${g.students.length}</div>
+        <button class="dc-btn dc-btn-create" id="dec-btn-${groupIdx}"
+          onclick="event.stopPropagation();decCertify('${levelKey}',${groupIdx},this)">
+          ✓ Certificar
+        </button>
+      </div>
+      <div class="dc-body">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          ${[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
+            const av=avCol(e.name||e.ref);
+            const verdict=ar?.log?.[e.ref]?.verdict||'pass';
+            const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
+            return`<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier('${e.ref}')">
+              <div style="width:16px;height:16px;border-radius:50%;background:${av.bg};color:${av.t};font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${avInit(e.name||e.ref)}</div>
+              <span style="font-size:8px;color:var(--t)">${e.name||e.ref}</span>
+              <span style="font-size:7px;color:${vCol}">${verdict==='pass'?'✓':'⚠'}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  mainEl.innerHTML = html;
+}
+
+async function decCertify(levelKey, groupIdx, btn){
+  btn.disabled = true;
+  btn.textContent = '⏳ A certificar…';
+  try{
+    const code = await commitGroup(levelKey, groupIdx);
+    const card = document.getElementById(`dec-card-${groupIdx}`);
+    if(card){
+      card.style.borderLeftColor = 'var(--green)';
+      card.style.background = 'rgba(29,184,122,.04)';
+      btn.textContent = `✓ ${code}A / ${code}B`;
+      btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
+    }
+    showToast(`Turma ${code} certificada ✓`, 'ok');
+    renderDecision();
+  }catch(e){
+    btn.disabled = false;
+    btn.textContent = '✓ Certificar';
+    showToast('Erro: ' + e.message, 'err');
   }
 }
+
+function switchCC(panel,el){
 
 /* ══════════════════════════════════════════════
    REFRESH — re-fetch Supabase + re-run engine
