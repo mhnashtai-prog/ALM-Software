@@ -1550,8 +1550,8 @@ async function commitGroup(levelKey,groupIdx){
   const groupCode=generateTurmaCodeSync(branch);
   const codeA=groupCode+'A',codeB=groupCode+'B';
   const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
-  const base={
-    group_code:groupCode,academic_year:AY,branch,
+ const base={
+    group_code:groupCode,academic_year:AY,branch,locked:true,assignment_source:'decision_panel',
     lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
     department:meta.dept||'adults',level_code:(levelKey.split('|')[1]||'').trim(),
     level_display:meta.label||'',hour:Math.floor(g.startMins/60),
@@ -1923,6 +1923,17 @@ function decShowLevel(levelKey){
 }
 
 async function decCertify(levelKey, groupIdx, btn){
+  const g = _allResults[levelKey]?.groups[groupIdx];
+  const meta = LEVEL_MAP[levelKey]||{};
+  const isSame = g?.pair.a === g?.pair.b;
+  const session = g ? (isSame
+    ? `${g.pair.aL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`
+    : `${g.pair.aL} ${minsToT(g.startMins)} + ${g.pair.bL} ${minsToT(g.startMinsB??g.startMins)}`)
+    : '—';
+  const confirmed = confirm(
+    `CERTIFICAR — ${meta.label||levelKey}\n${session} · ${g?.students.length} alunos\n\nO código atribuído é permanente e não pode ser alterado.\n\nConfirmar?`
+  );
+  if(!confirmed) return;
   btn.disabled = true;
   btn.textContent = '⏳ A certificar…';
   try{
