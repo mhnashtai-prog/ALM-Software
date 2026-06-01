@@ -1311,11 +1311,14 @@ function drawStamps(containerId, levelKey, result){
     });
   });
 }
-/* ══════════════════════════════════════════════
-   GROUPING ENGINE
-══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   ALM PAIR ENGINE v2 — override block
+   Place this <script> tag AFTER the original <script> closing tag
+   in alm-painel-central.html to patch the engine in-place.
+═══════════════════════════════════════════════════════════════ */
 function buildProposals(levelKey, branch){
   const STEP = 30;
+  const dept = (levelKey.split('|')[0] || 'adults').toLowerCase();
   const all = allE.filter(e => {
     if(lk(e) !== levelKey) return false;
     if(branch !== 'all' && normB(e.branch) !== branch) return false;
@@ -1334,39 +1337,48 @@ function buildProposals(levelKey, branch){
     studentWindows[e.ref] = a.windows;
   });
 
-  /* ── 2. Build frequency map: "dayIdx|startMins" → Set of refs ── */
+  /* ── 2. Canonical pairs for this dept ── */
+  const activePairs = ALM_PAIRS.filter(p => !(p.examOnly && dept !== 'exam'));
+
+  /* ── Helper: does student cover [startMins, startMins+CLASS_DUR] on dayIdx? ── */
+  function coversSlot(windows, dayIdx, startMins) {
+    return windows.some(w =>
+      w.dayIdx === dayIdx &&
+      w.earliest <= startMins &&
+      w.latest >= startMins + CLASS_DUR
+    );
+  }
+
+  /* ── 3. For each canonical pair × time slot, count eligible students ── */
   const SLOTS = [];
   for(let t = 8*60; t <= 20*60 - CLASS_DUR; t += STEP) SLOTS.push(t);
 
-  function getCompatibleSlots(windows, dayIdx){
-    return SLOTS.filter(t => {
-      const w = windows.find(x => x.dayIdx === dayIdx);
-      if(!w) return false;
-      return Math.min(w.latest, t + CLASS_DUR) - Math.max(w.earliest, t) >= CLASS_DUR - 30;
-    });
-  }
-
+  // key: `${pairIdx}|${startMins}` → Set of refs
   const freqMap = {};
   withReq.forEach(e => {
     const windows = studentWindows[e.ref];
     if(!windows) return;
-    const days = [...new Set(windows.map(w => w.dayIdx))];
-    days.forEach(dayIdx => {
-      getCompatibleSlots(windows, dayIdx).forEach(startMins => {
-        const key = `${dayIdx}|${startMins}`;
+    activePairs.forEach((pair, pi) => {
+      SLOTS.forEach(startMins => {
+        const okA = coversSlot(windows, pair.a, startMins);
+        const okB = pair.a === pair.b
+          ? okA  // SAB-only: same day
+          : coversSlot(windows, pair.b, startMins);
+        if(!okA || !okB) return;
+        const key = `${pi}|${startMins}`;
         if(!freqMap[key]) freqMap[key] = new Set();
         freqMap[key].add(e.ref);
       });
     });
   });
 
-  /* ── 3. Sort slots by count DESC ── */
+  /* ── 4. Sort slots by count DESC ── */
   const candidates = Object.entries(freqMap)
     .map(([key, refs]) => ({ key, refs, count: refs.size }))
     .filter(c => c.count >= MIN_G)
     .sort((a, b) => b.count - a.count);
 
-  /* ── 4. Greedy assignment per slot — exclusive-first ── */
+  /* ── 5. Greedy assignment — place each student into at most one pair+slot ── */
   const placed = new Set();
   const groups = [];
 
@@ -1383,13 +1395,23 @@ function buildProposals(levelKey, branch){
       .sort((a, b) => (studentCandidateCount[a] || 0) - (studentCandidateCount[b] || 0));
     if(available.length < MIN_G) return;
 
-    const [dayIdx, startMins] = key.split('|').map(Number);
+    const [piStr, startMinsStr] = key.split('|');
+    const pi = parseInt(piStr, 10);
+    const startMins = parseInt(startMinsStr, 10);
+    const pair = activePairs[pi];
+    if(!pair) return;
+
     const students = available.slice(0, MAX_G).map(r => allE.find(e => e.ref === r)).filter(Boolean);
     students.forEach(e => placed.add(e.ref));
 
     groups.push({
-      dayIdx,
-      dayL: DAYS_PT[dayIdx],
+      pairDef:   pair,
+      dayIdx_A:  pair.a,
+      dayIdx_B:  pair.b,
+      dayL_A:    pair.aL || DAYS_PT[pair.a],
+      dayL_B:    pair.bL || DAYS_PT[pair.b],
+      dayL:      pair.aL || DAYS_PT[pair.a],   // compat: primary display day
+      dayIdx:    pair.a,                        // compat: primary day index
       startMins,
       startTime: minsToT(startMins),
       endTime:   minsToT(startMins + CLASS_DUR),
@@ -1397,7 +1419,7 @@ function buildProposals(levelKey, branch){
     });
   });
 
-  /* ── 5. Sinalizados ── */
+  /* ── 6. Sinalizados ── */
   const noWindows = withReq.filter(e => !studentWindows[e.ref]);
   const noGroup   = withReq.filter(e => studentWindows[e.ref] && !placed.has(e.ref));
 
@@ -1405,8 +1427,12 @@ function buildProposals(levelKey, branch){
     const windows = studentWindows[e.ref];
     if(!windows) return 'Sem janelas de disponibilidade válidas';
     const days = [...new Set(windows.map(w => w.dayIdx))];
-    if(days.length < 1) return 'Sem disponibilidade registada';
-    return 'Slot sem grupo suficiente (< 5 alunos compatíveis)';
+    if(days.length < 2) return `Apenas ${days.length} dia(s) disponível — necessita par de dias`;
+    const coveredPairs = activePairs.filter(pair => {
+      return SLOTS.some(t => coversSlot(windows, pair.a, t) && coversSlot(windows, pair.b, t));
+    });
+    if(!coveredPairs.length) return 'Nenhum par de dias compatível com disponibilidade';
+    return 'Par de dias sem grupo suficiente (< 5 alunos compatíveis)';
   }
 
   const sinalizados = [
@@ -1425,28 +1451,53 @@ function buildProposals(levelKey, branch){
   };
 }
 
-/* ══════════════════════════════════════════════
-   AUTO-AUDIT ENGINE
-══════════════════════════════════════════════ */
 function auditGroupSync(g){
   const log={};
   let passCount=0,warnCount=0,failCount=0;
+  const pair = g.pairDef;
+
   g.students.forEach(e=>{
     const req=rByRef[e.ref];
     if(!req){log[e.ref]={verdict:'fail',reason:'Sem pedido registado'};failCount++;return;}
     const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const daySlots=[];
-    raw.forEach(p=>{const s=parseSlot(p);if(!s||s.dayIdx!==g.dayIdx)return;daySlots.push(s);});
-    let verdict='pass',reason='Slot confirmado';
-    if(!daySlots.length){
-      verdict='fail';reason=`Não pediu ${g.dayL}`;
-    } else {
-      const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR);
-      if(!fitsInWindow){verdict='warn';reason=`${g.dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} não cabe na janela declarada`;}
+
+    // Check coverage of BOTH days at the group's time slot
+    const slotsA = [], slotsB = [];
+    raw.forEach(p=>{
+      const s=parseSlot(p);
+      if(!s) return;
+      if(s.dayIdx===g.dayIdx_A) slotsA.push(s);
+      if(pair && pair.a !== pair.b && s.dayIdx===g.dayIdx_B) slotsB.push(s);
+    });
+
+    const fitsA = slotsA.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR);
+    const fitsB = pair && pair.a !== pair.b
+      ? slotsB.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR)
+      : fitsA; // same day pair (SÁB)
+
+    const hasA = slotsA.length > 0;
+    const hasB = pair && pair.a !== pair.b ? slotsB.length > 0 : hasA;
+
+    let verdict='pass', reason='Par de dias confirmado';
+
+    if(!hasA && !hasB){
+      verdict='fail'; reason=`Não pediu ${g.dayL_A} nem ${g.dayL_B}`;
+    } else if(!hasA){
+      verdict='fail'; reason=`Não pediu ${g.dayL_A}`;
+    } else if(pair && pair.a!==pair.b && !hasB){
+      verdict='fail'; reason=`Não pediu ${g.dayL_B}`;
+    } else if(!fitsA || !fitsB){
+      verdict='warn';
+      const which = !fitsA ? g.dayL_A : g.dayL_B;
+      reason=`${which} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} não cabe na janela declarada`;
     }
+
     log[e.ref]={verdict,reason};
-    if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
+    if(verdict==='pass')passCount++;
+    else if(verdict==='warn')warnCount++;
+    else failCount++;
   });
+
   const sizeStatus = g.students.length < ASSIGN_MIN ? 'warn' : 'pass';
   const auditStatus = failCount>0 ? 'fail' : (warnCount>0||sizeStatus==='warn') ? 'warn' : 'pass';
   if(sizeStatus==='warn'){
@@ -1456,708 +1507,103 @@ function auditGroupSync(g){
   }
   return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
 }
-async function generateTurmaCode(branch){
-  const prefix=(BRANCH_LABELS[branch]||branch||'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
-  try{
-const existing = await sbGet('classes', `select=turma_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
-    const usedNums=new Set();
-    existing.forEach(c=>{const m=(c.turma_code||'').match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
-    _retiredCodes.forEach(code=>{const m=code.match(/-(\d+)/);if(m)usedNums.add(parseInt(m[1]));});
-    let num=1;while(usedNums.has(num))num++;
-    return`${prefix}-${String(num).padStart(2,'0')}`;
-  }catch{return`${prefix}-${Date.now().toString().slice(-4)}`;}
-}
 
 async function commitGroup(levelKey,groupIdx){
   const result=_allResults[levelKey];if(!result)return null;
   const g=result.groups[groupIdx];if(!g)return null;
   const meta=LEVEL_MAP[levelKey]||{};
   const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-  const turmaCode=generateTurmaCodeSync(branch);
+  const seqNum=generateTurmaCodeSync(branch);  // bare number e.g. "27"
+  const codeA=`${seqNum}A`;
+  const codeB=`${seqNum}B`;
+  const groupCode=`${seqNum}`;
   const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
-  const row={
-    turma_code:turmaCode,
-    group_code:turmaCode,
+  const studentRefs=g.students.map(s=>s.ref);
+
+  const baseRow={
+    group_code:   groupCode,
     academic_year:AY,
     branch,
     lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
-    department:meta.dept||'adults',
-    level_code:(levelKey.split('|')[1]||'').trim(),
+    department:   meta.dept||'adults',
+    level_code:   (levelKey.split('|')[1]||'').trim(),
     level_display:meta.label||'',
-    day_of_week:g.dayL,
-    hour:Math.floor(g.startMins/60),
-    start_time:g.startTime,
-    end_time:g.endTime,
-    duration_min:CLASS_DUR,
-    student_refs:g.students.map(s=>s.ref),
-    status:'confirmed',
-    locked:true,
+    start_time:   g.startTime,
+    end_time:     g.endTime,
+    duration_min: CLASS_DUR,
+    student_refs: studentRefs,
+    status:       'confirmed',
+    locked:       true,
     assignment_source:'decision_panel',
-    audit_log:ar.log||{},
-    audited_at:new Date().toISOString(),
-    pass_count:ar.passCount||g.students.length,
-    warn_count:ar.warnCount||0,
-    fail_count:ar.failCount||0,
+    audit_log:    ar.log||{},
+    audited_at:   new Date().toISOString(),
+    pass_count:   ar.passCount||g.students.length,
+    warn_count:   ar.warnCount||0,
+    fail_count:   ar.failCount||0,
   };
+
+  const rowA = {
+    ...baseRow,
+    turma_code:  codeA,
+    day_of_week: g.dayL_A || g.dayL,
+    hour:        Math.floor(g.startMins/60),
+  };
+
+  const rows = [rowA];
+
+  // Only write B row if it's a different day
+  if(g.dayIdx_A !== g.dayIdx_B){
+    const rowB = {
+      ...baseRow,
+      turma_code:  codeB,
+      day_of_week: g.dayL_B || g.dayL_A,
+      hour:        Math.floor(g.startMins/60),
+    };
+    rows.push(rowB);
+  }
+
   const r=await fetch(`${SB}/rest/v1/classes`,{
     method:'POST',
     headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},
-    body:JSON.stringify([row])
+    body:JSON.stringify(rows)
   });
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  _retiredCodes.add(turmaCode);
+
+  _retiredCodes.add(groupCode);_retiredCodes.add(codeA);_retiredCodes.add(codeB);
   if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-  _groupCodes[levelKey][groupIdx]={turmaCode,sentAt:new Date().toISOString(),status:ar.status||'pass'};
+  // Store both codes; display as "27A/27B"
+  _groupCodes[levelKey][groupIdx]={
+    turmaCode:    groupCode,
+    turmaCodeA:   codeA,
+    turmaCodeB:   codeB,
+    sentAt:new Date().toISOString(),
+    status:ar.status||'pass',
+    locked:true,
+  };
+
+  // Certification seals — one per session
+  const sealBase={
+    group_code:   groupCode,
+    level_code:   (levelKey.split('|')[1]||'').trim(),
+    department:   meta.dept||'adults',
+    branch,
+    start_time:   g.startTime,
+    end_time:     g.endTime,
+    student_refs: studentRefs,
+    academic_year:AY,
+  };
   await fetch(`${SB}/rest/v1/certification_seals`,{
     method:'POST',
     headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
-    body:JSON.stringify({
-      group_code:turmaCode,
-      turma_code:turmaCode,
-      level_code:(levelKey.split('|')[1]||'').trim(),
-      department:meta.dept||'adults',
-      branch,
-      day:g.dayL,
-      start_time:g.startTime,
-      end_time:g.endTime,
-      student_refs:g.students.map(s=>s.ref),
-      academic_year:AY,
-    })
-  });
-  return turmaCode;
-}
-// After loading allE/allR, before runBootAudit:
-async function runBootAudit(){
-  const levelKeys=Object.keys(LEVEL_MAP);
-  const total=levelKeys.length;let done=0;
-  await loadNextSeqBase();
-setBoot('A agrupar e auditar todos os níveis…');
-for(const key of levelKeys){
-    const allGroups=[];const allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
-    for(const branch of BRANCH_ORDER){
-      const result=buildProposals(key,branch);
-      if(!result.groups.length&&!result.sinalizados.length)continue;
-      const offset=allGroups.length;
-      allGroups.push(...result.groups);
-      allSinal.push(...result.sinalizados);
-      totalPlaced+=result.placed;totalWithReq+=result.withRequest;totalAll+=result.total;
-      if(!_auditResults[key])_auditResults[key]={};
-      result.groups.forEach((g,i)=>{_auditResults[key][offset+i]=auditGroupSync(g);});
-    }
-    if(allGroups.length){
-      _allResults[key]={groups:allGroups,sinalizados:allSinal,total:totalAll,withRequest:totalWithReq,placed:totalPlaced};
-    }
-    done++;setBootProgress(40+Math.round(done/total*40));
-  }
- // ── STEP 1: Load existing DB classes FIRST — before commit loop ──
-  setBoot('A verificar turmas existentes…');
-  try{
-    const existing = await sbGet('classes', `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
-    if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
-    existing.forEach(c=>{
-      if(c.turma_code)_retiredCodes.add(c.turma_code);
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const refs=Array.isArray(c.student_refs)?c.student_refs:[];
-      if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
-      refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
-    });
-    existing.forEach(c=>{
-      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const result=_allResults[key];if(!result)return;
-      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-      result.groups.forEach((g,i)=>{
-        if((_groupCodes[key]||{})[i])return;
-        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          _groupCodes[key][i]={turmaCode:gc,sentAt:'',status:'pass'};
-        }
-      });
-    });
-  }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
-  setBootProgress(85);
-  await reconstructLockedGroups();
-
-  // ── STEP 2: Build exception queue — _groupCodes now populated from DB ──
-  _exceptionQueue=[];
-  for(const key of Object.keys(_allResults)){
-    const result=_allResults[key];
-    result.groups.forEach((g,i)=>{
-      const ar=(_auditResults[key]||{})[i];
-      if(!ar||ar.status==='pass')return;
-      if((_groupCodes[key]||{})[i])return; // already committed — skip
-      _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
-    });
-  }
-
-// ── STEP 3: Groups are NOT auto-committed — approval required via Decision panel ──
-  const committed=0;
-  
-  setBootProgress(100);
-
-  // ── STEP 4: Reconcile DB vs engine ──
-  (function reconcileDBvsEngine(){
-    const warnings=[];
-    Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
-      const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
-      const engineCount=_allResults[key]?.placed||0;
-      const diff=Math.abs(dbCount-engineCount);
-      if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
-    });
-    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
-  })();
-  return{committed,exceptions:_exceptionQueue.length};
-}
-function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
-function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
-  
-/* ══════════════════════════════════════════════
-   EXCEPTION BAR
-══════════════════════════════════════════════ */
-function renderExcBar(){
-  const bar=document.getElementById('exc-bar');
-  if(!_bootComplete){bar.classList.add('hidden');return;}
-  bar.classList.remove('hidden');
-  const fails=_exceptionQueue.filter(e=>e.auditResult.status==='fail');
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  const total=_exceptionQueue.length;
-  const lbl=document.getElementById('exc-bar-lbl');
-  const items=document.getElementById('exc-items');
-  const btn=document.getElementById('exc-confirm-btn');
- if(total===0){
-    bar.className='exc-bar clear';lbl.textContent='✓ TUDO CERTIFICADO';
-    // Count total certified groups and students placed
-    let totalGroups=0,totalPlaced=0;
-    Object.keys(_groupCodes).forEach(key=>{
-      const n=Object.keys(_groupCodes[key]||{}).length;
-      totalGroups+=n;
-      const result=_allResults[key];
-      if(result)totalPlaced+=result.placed||0;
-    });
-    const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))].length;
-    items.innerHTML=`
-      <span style="font-size:8px;color:var(--green);padding:0 14px;display:flex;align-items:center;gap:18px">
-        <span>Todos os grupos auditados e certificados automaticamente.</span>
-        <span style="font-size:9px;font-weight:700;color:var(--green);border-left:1px solid var(--green-b);padding-left:14px">${totalGroups} turma${totalGroups!==1?'s':''} criada${totalGroups!==1?'s':''}</span>
-        <span style="font-size:9px;font-weight:700;color:var(--teal)">${totalPlaced} alunos alocados</span>
-        <span style="font-size:8px;color:rgba(29,184,122,.5)">${allE.length} inscritos · ${branches} filiai${branches!==1?'s':''}</span>
-      </span>`;
-    btn.className='exc-confirm-btn disabled';btn.style.display='none';return;
-  }
-  bar.className=fails.length>0?'exc-bar fail':'exc-bar';
-  lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
-  const byLevel={};
-  _exceptionQueue.forEach(exc=>{
-    const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;
-    if(!byLevel[lb])byLevel[lb]={f:0,w:0};
-    if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;
-  });
-  items.innerHTML=Object.entries(byLevel).map(([lb,c])=>
-    `<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`
-  ).join('');
-  if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warns.length} aviso${warns.length!==1?'s':''}`;}
-  else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
-}
-
-function jumpToException(levelKey,groupIdx){
-  activeLevelKey=levelKey;_lastResult=_allResults[levelKey];
-  switchCC('formation',document.getElementById('tab-formation'));
-  renderTree();renderLevelContent();
-  setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
-}
-
-function batchConfirm(){
-  const btn=document.getElementById('exc-confirm-btn');
-  if(btn.classList.contains('disabled'))return;
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  if(!warns.length)return;
-  /* Build confirmation modal */
-  const existing=document.getElementById('bc-overlay');if(existing)existing.remove();
-  const overlay=document.createElement('div');
-  overlay.id='bc-overlay';
-  overlay.style.cssText='position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
-const rows=warns.map(exc=>{
-    const meta=LEVEL_MAP[exc.levelKey]||{};
-    const g=exc.group;
-    const session=`${g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
-    const warnReasons=[...new Set(Object.values(exc.auditResult.log||{}).map(l=>l.reason||l.sizeWarn||'').filter(Boolean))];
-    const reasonText=exc.auditResult.sizeWarn?`${g.students.length} alunos (mín. ${ASSIGN_MIN})`:warnReasons[0]||'aviso';
-    const col=slotCol(g.dayIdx,g.startMins);
-    return`<tr style="border-bottom:.5px solid rgba(255,255,255,.06)">
-      <td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color||'var(--gold2)'}">${meta.label||exc.levelKey}</td>
-      <td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td>
-      <td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td>
-      <td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td>
-    </tr>`;
-  }).join('');
-  overlay.innerHTML=`
-    <div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)">
-      <div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0">
-        <div style="flex:1">
-          <div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div>
-          <div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div>
-        </div>
-        <button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
-      </div>
-      <div style="overflow-y:auto;flex:1;padding:8px 0">
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="border-bottom:1px solid rgba(255,255,255,.1)">
-              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th>
-              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th>
-              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th>
-              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0">
-        <button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button>
-        <button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(232,160,32,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
-async function batchConfirmExecute(){
-  const btn=document.getElementById('bc-confirm-btn');
-  if(btn)btn.disabled=true;
-  if(btn)btn.textContent='⏳ A certificar…';
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  let ok=0;
-  for(const exc of warns){try{await commitGroup(exc.levelKey,exc.groupIdx);ok++;}catch{}}
-  _exceptionQueue=_exceptionQueue.filter(e=>e.auditResult.status!=='warn');
-  document.getElementById('bc-overlay')?.remove();
-  showToast(`${ok} turma${ok!==1?'s':''} com avisos certificadas`,'warn');
-  renderExcBar();if(activeLevelKey&&_allResults[activeLevelKey])renderLevelContent();
-}
-function showAllExceptions(){if(_exceptionQueue.length)jumpToException(_exceptionQueue[0].levelKey,_exceptionQueue[0].groupIdx);}
-function overrideException(levelKey,groupIdx){
-  _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
-  commitGroup(levelKey,groupIdx).then(code=>{showToast(`Turma ${code||''} aceite com excepção`,'warn');renderExcBar();renderLevelContent();}).catch(err=>showToast('Erro: '+err.message,'err'));
-}
-
-/* ══════════════════════════════════════════════
-   CC NAVIGATION
-══════════════════════════════════════════════ */
-
-function decStuChips(students, ar){
-  return [...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
-    const av=avCol(e.name||e.ref);
-    const verdict=ar?.log?.[e.ref]?.verdict||'pass';
-    const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
-    return '<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier(\''+e.ref+'\')">'
-      +'<div style="width:16px;height:16px;border-radius:50%;background:'+av.bg+';color:'+av.t+';font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+avInit(e.name||e.ref)+'</div>'
-      +'<span style="font-size:8px;color:var(--t)">'+(e.name||e.ref)+'</span>'
-      +'<span style="font-size:7px;color:'+vCol+'">'+(verdict==='pass'?'✓':'⚠')+'</span>'
-      +'</div>';
-  }).join('');
-}
-
-/* ══════════════════════════════════════════════
-   DECISION PANEL
-══════════════════════════════════════════════ */
-function renderDecision(){
-  const triageEl = document.getElementById('dec-triage-list');
-  const mainEl   = document.getElementById('dec-main');
-  if(!triageEl || !mainEl) return;
-
-  /* Collect all pending groups (not yet committed) */
-  const pending = [];
-  Object.keys(_allResults).forEach(key => {
-    const result = _allResults[key];
-    if(!result?.groups?.length) return;
-    result.groups.forEach((g, i) => {
-      if((_groupCodes[key]||{})[i]) return; // already committed
-      const ar = (_auditResults[key]||{})[i];
-      pending.push({ levelKey:key, groupIdx:i, group:g, ar });
-    });
+    body:JSON.stringify([
+      {...sealBase, turma_code:codeA, day:g.dayL_A||g.dayL},
+      ...(g.dayIdx_A!==g.dayIdx_B ? [{...sealBase, turma_code:codeB, day:g.dayL_B}] : []),
+    ])
   });
 
-  /* Sidebar triage list */
-  const totalAll  = Object.values(_allResults).reduce((s,r)=>s+(r?.groups?.length||0),0);
-  const certified = Object.values(_groupCodes).reduce((s,lvl)=>s+Object.keys(lvl).length,0);
-  const pct       = totalAll > 0 ? Math.round(certified/totalAll*100) : 0;
-
-  document.getElementById('dec-sidebar-sub').textContent =
-    `${certified} certificadas · ${pending.length} por aprovar`;
-  const fill = document.getElementById('dec-progress-fill');
-  if(fill) fill.style.width = pct + '%';
-
-  if(!pending.length){
-    triageEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--green);font-size:8px;letter-spacing:.1em">✓ Todas as turmas certificadas</div>`;
-    mainEl.innerHTML   = `<div class="placeholder-main"><div class="placeholder-icon" style="color:var(--green)">✓</div><div class="placeholder-text">Pipeline completo</div></div>`;
-    return;
-  }
-
-  /* Group pending by level for triage list */
-  const byLevel = {};
-  pending.forEach(p => {
-    if(!byLevel[p.levelKey]) byLevel[p.levelKey] = [];
-    byLevel[p.levelKey].push(p);
-  });
-
-  triageEl.innerHTML = Object.entries(byLevel).map(([key, items]) => {
-    const meta  = LEVEL_MAP[key] || {};
-    const fails = items.filter(p => p.ar?.status === 'fail').length;
-    const warns = items.filter(p => p.ar?.status === 'warn').length;
-    const col   = fails > 0 ? 'var(--red)' : warns > 0 ? 'var(--amber)' : 'var(--green)';
-    return `<div class="dec-triage-item${fails?'exception':''}" onclick="decShowLevel('${key}')">
-      <div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:9px;font-weight:600;color:var(--t)">${meta.label||key}</div>
-        <div style="font-size:7px;color:var(--t3);margin-top:1px">${items.length} grupo${items.length!==1?'s':''}</div>
-      </div>
-      <span style="font-size:7px;font-weight:700;color:${col};padding:1px 6px;border:1px solid ${col}55">${fails?fails+'F':warns?warns+'W':'OK'}</span>
-    </div>`;
-  }).join('');
-
-  /* Default: show first level */
-  const firstKey = Object.keys(byLevel)[0];
-  if(firstKey) decShowLevel(firstKey);
+  return groupCode;
 }
 
-function decShowLevel(levelKey){
-  const mainEl  = document.getElementById('dec-main');
-  const pending = [];
-  const result  = _allResults[levelKey];
-  if(!result?.groups?.length){ mainEl.innerHTML='<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>'; return; }
-
-  result.groups.forEach((g, i) => {
-    if((_groupCodes[levelKey]||{})[i]) return;
-    const ar = (_auditResults[levelKey]||{})[i];
-    pending.push({ groupIdx:i, group:g, ar });
-  });
-
-  const meta = LEVEL_MAP[levelKey] || {};
-  let html = `<div class="sec" style="margin-bottom:14px">${meta.label||levelKey} · ${pending.length} por certificar</div>`;
-
-  pending.forEach(({ groupIdx, group:g, ar }) => {
-    const col     = ar?.status==='fail'?'var(--red)':ar?.status==='warn'?'var(--amber)':'var(--green)';
-    const slotC   = slotCol(g.dayIdx, g.startMins);
-    const session = `${g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
-
-    const auditSummary = ar
-      ? `<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 6px;border:1px solid var(--green-b);background:var(--green-a)">✓ ${ar.passCount}</span>`
-      + (ar.warnCount?`<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>`:'')
-      + (ar.failCount?`<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>`:'')
-      : '';
-
-    html += `<div class="dec-card" id="dec-card-${groupIdx}" style="border-left-color:${slotC}">
-      <div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')">
-        <span class="dc-arr">›</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:600;color:${slotC}">${session}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">${auditSummary}</div>
-        </div>
-        <div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div>
-        <button class="dc-btn dc-btn-create" id="dec-btn-${groupIdx}"
-          onclick="event.stopPropagation();decCertify('${levelKey}',${groupIdx},this)">
-          ✓ Certificar
-        </button>
-      </div>
-      <div class="dc-body">
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-          ${decStuChips(g.students, ar)}
-        </div>
-      </div>
-    </div>`;
-  });
-
-  mainEl.innerHTML = html;
-}
-
-async function decCertify(levelKey, groupIdx, btn){
-  const g    = _allResults[levelKey]?.groups[groupIdx];
-  const meta = LEVEL_MAP[levelKey]||{};
-  const session = g
-    ? `${g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`
-    : '—';
-  const confirmed = confirm(
-    `CERTIFICAR — ${meta.label||levelKey}\n${session} · ${g?.students.length} alunos\n\nO código atribuído é permanente e não pode ser alterado.\n\nConfirmar?`
-  );
-  if(!confirmed) return;
-  btn.disabled = true;
-  btn.textContent = '⏳ A certificar…';
-  try{
-    const code = await commitGroup(levelKey, groupIdx);
-    const card = document.getElementById(`dec-card-${groupIdx}`);
-    if(card){
-      card.style.borderLeftColor = 'var(--green)';
-      card.style.background = 'rgba(29,184,122,.04)';
-      btn.textContent = `✓ ${code}`;
-      btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
-    }
-    showToast(`Turma ${code} certificada ✓`, 'ok');
-    renderDecision();
-  }catch(e){
-    btn.disabled = false;
-    btn.textContent = '✓ Certificar';
-    showToast('Erro: ' + e.message, 'err');
-  }
-}
-function switchCC(panel,el){
-  document.querySelectorAll('.cc-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
-  const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
-  if(el)el.classList.add('active');
-  if(panel==='audit')renderAudit();
-  if(panel==='decision')renderDecision();
-  if(panel==='overview'){
-    _ovActiveLevel=null;
-    refreshData().then(()=>{ovRenderStats();ovRenderTree();ovRenderSummary();});
-  }
-}
-
-/* ══════════════════════════════════════════════
-   REFRESH — re-fetch Supabase + re-run engine
-══════════════════════════════════════════════ */
-async function refreshData(){
-  try{
-    const [enrol,reqs]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${AY}&order=ref`),
-      sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
-    ]);
-    setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};
-    allR.forEach(r=>{rByRef[r.ref]=r;});
-    document.getElementById('pill-total').textContent=`${allE.length} al`;
-    // Always re-run engine for every level — never skip cached results
-    for(const key of Object.keys(LEVEL_MAP)){
-      const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
-      if(withReq.length>=MIN_G){
-        _allResults[key]=buildProposals(key,'all');
-_auditResults[key]={};
-const newPassing=[];
-_allResults[key].groups.forEach((g,i)=>{
-  if(!(_groupCodes[key]||{})[i]){
-    _auditResults[key][i]=auditGroupSync(g);
-    if(_auditResults[key][i].status==='pass') newPassing.push({key,i});
-  }
-});
-
-// Groups are NOT auto-committed — approval required via Decision panel
-      } else {
-        // Level fell below minimum — clear stale result
-        delete _allResults[key];
-      }
-    }
-     await reconstructLockedGroups();
-    updateSidebarKPIs();initBranchStrip();renderExcBar();
-    renderTree();
-    // Re-render active level if one is selected
-    if(activeLevelKey){
-      _lastResult=_allResults[activeLevelKey]||null;
-      renderLevelContent();
-    }
-    document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
-    document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
-  }catch(err){setConn(false);console.warn('refreshData error',err);}
-}
-  
-  function countPair(students,pair){
-  return students.filter(e=>{const a=analysePrefs(e.ref);if(!a)return false;return a.windows.find(w=>w.dayIdx===pair.a)&&a.windows.find(w=>w.dayIdx===pair.b);}).length;
-}
-function placedInPair(pair){
-  if(!_lastResult?.groups)return 0;
-  return _lastResult.groups.filter(g=>g.pair.a===pair.a&&g.pair.b===pair.b).reduce((s,g)=>s+g.students.length,0);
-}
-
-  function buildPairMatrixLegacy(pairCounts){
-  let html=`<div class="pair-matrix">`;
-  pairCounts.forEach(({pair,count})=>{
-    const col=pairCol(pair);
-    const isViable=count>=ASSIGN_MIN,isWait=count>=MIN_G;
-    const lbl=isViable?'disponíveis':isWait?'aguardar':'não abre';
-    html+=`<div style="border:1px solid ${col}44;border-left:3px solid ${col}44;background:${col}08;padding:11px 12px;opacity:.5">
-      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col}">${pair.aL} + ${pair.bL}</div>
-      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${count}</div>
-      <div style="font-size:7px;margin-top:3px;color:${col}">${lbl}</div>
-    </div>`;
-  });
-  return html+`</div>`;
-}
-  
-/* Pair matrix */
-function buildPairMatrix(pairCounts){
-  if(!_lastResult?.groups?.length) return '';
-
-  let html = `<div class="pair-matrix">`;
-
-  _lastResult.groups.forEach((g, i) => {
-    const committed = (_groupCodes[activeLevelKey]||{})[i];
-    const ar        = (_auditResults[activeLevelKey]||{})[i];
-    const isCert    = !!committed;
-    const isWarn    = !isCert && ar?.status === 'warn';
-    const col       = isWarn ? '#E8A020' : slotCol(g.dayIdx, g.startMins);
-    const code      = committed?.turmaCode || `T${i+1}`;
-    const start     = minsToT(g.startMins);
-    const end       = minsToT(g.startMins + CLASS_DUR);
-    const lbl       = isCert ? 'alocados' : isWarn ? 'aguardar' : 'disponíveis';
-
-    html += `<div
-      style="border:1px solid ${col}44;border-left:3px solid ${col};background:${col}11;padding:11px 12px;cursor:pointer;transition:all .14s;position:relative"
-      onclick="openGroupModal('${activeLevelKey}',${i})"
-      onmouseover="this.style.background='${col}22'"
-      onmouseout="this.style.background='${col}11'">
-      <div style="font-size:7px;font-weight:700;color:${col};margin-bottom:2px;letter-spacing:.06em">${code}</div>
-      <div style="font-size:9px;font-weight:700;margin-bottom:2px;color:${col}">${g.dayL}</div>
-      <div style="font-size:7.5px;color:${col};opacity:.7;margin-bottom:4px">${start}–${end}</div>
-      <div style="font-size:28px;font-weight:700;line-height:1;color:${col}">${g.students.length}</div>
-      <div style="font-size:7px;margin-top:3px;color:${col}">${lbl}</div>
-      ${isCert ? `<div style="position:absolute;top:8px;right:10px;font-size:12px;color:${col}">✓</div>` : ''}
-      ${isWarn ? `<div style="position:absolute;top:8px;right:10px;font-size:10px;color:${col}">⚠</div>` : ''}
-    </div>`;
-  });
-
-  return html + `</div>`;
-}
-
-/* ══════════════════════════════════════════════
-   FORMATION LEVEL RENDER
-   Grid is always visible — no collapsible wrapper
-══════════════════════════════════════════════ */
-function renderLevelContent(){
-  const area=document.getElementById('scroll-area');
-  if(!activeLevelKey){
-    area.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;
-    return;
-  }
-
-  document.getElementById('view-toggle-bar').style.display='none';
-
-  const allStudents=locStu().filter(e=>lk(e)===activeLevelKey);
-  const withReq=allStudents.filter(e=>!!rByRef[e.ref]);
-  const noReq=allStudents.length-withReq.length;
-  const meta=LEVEL_MAP[activeLevelKey]||getLM(allStudents[0]||{});
-  const dc=DEPT_CFG[meta.dept]||{};
-  const capPct=Math.round(allStudents.length/(meta.maxCap||60)*100);
-  const placed=_lastResult?_lastResult.placed:0;
-  const sinal=_lastResult?_lastResult.sinalizados.length:0;
-  const certCount=Object.values(_groupCodes[activeLevelKey]||{}).length;
-  const excCount=_exceptionQueue.filter(e=>e.levelKey===activeLevelKey).length;
-
-  document.getElementById('level-hdr').innerHTML=`
-    <div class="lh-name" style="color:${meta.color}">${meta.label}</div>
-    <div class="lh-dept" style="color:${dc.color}">${dc.label||''}</div>
-    <div class="lh-stats">
-      <div class="lh-stat"><div class="lh-v" style="color:var(--gold2)">${allStudents.length}</div><div class="lh-l">Inscritos</div></div>
-      <div class="lh-stat"><div class="lh-v" style="color:var(--green)">${withReq.length}</div><div class="lh-l">Com pedido</div></div>
-      <div class="lh-stat"><div class="lh-v" style="color:var(--red)">${noReq}</div><div class="lh-l">Sem pedido</div></div>
-      ${_lastResult?`<div class="lh-stat"><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length?Math.round(placed/withReq.length*100):0}%;background:var(--teal)"></div></div></div>`:''}
-      ${certCount>0?`<div class="lh-stat"><div class="lh-v" style="color:var(--green)">${certCount}</div><div class="lh-l">Cert.</div></div>`:''}
-      ${excCount>0?`<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${excCount}</div><div class="lh-l">Excepções</div></div>`:''}
-      ${sinal>0?`<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${sinal}</div><div class="lh-l">Sinalizados</div></div>`:''}
-      <div class="lh-stat"><div class="lh-v" style="color:${capPct>80?'var(--amber)':'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div>
-    </div>`;
-
-  if(!withReq.length){
-    area.innerHTML=`<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;
-    return;
-  }
-
-  const dept=(meta.dept||'adults');
-  const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
-
-  let html='';
-
-  /* ── 1. GRID — always visible, no toggle, no collapsible ── */
-  const certCount2=Object.keys(_groupCodes[activeLevelKey]||{}).length;
-  const propCount=(_lastResult?.groups?.length||0)-certCount2;
-  html+=`<div class="school-grid-wrap" style="margin-bottom:14px">
-    <div class="school-grid-head">
-      <span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>
-      ${certCount2>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount2} ✓ cert</span>`:''}
-      ${propCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount!==1?'s':''}</span>`:''}
-    </div>
-    <div class="school-grid-outer">
-      <div id="sg-grid-container" style="min-width:540px"></div>
-    </div>
-  </div>`;
-
-  /* ── 2. PAIR MATRIX ── */
-  html+=buildPairMatrix(pairCounts);
-
-  /* ── 3. GROUPS ── */
-  if(_lastResult?.groups?.length){
-    html+=`<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length!==1?'s':''}
-     ${certCount>0?`<span style="font-size:6px;font-weight:700;color:var(--green);padding:1px 4px;border:1px solid var(--green-b);background:var(--green-a)">✓${certCount}</span>`:''}
-      ${excCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>`:''}
-    </div>`;_lastResult.groups.forEach((g,i)=>{
-    html += buildGroupCard(g, i);
-     });
-  } else {
-    html+=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:9px;border:1px solid var(--b);margin-bottom:14px;letter-spacing:.1em">Sem turmas formadas — alunos insuficientes por par de dias</div>`;
-  }
-
-  /* ── 4. SINALIZADOS ── */
-  if(_lastResult?.sinalizados?.length) html+=buildSinalizadosHTML(_lastResult);
-
-  /* ── 5. STUDENT TABLE ── */
-  const sorted=[...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  const turmaByRef={};
- if(_lastResult?.groups){_lastResult.groups.forEach((g,i)=>{const committed=(_groupCodes[activeLevelKey]||{})[i];const label=committed?committed.turmaCode:`T${i+1}`;g.students.forEach(e=>{turmaByRef[e.ref]={label,color:slotCol(g.dayIdx,g.startMins),cert:!!committed};});});}
-  let stuRows='';
-  sorted.forEach((e,idx)=>{
-    const a=analysePrefs(e.ref);
-    const slots=a?a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · '):'—';
-    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
-    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    const stTxt=st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
-    const turma=turmaByRef[e.ref];
-    stuRows+=`<div class="stu-row" onclick="openDossier('${e.ref}')">
-      <div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div>
-      <div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div>
-      <div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div>
-      <div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div>
-      <div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div>
-      <div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div>
-    </div>`;
-  });
-  html+=`<div style="margin-top:14px">
-    <div class="sec" style="cursor:pointer;user-select:none" onclick="const s=document.getElementById('lc-students');const h=document.getElementById('lc-students-hint');const o=s.style.display!=='none';s.style.display=o?'none':'block';h.textContent=o?'· clique para expandir':'· clique para fechar';">
-      Alunos · ${sorted.length}
-      <span id="lc-students-hint" style="font-size:7px;font-weight:400;color:var(--t3);letter-spacing:0;text-transform:none">· clique para expandir</span>
-    </div>
-    <div id="lc-students" style="display:none">
-      <div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>
-      ${stuRows}
-    </div>
-  </div>`;
-
-  area.innerHTML=html;
-
-  /* Build grid into DOM then draw stamps — rAF ensures layout is settled */
-buildPermanentGrid('sg-grid-container', withReq);
-const _capturedKey = activeLevelKey;
-const _capturedResult = _lastResult;
-requestAnimationFrame(() => requestAnimationFrame(() => {
-  if (activeLevelKey !== _capturedKey) return;
-paintCellHeatmap('sg-grid-container', withReq, _capturedKey, _capturedResult);
-  drawStamps('sg-grid-container', _capturedKey, _capturedResult);
-}));
-}
-
-/* ══════════════════════════════════════════════
-   GROUP CARD
-══════════════════════════════════════════════ */
-
-  function slotCol(dayIdx, startMins){
-  /* Deterministic colour from day + hour block */
-  const palette = [
-    '#ABCBA0','#C7A2A2','#50732A','#9B7B4A',
-    '#6B5B8A','#7A9EC8','#C8A44A','#4A7C6F',
-    '#8A6B4A','#5A8A6B','#A07A5A','#6A4A8A',
-    '#8A7A4A','#4A6B8A','#7A4A6B','#5A7A4A',
-  ];
-  const hour = Math.floor(startMins / 60);
-  const idx = (dayIdx * 13 + hour) % palette.length;
-  return palette[idx];
-}
-  
 function buildGroupCard(g, i){
   const committed  = (_groupCodes[activeLevelKey]||{})[i];
   const ar         = (_auditResults[activeLevelKey]||{})[i];
@@ -2167,8 +1613,14 @@ function buildGroupCard(g, i){
   const isFail     = !isCert && status === 'fail';
   const isExc      = isWarn || isFail;
 
-  const turmaCode  = committed?.turmaCode || `T${i+1}`;
-  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx, g.startMins);
+  // Display code: "27A/27B" if certified, else "T3"
+  const turmaCode  = isCert
+    ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA !== committed.turmaCodeB
+        ? `${committed.turmaCodeA}/${committed.turmaCodeB}`
+        : committed.turmaCodeA || committed.turmaCode || `T${i+1}`)
+    : `T${i+1}`;
+
+  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
   const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
   const sealBg     = isCert ? col+'22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col+'11';
   const borderCol  = isCert ? col+'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col+'66';
@@ -2197,12 +1649,19 @@ function buildGroupCard(g, i){
       : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>${glyphEl}`}
   </svg>`;
 
+  // Two-session label: "QUA + SEX · 16:30–18:00"
+  const pairLabel = g.pairDef
+    ? (g.dayIdx_A === g.dayIdx_B
+        ? `${g.dayL_A}`
+        : `${g.dayL_A} + ${g.dayL_B}`)
+    : (g.dayL || '—');
+
   return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
     <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
       ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:600;color:${col}">${g.dayL}</div>
+      <div style="font-size:10px;font-weight:700;color:${col}">${pairLabel}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
         <span style="font-size:7.5px;color:var(--t2)">${startT} – ${endT}</span>
         <span style="font-size:6.5px;font-weight:700;letter-spacing:.08em;padding:1px 6px;border:1px solid ${col}55;color:${col};background:${col}11">${turmaCode}</span>
@@ -2219,9 +1678,108 @@ function buildGroupCard(g, i){
     </div>
   </div>`;
 }
-/* ══════════════════════════════════════════════
-   GROUP MODAL
-══════════════════════════════════════════════ */
+
+// ── drawStamps: render stamp on BOTH day rows for each group ──
+function drawStamps(containerId, levelKey, result){
+  const wrap = document.getElementById(`${containerId}-rows-wrap`);
+  if(!wrap) return;
+
+  wrap.querySelectorAll('.sg-stamp').forEach(s => s.remove());
+  if(!result?.groups?.length) return;
+
+  result.groups.forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const ar        = (_auditResults[levelKey] || {})[i];
+    const isCert    = !!committed;
+    const isFail    = ar?.status === 'fail';
+    const isWarn    = ar?.status === 'warn';
+
+    // Code display: "27A/B" or "T3"
+    const code = isCert
+      ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA !== committed.turmaCodeB
+          ? `${committed.turmaCodeA}/${committed.turmaCodeB}`
+          : committed.turmaCodeA || committed.turmaCode || `T${i+1}`)
+      : `T${i+1}`;
+
+    const n       = g.students.length;
+    const col     = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+    const bandBg  = isFail ? 'rgba(232,69,90,.25)' : isWarn ? 'rgba(232,160,32,.22)' : isCert ? col+'28' : col+'35';
+    const borderCol = isFail ? '#E8455A99' : isCert ? col : col+'CC';
+    const inkCol  = isFail ? '#FFB0B8' : col;
+
+    function makeSeal(glyph, fillCol, inkC, certified){
+      const dash = certified ? 'none' : '2 2';
+      const outerStroke = certified ? fillCol : fillCol+'99';
+      const glyphEl2 = glyph.length === 1
+        ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace">${glyph}</text>`
+        : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
+      return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="2"/>
+        <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
+        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
+        ${certified
+          ? `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".4"/>
+             <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+          : `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>${glyphEl2}`}
+      </svg>`;
+    }
+
+    const sealSVG = makeSeal(isFail ? '✕' : String(i+1), col, inkCol, isCert);
+
+    // Draw on BOTH day rows (A and B)
+    const dayRows = g.dayIdx_A === g.dayIdx_B
+      ? [g.dayL_A || g.dayL]
+      : [g.dayL_A || g.dayL, g.dayL_B];
+
+    const wrapRect = wrap.getBoundingClientRect();
+
+    dayRows.forEach((dayL, di) => {
+      const rowEl = document.getElementById(`${containerId}-row-${dayL}`);
+      if(!rowEl) return;
+
+      const pos = timeToBandPos(g.startTime, g.endTime, rowEl);
+      if(!pos) return;
+
+      const showText  = pos.width > 72;
+      const showCount = pos.width > 50;
+
+      const rowRect  = rowEl.getBoundingClientRect();
+      const bandLeft = (rowRect.left - wrapRect.left) + pos.left;
+      const bandTop  = rowRect.top - wrapRect.top;
+
+      // Second day stamp slightly different opacity to distinguish A/B
+      const opacity = di === 1 ? '0.82' : '1';
+
+      const band = document.createElement('div');
+      band.className = 'sg-stamp';
+      band.style.cssText = [
+        `left:${bandLeft}px`,
+        `top:${bandTop + 2}px`,
+        `width:${pos.width}px`,
+        `height:${rowEl.offsetHeight - 4}px`,
+        `background:${bandBg}`,
+        `border-left:3px solid ${borderCol}`,
+        `border-top:.5px solid ${borderCol}`,
+        `border-right:.5px solid ${col}22`,
+        `border-bottom:.5px solid ${col}22`,
+        `opacity:${opacity}`,
+      ].join(';');
+
+      // Show A/B suffix on the day stamp label
+      const stampCode = di === 0
+        ? (g.dayIdx_A === g.dayIdx_B ? code : (isCert ? (committed.turmaCodeA || code) : `T${i+1}A`))
+        : (isCert ? (committed.turmaCodeB || code) : `T${i+1}B`);
+
+      band.innerHTML = `
+        <div class="sg-stamp-seal">${sealSVG}</div>
+        ${showText  ? `<span class="sg-stamp-code" style="color:${inkCol}">${stampCode}</span>` : ''}
+        ${showCount ? `<span class="sg-stamp-count" style="color:${inkCol}">${n}<span style="opacity:.4">/${MAX_G}</span></span>` : ''}`;
+
+      band.addEventListener('click', e => { e.stopPropagation(); openGroupModal(levelKey, i); });
+      wrap.appendChild(band);
+    });
+  });
+}
 function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
   const g=result.groups[i];if(!g)return;
@@ -2232,8 +1790,8 @@ function openGroupModal(levelKey,i){
   const isWarn=!isCert&&ar?.status==='warn';
   const isFail=!isCert&&ar?.status==='fail';
   const isExc=isWarn||isFail;
-  const col=isFail?'#E8455A':isWarn?'#E8A020':slotCol(g.dayIdx,g.startMins);
-  const sealBg=slotCol(g.dayIdx,g.startMins)+(isCert?'33':'18');
+  const col=isFail?'#E8455A':isWarn?'#E8A020':slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+  const sealBg=col+(isCert?'33':'18');
   const dept=(meta.dept||'adults');
   const bannerBg=DEPT_GRADS[dept]||DEPT_GRADS.adults;
   const sheet=document.getElementById('gm-sheet');
@@ -2245,26 +1803,55 @@ function openGroupModal(levelKey,i){
   seal.innerHTML=isCert
     ?`<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><circle cx="14" cy="14" r="7" stroke="rgba(7,6,14,.18)" stroke-width="1" stroke-dasharray="2 2"/><path d="M8 14L12.5 19.5L20 9" fill="none" stroke="#07060E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     :`<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" font-size="14" font-weight="700" fill="#07060E" font-family="var(--mono)">${i+1}</text></svg>`;
+
+  const pairLabel = g.pairDef
+    ? (g.dayIdx_A===g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`)
+    : (g.dayL||'—');
+
+  const certCode = isCert
+    ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA!==committed.turmaCodeB
+        ? `${committed.turmaCodeA} / ${committed.turmaCodeB}`
+        : committed.turmaCodeA||committed.turmaCode||'—')
+    : null;
+
   document.getElementById('gm-title').textContent=`TURMA ${i+1}`;
-  document.getElementById('gm-sub-text').textContent=`${g.dayL} · ${g.startTime}–${g.endTime} · ${meta.label||''} · ${BRANCH_LABELS[activeLoc]||'Todas filiais'}`;
+  document.getElementById('gm-sub-text').textContent=`${pairLabel} · ${g.startTime}–${g.endTime} · ${meta.label||''} · ${BRANCH_LABELS[activeLoc]||'Todas filiais'}`;
   const blockLbl=g.startMins<720?'Manhã':'Tarde';
   const blockCls=g.startMins<720?'bk-manha':'bk-tarde';
   document.getElementById('gm-pills').innerHTML=
     `<span class="gc-block-tag ${blockCls}">${blockLbl}</span>`+
-    (isCert?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${committed.turmaCode}</span>`:'')
+    (isCert?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${certCode}</span>`:'')
     +(isExc?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'');
+
   document.getElementById('gm-strip').innerHTML=
     `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${g.students.length}</div><div class="gm-stat-l">alunos</div></div>`+
     `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount??g.students.length}</div><div class="gm-stat-l">ok</div></div>`+
     (ar?.warnCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--amber)">${ar.warnCount}</div><div class="gm-stat-l">avisos</div></div>`:'')
     +(ar?.failCount?`<div class="gm-stat"><div class="gm-stat-v" style="color:var(--red)">${ar.failCount}</div><div class="gm-stat-l">falhas</div></div>`:'')
-    +(isCert?`<div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:13px">${committed.turmaCode}</div><div class="gm-stat-l">código</div></div>`:'');
+    +(isCert?`<div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:12px">${certCode}</div><div class="gm-stat-l">código</div></div>`:'');
+
+  // Session display — show both A and B rows
+  let sessionInfo = '';
+  if(g.pairDef && g.dayIdx_A !== g.dayIdx_B){
+    sessionInfo = `<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="font-size:8px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;color:${col};background:${col}0D">
+        <span style="opacity:.6">A</span> ${g.dayL_A} ${g.startTime}–${g.endTime}
+        ${isCert ? `<span style="margin-left:6px;opacity:.7">${committed.turmaCodeA||''}</span>` : ''}
+      </div>
+      <div style="font-size:8px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;color:${col};background:${col}0D;opacity:.85">
+        <span style="opacity:.6">B</span> ${g.dayL_B} ${g.startTime}–${g.endTime}
+        ${isCert ? `<span style="margin-left:6px;opacity:.7">${committed.turmaCodeB||''}</span>` : ''}
+      </div>
+    </div>`;
+  }
+
   const auditPills=ar?
     `<span class="gm-ap pass">✓ ${ar.passCount} ok</span>`+
     (ar.warnCount?`<span class="gm-ap warn">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'')
     +(ar.failCount?`<span class="gm-ap fail">✕ ${ar.failCount} falha${ar.failCount!==1?'s':''}</span>`:'')
     +`<span style="font-size:6.5px;color:var(--t4);margin-left:auto;align-self:center">auditoria automática</span>`
     :'';
+
   const stuRows=[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
     const av=avCol(e.name||e.ref);
     const verdict=ar?.log?.[e.ref]?.verdict||'pass';
@@ -2274,16 +1861,17 @@ function openGroupModal(levelKey,i){
     return`<div class="gm-stu" onclick="closeGroupModal();setTimeout(()=>openDossier('${e.ref}'),240)">
       <div class="gm-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name||e.ref)}</div>
       <div style="flex:1;min-width:0">
- <div style="font-size:11px;color:var(--text-d)">${e.name||'—'}</div>
-<div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
+        <div style="font-size:11px;color:var(--text-d)">${e.name||'—'}</div>
+        <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
         ${reason&&verdict!=='pass'?`<div style="font-size:6.5px;color:var(--amber-d);margin-top:1px">${reason}</div>`:''}
       </div>
-     <span class="gm-verd ${verdict}">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
-     <span style="font-size:9px;color:var(--sub-d)">↗</span>
-    <span style="font-size:9px;color:var(--amber);cursor:pointer;padding:0 4px;border:1px solid rgba(232,160,32,.25);border-radius:3px;flex-shrink:0" title="Mudar turma" onclick="event.stopPropagation();closeGroupModal();setTimeout(()=>openMudarTurma('${e.ref}'),240)">Mudar</span>
-     </div>`;
+      <span class="gm-verd ${verdict}">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
+      <span style="font-size:9px;color:var(--sub-d)">↗</span>
+      <span style="font-size:9px;color:var(--amber);cursor:pointer;padding:0 4px;border:1px solid rgba(232,160,32,.25);border-radius:3px;flex-shrink:0" title="Mudar turma" onclick="event.stopPropagation();closeGroupModal();setTimeout(()=>openMudarTurma('${e.ref}'),240)">Mudar</span>
+    </div>`;
   }).join('');
-  document.getElementById('gm-body').innerHTML=`<div class="gm-audit">${auditPills}</div>${stuRows}`;
+
+  document.getElementById('gm-body').innerHTML=sessionInfo+`<div class="gm-audit">${auditPills}</div>`+stuRows;
   document.getElementById('gm-foot').innerHTML=
     `<button class="gm-btn gm-btn-csv" onclick="exportGroup('${levelKey}',${i})">↓ CSV</button>`+
     `<button class="gm-btn gm-btn-ghost" onclick="closeGroupModal();setTimeout(()=>openDossier('${g.students[0]?.ref}'),240)">Primeiro dossier ↗</button>`+
