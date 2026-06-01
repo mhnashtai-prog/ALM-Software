@@ -607,9 +607,9 @@ body{display:flex;flex-direction:column}
     <div class="tb-pill-nav" id="tab-audit" onclick="switchCC('audit',this)">
       Audit <span class="pn-badge" id="badge-audit">—</span>
     </div>
- <a class="tb-pill-nav" id="tab-decision" href="/admin/alm-confirmar-turmas-criadas">
+<div class="tb-pill-nav" id="tab-decision" onclick="switchCC('decision',this)">
   Decision <span class="pn-badge amber" id="badge-pending">0</span>
-</a>
+</div>
     <div class="tb-pill-sep"></div>
     <a class="tb-pill-ext" href="/admin/alm-atribuir-turmas">Assign ↗</a>
   </div>
@@ -1714,19 +1714,74 @@ function jumpToException(levelKey,groupIdx){
   setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
 }
 
-async function batchConfirm(){
+function batchConfirm(){
   const btn=document.getElementById('exc-confirm-btn');
   if(btn.classList.contains('disabled'))return;
   const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
   if(!warns.length)return;
-  btn.textContent='⏳ A confirmar…';btn.disabled=true;
+  /* Build confirmation modal */
+  const existing=document.getElementById('bc-overlay');if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='bc-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const rows=warns.map(exc=>{
+    const meta=LEVEL_MAP[exc.levelKey]||{};
+    const g=exc.group;
+    const isSame=g.pair.a===g.pair.b;
+    const session=isSame?`${g.pair.aL} ${minsToT(g.startMins)}`:`${g.pair.aL}+${g.pair.bL} ${minsToT(g.startMins)}`;
+    const warnReasons=[...new Set(Object.values(exc.auditResult.log||{}).map(l=>l.reason||l.sizeWarn||'').filter(Boolean))];
+    const reasonText=exc.auditResult.sizeWarn?`${g.students.length} alunos (mín. ${ASSIGN_MIN})`:warnReasons[0]||'aviso';
+    const col=pairCol(g.pair);
+    return`<tr style="border-bottom:.5px solid rgba(255,255,255,.06)">
+      <td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color||'var(--gold2)'}">${meta.label||exc.levelKey}</td>
+      <td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td>
+      <td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td>
+      <td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td>
+    </tr>`;
+  }).join('');
+  overlay.innerHTML=`
+    <div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)">
+      <div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0">
+        <div style="flex:1">
+          <div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div>
+        </div>
+        <button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:8px 0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(255,255,255,.1)">
+              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th>
+              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th>
+              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th>
+              <th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0">
+        <button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button>
+        <button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(232,160,32,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function batchConfirmExecute(){
+  const btn=document.getElementById('bc-confirm-btn');
+  if(btn)btn.disabled=true;
+  if(btn)btn.textContent='⏳ A certificar…';
+  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
   let ok=0;
   for(const exc of warns){try{await commitGroup(exc.levelKey,exc.groupIdx);ok++;}catch{}}
   _exceptionQueue=_exceptionQueue.filter(e=>e.auditResult.status!=='warn');
-  showToast(`${ok} turma${ok!==1?'s':''} com avisos confirmadas`,'warn');
+  document.getElementById('bc-overlay')?.remove();
+  showToast(`${ok} turma${ok!==1?'s':''} com avisos certificadas`,'warn');
   renderExcBar();if(activeLevelKey&&_allResults[activeLevelKey])renderLevelContent();
 }
-
 function showAllExceptions(){if(_exceptionQueue.length)jumpToException(_exceptionQueue[0].levelKey,_exceptionQueue[0].groupIdx);}
 function overrideException(levelKey,groupIdx){
   _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
