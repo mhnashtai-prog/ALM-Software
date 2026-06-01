@@ -1371,24 +1371,20 @@ function buildProposals(levelKey, branch){
     if(branch !== 'all' && normB(e.branch) !== branch) return false;
     return true;
   });
-/* ── LOCK FILTER: pull locked students out of the candidate pool ──
-     A locked student was fixed by a human decision; the engine must not
-     try to regroup them. They are removed here so the greedy pass never
-     places them. Their group is reconstructed separately (later patch). */
+
+  /* ── LOCK FILTER ── */
   const lockedHere = _lockedRefs[levelKey] || new Set();
   const withReq = all.filter(e => !!rByRef[e.ref] && !lockedHere.has(e.ref));
 
-  /* ── 1. Extract all (dayIdx, startMins) windows per student ── */
+  /* ── 1. Extract availability windows per student ── */
   const studentWindows = {};
   withReq.forEach(e => {
     const a = analysePrefs(e.ref);
     if(!a || !a.windows.length) return;
-    studentWindows[e.ref] = a.windows; // [{dayIdx, earliest, latest}]
+    studentWindows[e.ref] = a.windows;
   });
 
-  /* ── 2. Generate all (dayA, slotA, dayB, slotB) candidates per student ── */
-  // For each student, find every compatible time slot per day,
-  // then generate all cross-day pairs
+  /* ── 2. Build frequency map: "dayIdx|startMins" → Set of refs ── */
   const SLOTS = [];
   for(let t = 8*60; t <= 20*60 - CLASS_DUR; t += STEP) SLOTS.push(t);
 
@@ -1400,73 +1396,58 @@ function buildProposals(levelKey, branch){
     });
   }
 
-  /* ── 3. Build frequency map: "dayA|slotA|dayB|slotB" → Set of refs ── */
   const freqMap = {};
-
   withReq.forEach(e => {
     const windows = studentWindows[e.ref];
     if(!windows) return;
-    const days = [...new Set(windows.map(w => w.dayIdx))].sort((a,b) => a-b);
-
-    for(let i = 0; i < days.length; i++){
-      for(let j = i + 1; j < days.length; j++){
-        const dA = days[i], dB = days[j];
-        const slotsA = getCompatibleSlots(windows, dA);
-        const slotsB = getCompatibleSlots(windows, dB);
-        slotsA.forEach(sA => {
-          slotsB.forEach(sB => {
-            const key = `${dA}|${sA}|${dB}|${sB}`;
-            if(!freqMap[key]) freqMap[key] = new Set();
-            freqMap[key].add(e.ref);
-          });
-        });
-      }
-    }
+    const days = [...new Set(windows.map(w => w.dayIdx))];
+    days.forEach(dayIdx => {
+      getCompatibleSlots(windows, dayIdx).forEach(startMins => {
+        const key = `${dayIdx}|${startMins}`;
+        if(!freqMap[key]) freqMap[key] = new Set();
+        freqMap[key].add(e.ref);
+      });
+    });
   });
 
-  /* ── 4. Sort candidates by count DESC ── */
+  /* ── 3. Sort slots by count DESC ── */
   const candidates = Object.entries(freqMap)
     .map(([key, refs]) => ({ key, refs, count: refs.size }))
     .filter(c => c.count >= MIN_G)
     .sort((a, b) => b.count - a.count);
 
-/* ── 5. Greedy assignment — exclusive-first ── */
-const placed = new Set();
-const groups = [];
+  /* ── 4. Greedy assignment per slot — exclusive-first ── */
+  const placed = new Set();
+  const groups = [];
 
-// Count how many viable candidates each student appears in
-const studentCandidateCount = {};
-candidates.forEach(({ refs }) => {
-  refs.forEach(r => {
-    studentCandidateCount[r] = (studentCandidateCount[r] || 0) + 1;
+  const studentCandidateCount = {};
+  candidates.forEach(({ refs }) => {
+    refs.forEach(r => {
+      studentCandidateCount[r] = (studentCandidateCount[r] || 0) + 1;
+    });
   });
-});
 
-candidates.forEach(({ key, refs }) => {
-  // Prioritise students who have fewer options (exclusive to this slot)
-  const available = [...refs]
-    .filter(r => !placed.has(r))
-    .sort((a, b) => (studentCandidateCount[a] || 0) - (studentCandidateCount[b] || 0));
-  if(available.length < MIN_G) return;
+  candidates.forEach(({ key, refs }) => {
+    const available = [...refs]
+      .filter(r => !placed.has(r))
+      .sort((a, b) => (studentCandidateCount[a] || 0) - (studentCandidateCount[b] || 0));
+    if(available.length < MIN_G) return;
 
-    const [dA, sA, dB, sB] = key.split('|').map(Number);
+    const [dayIdx, startMins] = key.split('|').map(Number);
     const students = available.slice(0, MAX_G).map(r => allE.find(e => e.ref === r)).filter(Boolean);
-
     students.forEach(e => placed.add(e.ref));
 
     groups.push({
-      pair: { a: dA, b: dB, aL: DAYS_PT[dA], bL: DAYS_PT[dB], label: `${DAYS_PT[dA]}+${DAYS_PT[dB]}` },
-      startMins: sA,
-      startMinsB: sB,
-      startTime: minsToT(sA),
-      endTime: minsToT(sA + CLASS_DUR),
-      startTimeB: minsToT(sB),
-      endTimeB: minsToT(sB + CLASS_DUR),
+      dayIdx,
+      dayL: DAYS_PT[dayIdx],
+      startMins,
+      startTime: minsToT(startMins),
+      endTime:   minsToT(startMins + CLASS_DUR),
       students,
     });
   });
 
-  /* ── 6. Sinalizados ── */
+  /* ── 5. Sinalizados ── */
   const noWindows = withReq.filter(e => !studentWindows[e.ref]);
   const noGroup   = withReq.filter(e => studentWindows[e.ref] && !placed.has(e.ref));
 
@@ -1474,8 +1455,8 @@ candidates.forEach(({ key, refs }) => {
     const windows = studentWindows[e.ref];
     if(!windows) return 'Sem janelas de disponibilidade válidas';
     const days = [...new Set(windows.map(w => w.dayIdx))];
-    if(days.length < 2) return 'Disponibilidade num único dia — necessita par';
-    return 'Combinação de dias sem grupo suficiente (< 5 alunos compatíveis)';
+    if(days.length < 1) return 'Sem disponibilidade registada';
+    return 'Slot sem grupo suficiente (< 5 alunos compatíveis)';
   }
 
   const sinalizados = [
@@ -1486,12 +1467,11 @@ candidates.forEach(({ key, refs }) => {
   return {
     groups,
     sinalizados,
-    total:       all.length,
-    withRequest: withReq.length,
-    placed:      placed.size,
-    sameDayCt:   0,
+    total:        all.length,
+    withRequest:  withReq.length,
+    placed:       placed.size,
     invalidWinCt: noWindows.length,
-    noGroupCt:   noGroup.length,
+    noGroupCt:    noGroup.length,
   };
 }
 
@@ -1499,37 +1479,33 @@ candidates.forEach(({ key, refs }) => {
    AUTO-AUDIT ENGINE
 ══════════════════════════════════════════════ */
 function auditGroupSync(g){
-  const log={},pairDays=g.pair.a===g.pair.b?[g.pair.a]:[g.pair.a,g.pair.b];
+  const log={};
   let passCount=0,warnCount=0,failCount=0;
   g.students.forEach(e=>{
     const req=rByRef[e.ref];
     if(!req){log[e.ref]={verdict:'fail',reason:'Sem pedido registado'};failCount++;return;}
     const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const byDay={};
-    raw.forEach(p=>{const s=parseSlot(p);if(!s)return;if(!byDay[s.dayIdx])byDay[s.dayIdx]=[];byDay[s.dayIdx].push(s);});
-    let verdict='pass',reason='Slots confirmados';
-    for(const dayIdx of pairDays){
-      const daySlots=byDay[dayIdx]||[];
-      if(!daySlots.length){verdict='fail';reason=`Não pediu ${DAYS_PT[dayIdx]}`;break;}
-     const slotStart=(dayIdx===g.pair.b&&g.pair.a!==g.pair.b)?(g.startMinsB??g.startMins):g.startMins;
-      const propEnd=slotStart+CLASS_DUR;
-      const fitsInWindow=daySlots.some(s=>s.fromMins<=slotStart&&s.toMins>=propEnd);
-      if(!fitsInWindow&&verdict!=='fail'){verdict='warn';reason=`${DAYS_PT[dayIdx]} · ${minsToT(slotStart)}–${minsToT(propEnd)} não cabe na janela declarada`;}
+    const daySlots=[];
+    raw.forEach(p=>{const s=parseSlot(p);if(!s||s.dayIdx!==g.dayIdx)return;daySlots.push(s);});
+    let verdict='pass',reason='Slot confirmado';
+    if(!daySlots.length){
+      verdict='fail';reason=`Não pediu ${g.dayL}`;
+    } else {
+      const fitsInWindow=daySlots.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR);
+      if(!fitsInWindow){verdict='warn';reason=`${g.dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} não cabe na janela declarada`;}
     }
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
   });
   const sizeStatus = g.students.length < ASSIGN_MIN ? 'warn' : 'pass';
-const auditStatus = failCount>0 ? 'fail' : (warnCount>0 || sizeStatus==='warn') ? 'warn' : 'pass';
-if(sizeStatus==='warn'){
-  // Add size warning to each student's log without overriding individual verdicts
-  Object.keys(log).forEach(ref=>{
-    if(log[ref].verdict==='pass') log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;
-  });
+  const auditStatus = failCount>0 ? 'fail' : (warnCount>0||sizeStatus==='warn') ? 'warn' : 'pass';
+  if(sizeStatus==='warn'){
+    Object.keys(log).forEach(ref=>{
+      if(log[ref].verdict==='pass') log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;
+    });
+  }
+  return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
 }
-return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
-}
-
 async function generateTurmaCode(branch){
   const prefix=(BRANCH_LABELS[branch]||branch||'ALM').slice(0,3).toUpperCase().replace(/[\s\.]/g,'');
   try{
@@ -1547,31 +1523,58 @@ async function commitGroup(levelKey,groupIdx){
   const g=result.groups[groupIdx];if(!g)return null;
   const meta=LEVEL_MAP[levelKey]||{};
   const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-  const groupCode=generateTurmaCodeSync(branch);
-  const codeA=groupCode+'A',codeB=groupCode+'B';
+  const turmaCode=generateTurmaCodeSync(branch);
   const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
- const base={
-    group_code:groupCode,academic_year:AY,branch,locked:true,assignment_source:'decision_panel',
+  const row={
+    turma_code:turmaCode,
+    group_code:turmaCode,
+    academic_year:AY,
+    branch,
     lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
-    department:meta.dept||'adults',level_code:(levelKey.split('|')[1]||'').trim(),
-    level_display:meta.label||'',hour:Math.floor(g.startMins/60),
-    start_time:g.startTime,end_time:g.endTime,duration_min:CLASS_DUR,
+    department:meta.dept||'adults',
+    level_code:(levelKey.split('|')[1]||'').trim(),
+    level_display:meta.label||'',
+    day_of_week:g.dayL,
+    hour:Math.floor(g.startMins/60),
+    start_time:g.startTime,
+    end_time:g.endTime,
+    duration_min:CLASS_DUR,
     student_refs:g.students.map(s=>s.ref),
-    status:'confirmed',audit_log:ar.log||{},audited_at:new Date().toISOString(),
-    pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0,
+    status:'confirmed',
+    locked:true,
+    assignment_source:'decision_panel',
+    audit_log:ar.log||{},
+    audited_at:new Date().toISOString(),
+    pass_count:ar.passCount||g.students.length,
+    warn_count:ar.warnCount||0,
+    fail_count:ar.failCount||0,
   };
- const sessionBase={...base,group_code:groupCode};
-const sessions=g.pair.a===g.pair.b
-  ?[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]}]
-  :[{...sessionBase,turma_code:codeA,day_of_week:DAYS_PT[g.pair.a]},{...sessionBase,turma_code:codeB,day_of_week:DAYS_PT[g.pair.b]}];
-    const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(sessions)});
-if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  _retiredCodes.add(codeA);
-  _retiredCodes.add(codeB);
+  const r=await fetch(`${SB}/rest/v1/classes`,{
+    method:'POST',
+    headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},
+    body:JSON.stringify([row])
+  });
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  _retiredCodes.add(turmaCode);
   if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
- _groupCodes[levelKey][groupIdx]={turmaCode:groupCode,sentAt:new Date().toISOString(),status:ar.status||'pass'};
-await fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify({group_code:groupCode,turma_code_a:codeA,turma_code_b:g.pair.a===g.pair.b?null:codeB,level_code:(levelKey.split('|')[1]||'').trim(),department:meta.dept||'adults',branch,pair_label:`${DAYS_PT[g.pair.a]}+${DAYS_PT[g.pair.b]}`,day_a:DAYS_PT[g.pair.a],day_b:g.pair.a===g.pair.b?null:DAYS_PT[g.pair.b],start_time:g.startTime,end_time:g.endTime,student_refs:g.students.map(s=>s.ref),academic_year:AY})});
-  return groupCode;
+  _groupCodes[levelKey][groupIdx]={turmaCode,sentAt:new Date().toISOString(),status:ar.status||'pass'};
+  await fetch(`${SB}/rest/v1/certification_seals`,{
+    method:'POST',
+    headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+    body:JSON.stringify({
+      group_code:turmaCode,
+      turma_code:turmaCode,
+      level_code:(levelKey.split('|')[1]||'').trim(),
+      department:meta.dept||'adults',
+      branch,
+      day:g.dayL,
+      start_time:g.startTime,
+      end_time:g.endTime,
+      student_refs:g.students.map(s=>s.ref),
+      academic_year:AY,
+    })
+  });
+  return turmaCode;
 }
 // After loading allE/allR, before runBootAudit:
 async function runBootAudit(){
@@ -2234,7 +2237,7 @@ paintCellHeatmap('sg-grid-container', withReq, _capturedKey, _capturedResult);
 /* ══════════════════════════════════════════════
    GROUP CARD
 ══════════════════════════════════════════════ */
-function buildGroupCard(g, i, session){
+function buildGroupCard(g, i){
   const committed  = (_groupCodes[activeLevelKey]||{})[i];
   const ar         = (_auditResults[activeLevelKey]||{})[i];
   const status     = ar?.status || 'pending';
@@ -2242,72 +2245,46 @@ function buildGroupCard(g, i, session){
   const isWarn     = !isCert && status === 'warn';
   const isFail     = !isCert && status === 'fail';
   const isExc      = isWarn || isFail;
- 
-  const baseCode   = committed?.turmaCode || `T${i+1}`;
-  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : pairCol(g.pair);
+
+  const turmaCode  = committed?.turmaCode || `T${i+1}`;
+  const col        = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx, g.startMins);
   const inkCol     = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
-  const sealBg     = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
-  const borderCol  = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
- 
-  /* Resolve session-specific values */
-  const isSameDay  = g.pair.a === g.pair.b;
-  const sessions   = isSameDay
-    ? [{ suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins }]
-    : [
-        { suffix:'A', dayIdx:g.pair.a, dayL:g.pair.aL, startMins:g.startMins },
-        { suffix:'B', dayIdx:g.pair.b, dayL:g.pair.bL, startMins:g.startMinsB??g.startMins },
-      ];
- 
-  const sess       = session
-    ? sessions.find(s => s.suffix === session) || sessions[0]
-    : null;
- 
-  const dayLabel   = sess ? sess.dayL : `${g.pair.aL} + ${g.pair.bL}`;
-  const startMins  = sess ? sess.startMins : g.startMins;
-  const startT     = minsToT(startMins);
-  const endT       = minsToT(startMins + CLASS_DUR);
-  const turmaCode  = sess ? baseCode + sess.suffix : baseCode;
- 
+  const sealBg     = isCert ? col+'22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col+'11';
+  const borderCol  = isCert ? col+'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col+'66';
+
+  const startT     = minsToT(g.startMins);
+  const endT       = minsToT(g.startMins + CLASS_DUR);
+  const blockCls   = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
+  const blockLbl   = g.startMins < 720 ? 'Manhã' : 'Tarde';
+  const cardCls    = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
+
   const sealGlyph  = isFail ? '✕' : String(i+1);
   const dash       = isCert ? 'none' : '2 2';
-  const outerStroke = isCert ? col : col + '99';
- 
+  const outerStroke = isCert ? col : col+'99';
+
   const glyphEl = sealGlyph.length === 1
-    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700"
-         fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
-    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700"
-         fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
- 
+    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
+    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
+
   const sealSVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
     <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${isCert?2:1.5}"/>
     <circle cx="16" cy="16" r="12" stroke="${col}" stroke-width=".8" opacity=".6"/>
     <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
     ${isCert
       ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/>
-         <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"/>`
-      : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>
-         ${glyphEl}`}
+         <path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>${glyphEl}`}
   </svg>`;
- 
-  const blockCls = startMins < 720 ? 'bk-manha' : 'bk-tarde';
-  const blockLbl = startMins < 720 ? 'Manhã'    : 'Tarde';
-  const cardCls  = `gcard-compact${isCert?' certified':isExc?' exception':''}`;
- 
-  /* Suffix label for card subtitle */
-  const suffixBadge = sess
-    ? `<span style="font-size:6.5px;font-weight:700;letter-spacing:.08em;padding:1px 6px;border:1px solid ${col}55;color:${col};background:${col}11">${turmaCode}</span>`
-    : '';
- 
-    return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i},'${sess?.suffix||'A'}')" id="gcard-${i}${sess?'-'+sess.suffix:''}">
+
+  return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
     <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
       ${sealSVG}
     </div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:600;color:${col}">${dayLabel}</div>
+      <div style="font-size:10px;font-weight:600;color:${col}">${g.dayL}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
         <span style="font-size:7.5px;color:var(--t2)">${startT} – ${endT}</span>
-        ${suffixBadge}
+        <span style="font-size:6.5px;font-weight:700;letter-spacing:.08em;padding:1px 6px;border:1px solid ${col}55;color:${col};background:${col}11">${turmaCode}</span>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
@@ -2321,7 +2298,6 @@ function buildGroupCard(g, i, session){
     </div>
   </div>`;
 }
-  
 /* ══════════════════════════════════════════════
    GROUP MODAL
 ══════════════════════════════════════════════ */
