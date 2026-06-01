@@ -1638,32 +1638,9 @@ for(const key of levelKeys){
     });
   }
 
-  // ── STEP 3: Commit only passing groups not already in DB ──
-  setBoot('A certificar grupos limpos…');
-  const passing=[];
-  for(const key of Object.keys(_allResults)){
-    _allResults[key].groups.forEach((g,i)=>{
-      const ar=(_auditResults[key]||{})[i];
-      if(ar&&ar.status==='pass'&&!(_groupCodes[key]||{})[i])passing.push({key,i});
-    });
-  }
-  let committed=0;
-  for(let b=0;b<passing.length;b+=5){
-    const batch=passing.slice(b,b+5);
-    const results=await Promise.allSettled(batch.map(async({key,i})=>{
-      await commitGroup(key,i);committed++;return{key,i};
-    }));
-    results.forEach((r,bi)=>{
-      if(r.status==='rejected'){
-        const{key,i}=batch[bi];
-        const g=(_allResults[key]||{}).groups?.[i];
-        if(g){_exceptionQueue.push({levelKey:key,groupIdx:i,group:g,reason:'write-failed',
-          auditResult:{status:'fail',passCount:0,warnCount:0,failCount:g.students.length,
-            log:Object.fromEntries(g.students.map(s=>[s.ref,{verdict:'fail',reason:'Erro de escrita Supabase'}]))}});}
-        console.error(`ALM: commitGroup failed ${key} G${i}`,r.reason);
-      }
-    });
-  }
+// ── STEP 3: Groups are NOT auto-committed — approval required via Decision panel ──
+  const committed=0;
+  
   setBootProgress(100);
 
   // ── STEP 4: Reconcile DB vs engine ──
