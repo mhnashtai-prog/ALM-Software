@@ -1759,6 +1759,20 @@ function overrideException(levelKey,groupIdx){
 /* ══════════════════════════════════════════════
    CC NAVIGATION
 ══════════════════════════════════════════════ */
+
+function decStuChips(students, ar){
+  return [...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
+    const av=avCol(e.name||e.ref);
+    const verdict=ar?.log?.[e.ref]?.verdict||'pass';
+    const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
+    return '<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier(\''+e.ref+'\')">'
+      +'<div style="width:16px;height:16px;border-radius:50%;background:'+av.bg+';color:'+av.t+';font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+avInit(e.name||e.ref)+'</div>'
+      +'<span style="font-size:8px;color:var(--t)">'+(e.name||e.ref)+'</span>'
+      +'<span style="font-size:7px;color:'+vCol+'">'+(verdict==='pass'?'✓':'⚠')+'</span>'
+      +'</div>';
+  }).join('');
+}
+
 /* ══════════════════════════════════════════════
    DECISION PANEL
 ══════════════════════════════════════════════ */
@@ -1867,16 +1881,7 @@ function decShowLevel(levelKey){
       </div>
       <div class="dc-body">
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-          ${[...g.students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
-            const av=avCol(e.name||e.ref);
-            const verdict=ar?.log?.[e.ref]?.verdict||'pass';
-            const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
-            return`<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier('${e.ref}')">
-              <div style="width:16px;height:16px;border-radius:50%;background:${av.bg};color:${av.t};font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${avInit(e.name||e.ref)}</div>
-              <span style="font-size:8px;color:var(--t)">${e.name||e.ref}</span>
-              <span style="font-size:7px;color:${vCol}">${verdict==='pass'?'✓':'⚠'}</span>
-            </div>`;
-          }).join('')}
+      ${decStuChips(g.students, ar)}
         </div>
       </div>
     </div>`;
@@ -1907,6 +1912,17 @@ async function decCertify(levelKey, groupIdx, btn){
 }
 
 function switchCC(panel,el){
+  document.querySelectorAll('.cc-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
+  const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
+  if(el)el.classList.add('active');
+  if(panel==='audit')renderAudit();
+  if(panel==='decision')renderDecision();
+  if(panel==='overview'){
+    _ovActiveLevel=null;
+    refreshData().then(()=>{ovRenderStats();ovRenderTree();ovRenderSummary();});
+  }
+}
 
 /* ══════════════════════════════════════════════
    REFRESH — re-fetch Supabase + re-run engine
