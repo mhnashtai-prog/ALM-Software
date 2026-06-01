@@ -1798,10 +1798,8 @@ _allResults[key].groups.forEach((g,i)=>{
     if(_auditResults[key][i].status==='pass') newPassing.push({key,i});
   }
 });
-// Auto-commit new passing groups discovered after boot
-for(const {key:k,i} of newPassing){
-  try{ await commitGroup(k,i); }catch(e){ console.warn('refreshData commitGroup failed',e); }
-}
+
+// Groups are NOT auto-committed — approval required via Decision panel
       } else {
         // Level fell below minimum — clear stale result
         delete _allResults[key];
@@ -2928,27 +2926,31 @@ function dsLoadTimetable(){
 }
   
 async function loadNextSeqBase() {
+  /* Reads ALL turma_codes (bare format: "27A", "28B") to find the
+     school-wide high-water mark. Sets _nextSeqBase.__global to
+     max-existing-number + 1 so generateTurmaCodeSync never collides. */
   try {
     const rows = await sbGet('classes',
       `select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`
     );
+    let max = 0;
     rows.forEach(r => {
-      const m = (r.turma_code || '').match(/^([A-Z]+)-(\d+)/);
+      const m = (r.turma_code || '').match(/^(\d+)[AB]?$/);
       if (!m) return;
-      const [, prefix, num] = m;
-      const n = parseInt(num, 10);
-      if (!_nextSeqBase[prefix] || n >= _nextSeqBase[prefix])
-        _nextSeqBase[prefix] = n + 1;
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
     });
+   _nextSeqBase.__global = max + 1;
   } catch(e) { console.warn('loadNextSeqBase failed', e); }
 }
 
+
 function generateTurmaCodeSync(branch) {
-  const prefix = (BRANCH_LABELS[branch] || branch || 'ALM')
-    .slice(0, 3).toUpperCase().replace(/[\s\.]/g, '');
-  if (!_nextSeqBase[prefix]) _nextSeqBase[prefix] = 1;
-  const num = _nextSeqBase[prefix]++;
-  return `${prefix}-${String(num).padStart(2, '0')}`;
+  /* School-wide bare sequence — matches live pipeline (27A/27B, group_code 27).
+     branch arg kept for signature compatibility but no longer used in the code. */
+  if (!_nextSeqBase.__global) _nextSeqBase.__global = 1;
+  const num = _nextSeqBase.__global++;
+  return `${num}`;
 }
   
   
