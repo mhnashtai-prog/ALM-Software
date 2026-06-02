@@ -2741,84 +2741,257 @@ setInterval(()=>{if(_bootComplete)refreshData();},60000);
    MUDAR TURMA MODAL
 ══════════════════════════════════════════════ */
 let _mtRef=null,_mtSelectedCode=null,_mtSelectedGroupIdx=null,_mtSelectedLevelKey=null;
+let _mtChangeSuffix=null; // 'A', 'B', or 'AB' (full pair)
+let _mtCurrentSuffixA=null,_mtCurrentSuffixB=null; // current session codes
 
-function openMudarTurma(ref){
+function openMudarTurma(ref,changeSuffix){
   _mtRef=ref;_mtSelectedCode=null;_mtSelectedGroupIdx=null;_mtSelectedLevelKey=null;
+  _mtChangeSuffix=changeSuffix||null;
+
   const enrol=allE.find(e=>e.ref===ref);
   if(!enrol){showToast('Aluno não encontrado','err');return;}
-  let currentCode=null,currentGroupKey=null,currentGroupIdx=null;
+
+  // Find current group
+  let currentGroupKey=null,currentGroupIdx=null,currentCommitted=null;
   for(const [key,result] of Object.entries(_allResults)){
     result.groups.forEach((g,i)=>{
       if(g.students.find(s=>s.ref===ref)){
-        const committed=(_groupCodes[key]||{})[i];
-        currentCode=committed?(committed.turmaCodeA&&committed.turmaCodeB&&committed.turmaCodeA!==committed.turmaCodeB?`${committed.turmaCodeA}/${committed.turmaCodeB}`:committed.turmaCodeA||committed.turmaCode||`T${i+1}`):`T${i+1}`;
         currentGroupKey=key;currentGroupIdx=i;
+        currentCommitted=(_groupCodes[key]||{})[i]||null;
       }
     });
   }
+
+  const currentCodeA=currentCommitted?.turmaCodeA||null;
+  const currentCodeB=currentCommitted?.turmaCodeB||null;
+  _mtCurrentSuffixA=currentCodeA;_mtCurrentSuffixB=currentCodeB;
+
+  // If changeSuffix not yet chosen, show the step-1 selector
+  if(!changeSuffix){
+    _showMudarStep1(ref,enrol,currentCodeA,currentCodeB,currentGroupKey,currentGroupIdx);
+    return;
+  }
+
+  // Step 2 — show options filtered by suffix
+  _showMudarStep2(ref,enrol,changeSuffix,currentGroupKey,currentGroupIdx,currentCommitted);
+}
+
+function _showMudarStep1(ref,enrol,codeA,codeB,currentGroupKey,currentGroupIdx){
   const meta=getLM(enrol),dept=meta.dept||'adults';
   const col=avCol(enrol.name||ref);
   document.getElementById('mt-banner').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
-  document.getElementById('mt-banner-tag').textContent=`⇄ mudar turma`;
+  document.getElementById('mt-banner-tag').textContent='⇄ mudar turma';
   const av=document.getElementById('mt-av');
   av.style.cssText=`background:${col.bg};color:${col.t};border-color:${col.t}44`;
   av.textContent=avInit(enrol.name||ref);
   document.getElementById('mt-name').textContent=enrol.name||ref;
   document.getElementById('mt-sub').textContent=`${ref} · ${BRANCH_LABELS[normB(enrol.branch)]||enrol.branch||'—'} · ${enrol.lang||'EN'}`;
-  const req=rByRef[ref],st=req?normS(req.status):'sem_pedido';
-  const stBg=st==='atribuido'?'rgba(29,184,122,.12)':st==='sem_pedido'?'rgba(232,69,90,.12)':'rgba(232,160,32,.12)';
-  const stBo=st==='atribuido'?'var(--green-b)':st==='sem_pedido'?'var(--red-b)':'var(--amber-b)';
-  const stTc=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-  document.getElementById('mt-badges').innerHTML=`<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label||'—'}</span><span class="mt-badge" style="background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.35);color:#7AABEE">${enrol.lang||'EN'}</span>${currentCode?`<span class="mt-badge" style="background:${stBg};border-color:${stBo};color:${stTc}">${currentCode} actual</span>`:''}`;
-  document.getElementById('mt-cur-code').textContent=currentCode||'—';
-  if(currentCode&&currentGroupKey!==null){
-    const g=_allResults[currentGroupKey]?.groups[currentGroupIdx];
-    const pairLabel=g?.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g?.dayL||'—');
-    document.getElementById('mt-cur-sub').innerHTML=g?`${pairLabel}<br>${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}<br>${g.students.length} alunos`:'—';
-  }else{document.getElementById('mt-cur-sub').textContent='Sem turma atribuída';}
+  document.getElementById('mt-badges').innerHTML=
+    `<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label||'—'}</span>`
+    +(codeA?`<span class="mt-badge" style="background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.3);color:#7AABEE">A · ${codeA}</span>`:'')
+    +(codeB?`<span class="mt-badge" style="background:rgba(155,94,202,.1);border-color:rgba(155,94,202,.3);color:#C080F0">B · ${codeB}</span>`:'');
 
-  const levelKey=lk(enrol);
-  const result=_allResults[levelKey];
-  const a=analysePrefs(ref);
-  let optHtml=`<div class="mt-col-hdr">Mover para</div>`;
-  if(!result?.groups?.length){
-    optHtml+=`<div style="padding:20px;text-align:center;font-size:9px;color:var(--t3)">Sem turmas disponíveis.</div>`;
-  }else{
-    result.groups.forEach((g,i)=>{
-      const isCurrent=(currentGroupKey===levelKey&&currentGroupIdx===i);if(isCurrent)return;
-      const committed=(_groupCodes[levelKey]||{})[i];
-      const slotCode=committed?(committed.turmaCodeA&&committed.turmaCodeB&&committed.turmaCodeA!==committed.turmaCodeB?`${committed.turmaCodeA}/${committed.turmaCodeB}`:committed.turmaCodeA||committed.turmaCode||`T${i+1}`):`T${i+1}`;
-      const col2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
-      const startT=minsToT(g.startMins),endT=minsToT(g.startMins+CLASS_DUR);
-      const n=g.students.length,full=n>=MAX_G;
-      const capPct=Math.round(n/MAX_G*100);
-      const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':col2;
-      const pairLabel=g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—');
-      const isOutside=a?.windows?.length?!a.windows.find(w=>w.dayIdx===(g.dayIdx_A??g.dayIdx)):false;
-      optHtml+=`<div class="mt-option${full?' mt-full':''}${isOutside?' mt-has-warn':''}" onclick="mtSelectOption(this,'${levelKey}',${i},'${slotCode}',${full})" id="mt-opt-${i}"><div class="mt-radio"></div><div class="mt-opt-code" style="color:${col2}">${slotCode}</div><div class="mt-opt-info"><div class="mt-opt-days">${pairLabel}</div><div class="mt-opt-meta">${startT}–${endT} · ${n} al${committed?' · CERT':''}</div>${isOutside?`<div class="mt-opt-warn">⚠ fora da disponibilidade</div>`:''} ${full?`<div class="mt-opt-warn" style="border-color:rgba(232,69,90,.4);background:rgba(232,69,90,.1);color:var(--red)">✕ turma cheia</div>`:''}</div><div class="mt-opt-right"><div class="mt-opt-n">${n}<span style="font-size:7px;font-weight:400;color:var(--t4)">/${MAX_G}</span></div><div class="mt-opt-bar"><div class="mt-opt-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div></div>`;
-    });
-  }
-  document.getElementById('mt-options-list').innerHTML=optHtml;
+  // Step 1 body — choose what to change
+  const g=currentGroupKey?_allResults[currentGroupKey]?.groups[currentGroupIdx]:null;
+  const pairLabel=g?.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g?.dayL||'—');
+  const slotA=g?`${g.dayL_A||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
+  const slotB=g?`${g.dayL_B||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
+
+  document.getElementById('mt-columns').innerHTML=`
+    <div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%">
+      <div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="mt-step1-btn" onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'">
+          <div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div>
+          <div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA||'—'}</div>
+          <div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div>
+        </div>
+        <div class="mt-step1-btn" onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'">
+          <div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div>
+          <div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB||'—'}</div>
+          <div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div>
+        </div>
+      </div>
+
+      <div class="mt-step1-btn" onclick="openMudarTurma('${ref}','AB')" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);padding:12px 14px;cursor:pointer;border-radius:8px;transition:all .15s;display:flex;align-items:center;gap:12px" onmouseover="this.style.background='rgba(201,168,76,.14)'" onmouseout="this.style.background='rgba(201,168,76,.06)'">
+        <div style="flex:1">
+          <div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold2);margin-bottom:3px">Par completo</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.5)">${pairLabel} · ${codeA||''}/${codeB||''} → novo par</div>
+        </div>
+        <div style="font-size:16px;color:var(--gold);opacity:.5">⇄</div>
+      </div>
+
+      ${!g?`<div style="font-size:8px;color:var(--t3);text-align:center;padding:10px">Aluno sem turma atribuída — só mudança de par completo disponível</div>`:''}
+    </div>`;
+
+  document.getElementById('mt-confirm-btn').disabled=true;
+  document.getElementById('mt-confirm-btn').textContent='Escolha uma opção acima';
   document.getElementById('mt-success').className='mt-success';
-  const btn=document.getElementById('mt-confirm-btn');
-  btn.disabled=true;btn.textContent='Escolha uma turma acima';
   document.getElementById('mt-overlay').classList.add('open');
 }
 
-function mtSelectOption(el,levelKey,groupIdx,code,full){
+function _showMudarStep2(ref,enrol,suffix,currentGroupKey,currentGroupIdx,currentCommitted){
+  const meta=getLM(enrol),dept=meta.dept||'adults';
+  const col=avCol(enrol.name||ref);
+  document.getElementById('mt-banner').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  document.getElementById('mt-banner-tag').textContent=
+    suffix==='A'?'⇄ mudar sessão A':suffix==='B'?'⇄ mudar sessão B':'⇄ mudar par completo';
+  const av=document.getElementById('mt-av');
+  av.style.cssText=`background:${col.bg};color:${col.t};border-color:${col.t}44`;
+  av.textContent=avInit(enrol.name||ref);
+  document.getElementById('mt-name').textContent=enrol.name||ref;
+  document.getElementById('mt-sub').textContent=`${ref} · ${BRANCH_LABELS[normB(enrol.branch)]||enrol.branch||'—'} · ${enrol.lang||'EN'}`;
+
+  const codeA=currentCommitted?.turmaCodeA||null;
+  const codeB=currentCommitted?.turmaCodeB||null;
+  const keepCode=suffix==='A'?codeB:suffix==='B'?codeA:null;
+  const keepLabel=suffix==='A'?'Mantém B':'Mantém A';
+  const keepColor=suffix==='A'?'rgba(155,94,202,.7)':'rgba(74,143,245,.7)';
+  const changeColor=suffix==='A'?'#7AABEE':suffix==='B'?'#C080F0':'var(--gold2)';
+  const changeSuffix=suffix==='AB'?'AB':suffix;
+
+  document.getElementById('mt-badges').innerHTML=
+    `<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label||'—'}</span>`
+    +(keepCode?`<span class="mt-badge" style="background:rgba(29,184,122,.1);border-color:rgba(29,184,122,.3);color:var(--green)">✓ ${keepLabel} · ${keepCode}</span>`:'')
+    +`<span class="mt-badge" style="background:transparent;border-color:rgba(255,255,255,.1);color:var(--t3);cursor:pointer" onclick="openMudarTurma('${ref}')">← voltar</span>`;
+
+  // Build options — all groups, filter by suffix
+  const levelKey=lk(enrol);
+  let optHtml='';
+  let optCount=0;
+
+  // Collect all groups across all levels that match this student's level
+  const result=_allResults[levelKey];
+  if(!result?.groups?.length){
+    optHtml=`<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem turmas disponíveis para este nível.</div>`;
+  } else {
+    result.groups.forEach((g,i)=>{
+      const isCurrent=(currentGroupKey===levelKey&&currentGroupIdx===i);
+      const committed=(_groupCodes[levelKey]||{})[i];
+
+      // For suffix A: show only A sessions; for B: only B; for AB: show full group
+      let displayCode,displayDay,isCurrentSession;
+      if(suffix==='A'){
+        displayCode=committed?.turmaCodeA||`T${i+1}A`;
+        displayDay=g.dayL_A||g.dayL;
+        isCurrentSession=isCurrent&&(displayCode===codeA);
+      } else if(suffix==='B'){
+        displayCode=committed?.turmaCodeB||`T${i+1}B`;
+        displayDay=g.dayL_B||g.dayL;
+        isCurrentSession=isCurrent&&(displayCode===codeB);
+      } else {
+        displayCode=committed?(committed.turmaCodeA&&committed.turmaCodeB&&committed.turmaCodeA!==committed.turmaCodeB?`${committed.turmaCodeA}/${committed.turmaCodeB}`:committed.turmaCodeA||committed.turmaCode||`T${i+1}`): `T${i+1}`;
+        displayDay=g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—');
+        isCurrentSession=isCurrent;
+      }
+
+      if(isCurrentSession)return; // skip current session
+
+      const slotCol2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+      const n=g.students.length,full=n>=MAX_G;
+      const capPct=Math.round(n/MAX_G*100);
+      const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':slotCol2;
+      const isCert=!!committed;
+      optCount++;
+
+      optHtml+=`<div class="mt-option${full?' mt-full':''}"
+        onclick="mtSelectOption(this,'${levelKey}',${i},'${displayCode}','${suffix}',${full})"
+        id="mt-opt-${i}-${suffix}">
+        <div class="mt-radio"></div>
+        <div class="mt-opt-code" style="color:${slotCol2}">${displayCode}</div>
+        <div class="mt-opt-info">
+          <div class="mt-opt-days">${displayDay}</div>
+          <div class="mt-opt-meta">${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} · ${n} al${isCert?' · CERT':''}</div>
+          ${full?`<div class="mt-opt-warn" style="border-color:rgba(232,69,90,.4);background:rgba(232,69,90,.1);color:var(--red)">✕ turma cheia</div>`:''}
+        </div>
+        <div class="mt-opt-right">
+          <div class="mt-opt-n">${n}<span style="font-size:7px;font-weight:400;color:var(--t4)">/${MAX_G}</span></div>
+          <div class="mt-opt-bar"><div class="mt-opt-fill" style="width:${capPct}%;background:${fillCol}"></div></div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if(!optCount&&!optHtml){
+    optHtml=`<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">
+      Sem sessões ${suffix==='A'?'A':suffix==='B'?'B':'alternativas'} disponíveis neste momento.
+      <div style="margin-top:8px;font-size:8px;color:var(--t4)">O aluno terá de aguardar disponibilidade.</div>
+    </div>`;
+  }
+
+  const g=currentGroupKey?_allResults[currentGroupKey]?.groups[currentGroupIdx]:null;
+  const curSlot=g?`${suffix==='A'?(g.dayL_A||g.dayL):suffix==='B'?(g.dayL_B||g.dayL):(g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—'))} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'Sem turma';
+
+  document.getElementById('mt-columns').innerHTML=`
+    <div class="mt-col-left">
+      <div class="mt-col-hdr">${suffix==='A'?'Sessão A actual':suffix==='B'?'Sessão B actual':'Par actual'}</div>
+      <div class="mt-current-card">
+        <div class="mt-current-code" style="color:${changeColor};font-size:20px">${suffix==='A'?codeA||'—':suffix==='B'?codeB||'—':`${codeA||'—'}/${codeB||'—'}`}</div>
+        <div class="mt-current-sub">${curSlot}</div>
+        ${keepCode?`<div style="margin-top:10px;padding-top:10px;border-top:.5px solid rgba(255,255,255,.07)"><div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(29,184,122,.6);margin-bottom:3px">✓ Mantém</div><div style="font-size:9px;color:var(--green)">${keepCode}</div></div>`:''}
+      </div>
+      <div class="mt-hint" style="margin-top:10px">
+        ${suffix==='AB'?'Seleccione um novo par completo à direita.':suffix==='A'?'Seleccione uma nova sessão A. A sessão B é mantida.':'Seleccione uma nova sessão B. A sessão A é mantida.'}
+      </div>
+    </div>
+    <div class="mt-col-right" id="mt-options-list">
+      <div class="mt-col-hdr">Sessão ${suffix==='AB'?'(par completo)':suffix} disponível</div>
+      ${optHtml}
+    </div>`;
+
+  document.getElementById('mt-success').className='mt-success';
+  const btn=document.getElementById('mt-confirm-btn');
+  btn.disabled=true;btn.textContent='Escolha uma sessão acima';
+  document.getElementById('mt-overlay').classList.add('open');
+}
+
+function mtSelectOption(el,levelKey,groupIdx,code,suffix,full){
   if(full){showToast('Turma cheia — não é possível mover','warn');return;}
   document.querySelectorAll('#mt-options-list .mt-option').forEach(o=>o.classList.remove('selected'));
   el.classList.add('selected');
   _mtSelectedLevelKey=levelKey;_mtSelectedGroupIdx=groupIdx;_mtSelectedCode=code;
+  if(suffix)_mtChangeSuffix=suffix;
   const btn=document.getElementById('mt-confirm-btn');
-  btn.disabled=false;btn.textContent=`✓ MOVER PARA ${code}`;
+  const suffixLabel=_mtChangeSuffix==='A'?'sessão A':_mtChangeSuffix==='B'?'sessão B':'par';
+  btn.disabled=false;btn.textContent=`✓ MOVER ${suffixLabel.toUpperCase()} PARA ${code}`;
 }
 
 async function confirmMudarTurma(){
   if(!_mtRef||!_mtSelectedCode||_mtSelectedGroupIdx===null)return;
   const btn=document.getElementById('mt-confirm-btn');
   btn.disabled=true;btn.textContent='A guardar…';
-  const payload={assigned_turma:_mtSelectedCode,status:'atribuido'};
+
+  const suffix=_mtChangeSuffix||'AB';
+  const enrol=allE.find(e=>e.ref===_mtRef);
+
+  // Determine turma_code being moved into
+  const targetCommitted=(_groupCodes[_mtSelectedLevelKey]||{})[_mtSelectedGroupIdx];
+  let targetTurmaCode=_mtSelectedCode;
+  // For partial moves, use the specific session code
+  if(suffix==='A') targetTurmaCode=targetCommitted?.turmaCodeA||_mtSelectedCode;
+  if(suffix==='B') targetTurmaCode=targetCommitted?.turmaCodeB||_mtSelectedCode;
+
+  // Source codes being vacated
+  let sourceTurmaCode=null;
+  if(suffix==='A') sourceTurmaCode=_mtCurrentSuffixA;
+  else if(suffix==='B') sourceTurmaCode=_mtCurrentSuffixB;
+
+  // Payload for timetable_requests
+  let assignedCode=targetTurmaCode;
+  if(suffix==='A'){
+    // Keep current B, assign new A
+    const keepB=_mtCurrentSuffixB;
+    assignedCode=keepB?`${targetTurmaCode}/${keepB}`:targetTurmaCode;
+  } else if(suffix==='B'){
+    // Keep current A, assign new B
+    const keepA=_mtCurrentSuffixA;
+    assignedCode=keepA?`${keepA}/${targetTurmaCode}`:targetTurmaCode;
+  }
+
+  const payload={assigned_turma:assignedCode,status:'atribuido'};
   const existing=rByRef[_mtRef];
   let ok=false;
   try{
@@ -2826,63 +2999,74 @@ async function confirmMudarTurma(){
       const r=await fetch(`${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(_mtRef)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(payload)});
       ok=r.ok;
     }else{
-      const enrol=allE.find(e=>e.ref===_mtRef)||{};
-      const r=await fetch(`${SB}/rest/v1/timetable_requests`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({ref:_mtRef,academic_year:AY,student_name:enrol.name||_mtRef,branch:enrol.branch||'',family:enrol.family||'adults',level_code:enrol.level_code||'',level_cefr:enrol.level_cefr||'',day_preferences:'[]',...payload})});
+      const r=await fetch(`${SB}/rest/v1/timetable_requests`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({ref:_mtRef,academic_year:AY,student_name:enrol?.name||_mtRef,branch:enrol?.branch||'',family:enrol?.family||'adults',level_code:enrol?.level_code||'',level_cefr:enrol?.level_cefr||'',day_preferences:'[]',...payload})});
       ok=r.ok;
     }
   }catch(e){console.error('confirmMudarTurma:',e);}
 
   if(ok){
     if(!rByRef[_mtRef]){rByRef[_mtRef]={ref:_mtRef,academic_year:AY};allR.push(rByRef[_mtRef]);}
-    rByRef[_mtRef].assigned_turma=_mtSelectedCode;rByRef[_mtRef].status='atribuido';
+    rByRef[_mtRef].assigned_turma=assignedCode;rByRef[_mtRef].status='atribuido';
+
     try{
-      const targetGC=_mtSelectedCode.replace(/[AB]$/i,'');
-      let sourceGC=null;
-      for(const [key,result] of Object.entries(_allResults)){
-        result.groups.forEach((g,i)=>{
-          if(g.students.find(s=>s.ref===_mtRef)){
-            const committed=(_groupCodes[key]||{})[i];
-            if(committed)sourceGC=(committed.turmaCode||'').replace(/[AB]$/i,'');
-          }
-        });
-      }
-      const tRows=await sbGet('classes',`select=student_refs&group_code=eq.${encodeURIComponent(targetGC)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+      const targetGC=targetTurmaCode.replace(/[AB]$/i,'');
+
+      // Add student to target session's student_refs
+      const tRows=await sbGet('classes',`select=student_refs&turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
       const tRefs=new Set(Array.isArray(tRows[0]?.student_refs)?tRows[0].student_refs:[]);
       tRefs.add(_mtRef);
-      const rT=await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(targetGC)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:[...tRefs],locked:true,assignment_source:'staff_move',locked_at:new Date().toISOString()})});
+      const rT=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:[...tRefs],locked:true,assignment_source:'staff_move',locked_at:new Date().toISOString()})});
       if(!rT.ok)throw new Error('target write failed HTTP '+rT.status);
-      if(sourceGC&&sourceGC!==targetGC){
-        const sRows=await sbGet('classes',`select=student_refs&group_code=eq.${encodeURIComponent(sourceGC)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
-        const sRefs=(Array.isArray(sRows[0]?.student_refs)?sRows[0].student_refs:[]).filter(r=>r!==_mtRef);
-        const rS=await fetch(`${SB}/rest/v1/classes?group_code=eq.${encodeURIComponent(sourceGC)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:sRefs})});
-        if(!rS.ok){console.warn('source roster write failed',rS.status);showToast('Aviso: aluno adicionado mas não removido do grupo anterior','warn');}
-      }
-      await loadLocks();
-    }catch(lockErr){console.warn('roster move failed',lockErr);showToast('Erro: mudança de turma falhou na base de dados','warn');}
 
-    const enrol=allE.find(e=>e.ref===_mtRef);
+      // Remove student from source session's student_refs (only the session being vacated)
+      if(sourceTurmaCode&&sourceTurmaCode!==targetTurmaCode){
+        const sRows=await sbGet('classes',`select=student_refs&turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+        const sRefs=(Array.isArray(sRows[0]?.student_refs)?sRows[0].student_refs:[]).filter(r=>r!==_mtRef);
+        const rS=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:sRefs})});
+        if(!rS.ok)console.warn('source roster write failed',rS.status);
+      }
+
+      await loadLocks();
+    }catch(lockErr){console.warn('roster move failed',lockErr);showToast('Aviso: falha parcial na base de dados','warn');}
+
+    // Update local engine state
     if(enrol){
-      for(const [key,result] of Object.entries(_allResults)){result.groups.forEach(g=>{const idx=g.students.findIndex(s=>s.ref===_mtRef);if(idx>=0)g.students.splice(idx,1);});}
-      const tg=_allResults[_mtSelectedLevelKey]?.groups[_mtSelectedGroupIdx];
-      if(tg&&!tg.students.find(s=>s.ref===_mtRef))tg.students.push(enrol);
+      if(suffix==='AB'||suffix==='A'||suffix==='B'){
+        // For full pair or partial — remove from source group entirely (engine will reconcile on next refresh)
+        for(const [key,result] of Object.entries(_allResults)){
+          result.groups.forEach(g=>{
+            const idx=g.students.findIndex(s=>s.ref===_mtRef);
+            if(idx>=0&&(suffix==='AB'||(suffix==='A'&&key===_mtSelectedLevelKey)||suffix==='B'))g.students.splice(idx,1);
+          });
+        }
+        // Add to target group
+        const tg=_allResults[_mtSelectedLevelKey]?.groups[_mtSelectedGroupIdx];
+        if(tg&&!tg.students.find(s=>s.ref===_mtRef))tg.students.push(enrol);
+      }
     }
+
     const enrolName=(allE.find(e=>e.ref===_mtRef)?.name||_mtRef).split(' ')[0];
+    const suffixLabel=suffix==='A'?'Sessão A':suffix==='B'?'Sessão B':'Par';
     document.getElementById('mt-success-title').textContent='MUDANÇA OK';
-    document.getElementById('mt-success-sub').textContent=`${enrolName} → ${_mtSelectedCode} · guardado ✓`;
+    document.getElementById('mt-success-sub').textContent=`${enrolName} · ${suffixLabel} → ${targetTurmaCode} · guardado ✓`;
     document.getElementById('mt-success').className='mt-success show';
-    showToast(`${enrolName} → ${_mtSelectedCode} ✓`,'ok');
+    showToast(`${enrolName} → ${targetTurmaCode} ✓`,'ok');
     setTimeout(()=>closeMudarTurma(),1600);
     if(activeLevelKey===_mtSelectedLevelKey)renderLevelContent();
   }else{
     showToast('Erro ao guardar — ver consola','err');
-    btn.disabled=false;btn.textContent=`✓ MOVER PARA ${_mtSelectedCode}`;
+    btn.disabled=false;
+    const suffixLabel=suffix==='A'?'sessão A':suffix==='B'?'sessão B':'par';
+    btn.textContent=`✓ MOVER ${suffixLabel.toUpperCase()} PARA ${_mtSelectedCode}`;
   }
 }
 
 function closeMudarTurma(){
   document.getElementById('mt-overlay').classList.remove('open');
   _mtRef=null;_mtSelectedCode=null;_mtSelectedGroupIdx=null;_mtSelectedLevelKey=null;
+  _mtChangeSuffix=null;_mtCurrentSuffixA=null;_mtCurrentSuffixB=null;
 }
+  
 </script>
   <!-- MUDAR TURMA MODAL -->
 <div class="mt-overlay" id="mt-overlay" onclick="if(event.target===this)closeMudarTurma()">
