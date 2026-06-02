@@ -2762,6 +2762,11 @@ function openMudarTurma(ref,changeSuffix){
     });
   }
 
+if(!currentCommitted){
+    showToast('Só turmas certificadas podem ser alteradas — certifique primeiro','warn');
+    return;
+  }
+
   const currentCodeA=currentCommitted?.turmaCodeA||null;
   const currentCodeB=currentCommitted?.turmaCodeB||null;
   _mtCurrentSuffixA=currentCodeA;_mtCurrentSuffixB=currentCodeB;
@@ -2816,12 +2821,12 @@ function _showMudarStep1(ref,enrol,codeA,codeB,currentGroupKey,currentGroupIdx){
         </div>
       </div>
 
-      <div class="mt-step1-btn" onclick="openMudarTurma('${ref}','AB')" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);padding:12px 14px;cursor:pointer;border-radius:8px;transition:all .15s;display:flex;align-items:center;gap:12px" onmouseover="this.style.background='rgba(201,168,76,.14)'" onmouseout="this.style.background='rgba(201,168,76,.06)'">
+    <div class="mt-step1-btn" onclick="showToast('Mudança de par completo indisponível — altere a sessão A e depois a B','warn')" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);padding:12px 14px;cursor:not-allowed;border-radius:8px;display:flex;align-items:center;gap:12px;opacity:.5">
         <div style="flex:1">
-          <div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold2);margin-bottom:3px">Par completo</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.5)">${pairLabel} · ${codeA||''}/${codeB||''} → novo par</div>
+          <div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:3px">Par completo · indisponível</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.35)">${pairLabel} · altere A e B separadamente</div>
         </div>
-        <div style="font-size:16px;color:var(--gold);opacity:.5">⇄</div>
+        <div style="font-size:16px;color:var(--t3);opacity:.4">⇄</div>
       </div>
 
       ${!g?`<div style="font-size:8px;color:var(--t3);text-align:center;padding:10px">Aluno sem turma atribuída — só mudança de par completo disponível</div>`:''}
@@ -2868,9 +2873,10 @@ function _showMudarStep2(ref,enrol,suffix,currentGroupKey,currentGroupIdx,curren
   if(!result?.groups?.length){
     optHtml=`<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem turmas disponíveis para este nível.</div>`;
   } else {
-    result.groups.forEach((g,i)=>{
+result.groups.forEach((g,i)=>{
       const isCurrent=(currentGroupKey===levelKey&&currentGroupIdx===i);
       const committed=(_groupCodes[levelKey]||{})[i];
+      if(!committed)return; // só turmas certificadas são alvos válidos — evita movimentos fantasma
 
       // For suffix A: show only A sessions; for B: only B; for AB: show full group
       let displayCode,displayDay,isCurrentSession;
