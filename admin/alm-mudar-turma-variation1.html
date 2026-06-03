@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Mudar Turma</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;--gold3:rgba(201,168,76,.15);--gold4:rgba(201,168,76,.06);
+  --green:#1DB87A;--green-a:rgba(29,184,122,.14);--green-b:rgba(29,184,122,.30);
+  --red:#E8455A;--red-a:rgba(232,69,90,.12);--red-b:rgba(232,69,90,.30);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.13);--amber-b:rgba(232,160,32,.30);
+  --teal:#28C8B0;--purple:#9B5ECA;--blue:#4A8FF5;
+  --bg:#07060E;--bg2:#0E0B1A;--bg3:#141025;--bg4:#1A162E;
+  --b:rgba(201,168,76,.07);--b2:rgba(201,168,76,.16);--b3:rgba(201,168,76,.30);
+  --t:rgba(238,218,168,.92);--t2:rgba(210,188,140,.55);--t3:rgba(210,188,140,.28);--t4:rgba(210,188,140,.10);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;
+  --display:'Bebas Neue',sans-serif;--dm:'DM Sans',-apple-system,sans-serif;
+  --c-inf:#4A8FF5;--c-juv:#28C8B0;--c-ger:#C8A44A;--c-exa:#9B5ECA;
+  --A:#7AABEE;--A-bg:rgba(74,143,245,.10);--A-b:rgba(74,143,245,.35);
+  --B:#C080F0;--B-bg:rgba(155,94,202,.10);--B-b:rgba(155,94,202,.35);
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;flex-direction:column}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* TOPBAR */
+.topbar{flex-shrink:0;height:54px;display:flex;align-items:center;background:rgba(7,6,14,.98);border-bottom:1px solid rgba(201,168,76,.12);z-index:200}
+.tb-home{display:flex;align-items:center;justify-content:center;width:48px;height:100%;border-right:1px solid rgba(201,168,76,.08);text-decoration:none;flex-shrink:0;transition:background .15s;color:rgba(210,188,140,.35);font-size:16px}
+.tb-home:hover{background:rgba(201,168,76,.06);color:var(--gold2)}
+.tb-brand{display:flex;align-items:center;gap:6px;padding:0 18px;border-right:1px solid rgba(201,168,76,.08);flex-shrink:0;height:100%}
+.tb-brand-alm{font-size:17px;font-weight:700;letter-spacing:7px;color:var(--gold2)}
+.tb-brand-yr{font-size:7px;color:var(--t3);letter-spacing:.14em}
+.tb-title{font-family:var(--display);font-size:20px;letter-spacing:5px;color:var(--gold2);padding:0 16px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid rgba(201,168,76,.08);height:100%;flex-shrink:0}
+.tb-live{display:flex;align-items:center;gap:5px}
+.tb-live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+.tb-live-dot.amber{background:var(--amber)}.tb-live-dot.red{background:var(--red)}
+.tb-live-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--green)}
+.tb-status{font-size:7px;font-weight:600;letter-spacing:.07em;padding:2px 8px;border:1px solid;border-radius:999px}
+.tb-status.gold{color:var(--gold2);border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.06)}
+.tb-status.ok{color:var(--green);border-color:var(--green-b);background:var(--green-a)}
+.tb-status.load{color:var(--amber);border-color:var(--amber-b)}
+.tb-status.err{color:var(--red);border-color:var(--red-b)}
+
+/* CONTROL STRIP */
+.ctrl{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid var(--b2);background:rgba(0,0,0,.2);flex-wrap:wrap}
+.ctrl-lbl{font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--t3)}
+.branch-pill{font-size:7.5px;font-weight:600;letter-spacing:.05em;padding:4px 11px;border:1px solid var(--b);border-radius:999px;cursor:pointer;color:var(--t3);transition:all .13s;background:transparent;font-family:var(--mono)}
+.branch-pill:hover{color:var(--t2);border-color:var(--b2)}
+.branch-pill.active{background:var(--gold3);border-color:var(--gold);color:var(--gold2)}
+.ctrl-sep{width:1px;height:18px;background:var(--b2);margin:0 2px}
+.search-wrap{position:relative;margin-left:auto;min-width:280px}
+.search-inner{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--b2);padding:7px 11px;border-radius:8px;transition:border-color .15s}
+.search-wrap:focus-within .search-inner{border-color:var(--gold)}
+.search-icon{font-size:11px;color:var(--t3);flex-shrink:0}
+.search-inp{background:transparent;border:none;outline:none;font-family:var(--mono);font-size:11px;color:var(--t);width:100%}
+.search-inp::placeholder{color:var(--t3)}
+.search-clear{font-size:10px;color:var(--t3);cursor:pointer;display:none}
+.search-clear.vis{display:block}.search-clear:hover{color:var(--red)}
+.search-drop{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--bg2);border:1px solid var(--b2);border-radius:8px;z-index:500;max-height:340px;overflow-y:auto;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.search-drop.open{display:block}
+.sd-row{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--b);transition:background .1s}
+.sd-row:last-child{border-bottom:none}
+.sd-row:hover{background:var(--gold4)}
+.sd-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0;border:1px solid;font-family:var(--dm)}
+.sd-name{font-size:11px;font-weight:600;color:var(--t)}
+.sd-meta{font-size:8px;color:var(--t3);margin-top:1px}
+
+/* STAGE */
+.stage{flex:1;overflow-y:auto;padding:0;position:relative}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);gap:12px;padding:40px}
+.ph-icon{font-size:40px;opacity:.16}
+.ph-text{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;opacity:.45;text-align:center;line-height:1.8}
+.spinner-wrap{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);gap:10px;font-size:9px;letter-spacing:.1em}
+.spinner{width:15px;height:15px;border:1.5px solid rgba(255,255,255,.07);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+
+/* KID CARD */
+.kid-wrap{max-width:920px;margin:0 auto;padding:22px 24px 80px;animation:fadeIn .25s}
+.kid-banner{display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:16px;border:.5px solid var(--b2);margin-bottom:6px;position:relative;overflow:hidden}
+.kid-banner-scrim{position:absolute;inset:0;background:linear-gradient(120deg,rgba(0,0,0,.10),rgba(0,0,0,.40));pointer-events:none}
+.kid-av{position:relative;z-index:2;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0;border:1.5px solid rgba(255,255,255,.28);font-family:var(--dm)}
+.kid-info{position:relative;z-index:2;flex:1;min-width:0}
+.kid-name{font-family:var(--dm);font-size:18px;font-weight:600;color:#fff;letter-spacing:-.01em}
+.kid-sub{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.55);margin-top:3px;letter-spacing:.03em}
+.kid-lvl{position:relative;z-index:2;font-size:8px;font-weight:700;letter-spacing:.1em;padding:4px 12px;border-radius:999px;border:.5px solid;flex-shrink:0;font-family:var(--mono)}
+
+/* OVERRIDE BANNER */
+.ovr-note{display:flex;align-items:center;gap:9px;padding:9px 14px;border-radius:10px;background:var(--amber-a);border:1px solid var(--amber-b);margin:10px 0 18px;font-size:8.5px;color:var(--amber);letter-spacing:.04em;line-height:1.6}
+.ovr-note b{color:var(--gold2);font-weight:700}
+
+/* SESSION POOL */
+.pool{margin-bottom:18px}
+.pool-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.pool-tag{font-family:var(--display);font-size:20px;letter-spacing:3px;width:30px;text-align:center;line-height:1}
+.pool-tag.A{color:var(--A)}.pool-tag.B{color:var(--B)}
+.pool-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)}
+.pool-day{font-size:9px;color:var(--t3);font-family:var(--mono)}
+.pool-hint{font-size:7.5px;color:var(--t4);margin-left:auto;letter-spacing:.04em}
+.pool-mudar{font-size:8px;font-weight:700;letter-spacing:.14em;padding:2px 8px;border-radius:99px;border:.5px solid}
+.pool-mudar.A{color:var(--A);border-color:var(--A-b);background:var(--A-bg)}
+.pool-mudar.B{color:var(--B);border-color:var(--B-b);background:var(--B-bg)}
+.pool-alterado{font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--green);background:var(--green-a);border:.5px solid var(--green-b);padding:2px 9px;border-radius:99px;margin-left:auto}
+.pool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
+.opt{border:1px solid var(--b2);border-radius:10px;padding:12px 13px;cursor:pointer;transition:all .15s;position:relative;background:var(--bg2)}
+.opt:hover{border-color:var(--b3);background:rgba(255,255,255,.015)}
+.opt.current{border-style:dashed;opacity:.62}
+.opt.current:hover{border-color:var(--b2);background:var(--bg2)}
+.opt.selected{border-width:1.5px}
+.opt.A.selected{border-color:var(--A);background:var(--A-bg)}
+.opt.B.selected{border-color:var(--B);background:var(--B-bg)}
+.opt.full{opacity:.4;cursor:not-allowed}
+.opt.full:hover{border-color:var(--b2);background:var(--bg2)}
+.opt-code{font-family:var(--display);font-size:22px;letter-spacing:2px;line-height:1}
+.opt.A .opt-code{color:var(--A)}.opt.B .opt-code{color:var(--B)}
+.opt-meta{font-size:8.5px;color:var(--t2);margin-top:4px;font-family:var(--mono)}
+.opt-cap{display:flex;align-items:center;gap:6px;margin-top:7px}
+.opt-cap-bar{flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.opt-cap-fill{height:100%;border-radius:2px;transition:width .3s}
+.opt-cap-n{font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono)}
+.opt-flag{position:absolute;top:9px;right:11px;font-size:8px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:99px}
+.opt-flag.cur{background:rgba(255,255,255,.06);color:var(--t3)}
+.opt-flag.sel-A{background:var(--A);color:#06101f}
+.opt-flag.sel-B{background:var(--B);color:#160620}
+.opt-empty{padding:18px;text-align:center;font-size:8.5px;color:var(--t3);letter-spacing:.08em;border:1px dashed var(--b2);border-radius:10px;grid-column:1/-1}
+
+  /* HISTORIAL */
+.hist{margin-top:6px;border:.5px solid var(--b);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.15)}
+.hist-hdr{display:flex;align-items:center;gap:9px;padding:10px 14px;cursor:pointer;user-select:none;transition:background .12s}
+.hist-hdr:hover{background:var(--gold4)}
+.hist-chev{font-size:9px;color:var(--t3);transition:transform .18s}
+.hist.open .hist-chev{transform:rotate(90deg)}
+.hist-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--t2)}
+.hist-count{font-size:7.5px;font-weight:700;color:var(--gold2);background:var(--gold3);border:.5px solid var(--b2);padding:1px 7px;border-radius:99px}
+.hist-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.hist.open .hist-body{max-height:600px;overflow-y:auto}
+.hist-row{display:flex;align-items:center;gap:12px;padding:9px 14px;border-top:.5px solid var(--b);font-family:var(--mono)}
+.hist-suf{font-family:var(--display);font-size:14px;letter-spacing:1px;width:16px;text-align:center}
+.hist-suf.A{color:var(--A)}.hist-suf.B{color:var(--B)}
+.hist-move{display:flex;align-items:center;gap:7px;font-size:10px}
+.hist-from{color:var(--t3);text-decoration:line-through}
+.hist-arr{color:var(--gold);font-size:10px}
+.hist-to{color:var(--gold2);font-weight:700}
+.hist-src{font-size:7.5px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase}
+.hist-when{margin-left:auto;font-size:8px;color:var(--t3);letter-spacing:.03em}
+
+/* CONFIRM BAR */
+.confirm-bar{position:sticky;bottom:0;left:0;right:0;background:rgba(7,6,14,.97);border-top:1px solid var(--b2);padding:12px 24px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(8px);z-index:50}
+.diff{flex:1;display:flex;align-items:center;gap:18px;flex-wrap:wrap;min-height:24px}
+.diff-line{display:flex;align-items:center;gap:8px;font-size:9px;font-family:var(--mono)}
+.diff-tag{font-family:var(--display);font-size:14px;letter-spacing:1px}
+.diff-tag.A{color:var(--A)}.diff-tag.B{color:var(--B)}
+.diff-from{color:var(--t3);text-decoration:line-through}
+.diff-arr{color:var(--gold);font-size:11px}
+.diff-to{color:var(--gold2);font-weight:700}
+.diff-none{font-size:8.5px;color:var(--t4);letter-spacing:.08em}
+.btn{height:42px;border:none;border-radius:11px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 22px}
+.btn-confirm{background:rgba(201,168,76,.92);color:#09080F}
+.btn-confirm:hover:not(:disabled){background:var(--gold2);transform:translateY(-1px)}
+.btn-confirm:disabled{background:rgba(255,255,255,.04);border:.5px solid var(--b2);color:var(--t4);cursor:default}
+.btn-reset{background:transparent;border:.5px solid var(--b2);color:var(--t3)}
+.btn-reset:hover{border-color:var(--b3);color:var(--t2)}
+
+/* TOAST + UNDO */
+.toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%) translateY(8px);padding:8px 16px;font-size:9px;font-weight:500;opacity:0;transition:all .2s;z-index:9000;border:1px solid;white-space:nowrap;border-radius:8px;display:flex;align-items:center;gap:12px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.toast.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.toast.err{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.toast-undo{font-size:8.5px;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:6px;border:1px solid currentColor;cursor:pointer;background:transparent;color:inherit;font-family:var(--mono)}
+.toast-undo:hover{background:rgba(255,255,255,.06)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="tb-home" href="/admin/dashboard" title="Painel principal">⌂</a>
+  <div class="tb-brand"><span class="tb-brand-alm">ALM</span><span class="tb-brand-yr">2026/27</span></div>
+  <div class="tb-title">MUDAR TURMA</div>
+  <div class="tb-right">
+    <div class="tb-live"><div class="tb-live-dot" id="live-dot"></div><span class="tb-live-lbl" id="live-lbl">LIVE</span></div>
+    <div class="tb-status load" id="pill-status">A carregar…</div>
+  </div>
+</div>
+
+<div class="ctrl">
+<span class="ctrl-lbl">Filial</span>
+  <div id="branch-pills" style="display:flex;gap:5px;flex-wrap:wrap"><div class="spinner" style="width:12px;height:12px"></div></div>
+  <div class="ctrl-sep"></div>
+  <span class="ctrl-lbl" id="load-count" style="color:var(--t2)">—</span>
+  <div class="ctrl-sep"></div>
+  <div class="search-wrap">
+    <div class="search-inner">
+      <span class="search-icon">🔍</span>
+      <input class="search-inp" id="search" placeholder="Procurar aluno por nome ou referência…" autocomplete="off" oninput="onSearch(this.value)" onfocus="onSearch(this.value)"/>
+      <span class="search-clear" id="search-clr" onclick="clearSearch()">✕</span>
+    </div>
+    <div class="search-drop" id="search-drop"></div>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="placeholder">
+    <div class="ph-icon">⇄</div>
+    <div class="ph-text">Procure um aluno acima<br/>para ver e mudar as suas turmas</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════ SUPABASE ════════ */
+const SB='https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H={apikey:KEY,Authorization:'Bearer '+KEY};
+const AY='2026/2027';
+
+async function sbGet(table,qs){
+  let all=[],page=0,ps=1000;
+  while(true){
+    const s=page*ps,e=s+ps-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`}});
+    if(!r.ok)throw new Error(`${table} HTTP ${r.status}`);
+    const d=await r.json();all=all.concat(d);
+    if(d.length<ps)break;page++;if(page>9)break;
+  }
+  return all;
+}
+
+/* ════════ CONSTANTS (mirror painel-central) ════════ */
+const CLASS_DUR=90,MAX_G=17;
+const DAYS_PT=['SEG','TER','QUA','QUI','SEX','SÁB'];
+const BRANCH_LABELS={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
+const BRANCH_ORDER=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+const DEPT_GRADS={kids:'linear-gradient(145deg,#1A3A6A,#0D2248)',kids_juv:'linear-gradient(145deg,#0D4A3A,#062A20)',adults:'linear-gradient(145deg,#3A2A10,#201408)',exam:'linear-gradient(145deg,#3A1A3A,#200D20)'};
+const LVL_COL={kids:'var(--c-inf)',kids_juv:'var(--c-juv)',adults:'var(--c-ger)',exam:'var(--c-exa)'};
+const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1','PJ2':'PJ 2','PJ3':'PJ 3','1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5','Portugues':'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
+
+const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
+const lk=e=>`${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`;
+const minsToT=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+function timeToMins(t){if(!t)return null;const p=(t+'').trim().split(':');const h=parseInt(p[0],10),m=parseInt(p[1]||'0',10);return isNaN(h)?null:h*60+m;}
+function avCol(name){let h=0;for(let i=0;i<(name||'?').length;i++)h=(h*31+(name||'?').charCodeAt(i))&0xffffffff;const p=[{bg:'#3A2244',t:'#C8A0E0'},{bg:'#1E2E50',t:'#7AABEE'},{bg:'#1A3A2A',t:'#5EC888'},{bg:'#3A2A14',t:'#D4944A'},{bg:'#3A1A1A',t:'#E07878'},{bg:'#1A2A3A',t:'#5A9EC8'},{bg:'#282838',t:'#9898D8'},{bg:'#2A3820',t:'#80B850'}];return p[Math.abs(h)%p.length];}
+function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function setConn(ok){const d=document.getElementById('live-dot'),l=document.getElementById('live-lbl');if(ok){d.className='tb-live-dot';l.style.color='var(--green)';l.textContent='LIVE';}else{d.className='tb-live-dot red';l.textContent='OFFLINE';}}
+let _toastT;
+function toast(msg,type='ok',undoFn){
+  const t=document.getElementById('toast');
+  t.innerHTML=msg+(undoFn?`<button class="toast-undo" id="toast-undo-btn">↩ Anular</button>`:'');
+  t.className=`toast ${type} show`;
+  clearTimeout(_toastT);
+  if(undoFn){
+    document.getElementById('toast-undo-btn').onclick=()=>{clearTimeout(_toastT);t.classList.remove('show');undoFn();};
+    _toastT=setTimeout(()=>t.classList.remove('show'),6000);
+  }else{
+    _toastT=setTimeout(()=>t.classList.remove('show'),3000);
+  }
+}
+
+/* ════════ STATE ════════ */
+let activeBranch='FUNCHAL';
+let allE=[];                 // enrolments (this branch)
+let classRows=[];            // certified classes rows (this branch)
+let bySession={};            // turma_code -> row
+let poolByLevel={};          // levelKey -> {A:[rows], B:[rows]}
+let currentKid=null;         // selected enrolment
+let kidSessions={A:null,B:null};   // current turma_code per slot
+let sel={A:null,B:null};     // selected NEW turma_code per slot (null = keep)
+let justMoved={A:false,B:false}; // sessions altered in this view (cleared on reload/new kid)
+let kidHistory=[]; // turma_changes rows for current kid
+  
+/* ════════ LOAD ════════ */
+async function loadBranch(branch){
+  activeBranch=branch;
+  currentKid=null;sel={A:null,B:null};
+  renderBranchPills();
+  document.getElementById('stage').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar ${BRANCH_LABELS[branch]||branch}…</div>`;
+  try{
+  const [enrol,classes]=await Promise.all([
+      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&order=name`),
+      sbGet('classes',`select=turma_code,group_code,branch,department,level_code,level_display,day_of_week,start_time,end_time,student_refs,status,locked&academic_year=eq.${encodeURIComponent(AY)}`),
+    ]);
+    setConn(true);
+    allE=(enrol||[]).filter(e=>normB(e.branch)===branch);
+    classRows=(classes||[]).filter(c=>c.turma_code&&normB(c.branch)===branch);
+    indexClasses();
+    document.getElementById('pill-status').textContent='Supabase OK';
+    document.getElementById('pill-status').className='tb-status ok';
+    
+   const lvlCount=Object.keys(poolByLevel).length;
+    document.getElementById('stage').innerHTML=`<div class="placeholder"><div class="ph-icon">⇄</div><div class="ph-text">${allE.length} alunos · ${classRows.length} sessões · ${lvlCount} nívei${lvlCount!==1?'s':''} certificado${lvlCount!==1?'s':''} em ${BRANCH_LABELS[branch]||branch}<br/>${classRows.length?'Procure um aluno acima para mudar as suas turmas':'Ainda não há turmas certificadas — certifique primeiro em OVERVIEW'}</div></div>`;
+  }catch(err){
+    setConn(false);
+    document.getElementById('pill-status').textContent='Erro DB';
+    document.getElementById('pill-status').className='tb-status err';
+    document.getElementById('stage').innerHTML=`<div class="placeholder"><div class="ph-icon">⚠</div><div class="ph-text" style="color:var(--red)">Erro: ${err.message}</div></div>`;
+  }
+}
+
+function sessionSuffix(tc){const m=(tc||'').match(/([AB])$/i);return m?m[1].toUpperCase():null;}
+
+function indexClasses(){
+  bySession={};poolByLevel={};
+  classRows.forEach(c=>{
+    bySession[c.turma_code]=c;
+    const key=`${(c.department||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+    const suf=sessionSuffix(c.turma_code);
+    if(!suf)return; // ignore single/unsplit codes in the pools
+    if(!poolByLevel[key])poolByLevel[key]={A:[],B:[]};
+    poolByLevel[key][suf].push(c);
+  });
+  // sort each pool by start time
+  Object.values(poolByLevel).forEach(p=>{
+    ['A','B'].forEach(s=>p[s].sort((a,b)=>(timeToMins(a.start_time)||0)-(timeToMins(b.start_time)||0)));
+  });
+}
+
+/* ════════ BRANCH PILLS ════════ */
+function renderBranchPills(){
+  const branches=[...new Set(classRows.map(c=>normB(c.branch)).concat(allE.map(e=>normB(e.branch))).filter(Boolean))];
+  // we only know this branch's data; still show full ordered set so staff can switch
+  const ordered=BRANCH_ORDER;
+  document.getElementById('branch-pills').innerHTML=ordered.map(b=>
+    `<button class="branch-pill${activeBranch===b?' active':''}" onclick="loadBranch('${b}')">${BRANCH_LABELS[b]||b}</button>`
+  ).join('');
+}
+
+/* ════════ SEARCH ════════ */
+function onSearch(val){
+  const q=val.trim().toLowerCase();
+  document.getElementById('search-clr').classList.toggle('vis',val.length>0);
+  const drop=document.getElementById('search-drop');
+  if(q.length<2){drop.classList.remove('open');return;}
+  const matches=allE.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)).slice(0,14);
+  if(!matches.length){drop.innerHTML=`<div style="padding:14px;font-size:9px;color:var(--t3);text-align:center">Nenhum aluno encontrado em ${BRANCH_LABELS[activeBranch]}</div>`;drop.classList.add('open');return;}
+  drop.innerHTML=matches.map(e=>{
+    const c=avCol(e.name||e.ref);
+    const lvl=ALM_DISP[(e.level_code||e.level_cefr||'').trim()]||(e.level_code||e.level_cefr||'—');
+    return`<div class="sd-row" onclick="pickKid('${e.ref}')"><div class="sd-av" style="background:${c.bg};color:${c.t};border-color:${c.t}55">${avInit(e.name||e.ref)}</div><div style="flex:1;min-width:0"><div class="sd-name">${e.name||e.ref}</div><div class="sd-meta">${e.ref} · ${lvl} · ${e.lang||'EN'}</div></div></div>`;
+  }).join('');
+  drop.classList.add('open');
+}
+function clearSearch(){const i=document.getElementById('search');if(i)i.value='';document.getElementById('search-clr').classList.remove('vis');document.getElementById('search-drop').classList.remove('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))document.getElementById('search-drop')?.classList.remove('open');});
+
+/* ════════ PICK KID ════════ */
+function pickKid(ref){
+  clearSearch();
+  const e=allE.find(x=>x.ref===ref);if(!e){toast('Aluno não encontrado','err');return;}
+  currentKid=e;sel={A:null,B:null};justMoved={A:false,B:false};
+  // find which certified sessions this kid is currently in (this branch, this level)
+  kidSessions={A:null,B:null};
+  const key=lk(e);
+  const pool=poolByLevel[key]||{A:[],B:[]};
+['A','B'].forEach(suf=>{
+    const row=pool[suf].find(c=>Array.isArray(c.student_refs)&&c.student_refs.includes(ref));
+    if(row)kidSessions[suf]=row.turma_code;
+  });
+  kidHistory=[];
+  renderKid();
+  sbGet('turma_changes',`select=session,from_code,to_code,source,changed_at&ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&order=changed_at.desc`)
+    .then(rows=>{kidHistory=rows||[];if(currentKid&&currentKid.ref===ref)renderKid();}).catch(()=>{});
+}
+
+/* ════════ RENDER KID CARD ════════ */
+function renderKid(){
+  const e=currentKid;if(!e){return;}
+  const key=lk(e);
+  const dept=(e.family||'adults').toLowerCase();
+  const lvl=ALM_DISP[(e.level_code||e.level_cefr||'').trim()]||(e.level_code||e.level_cefr||'—');
+  const c=avCol(e.name||e.ref);
+  const lvlCol=LVL_COL[dept]||'var(--gold2)';
+  const pool=poolByLevel[key]||{A:[],B:[]};
+  const inAnyClass=kidSessions.A||kidSessions.B;
+
+  let html=`<div class="kid-wrap">
+    <div class="kid-banner" style="background:${DEPT_GRADS[dept]||DEPT_GRADS.adults}">
+      <div class="kid-banner-scrim"></div>
+      <div class="kid-av" style="background:${c.bg};color:${c.t}">${avInit(e.name||e.ref)}</div>
+      <div class="kid-info">
+        <div class="kid-name">${e.name||e.ref}</div>
+        <div class="kid-sub">${e.ref} · ${BRANCH_LABELS[activeBranch]||activeBranch} · ${e.lang||'EN'}</div>
+      </div>
+      <div class="kid-lvl" style="color:${lvlCol};border-color:${lvlCol}55;background:${lvlCol}11">${lvl}</div>
+    </div>
+
+    <div class="ovr-note">⚠ <span>Esta operação <b>substitui o pedido do aluno</b>. Use quando o aluno comunica presencialmente a turma que pretende. A mudança é guardada e fixada — o algoritmo deixa de o reagrupar.</span></div>`;
+
+ html+=buildPool('A',pool.A,key);
+  html+=buildPool('B',pool.B,key);
+  html+=buildHistory();
+  html+=`</div>`;
+
+  html+=`<div class="confirm-bar" id="confirm-bar"><div class="diff" id="diff"></div>
+    <button class="btn btn-reset" id="btn-reset" onclick="resetSel()" style="display:none">Repor</button>
+    <button class="btn btn-confirm" id="btn-confirm" disabled onclick="confirmMove()">Sem alterações</button>
+  </div>`;
+
+  document.getElementById('stage').innerHTML=html;
+  updateDiff();
+}
+
+function buildPool(suf,rows,key){
+  const dayLabel=(()=>{
+    const cur=kidSessions[suf]?bySession[kidSessions[suf]]:rows[0];
+    return cur?.day_of_week||(suf==='A'?'—':'—');
+  })();
+  const curCode=kidSessions[suf];
+  let cards='';
+  if(!rows.length){
+    cards=`<div class="opt-empty">Sem sessões ${suf} certificadas neste nível e filial.</div>`;
+}else{
+    const ordered=[...rows].sort((a,b)=>{
+      const aCur=a.turma_code===curCode?0:1;
+      const bCur=b.turma_code===curCode?0:1;
+      if(aCur!==bCur)return aCur-bCur;          // current session first
+      return (timeToMins(a.start_time)||0)-(timeToMins(b.start_time)||0);
+    });
+    ordered.forEach(c=>{
+      const n=Array.isArray(c.student_refs)?c.student_refs.length:0;
+      const isCurrent=c.turma_code===curCode;
+      const isSelected=sel[suf]===c.turma_code;
+      const full=n>=MAX_G&&!isCurrent;
+      const capPct=Math.round(n/MAX_G*100);
+      const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':(suf==='A'?'var(--A)':'var(--B)');
+      const cls=`opt ${suf}${isCurrent?' current':''}${isSelected?' selected':''}${full?' full':''}`;
+      const flag=isSelected?`<span class="opt-flag sel-${suf}">novo</span>`:isCurrent?`<span class="opt-flag cur">actual</span>`:'';
+      const onclick=full?'':`onclick="selectOpt('${suf}','${c.turma_code}')"`;
+      cards+=`<div class="${cls}" ${onclick}>
+        ${flag}
+        <div class="opt-code">${c.turma_code}</div>
+     <div class="opt-meta">${c.day_of_week||'—'} · ${(c.start_time||'').slice(0,5)}–${(c.end_time||'').slice(0,5)}${c.level_display?' · '+c.level_display:''}</div>
+        <div class="opt-cap"><div class="opt-cap-bar"><div class="opt-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div><span class="opt-cap-n">${n}/${MAX_G}</span></div>
+      </div>`;
+    });
+  }
+  const moved=justMoved[suf];
+  return `<div class="pool">
+    <div class="pool-hdr">
+      <span class="pool-tag ${suf}">${suf}</span>
+      <span class="pool-mudar ${suf}">MUDAR</span>
+      <div><div class="pool-title">Sessão ${suf}</div><div class="pool-day">${curCode?'actual: '+curCode:'sem sessão '+suf}</div></div>
+      ${moved?`<span class="pool-alterado">✓ Alterado</span>`:`<span class="pool-hint">toque para escolher</span>`}
+    </div>
+    <div class="pool-grid">${cards}</div>
+  </div>`;
+}
+
+  /* ════════ HISTORIAL ════════ */
+function fmtChangeDate(iso){
+  if(!iso)return '';
+  const d=new Date(iso);
+  const MON=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function srcLabel(s){return ({request:'pedido',algorithm:'algoritmo',staff_move:'mudança manual'})[s]||s||'—';}
+function buildHistory(){
+  const rows=kidHistory||[];
+  if(!rows.length)return '';
+  const items=rows.map(r=>{
+    const suf=r.session||'·';
+    const from=r.from_code||'—';
+    const to=r.to_code||'—';
+    const when=fmtChangeDate(r.changed_at);
+    return `<div class="hist-row">
+      <span class="hist-suf ${suf}">${suf}</span>
+      <span class="hist-move"><span class="hist-from">${from}</span><span class="hist-arr">→</span><span class="hist-to">${to}</span></span>
+      <span class="hist-src">${srcLabel(r.source)}</span>
+      <span class="hist-when">${when}</span>
+    </div>`;
+  }).join('');
+  return `<div class="hist">
+    <div class="hist-hdr" onclick="this.parentElement.classList.toggle('open')">
+      <span class="hist-chev">▸</span>
+      <span class="hist-title">Historial</span>
+      <span class="hist-count">${rows.length}</span>
+    </div>
+    <div class="hist-body">${items}</div>
+  </div>`;
+}
+  
+/* ════════ SELECTION ════════ */
+function selectOpt(suf,code){
+  // toggle: selecting current = keep (null); selecting same selection again = keep
+  if(code===kidSessions[suf]){sel[suf]=null;}      // chose the current one => no change
+  else if(sel[suf]===code){sel[suf]=null;}          // tapped selection again => clear
+  else{sel[suf]=code;}
+  renderKid(); // re-render to update highlight states
+}
+function resetSel(){sel={A:null,B:null};renderKid();}
+
+function updateDiff(){
+  const diffEl=document.getElementById('diff');
+  const btn=document.getElementById('btn-confirm');
+  const reset=document.getElementById('btn-reset');
+  if(!diffEl||!btn)return;
+  const changes=[];
+  ['A','B'].forEach(suf=>{
+    if(sel[suf]&&sel[suf]!==kidSessions[suf]){
+      changes.push({suf,from:kidSessions[suf]||'—',to:sel[suf]});
+    }
+  });
+  if(!changes.length){
+    diffEl.innerHTML=`<span class="diff-none">Toque numa sessão A ou B para escolher uma turma diferente</span>`;
+    btn.disabled=true;btn.textContent='Sem alterações';
+    if(reset)reset.style.display='none';
+    return;
+  }
+  diffEl.innerHTML=changes.map(ch=>
+    `<div class="diff-line"><span class="diff-tag ${ch.suf}">${ch.suf}</span><span class="diff-from">${ch.from}</span><span class="diff-arr">→</span><span class="diff-to">${ch.to}</span></div>`
+  ).join('');
+  btn.disabled=false;
+  btn.textContent=changes.length===1?`Confirmar mudança ${changes[0].suf}`:'Confirmar 2 mudanças';
+  if(reset)reset.style.display='flex';
+}
+
+/* ════════ CONFIRM MOVE (atomic-ish, with rollback snapshot) ════════ */
+async function confirmMove(){
+  const e=currentKid;if(!e)return;
+  const ref=e.ref;
+  const btn=document.getElementById('btn-confirm');
+  btn.disabled=true;btn.textContent='A guardar…';
+
+  // Build the set of row edits
+  const edits=[]; // {action:'add'|'remove', code, suf}
+  const snapshot=[]; // for undo: {code, refs:[...原]}
+  ['A','B'].forEach(suf=>{
+    const to=sel[suf];
+    if(!to||to===kidSessions[suf])return;
+    const from=kidSessions[suf];
+    if(from)edits.push({action:'remove',code:from,suf});
+    edits.push({action:'add',code:to,suf});
+  });
+  if(!edits.length){btn.disabled=false;updateDiff();return;}
+
+  try{
+    // snapshot current refs of every touched row (for undo)
+    const touched=[...new Set(edits.map(x=>x.code))];
+    for(const code of touched){
+      const row=bySession[code];
+      snapshot.push({code,refs:[...(Array.isArray(row?.student_refs)?row.student_refs:[])]});
+    }
+
+    // apply edits to a working copy keyed by code
+    const working={};
+    touched.forEach(code=>{working[code]=new Set(bySession[code]?.student_refs||[]);});
+    edits.forEach(({action,code})=>{
+      if(action==='add')working[code].add(ref);
+      else working[code].delete(ref);
+    });
+
+    // write each touched row
+    for(const code of touched){
+      const refs=[...working[code]];
+      const isTarget=edits.some(x=>x.code===code&&x.action==='add');
+      const body=isTarget
+        ? {student_refs:refs,locked:true,assignment_source:'staff_move',locked_at:new Date().toISOString()}
+        : {student_refs:refs};
+      const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(code)}&academic_year=eq.${encodeURIComponent(AY)}`,
+        {method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
+      if(!r.ok)throw new Error(`${code} HTTP ${r.status}`);
+      // update local cache
+      if(bySession[code])bySession[code].student_refs=refs;
+    }
+
+    // override the student's request so OVERVIEW does not re-propose
+    const assignedCode=[sel.A||kidSessions.A,sel.B||kidSessions.B].filter(Boolean).join('/');
+    await fetch(`${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}`,
+      {method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({assigned_turma:assignedCode,status:'atribuido'})})
+      .catch(()=>{}); // request row may not exist; non-fatal
+
+// log each session change to turma_changes (audit trail)
+    for(const suf of ['A','B']){
+      if(!sel[suf]||sel[suf]===kidSessions[suf])continue;
+      fetch(`${SB}/rest/v1/turma_changes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({ref,academic_year:AY,session:suf,from_code:kidSessions[suf]||null,to_code:sel[suf],
+          level_code:(e.level_code||e.level_cefr||'').trim(),branch:normB(e.branch),source:'staff_move'})}).catch(()=>{});
+    }
+    // update kid's current sessions + mark which moved
+    ['A','B'].forEach(suf=>{if(sel[suf]){kidSessions[suf]=sel[suf];justMoved[suf]=true;}});
+    sel={A:null,B:null};
+
+    const first=(e.name||ref).split(' ')[0];
+    toast(`${first} → ${assignedCode} · guardado ✓`,'ok',()=>undoMove(snapshot,ref));
+    renderKid();
+  }catch(err){
+    console.error('confirmMove',err);
+    toast('Erro ao guardar — '+err.message,'err');
+    btn.disabled=false;updateDiff();
+  }
+}
+
+async function undoMove(snapshot,ref){
+  try{
+    for(const {code,refs} of snapshot){
+      const r=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(code)}&academic_year=eq.${encodeURIComponent(AY)}`,
+        {method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:refs})});
+      if(!r.ok)throw new Error(`${code} HTTP ${r.status}`);
+      if(bySession[code])bySession[code].student_refs=refs;
+    }
+    // recompute kid sessions from restored rows
+    const key=lk(currentKid);const pool=poolByLevel[key]||{A:[],B:[]};
+    kidSessions={A:null,B:null};
+    ['A','B'].forEach(suf=>{const row=pool[suf].find(c=>Array.isArray(c.student_refs)&&c.student_refs.includes(ref));if(row)kidSessions[suf]=row.turma_code;});
+  sel={A:null,B:null};justMoved={A:false,B:false};
+    toast('Mudança anulada ↩','warn');
+    renderKid();
+  }catch(err){toast('Erro ao anular — '+err.message,'err');}
+}
+
+/* ════════ BOOT ════════ */
+loadBranch('FUNCHAL');
+</script>
+</body>
+</html>
