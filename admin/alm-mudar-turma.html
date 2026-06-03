@@ -516,7 +516,14 @@ async function confirmMove(){
       {method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({assigned_turma:assignedCode,status:'atribuido'})})
       .catch(()=>{}); // request row may not exist; non-fatal
 
-// update kid's current sessions + mark which moved
+// log each session change to turma_changes (audit trail)
+    for(const suf of ['A','B']){
+      if(!sel[suf]||sel[suf]===kidSessions[suf])continue;
+      fetch(`${SB}/rest/v1/turma_changes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({ref,academic_year:AY,session:suf,from_code:kidSessions[suf]||null,to_code:sel[suf],
+          level_code:(e.level_code||e.level_cefr||'').trim(),branch:normB(e.branch),source:'staff_move'})}).catch(()=>{});
+    }
+    // update kid's current sessions + mark which moved
     ['A','B'].forEach(suf=>{if(sel[suf]){kidSessions[suf]=sel[suf];justMoved[suf]=true;}});
     sel={A:null,B:null};
 
