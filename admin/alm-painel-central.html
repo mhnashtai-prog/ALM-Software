@@ -909,6 +909,7 @@ const COURSE_ACCENT={kids:'#6AABFF',kids_juv:'#3DE8A8',adults:'#C8A44A',exam:'#C
 const GROUP_COLORS=['#E8455A','#E8A020','#1DB87A','#4A8FF5','#9B5ECA','#28C8B0','#F06090','#F0C040','#50D890','#70B0FF','#C080F0','#40E0D0'];
 const DAY_RGB=['74,143,245','155,110,202','46,204,138','232,184,75','232,69,90','201,168,76'];
 const BRANCH_LABELS={FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
+const BC={FUNCHAL:'FUN',CAMARA_LOBOS:'CLB',SANTA_CRUZ:'SCZ',MACHICO:'MAC',RIBEIRA_BRAVA:'RBR',CALHETA:'CAL'};
 const BRANCH_ORDER=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
 const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1','PJ2':'PJ 2','PJ3':'PJ 3','1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5','Portugues':'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
 
@@ -1441,15 +1442,17 @@ async function commitGroup(levelKey,groupIdx){
 async function loadNextSeqBase(){
   try{
     const rows=await sbGet('classes',`select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`);
-    let max=0;
-    rows.forEach(r=>{const m=(r.turma_code||'').match(/^(\d+)[AB]?$/);if(!m)return;const n=parseInt(m[1],10);if(n>max)max=n;});
-    _nextSeqBase.__global=max+1;
+    const maxByBranch={};
+    rows.forEach(r=>{const m=(r.turma_code||'').match(/^([A-Z]{2,4})-(\d+)[AB]?$/);if(!m)return;const bc=m[1],n=parseInt(m[2],10);if(!maxByBranch[bc]||n>maxByBranch[bc])maxByBranch[bc]=n;});
+    Object.keys(maxByBranch).forEach(bc=>{_nextSeqBase[bc]=maxByBranch[bc]+1;});
   }catch(e){console.warn('loadNextSeqBase failed',e);}
 }
 
 function generateTurmaCodeSync(branch){
-  if(!_nextSeqBase.__global)_nextSeqBase.__global=1;
-  return`${_nextSeqBase.__global++}`;
+  const bc=BC[normB(branch)]||'XXX';
+  if(_nextSeqBase[bc]===undefined)_nextSeqBase[bc]=1;
+  const n=_nextSeqBase[bc]++;
+  return`${bc}-${String(n).padStart(2,'0')}`;
 }
 
 /* ══════════════════════════════════════════════
