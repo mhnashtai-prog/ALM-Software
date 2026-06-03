@@ -389,8 +389,14 @@ function buildPool(suf,rows,key){
   let cards='';
   if(!rows.length){
     cards=`<div class="opt-empty">Sem sessões ${suf} certificadas neste nível e filial.</div>`;
-  }else{
-    rows.forEach(c=>{
+}else{
+    const ordered=[...rows].sort((a,b)=>{
+      const aCur=a.turma_code===curCode?0:1;
+      const bCur=b.turma_code===curCode?0:1;
+      if(aCur!==bCur)return aCur-bCur;          // current session first
+      return (timeToMins(a.start_time)||0)-(timeToMins(b.start_time)||0);
+    });
+    ordered.forEach(c=>{
       const n=Array.isArray(c.student_refs)?c.student_refs.length:0;
       const isCurrent=c.turma_code===curCode;
       const isSelected=sel[suf]===c.turma_code;
