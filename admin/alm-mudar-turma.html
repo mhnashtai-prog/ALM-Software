@@ -102,6 +102,10 @@ body{display:flex;flex-direction:column}
 .pool-title{font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)}
 .pool-day{font-size:9px;color:var(--t3);font-family:var(--mono)}
 .pool-hint{font-size:7.5px;color:var(--t4);margin-left:auto;letter-spacing:.04em}
+.pool-mudar{font-size:8px;font-weight:700;letter-spacing:.14em;padding:2px 8px;border-radius:99px;border:.5px solid}
+.pool-mudar.A{color:var(--A);border-color:var(--A-b);background:var(--A-bg)}
+.pool-mudar.B{color:var(--B);border-color:var(--B-b);background:var(--B-bg)}
+.pool-alterado{font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--green);background:var(--green-a);border:.5px solid var(--green-b);padding:2px 9px;border-radius:99px;margin-left:auto}
 .pool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
 .opt{border:1px solid var(--b2);border-radius:10px;padding:12px 13px;cursor:pointer;transition:all .15s;position:relative;background:var(--bg2)}
 .opt:hover{border-color:var(--b3);background:rgba(255,255,255,.015)}
@@ -247,6 +251,7 @@ let poolByLevel={};          // levelKey -> {A:[rows], B:[rows]}
 let currentKid=null;         // selected enrolment
 let kidSessions={A:null,B:null};   // current turma_code per slot
 let sel={A:null,B:null};     // selected NEW turma_code per slot (null = keep)
+let justMoved={A:false,B:false}; // sessions altered in this view (cleared on reload/new kid)
 
 /* ════════ LOAD ════════ */
 async function loadBranch(branch){
@@ -326,7 +331,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))docum
 function pickKid(ref){
   clearSearch();
   const e=allE.find(x=>x.ref===ref);if(!e){toast('Aluno não encontrado','err');return;}
-  currentKid=e;sel={A:null,B:null};
+  currentKid=e;sel={A:null,B:null};justMoved={A:false,B:false};
   // find which certified sessions this kid is currently in (this branch, this level)
   kidSessions={A:null,B:null};
   const key=lk(e);
@@ -403,11 +408,13 @@ function buildPool(suf,rows,key){
       </div>`;
     });
   }
+  const moved=justMoved[suf];
   return `<div class="pool">
     <div class="pool-hdr">
       <span class="pool-tag ${suf}">${suf}</span>
+      <span class="pool-mudar ${suf}">MUDAR</span>
       <div><div class="pool-title">Sessão ${suf}</div><div class="pool-day">${curCode?'actual: '+curCode:'sem sessão '+suf}</div></div>
-      <span class="pool-hint">toque para escolher · toque de novo para manter</span>
+      ${moved?`<span class="pool-alterado">✓ Alterado</span>`:`<span class="pool-hint">toque para escolher</span>`}
     </div>
     <div class="pool-grid">${cards}</div>
   </div>`;
@@ -503,8 +510,8 @@ async function confirmMove(){
       {method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({assigned_turma:assignedCode,status:'atribuido'})})
       .catch(()=>{}); // request row may not exist; non-fatal
 
-    // update kid's current sessions
-    ['A','B'].forEach(suf=>{if(sel[suf])kidSessions[suf]=sel[suf];});
+// update kid's current sessions + mark which moved
+    ['A','B'].forEach(suf=>{if(sel[suf]){kidSessions[suf]=sel[suf];justMoved[suf]=true;}});
     sel={A:null,B:null};
 
     const first=(e.name||ref).split(' ')[0];
@@ -529,7 +536,7 @@ async function undoMove(snapshot,ref){
     const key=lk(currentKid);const pool=poolByLevel[key]||{A:[],B:[]};
     kidSessions={A:null,B:null};
     ['A','B'].forEach(suf=>{const row=pool[suf].find(c=>Array.isArray(c.student_refs)&&c.student_refs.includes(ref));if(row)kidSessions[suf]=row.turma_code;});
-    sel={A:null,B:null};
+  sel={A:null,B:null};justMoved={A:false,B:false};
     toast('Mudança anulada ↩','warn');
     renderKid();
   }catch(err){toast('Erro ao anular — '+err.message,'err');}
