@@ -17,340 +17,404 @@
   --t:rgba(238,218,168,.92);--t2:rgba(210,188,140,.55);--t3:rgba(210,188,140,.28);--t4:rgba(210,188,140,.10);
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--display:'Bebas Neue',sans-serif;
   --c-inf:#6AABFF;--c-juv:#3DE8A8;--c-ger:#C8A44A;--c-exa:#C080F0;
+  /* Layout heights — everything sums to 100dvh */
+  --h-hdr:46px;
+  --h-branch:34px;
+  --h-kpi:52px;
+  --h-foot:26px;
+  /* abacus area = 100dvh - sum of above */
 }
-html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased;overflow:hidden}
-body{display:flex;align-items:center;justify-content:center}
-
-/* ── BACKDROP ── */
-.backdrop{
-  position:fixed;inset:0;
-  background:radial-gradient(ellipse at 30% 20%,rgba(201,168,76,.06) 0%,transparent 60%),
-             radial-gradient(ellipse at 70% 80%,rgba(74,143,245,.04) 0%,transparent 60%),
-             var(--bg);
-  display:flex;align-items:center;justify-content:center;
-  padding:20px;
-}
-.backdrop::before{
-  content:'';position:absolute;inset:0;
-  background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(201,168,76,.025) 39px,rgba(201,168,76,.025) 40px),
-                   repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(201,168,76,.025) 39px,rgba(201,168,76,.025) 40px);
-  pointer-events:none;
-}
-
-/* ── MODAL CARD ── */
-.card{
-  position:relative;
-  width:min(1100px,98vw);
-  max-height:92dvh;
-  background:var(--bg2);
-  border:1px solid var(--b2);
-  border-top:2px solid var(--gold);
-  display:flex;flex-direction:column;
+html,body{
+  height:100dvh;width:100vw;
+  background:var(--bg);color:var(--t);
+  font-family:var(--mono);font-size:12px;
+  -webkit-font-smoothing:antialiased;
   overflow:hidden;
-  animation:cardIn .35s cubic-bezier(.32,.72,0,1);
 }
-@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+body{display:flex;flex-direction:column}
+
+/* ── BACKDROP GRID ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(201,168,76,.018) 39px,rgba(201,168,76,.018) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(201,168,76,.018) 39px,rgba(201,168,76,.018) 40px);
+}
 
 /* ── HEADER ── */
 .card-hdr{
-  flex-shrink:0;
-  display:flex;align-items:center;gap:14px;
-  padding:14px 20px 12px;
-  border-bottom:1px solid var(--b);
-  background:rgba(0,0,0,.25);
+  flex-shrink:0;height:var(--h-hdr);
+  display:flex;align-items:center;gap:12px;
+  padding:0 18px;
+  border-bottom:1px solid var(--b2);
+  background:rgba(7,6,14,.96);
+  position:relative;z-index:10;
+  border-top:2px solid var(--gold);
 }
-.hdr-brand{font-family:var(--display);font-size:26px;letter-spacing:7px;color:var(--gold2);line-height:1}
-.hdr-yr{font-size:7px;color:var(--t3);letter-spacing:.14em;align-self:flex-end;padding-bottom:2px}
-.hdr-divider{width:1px;height:22px;background:var(--b2);flex-shrink:0}
-.hdr-title{font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--t2)}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite;flex-shrink:0}
+.hdr-brand{font-family:var(--display);font-size:24px;letter-spacing:7px;color:var(--gold2);line-height:1}
+.hdr-yr{font-size:7px;color:var(--t3);letter-spacing:.14em;align-self:flex-end;padding-bottom:3px}
+.hdr-div{width:1px;height:20px;background:var(--b2)}
+.hdr-title{font-size:8.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--t2)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:7px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 .live-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--green)}
-.status-pill{font-size:7px;font-weight:600;letter-spacing:.07em;padding:2px 9px;border-radius:999px;border:1px solid;white-space:nowrap}
+.status-pill{font-size:7px;font-weight:600;letter-spacing:.06em;padding:2px 9px;border-radius:999px;border:1px solid;white-space:nowrap}
 .sp-load{border-color:rgba(201,168,76,.3);color:var(--gold2);background:rgba(201,168,76,.06)}
 .sp-ok{border-color:var(--green-b);color:var(--green);background:var(--green-a)}
 .sp-err{border-color:rgba(232,69,90,.3);color:var(--red);background:rgba(232,69,90,.08)}
 
 /* ── BRANCH STRIP ── */
 .branch-strip{
-  flex-shrink:0;
-  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
-  padding:8px 20px;
+  flex-shrink:0;height:var(--h-branch);
+  display:flex;align-items:center;gap:4px;
+  padding:0 18px;
   border-bottom:1px solid var(--b);
-  background:rgba(0,0,0,.15);
+  background:rgba(0,0,0,.18);
+  position:relative;z-index:10;
 }
 .branch-pill{
-  font-size:7.5px;font-weight:600;letter-spacing:.06em;
-  padding:3px 11px;border:1px solid var(--b);border-radius:999px;
+  font-size:7px;font-weight:600;letter-spacing:.06em;
+  padding:2px 9px;border:1px solid var(--b);border-radius:999px;
   cursor:pointer;color:var(--t3);background:transparent;
-  font-family:var(--mono);transition:all .15s;
+  font-family:var(--mono);transition:all .14s;
 }
 .branch-pill:hover{color:var(--t2);border-color:var(--b2)}
 .branch-pill.active{background:var(--gold3);border-color:var(--gold);color:var(--gold2)}
-.strip-total{margin-left:auto;font-size:7px;color:var(--t3);letter-spacing:.08em}
+.strip-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.strip-kv{font-size:7px;color:var(--t3);white-space:nowrap}
+.strip-kv strong{color:var(--t2)}
+/* legend inline */
+.leg{display:flex;align-items:center;gap:3px;font-size:6.5px;color:var(--t3)}
+.leg-bead{width:13px;height:6px;border-radius:2px}
+.leg-sep{width:1px;height:12px;background:var(--b);margin:0 4px}
 
 /* ── KPI ROW ── */
 .kpi-row{
-  flex-shrink:0;
+  flex-shrink:0;height:var(--h-kpi);
   display:flex;align-items:stretch;
   border-bottom:1px solid var(--b);
-  background:rgba(0,0,0,.1);
+  background:rgba(0,0,0,.12);
+  position:relative;z-index:10;
 }
-.kpi{
-  flex:1;padding:10px 14px;border-left:1px solid var(--b);
-  display:flex;flex-direction:column;
-}
+.kpi{flex:1;padding:8px 14px;border-left:1px solid var(--b);display:flex;flex-direction:column;justify-content:center}
 .kpi:first-child{border-left:none}
-.kpi-v{font-size:22px;font-weight:700;line-height:1}
-.kpi-l{font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px}
-.kpi-bar{height:2px;background:rgba(255,255,255,.05);margin-top:6px;overflow:hidden;border-radius:1px}
-.kpi-bar-fill{height:100%;border-radius:1px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.kpi-v{font-size:20px;font-weight:700;line-height:1}
+.kpi-l{font-size:6px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px}
+.kpi-bar{height:2px;background:rgba(255,255,255,.04);margin-top:5px;border-radius:1px;overflow:hidden}
+.kpi-bar-fill{height:100%;border-radius:1px;transition:width .9s cubic-bezier(.4,0,.2,1)}
 
-/* ── SCROLL AREA ── */
-.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px 32px;scrollbar-width:thin;scrollbar-color:var(--b) transparent}
-.scroll-area::-webkit-scrollbar{width:3px}
-.scroll-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+/* ── ABACUS AREA ── */
+.abacus-area{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  position:relative;z-index:1;
+  min-height:0; /* crucial for flex child to shrink */
+}
 
-/* ── LEGEND ── */
-.legend{display:flex;align-items:center;gap:18px;margin-bottom:20px;flex-wrap:wrap}
-.legend-item{display:flex;align-items:center;gap:6px;font-size:8px;color:var(--t2);letter-spacing:.05em}
-.legend-bead{width:18px;height:10px;border-radius:3px}
-.lb-cert{background:var(--green);border:1px solid var(--green-b)}
-.lb-sess{background:rgba(74,143,245,.3);border:1px solid rgba(74,143,245,.5)}
-.lb-empty{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
-
-/* ── DEPT SECTIONS ── */
-.dept-section{margin-bottom:24px}
-.dept-hdr{
-  display:flex;align-items:center;gap:10px;
-  margin-bottom:12px;
-  padding-bottom:6px;
+/* Dept header strip above columns */
+.dept-headers{
+  flex-shrink:0;
+  display:flex;
   border-bottom:1px solid var(--b);
+  background:rgba(0,0,0,.25);
 }
-.dept-hdr-bar{width:3px;height:14px;border-radius:2px;flex-shrink:0}
-.dept-hdr-name{font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
-.dept-hdr-count{font-size:7px;color:var(--t3);margin-left:auto}
-.levels-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:nowrap}
+.dept-hd{
+  display:flex;align-items:center;justify-content:center;
+  padding:4px 6px;
+  font-size:6px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  border-right:1px solid;
+}
+.dept-hd:last-child{border-right:none}
 
-/* ── ABACUS COLUMN ── */
-.lv-col{
-  display:flex;flex-direction:column;align-items:center;
-  flex:1;min-width:52px;max-width:80px;
-  cursor:pointer;
-  position:relative;
+/* All 16 columns in one row */
+.cols-row{
+  flex:1;
+  display:flex;
+  min-height:0;
+  overflow:hidden;
 }
-.lv-col:hover .lv-lbl{color:var(--gold2)}
-.lv-lbl{
-  font-size:7px;font-weight:700;letter-spacing:.06em;
-  color:var(--t3);text-align:center;
-  margin-bottom:6px;transition:color .15s;
+
+/* ── SINGLE COLUMN ── */
+.lv-col{
+  flex:1;
+  display:flex;flex-direction:column;
+  align-items:center;
+  border-right:1px solid var(--b);
+  position:relative;
+  cursor:pointer;
+  transition:background .14s;
+  min-width:0;
+  overflow:hidden;
+}
+.lv-col:last-child{border-right:none}
+.lv-col:hover{background:rgba(201,168,76,.028)}
+
+/* dept accent line on left edge */
+.lv-col::before{
+  content:'';
+  position:absolute;left:0;top:0;bottom:0;width:2px;
+  opacity:.45;
+}
+
+/* Column top label */
+.col-top{
+  flex-shrink:0;
+  width:100%;
+  padding:5px 3px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  border-bottom:.5px solid var(--b);
+  background:rgba(0,0,0,.3);
+}
+.col-label{
+  font-family:var(--display);font-size:13px;letter-spacing:2px;
+  line-height:1;text-align:center;white-space:nowrap;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+}
+.col-cert-badge{
+  font-size:6px;font-weight:700;letter-spacing:.05em;
+  padding:1px 5px;border-radius:999px;border:1px solid;
   white-space:nowrap;
 }
+
+/* ── ROD + BEADS ── */
+.rod-wrap{
+  flex:1;
+  display:flex;flex-direction:column;
+  align-items:center;
+  position:relative;
+  width:100%;
+  padding:5px 0 3px;
+  min-height:0;
+  overflow:hidden;
+}
+/* Rod line */
+.rod-wrap::before{
+  content:'';
+  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
+  width:1.5px;
+  background:linear-gradient(to bottom,transparent,rgba(201,168,76,.18) 20%,rgba(201,168,76,.18) 80%,transparent);
+}
+
 .beads-wrap{
-  display:flex;flex-direction:column;gap:2px;align-items:center;
-  position:relative;width:100%;
+  display:flex;flex-direction:column-reverse; /* bottom-up: filled = bottom */
+  align-items:center;
+  gap:2px;
+  width:100%;
+  padding:0 4px;
+  position:relative;z-index:1;
+  /* fill available height */
+  flex:1;
+  justify-content:flex-start;
 }
+
+/* ── BEAD ── bean/oval shape ── */
 .bead{
-  width:calc(100% - 4px);max-width:52px;
-  height:10px;border-radius:3px;
-  transition:all .4s cubic-bezier(.4,0,.2,1);
+  width:min(calc(100% - 4px), 46px);
+  /* Height computed in JS as % of available, but bounded here */
+  border-radius:40% / 35%;
   flex-shrink:0;
+  position:relative;
+  transition:transform .12s;
 }
+.bead:hover{transform:scaleX(1.06)}
+
 .bead.certified{
-  background:var(--green);
-  border:1px solid rgba(29,184,122,.6);
-  box-shadow:0 0 8px rgba(29,184,122,.3);
+  background:linear-gradient(160deg,rgba(46,220,140,.9) 0%,rgba(20,160,90,.85) 100%);
+  border:1px solid rgba(29,184,122,.55);
+  box-shadow:0 1px 5px rgba(29,184,122,.28), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.bead.certified::after{
+  content:'';position:absolute;top:18%;left:18%;
+  width:40%;height:28%;border-radius:50%;
+  background:rgba(255,255,255,.2);
 }
 .bead.session{
-  background:rgba(74,143,245,.25);
-  border:1px solid rgba(74,143,245,.4);
+  background:rgba(74,143,245,.2);
+  border:1px solid rgba(74,143,245,.38);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
 }
 .bead.empty{
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.05);
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.045);
 }
-.rod{
-  width:2px;height:8px;
-  background:rgba(201,168,76,.2);
-  border-radius:1px;margin:0 auto 3px;
+
+/* ── COLUMN FOOT ── */
+.col-foot{
+  flex-shrink:0;
+  width:100%;padding:3px 3px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  border-top:.5px solid var(--b);
+  background:rgba(0,0,0,.25);
 }
-.lv-count{font-size:8px;font-weight:700;color:var(--t3);margin-top:5px;text-align:center}
-.lv-cert{font-size:7px;color:var(--green);min-height:11px;text-align:center;margin-top:1px;font-weight:700}
-.base-rail{
-  width:100%;height:4px;
-  background:rgba(201,168,76,.15);
-  border-radius:2px;
-  margin-top:4px;
+.col-enrol{font-size:8px;font-weight:700;line-height:1}
+.col-enrol-lbl{font-size:5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+
+/* ── FOOTER ── */
+.card-footer{
+  flex-shrink:0;height:var(--h-foot);
+  display:flex;align-items:center;gap:10px;
+  padding:0 18px;
+  border-top:1px solid var(--b);
+  background:rgba(0,0,0,.3);
+  font-size:6.5px;color:var(--t3);letter-spacing:.07em;
+  position:relative;z-index:10;
 }
+.footer-ts{margin-left:auto;font-size:6px;color:var(--t4)}
+
+/* ── SPINNER ── */
+.spinner{width:14px;height:14px;border:1.5px solid rgba(255,255,255,.07);border-top-color:var(--gold);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── TOOLTIP ── */
 .tip{
   position:fixed;
-  background:rgba(7,6,14,.97);
-  border:1px solid var(--b2);
-  padding:9px 13px;font-size:8px;
-  color:var(--t2);pointer-events:none;
-  z-index:999;white-space:nowrap;
-  border-radius:2px;display:none;
-  line-height:1.8;
-  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  background:rgba(7,6,14,.97);border:1px solid var(--b2);
+  padding:9px 13px;font-size:8px;line-height:1.8;
+  color:var(--t2);pointer-events:none;z-index:9999;
+  white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.65);
+  display:none;
 }
-.tip-title{font-size:9px;font-weight:700;color:var(--gold2);margin-bottom:4px;letter-spacing:.04em}
+.tip-title{font-size:10px;font-weight:700;color:var(--gold2);margin-bottom:4px;letter-spacing:.04em}
 .tip-cert{color:var(--green);font-weight:700}
 .tip-sess{color:var(--blue)}
 .tip-warn{color:var(--amber)}
-
-/* ── SPINNER ── */
-.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.06);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading{text-align:center;padding:60px 20px;color:var(--t3);font-size:8.5px;letter-spacing:.12em}
-
-/* ── FOOTER ── */
-.card-footer{
-  flex-shrink:0;
-  display:flex;align-items:center;gap:10px;
-  padding:8px 20px;
-  border-top:1px solid var(--b);
-  background:rgba(0,0,0,.2);
-  font-size:7px;color:var(--t3);letter-spacing:.07em;
-}
-.footer-ts{margin-left:auto;font-size:6.5px;color:var(--t4)}
-
-/* ── RESPONSIVE ── */
-@media(max-width:700px){
-  .lv-col{min-width:38px}
-  .bead{height:8px}
-  .levels-row{gap:4px}
-}
 </style>
 </head>
 <body>
 
-<div class="backdrop">
-<div class="card">
+<!-- HEADER -->
+<div class="card-hdr">
+  <span class="hdr-brand">ALM</span>
+  <span class="hdr-yr">2026/27</span>
+  <div class="hdr-div"></div>
+  <span class="hdr-title">Turmas Certificadas · Ábaco</span>
+  <div class="hdr-right">
+    <div class="live-dot" id="live-dot"></div>
+    <span class="live-lbl" id="live-lbl">A ligar…</span>
+    <span class="status-pill sp-load" id="status-pill">Supabase…</span>
+  </div>
+</div>
 
-  <!-- HEADER -->
-  <div class="card-hdr">
-    <span class="hdr-brand">ALM</span>
-    <span class="hdr-yr">2026/27</span>
-    <div class="hdr-divider"></div>
-    <span class="hdr-title">Turmas Certificadas · Abacus</span>
-    <div class="hdr-right">
-      <div class="live-dot" id="live-dot"></div>
-      <span class="live-lbl" id="live-lbl">A ligar…</span>
-      <span class="status-pill sp-load" id="status-pill">Supabase…</span>
+<!-- BRANCH STRIP -->
+<div class="branch-strip" id="branch-strip">
+  <div class="spinner"></div>
+  <div class="strip-right">
+    <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Certificada</div>
+    <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Por cert.</div>
+    <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem sessão</div>
+    <div class="leg-sep"></div>
+    <div class="strip-kv" id="strip-total">—</div>
+  </div>
+</div>
+
+<!-- KPI ROW -->
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-v" style="color:var(--gold2)" id="kpi-total">—</div><div class="kpi-l">Inscritos</div></div>
+  <div class="kpi"><div class="kpi-v" style="color:var(--blue)"   id="kpi-groups">—</div><div class="kpi-l">Grupos criados</div></div>
+  <div class="kpi"><div class="kpi-v" style="color:rgba(201,168,76,.7)" id="kpi-sessions">—</div><div class="kpi-l">Sessões totais</div></div>
+  <div class="kpi">
+    <div class="kpi-v" style="color:var(--green)" id="kpi-cert">—</div>
+    <div class="kpi-l">Sessões certificadas</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" id="cert-bar" style="width:0%;background:var(--green)"></div></div>
+  </div>
+  <div class="kpi"><div class="kpi-v" style="color:var(--amber)" id="kpi-pend">—</div><div class="kpi-l">Por certificar</div></div>
+</div>
+
+<!-- ABACUS -->
+<div class="abacus-area">
+  <div class="dept-headers" id="dept-headers"></div>
+  <div class="cols-row" id="cols-row">
+    <div style="margin:auto;display:flex;align-items:center;gap:10px;color:var(--t3);font-size:8px;letter-spacing:.1em">
+      <div class="spinner"></div>A carregar dados…
     </div>
   </div>
+</div>
 
-  <!-- BRANCH STRIP -->
-  <div class="branch-strip" id="branch-strip">
-    <span style="font-size:7px;color:var(--t3);letter-spacing:.1em">A carregar…</span>
-  </div>
-
-  <!-- KPI ROW -->
-  <div class="kpi-row" id="kpi-row">
-    <div class="kpi"><div class="kpi-v" style="color:var(--gold2)" id="kpi-total">—</div><div class="kpi-l">Inscritos</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--blue)" id="kpi-groups">—</div><div class="kpi-l">Grupos criados</div></div>
-    <div class="kpi"><div class="kpi-v" style="color:rgba(201,168,76,.7)" id="kpi-sessions">—</div><div class="kpi-l">Sessões totais</div></div>
-    <div class="kpi">
-      <div class="kpi-v" style="color:var(--green)" id="kpi-cert">—</div>
-      <div class="kpi-l">Sessões certificadas</div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="cert-bar" style="width:0%;background:var(--green)"></div></div>
-    </div>
-    <div class="kpi"><div class="kpi-v" style="color:var(--amber)" id="kpi-pend">—</div><div class="kpi-l">Por certificar</div></div>
-  </div>
-
-  <!-- SCROLL -->
-  <div class="scroll-area">
-    <div class="legend">
-      <div class="legend-item"><div class="legend-bead lb-cert"></div>Sessão certificada</div>
-      <div class="legend-item"><div class="legend-bead lb-sess"></div>Sessão criada · por certificar</div>
-      <div class="legend-item"><div class="legend-bead lb-empty"></div>Sem sessão</div>
-    </div>
-    <div id="abacus-area"><div class="loading"><div class="spinner" style="margin-bottom:14px"></div>A carregar dados da Supabase…</div></div>
-  </div>
-
-  <!-- FOOTER -->
-  <div class="card-footer">
-    <span>ALM · Painel Central · 2026/2027</span>
-    <span class="footer-ts" id="footer-ts">—</span>
-  </div>
-
-</div><!-- /card -->
-</div><!-- /backdrop -->
+<!-- FOOTER -->
+<div class="card-footer">
+  <span>ALM · Painel Central · 2026/2027</span>
+  <span id="footer-info" style="color:var(--t3)">—</span>
+  <span class="footer-ts" id="footer-ts">—</span>
+</div>
 
 <div class="tip" id="tip"></div>
 
 <script>
+/* ══ CONFIG ══ */
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const AY  = '2026/2027';
 
+/* Max beads per rod — keep small enough to fit in one screen */
+const MAX_BEADS = 12;
+/* Bead height in px — will be overridden by dynamic calc */
+const BEAD_H_PX = 9;
+const BEAD_GAP  = 2;
+
 const DEPTS = [
-  {
-    key: 'kids', label: 'Infantil', color: '#6AABFF',
-    levels: [
-      { key: 'kids|PI1', label: 'PI 1', maxB: 10 },
-      { key: 'kids|PI2', label: 'PI 2', maxB: 10 },
-      { key: 'kids|PI3', label: 'PI 3', maxB: 10 },
-      { key: 'kids|PI4', label: 'PI 4', maxB: 10 },
+  { key:'kids',     label:'Infantil', color:'#6AABFF', borderColor:'rgba(106,171,255,.25)',
+    levels:[
+      {key:'kids|PI1',  label:'PI 1', lc:'PI1'},
+      {key:'kids|PI2',  label:'PI 2', lc:'PI2'},
+      {key:'kids|PI3',  label:'PI 3', lc:'PI3'},
+      {key:'kids|PI4',  label:'PI 4', lc:'PI4'},
     ]
   },
-  {
-    key: 'kids_juv', label: 'Juvenil', color: '#3DE8A8',
-    levels: [
-      { key: 'kids_juv|PJ1', label: 'PJ 1', maxB: 10 },
-      { key: 'kids_juv|PJ2', label: 'PJ 2', maxB: 10 },
-      { key: 'kids_juv|PJ3', label: 'PJ 3', maxB: 10 },
+  { key:'kids_juv', label:'Juvenil',  color:'#3DE8A8', borderColor:'rgba(61,232,168,.25)',
+    levels:[
+      {key:'kids_juv|PJ1', label:'PJ 1', lc:'PJ1'},
+      {key:'kids_juv|PJ2', label:'PJ 2', lc:'PJ2'},
+      {key:'kids_juv|PJ3', label:'PJ 3', lc:'PJ3'},
     ]
   },
-  {
-    key: 'adults', label: 'Geral', color: '#C8A44A',
-    levels: [
-      { key: 'adults|1',         label: 'Ano 1', maxB: 12 },
-      { key: 'adults|2',         label: 'Ano 2', maxB: 12 },
-      { key: 'adults|3',         label: 'Ano 3', maxB: 12 },
-      { key: 'adults|4',         label: 'Ano 4', maxB: 12 },
-      { key: 'adults|5',         label: 'Ano 5', maxB: 12 },
-      { key: 'adults|Portugues', label: 'PT',    maxB: 10 },
+  { key:'adults',   label:'Geral',    color:'#C8A44A', borderColor:'rgba(200,164,74,.25)',
+    levels:[
+      {key:'adults|1',         label:'Ano 1', lc:'1'},
+      {key:'adults|2',         label:'Ano 2', lc:'2'},
+      {key:'adults|3',         label:'Ano 3', lc:'3'},
+      {key:'adults|4',         label:'Ano 4', lc:'4'},
+      {key:'adults|5',         label:'Ano 5', lc:'5'},
+      {key:'adults|Portugues', label:'PT',    lc:'PT'},
     ]
   },
-  {
-    key: 'exam', label: 'Exames', color: '#C080F0',
-    levels: [
-      { key: 'exam|6', label: 'Ano 6', maxB: 8 },
-      { key: 'exam|7', label: 'Ano 7', maxB: 8 },
-      { key: 'exam|8', label: 'Ano 8', maxB: 8 },
+  { key:'exam',     label:'Exames',   color:'#C080F0', borderColor:'rgba(192,128,240,.25)',
+    levels:[
+      {key:'exam|6', label:'Ano 6', lc:'FCE'},
+      {key:'exam|7', label:'Ano 7', lc:'CAE'},
+      {key:'exam|8', label:'Ano 8', lc:'CPE'},
     ]
   },
 ];
 
-const BRANCHES      = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
-const BRANCH_LABELS = { FUNCHAL:'Funchal', CAMARA_LOBOS:'C. Lobos', SANTA_CRUZ:'S. Cruz', MACHICO:'Machico', RIBEIRA_BRAVA:'R. Brava', CALHETA:'Calheta' };
+const ALL_LEVELS = DEPTS.flatMap(d => d.levels.map(lv => ({...lv, dept:d})));
+const TOTAL_COLS = ALL_LEVELS.length; // 16
+
+const BRANCHES = ['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRAVA','CALHETA'];
+const BL = {FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
 
 let activeBranch = 'FUNCHAL';
-let allClasses   = [];
-let allEnrols    = [];
+let allClasses = [], allEnrols = [];
 
-/* ── FETCH ── */
+/* ══ FETCH ══ */
 async function sbGet(table, qs) {
-  let all = [], page = 0, ps = 1000;
-  while (true) {
-    const s = page * ps, e = s + ps - 1;
-    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
-      headers: { ...H, Range: `${s}-${e}`, Prefer: 'count=none' }
-    });
-    if (!r.ok) throw new Error(`${table} HTTP ${r.status}`);
-    const d = await r.json(); all = all.concat(d);
-    if (d.length < ps) break; page++; if (page > 9) break;
+  let all=[], page=0, ps=1000;
+  while(true){
+    const s=page*ps, e=s+ps-1;
+    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
+    if(!r.ok) throw new Error(`${table} HTTP ${r.status}`);
+    const d=await r.json(); all=all.concat(d);
+    if(d.length<ps)break; page++; if(page>9)break;
   }
   return all;
 }
 
-function normB(b) { return (b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim(); }
+const normB = b => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
 
+/* ══ BOOT ══ */
 async function boot() {
   try {
     const [classes, enrols] = await Promise.all([
@@ -359,182 +423,240 @@ async function boot() {
     ]);
     allClasses = classes || [];
     allEnrols  = enrols  || [];
-
     setConn(true);
     buildBranchStrip();
     render();
-    document.getElementById('footer-ts').textContent =
-      'Actualizado: ' + new Date().toLocaleTimeString('pt-PT');
-  } catch (e) {
+    document.getElementById('footer-ts').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('pt-PT');
+  } catch(e) {
     setConn(false);
-    document.getElementById('abacus-area').innerHTML =
-      '<div class="loading" style="color:#E8455A">Erro Supabase: ' + e.message + '</div>';
+    document.getElementById('cols-row').innerHTML =
+      `<div style="margin:auto;color:#E8455A;font-size:8px;letter-spacing:.1em">Erro Supabase: ${e.message}</div>`;
   }
 }
 
 function setConn(ok) {
-  const dot = document.getElementById('live-dot');
-  const lbl = document.getElementById('live-lbl');
-  const pill = document.getElementById('status-pill');
-  if (ok) {
-    dot.style.background = '#1DB87A';
-    lbl.textContent = 'LIVE'; lbl.style.color = '#1DB87A';
-    pill.textContent = 'Supabase OK';
-    pill.className = 'status-pill sp-ok';
-  } else {
-    dot.style.background = '#E8455A';
-    lbl.textContent = 'ERRO'; lbl.style.color = '#E8455A';
-    pill.textContent = 'Erro DB';
-    pill.className = 'status-pill sp-err';
-  }
+  const dot=document.getElementById('live-dot'),lbl=document.getElementById('live-lbl'),pill=document.getElementById('status-pill');
+  if(ok){dot.style.background='#1DB87A';lbl.textContent='LIVE';lbl.style.color='#1DB87A';pill.textContent='Supabase OK';pill.className='status-pill sp-ok';}
+  else{dot.style.background='#E8455A';lbl.textContent='ERRO';lbl.style.color='#E8455A';pill.textContent='Erro DB';pill.className='status-pill sp-err';}
 }
 
-/* ── BRANCH STRIP ── */
+/* ══ BRANCH STRIP ══ */
 function buildBranchStrip() {
-  const present = BRANCHES.filter(b => allEnrols.some(e => normB(e.branch) === b));
+  const present = BRANCHES.filter(b => allEnrols.some(e => normB(e.branch)===b));
   const strip = document.getElementById('branch-strip');
-  strip.innerHTML =
-    '<button class="branch-pill active" onclick="setBranch(\'FUNCHAL\',this)">Funchal</button>' +
-    present.filter(b => b !== 'FUNCHAL').map(b =>
-      `<button class="branch-pill" onclick="setBranch('${b}',this)">${BRANCH_LABELS[b]}</button>`
+  const pills =
+    `<button class="branch-pill${activeBranch==='FUNCHAL'?' active':''}" onclick="setBranch('FUNCHAL',this)">Funchal</button>` +
+    present.filter(b=>b!=='FUNCHAL').map(b=>
+      `<button class="branch-pill${activeBranch===b?' active':''}" onclick="setBranch('${b}',this)">${BL[b]||b}</button>`
     ).join('') +
-    '<button class="branch-pill" onclick="setBranch(\'all\',this)" style="margin-left:8px;border-style:dashed">Todas as filiais</button>' +
-    '<span class="strip-total" id="strip-total"></span>';
+    `<button class="branch-pill${activeBranch==='all'?' active':''}" onclick="setBranch('all',this)" style="border-style:dashed">Todas as filiais</button>`;
+
+  strip.innerHTML = pills +
+    `<div class="strip-right">
+      <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Certificada</div>
+      <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Por cert.</div>
+      <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem sessão</div>
+      <div class="leg-sep"></div>
+      <div class="strip-kv" id="strip-total">—</div>
+    </div>`;
 }
 
 function setBranch(b, btn) {
   activeBranch = b;
-  document.querySelectorAll('.branch-pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.branch-pill').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   render();
 }
 
-/* ── RENDER ── */
-function render() {
-  const classes = activeBranch === 'all' ? allClasses : allClasses.filter(c => normB(c.branch) === activeBranch);
-  const enrols  = activeBranch === 'all' ? allEnrols  : allEnrols.filter(e  => normB(e.branch)  === activeBranch);
+/* ══ COMPUTE DATA ══ */
+function computeMaps() {
+  const classes = activeBranch==='all' ? allClasses : allClasses.filter(c=>normB(c.branch)===activeBranch);
+  const enrols  = activeBranch==='all' ? allEnrols  : allEnrols.filter(e=>normB(e.branch)===activeBranch);
 
-  /* session counts per level key */
-  const sessMap = {}, certMap = {}, groupMap = {};
+  const sessMap={}, certMap={}, groupMap={}, enrolMap={};
+
   classes.forEach(c => {
-    const dept = (c.department || '').toLowerCase().trim();
-    const lc   = (c.level_code  || '').trim();
-    const lk   = dept + '|' + lc;
-    sessMap[lk] = (sessMap[lk] || 0) + 1;
-    if (c.locked) certMap[lk] = (certMap[lk] || 0) + 1;
-    const gc = c.group_code || (c.turma_code || '').replace(/[AB]$/i, '');
-    if (gc) { if (!groupMap[lk]) groupMap[lk] = new Set(); groupMap[lk].add(gc); }
+    const dept=(c.department||'').toLowerCase().trim();
+    const lc=(c.level_code||'').trim();
+    const lk=dept+'|'+lc;
+    sessMap[lk]=(sessMap[lk]||0)+1;
+    if(c.locked) certMap[lk]=(certMap[lk]||0)+1;
+    const gc=c.group_code||(c.turma_code||'').replace(/[AB]$/i,'');
+    if(gc){if(!groupMap[lk])groupMap[lk]=new Set();groupMap[lk].add(gc);}
+  });
+  enrols.forEach(e=>{
+    const dept=(e.family||'').toLowerCase().trim();
+    const lc=(e.level_code||'').trim();
+    const lk=dept+'|'+lc;
+    enrolMap[lk]=(enrolMap[lk]||0)+1;
   });
 
-  const enrolMap = {};
-  enrols.forEach(e => {
-    const dept = (e.family     || '').toLowerCase().trim();
-    const lc   = (e.level_code || '').trim();
-    const lk   = dept + '|' + lc;
-    enrolMap[lk] = (enrolMap[lk] || 0) + 1;
-  });
+  return {sessMap,certMap,groupMap,enrolMap,enrolTotal:enrols.length};
+}
 
-  let totSess = 0, totCert = 0, totGroups = 0;
-  Object.values(sessMap).forEach(n => totSess  += n);
-  Object.values(certMap).forEach(n => totCert  += n);
-  Object.values(groupMap).forEach(s => totGroups += s.size);
-  const totEnrols = enrols.length;
-  const pct = totSess > 0 ? Math.round(totCert / totSess * 100) : 0;
+/* ══ RENDER ══ */
+function render() {
+  const {sessMap,certMap,groupMap,enrolMap,enrolTotal} = computeMaps();
 
-  /* KPIs */
-  document.getElementById('kpi-total').textContent    = totEnrols;
+  // Totals
+  let totSess=0,totCert=0,totGroups=0;
+  Object.values(sessMap).forEach(n=>totSess+=n);
+  Object.values(certMap).forEach(n=>totCert+=n);
+  Object.values(groupMap).forEach(s=>totGroups+=s.size);
+  const pct = totSess>0 ? Math.round(totCert/totSess*100) : 0;
+
+  // KPIs
+  document.getElementById('kpi-total').textContent    = enrolTotal;
   document.getElementById('kpi-groups').textContent   = totGroups;
   document.getElementById('kpi-sessions').textContent = totSess;
   document.getElementById('kpi-cert').textContent     = totCert;
-  document.getElementById('kpi-pend').textContent     = totSess - totCert;
-  document.getElementById('cert-bar').style.width     = pct + '%';
-  document.getElementById('strip-total').textContent  = totEnrols + ' inscritos · ' + totSess + ' sessões';
+  document.getElementById('kpi-pend').textContent     = totSess-totCert;
+  document.getElementById('cert-bar').style.width     = pct+'%';
+  document.getElementById('strip-total').textContent  = `${enrolTotal} inscritos · ${totSess} sessões · ${totCert} cert.`;
+  document.getElementById('footer-info').textContent  = `${TOTAL_COLS} níveis · ${totGroups} grupos · ${totCert} sessões certificadas`;
 
-  /* Build abacus */
-  let html = '';
-  DEPTS.forEach(dept => {
-    const deptEnrols = dept.levels.reduce((n, lv) => n + (enrolMap[lv.key] || 0), 0);
-    const deptSess   = dept.levels.reduce((n, lv) => n + (sessMap[lv.key] || 0), 0);
-    const deptCert   = dept.levels.reduce((n, lv) => n + (certMap[lv.key] || 0), 0);
+  // Max sessions across all levels (to compute bead count)
+  const maxSess = Math.max(...ALL_LEVELS.map(lv=>sessMap[lv.key]||0), 1);
+  // Each rod: TOTAL_SLOTS = max(MAX_BEADS, max_sessions_in_view + 1) but cap at MAX_BEADS
+  const TOTAL_SLOTS = Math.min(MAX_BEADS, Math.max(maxSess+1, 4));
 
-    html += `<div class="dept-section">
-      <div class="dept-hdr">
-        <div class="dept-hdr-bar" style="background:${dept.color}"></div>
-        <span class="dept-hdr-name" style="color:${dept.color}">${dept.label}</span>
-        <span class="dept-hdr-count">${deptEnrols} al · ${deptSess} sessões · <span style="color:#1DB87A">${deptCert} cert.</span></span>
-      </div>
-      <div class="levels-row" style="margin-bottom:6px">`;
-
-    dept.levels.forEach(lv => {
-      const sess  = sessMap[lv.key]  || 0;
-      const cert  = certMap[lv.key]  || 0;
-      const grps  = groupMap[lv.key]?.size || 0;
-      const enrol = enrolMap[lv.key] || 0;
-      const beadTotal = Math.max(lv.maxB, sess, 6);
-      const pend = sess - cert;
-
-      let beadsHtml = '';
-      for (let b = 0; b < beadTotal; b++) {
-        const fromBottom = beadTotal - 1 - b;
-        let cls = 'empty';
-        if      (fromBottom < cert) cls = 'certified';
-        else if (fromBottom < sess) cls = 'session';
-        beadsHtml += `<div class="bead ${cls}"></div>`;
-      }
-
-      html += `<div class="lv-col"
-          data-lk="${lv.key}"
-          data-label="${lv.label}"
-          data-dept="${dept.label}"
-          data-enrol="${enrol}"
-          data-sess="${sess}"
-          data-cert="${cert}"
-          data-pend="${pend}"
-          data-grps="${grps}"
-          onmouseenter="showTip(event,this)"
-          onmousemove="moveTip(event)"
-          onmouseleave="hideTip()">
-        <div class="lv-lbl" style="color:${sess > 0 ? dept.color : 'rgba(210,188,140,.22)'};opacity:${sess > 0 ? 1 : .5}">${lv.label}</div>
-        <div class="beads-wrap">${beadsHtml}</div>
-        <div class="base-rail"></div>
-        <div class="lv-count" style="color:${sess > 0 ? 'rgba(210,188,140,.65)' : 'rgba(210,188,140,.2)'}">${sess || '—'}</div>
-        <div class="lv-cert">${cert > 0 ? '✓ ' + cert : ''}</div>
-      </div>`;
-    });
-
-    html += `</div></div>`;
+  /* ── DEPT HEADER ROW ── */
+  const deptHdr = document.getElementById('dept-headers');
+  deptHdr.innerHTML = '';
+  DEPTS.forEach(d => {
+    const pct = d.levels.length / TOTAL_COLS * 100;
+    const el = document.createElement('div');
+    el.className = 'dept-hd';
+    el.style.cssText = `width:${pct}%;color:${d.color};border-color:${d.borderColor};background:rgba(0,0,0,.18)`;
+    el.textContent = d.label;
+    deptHdr.appendChild(el);
   });
 
-  document.getElementById('abacus-area').innerHTML = html;
+  /* ── COLUMNS ── */
+  const colsRow = document.getElementById('cols-row');
+  colsRow.innerHTML = '';
+
+  // Measure available height for rod area
+  // = total height - hdr - branch - kpi - dept-hdr - col-top - col-foot - footer
+  // We'll let flexbox handle it; bead height is computed from actual rod-wrap height
+  // For now: use a reasonable px height so it works before layout is settled
+  // We'll recompute after first paint
+
+  ALL_LEVELS.forEach((lv, ci) => {
+    const sess  = sessMap[lv.key]  || 0;
+    const cert  = certMap[lv.key]  || 0;
+    const grps  = groupMap[lv.key]?.size || 0;
+    const enrol = enrolMap[lv.key] || 0;
+    const pend  = sess - cert;
+    const dept  = lv.dept;
+
+    // Bead classes: bottom-up fill
+    // slot 0 = bottom-most → certified first, then session, then empty
+    const beads = [];
+    for(let i=0; i<TOTAL_SLOTS; i++){
+      let cls;
+      if(i < cert)      cls = 'certified';
+      else if(i < sess) cls = 'session';
+      else              cls = 'empty';
+      beads.push(cls);
+    }
+
+    // Badge
+    const badgeBg  = cert>0 ? 'rgba(29,184,122,.15)' : 'rgba(255,255,255,.04)';
+    const badgeBdr = cert>0 ? 'rgba(29,184,122,.4)'  : 'rgba(255,255,255,.08)';
+    const badgeClr = cert>0 ? 'var(--green)'          : 'var(--t3)';
+    const badgeTxt = cert>0 ? `✓ ${cert}` : sess>0 ? `${sess}` : '—';
+
+    // Col left accent color
+    const col = document.createElement('div');
+    col.className = 'lv-col';
+    col.style.cssText = `--dept-color:${dept.color}`;
+    col.querySelector !== undefined; // noop
+
+    col.innerHTML = `
+      <div class="col-top">
+        <div class="col-label" style="color:${sess>0?dept.color:'var(--t3)'}">${lv.lc||lv.label}</div>
+        <div class="col-cert-badge" style="background:${badgeBg};border-color:${badgeBdr};color:${badgeClr}">${badgeTxt}</div>
+      </div>
+      <div class="rod-wrap">
+        <div class="beads-wrap" id="bw-${ci}">
+          ${beads.map((cls,bi)=>`<div class="bead ${cls}" style="animation-delay:${bi*30}ms"></div>`).join('')}
+        </div>
+      </div>
+      <div class="col-foot">
+        <div class="col-enrol" style="color:${enrol>0?dept.color:'var(--t3)'}">${enrol||'—'}</div>
+        <div class="col-enrol-lbl">inscr.</div>
+      </div>
+    `;
+
+    // Left accent bar via pseudo — set via CSS variable
+    col.style.setProperty('--dept-color', dept.color);
+    col.querySelectorAll('*')[0]; // force parse
+
+    // Add dept left border via inline style on ::before workaround
+    col.style.borderLeft = `2px solid ${dept.color}44`;
+
+    col.addEventListener('mouseenter', e => showTip(e, {lv, dept, sess, cert, pend, grps, enrol}));
+    col.addEventListener('mousemove',  moveTip);
+    col.addEventListener('mouseleave', hideTip);
+
+    colsRow.appendChild(col);
+  });
+
+  // After layout: compute actual bead heights to fill rod area
+  requestAnimationFrame(() => adjustBeadHeights(TOTAL_SLOTS));
 }
 
-/* ── TOOLTIP ── */
-function showTip(e, el) {
+/* ══ DYNAMIC BEAD HEIGHT ══ */
+function adjustBeadHeights(slots) {
+  const firstWrap = document.querySelector('.beads-wrap');
+  if (!firstWrap) return;
+  const rodH = firstWrap.parentElement.offsetHeight;
+  // total space = rodH - top/bottom padding (8px)
+  const available = rodH - 8;
+  // each bead: height + 2px gap. solve: slots*h + (slots-1)*2 = available
+  let h = Math.floor((available - (slots-1)*2) / slots);
+  h = Math.max(5, Math.min(h, 22)); // clamp 5–22px
+  document.querySelectorAll('.bead').forEach(b => {
+    b.style.height = h + 'px';
+  });
+}
+
+/* ══ TOOLTIP ══ */
+let _tipData = null;
+function showTip(e, data) {
+  _tipData = data;
   const tip = document.getElementById('tip');
-  const d = el.dataset;
+  const {lv,dept,sess,cert,pend,grps,enrol} = data;
   tip.innerHTML = `
-    <div class="tip-title">${d.dept} · ${d.label}</div>
-    Inscritos: ${d.enrol}<br>
-    Grupos únicos: ${d.grps}<br>
-    <span class="tip-sess">Sessões criadas: ${d.sess}</span><br>
-    <span class="tip-cert">Certificadas: ${d.cert}</span><br>
-    <span class="tip-warn">Por certificar: ${d.pend}</span>
+    <div class="tip-title">${dept.label} · ${lv.label}</div>
+    Inscritos: ${enrol}<br>
+    Grupos únicos: <strong>${grps}</strong><br>
+    <span class="tip-sess">Sessões criadas: ${sess}</span><br>
+    <span class="tip-cert">Certificadas: ${cert}</span><br>
+    ${pend>0?`<span class="tip-warn">Por certificar: ${pend}</span>`:'<span style="color:var(--green)">Tudo certificado ✓</span>'}
   `;
   tip.style.display = 'block';
   moveTip(e);
 }
 function moveTip(e) {
   const tip = document.getElementById('tip');
-  tip.style.left = (e.clientX + 16) + 'px';
-  tip.style.top  = (e.clientY - 10) + 'px';
+  const x = e.clientX+16, y = e.clientY-8;
+  tip.style.left = Math.min(x, window.innerWidth-tip.offsetWidth-10)+'px';
+  tip.style.top  = Math.max(8, Math.min(y, window.innerHeight-tip.offsetHeight-8))+'px';
 }
-function hideTip() { document.getElementById('tip').style.display = 'none'; }
+function hideTip() { document.getElementById('tip').style.display='none'; }
 
-/* ── INIT ── */
+/* ══ RESIZE ══ */
+window.addEventListener('resize', () => {
+  const slots = document.querySelectorAll('.beads-wrap').length > 0
+    ? document.querySelectorAll('#bw-0 .bead').length : 0;
+  if(slots>0) adjustBeadHeights(slots);
+});
+
+/* ══ INIT ══ */
 boot();
-setInterval(() => {
-  boot();
-}, 60000);
+setInterval(boot, 60000);
 </script>
 </body>
 </html>
