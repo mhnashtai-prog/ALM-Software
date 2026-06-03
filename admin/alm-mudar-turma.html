@@ -129,6 +129,26 @@ body{display:flex;flex-direction:column}
 .opt-flag.sel-B{background:var(--B);color:#160620}
 .opt-empty{padding:18px;text-align:center;font-size:8.5px;color:var(--t3);letter-spacing:.08em;border:1px dashed var(--b2);border-radius:10px;grid-column:1/-1}
 
+  /* HISTORIAL */
+.hist{margin-top:6px;border:.5px solid var(--b);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.15)}
+.hist-hdr{display:flex;align-items:center;gap:9px;padding:10px 14px;cursor:pointer;user-select:none;transition:background .12s}
+.hist-hdr:hover{background:var(--gold4)}
+.hist-chev{font-size:9px;color:var(--t3);transition:transform .18s}
+.hist.open .hist-chev{transform:rotate(90deg)}
+.hist-title{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--t2)}
+.hist-count{font-size:7.5px;font-weight:700;color:var(--gold2);background:var(--gold3);border:.5px solid var(--b2);padding:1px 7px;border-radius:99px}
+.hist-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.hist.open .hist-body{max-height:600px;overflow-y:auto}
+.hist-row{display:flex;align-items:center;gap:12px;padding:9px 14px;border-top:.5px solid var(--b);font-family:var(--mono)}
+.hist-suf{font-family:var(--display);font-size:14px;letter-spacing:1px;width:16px;text-align:center}
+.hist-suf.A{color:var(--A)}.hist-suf.B{color:var(--B)}
+.hist-move{display:flex;align-items:center;gap:7px;font-size:10px}
+.hist-from{color:var(--t3);text-decoration:line-through}
+.hist-arr{color:var(--gold);font-size:10px}
+.hist-to{color:var(--gold2);font-weight:700}
+.hist-src{font-size:7.5px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase}
+.hist-when{margin-left:auto;font-size:8px;color:var(--t3);letter-spacing:.03em}
+
 /* CONFIRM BAR */
 .confirm-bar{position:sticky;bottom:0;left:0;right:0;background:rgba(7,6,14,.97);border-top:1px solid var(--b2);padding:12px 24px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(8px);z-index:50}
 .diff{flex:1;display:flex;align-items:center;gap:18px;flex-wrap:wrap;min-height:24px}
@@ -252,7 +272,8 @@ let currentKid=null;         // selected enrolment
 let kidSessions={A:null,B:null};   // current turma_code per slot
 let sel={A:null,B:null};     // selected NEW turma_code per slot (null = keep)
 let justMoved={A:false,B:false}; // sessions altered in this view (cleared on reload/new kid)
-
+let kidHistory=[]; // turma_changes rows for current kid
+  
 /* ════════ LOAD ════════ */
 async function loadBranch(branch){
   activeBranch=branch;
@@ -336,11 +357,14 @@ function pickKid(ref){
   kidSessions={A:null,B:null};
   const key=lk(e);
   const pool=poolByLevel[key]||{A:[],B:[]};
-  ['A','B'].forEach(suf=>{
+['A','B'].forEach(suf=>{
     const row=pool[suf].find(c=>Array.isArray(c.student_refs)&&c.student_refs.includes(ref));
     if(row)kidSessions[suf]=row.turma_code;
   });
+  kidHistory=[];
   renderKid();
+  sbGet('turma_changes',`select=session,from_code,to_code,source,changed_at&ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&order=changed_at.desc`)
+    .then(rows=>{kidHistory=rows||[];if(currentKid&&currentKid.ref===ref)renderKid();}).catch(()=>{});
 }
 
 /* ════════ RENDER KID CARD ════════ */
@@ -367,8 +391,9 @@ function renderKid(){
 
     <div class="ovr-note">⚠ <span>Esta operação <b>substitui o pedido do aluno</b>. Use quando o aluno comunica presencialmente a turma que pretende. A mudança é guardada e fixada — o algoritmo deixa de o reagrupar.</span></div>`;
 
-  html+=buildPool('A',pool.A,key);
+ html+=buildPool('A',pool.A,key);
   html+=buildPool('B',pool.B,key);
+  html+=buildHistory();
   html+=`</div>`;
 
   html+=`<div class="confirm-bar" id="confirm-bar"><div class="diff" id="diff"></div>
@@ -426,6 +451,39 @@ function buildPool(suf,rows,key){
   </div>`;
 }
 
+  /* ════════ HISTORIAL ════════ */
+function fmtChangeDate(iso){
+  if(!iso)return '';
+  const d=new Date(iso);
+  const MON=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${d.getDate()} ${MON[d.getMonth()]} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function srcLabel(s){return ({request:'pedido',algorithm:'algoritmo',staff_move:'mudança manual'})[s]||s||'—';}
+function buildHistory(){
+  const rows=kidHistory||[];
+  if(!rows.length)return '';
+  const items=rows.map(r=>{
+    const suf=r.session||'·';
+    const from=r.from_code||'—';
+    const to=r.to_code||'—';
+    const when=fmtChangeDate(r.changed_at);
+    return `<div class="hist-row">
+      <span class="hist-suf ${suf}">${suf}</span>
+      <span class="hist-move"><span class="hist-from">${from}</span><span class="hist-arr">→</span><span class="hist-to">${to}</span></span>
+      <span class="hist-src">${srcLabel(r.source)}</span>
+      <span class="hist-when">${when}</span>
+    </div>`;
+  }).join('');
+  return `<div class="hist">
+    <div class="hist-hdr" onclick="this.parentElement.classList.toggle('open')">
+      <span class="hist-chev">▸</span>
+      <span class="hist-title">Historial</span>
+      <span class="hist-count">${rows.length}</span>
+    </div>
+    <div class="hist-body">${items}</div>
+  </div>`;
+}
+  
 /* ════════ SELECTION ════════ */
 function selectOpt(suf,code){
   // toggle: selecting current = keep (null); selecting same selection again = keep
