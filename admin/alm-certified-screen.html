@@ -61,20 +61,6 @@ body::before{
 .sp-ok{border-color:var(--green-b);color:var(--green);background:var(--green-a)}
 .sp-err{border-color:rgba(232,69,90,.3);color:var(--red);background:rgba(232,69,90,.08)}
 
-/* ── WAX SEAL ── */
-.wax-seal-wrap{
-  display:flex;align-items:center;justify-content:center;
-  width:44px;height:44px;
-  flex-shrink:0;
-  filter:drop-shadow(0 2px 6px rgba(180,20,20,.45));
-  transition:transform .15s, filter .15s;
-  cursor:default;
-}
-.wax-seal-wrap:hover{
-  transform:scale(1.08) rotate(-3deg);
-  filter:drop-shadow(0 4px 12px rgba(200,30,30,.6));
-}
-
 /* ── BRANCH STRIP ── */
 .branch-strip{
   flex-shrink:0;height:var(--h-branch);
@@ -222,7 +208,6 @@ body::before{
   <span class="hdr-brand">ALM</span>
   <span class="hdr-yr">2026/27</span>
   <div class="hdr-div"></div>
-
   <span class="hdr-title">Turmas Certificadas · Ábaco</span>
   <div class="hdr-right">
     <div class="live-dot" id="live-dot"></div>
@@ -235,9 +220,9 @@ body::before{
 <div class="branch-strip" id="branch-strip">
   <div class="spinner"></div>
   <div class="strip-right">
-    <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Certificada</div>
-    <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Por cert.</div>
-    <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem sessão</div>
+    <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Grupo cert.</div>
+    <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Grupo pend.</div>
+    <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem grupo</div>
     <div class="leg-sep"></div>
     <div class="strip-kv" id="strip-total">—</div>
   </div>
@@ -246,7 +231,7 @@ body::before{
 <!-- KPI ROW -->
 <div class="kpi-row">
   <div class="kpi"><div class="kpi-v" style="color:var(--gold2)" id="kpi-total">—</div><div class="kpi-l">Inscritos</div></div>
-  <div class="kpi"><div class="kpi-v" style="color:var(--blue)"   id="kpi-groups">—</div><div class="kpi-l">Grupos criados</div></div>
+  <div class="kpi"><div class="kpi-v" style="color:var(--blue)" id="kpi-groups">—</div><div class="kpi-l">Grupos criados</div></div>
   <div class="kpi"><div class="kpi-v" style="color:rgba(201,168,76,.7)" id="kpi-sessions">—</div><div class="kpi-l">Sessões totais</div></div>
   <div class="kpi">
     <div class="kpi-v" style="color:var(--green)" id="kpi-cert">—</div>
@@ -280,7 +265,6 @@ const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const H   = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 const AY  = '2026/2027';
-const MAX_BEADS = 12;
 
 const DEPTS = [
   { key:'kids',     label:'Infantil', color:'#6AABFF', borderColor:'rgba(106,171,255,.25)',
@@ -342,7 +326,7 @@ const normB = b => (b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'
 async function boot() {
   try {
     const [classes, enrols] = await Promise.all([
-      sbGet('classes',    `select=turma_code,group_code,level_code,department,branch,locked,student_refs&academic_year=eq.${encodeURIComponent(AY)}`),
+      sbGet('classes', `select=turma_code,group_code,level_code,department,branch,locked,student_refs&academic_year=eq.${encodeURIComponent(AY)}`),
       sbGet('enrolments', `select=ref,branch,family,level_code&academic_year=eq.${encodeURIComponent(AY)}`),
     ]);
     allClasses = classes || [];
@@ -375,9 +359,9 @@ function buildBranchStrip() {
     `<button class="branch-pill${activeBranch==='all'?' active':''}" onclick="setBranch('all',this)" style="border-style:dashed">Todas as filiais</button>`;
   strip.innerHTML = pills +
     `<div class="strip-right">
-      <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Certificada</div>
-      <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Por cert.</div>
-      <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem sessão</div>
+      <div class="leg"><div class="leg-bead" style="background:var(--green);border:1px solid var(--green-b)"></div>Grupo cert.</div>
+      <div class="leg"><div class="leg-bead" style="background:rgba(74,143,245,.25);border:1px solid rgba(74,143,245,.4)"></div>Grupo pend.</div>
+      <div class="leg"><div class="leg-bead" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)"></div>Sem grupo</div>
       <div class="leg-sep"></div>
       <div class="strip-kv" id="strip-total">—</div>
     </div>`;
@@ -393,42 +377,81 @@ function setBranch(b, btn) {
 function computeMaps() {
   const classes = activeBranch==='all' ? allClasses : allClasses.filter(c=>normB(c.branch)===activeBranch);
   const enrols  = activeBranch==='all' ? allEnrols  : allEnrols.filter(e=>normB(e.branch)===activeBranch);
-  const sessMap={}, certMap={}, groupMap={}, enrolMap={};
+  const sessMap={}, certMap={}, groupMap={}, enrolMap={}, groupCertMap={};
+
+  // Track sessions per group_code per level
+  const gcSessions={};
   classes.forEach(c => {
     const dept=(c.department||'').toLowerCase().trim();
     const lc=(c.level_code||'').trim();
     const lk=dept+'|'+lc;
     sessMap[lk]=(sessMap[lk]||0)+1;
     if(c.locked) certMap[lk]=(certMap[lk]||0)+1;
+    // Normalise group code: strip trailing A/B so FUN-01A and FUN-01B → FUN-01
     const gc=c.group_code||(c.turma_code||'').replace(/[AB]$/i,'');
-    if(gc){if(!groupMap[lk])groupMap[lk]=new Set();groupMap[lk].add(gc);}
+    if(gc){
+      if(!groupMap[lk])groupMap[lk]=new Set();
+      groupMap[lk].add(gc);
+      if(!gcSessions[lk])gcSessions[lk]={};
+      if(!gcSessions[lk][gc])gcSessions[lk][gc]={total:0,locked:0};
+      gcSessions[lk][gc].total++;
+      if(c.locked)gcSessions[lk][gc].locked++;
+    }
   });
+
+  // For each level, count fully-certified groups vs partially-certified/pending groups
+  Object.keys(groupMap).forEach(lk=>{
+    if(!groupCertMap[lk])groupCertMap[lk]={cert:0,pend:0};
+    (groupMap[lk]||new Set()).forEach(gc=>{
+      const s=gcSessions[lk]?.[gc];
+      if(!s)return;
+      // A group is certified when every one of its sessions is locked
+      if(s.locked>0 && s.locked>=s.total) groupCertMap[lk].cert++;
+      else groupCertMap[lk].pend++;
+    });
+  });
+
   enrols.forEach(e=>{
     const dept=(e.family||'').toLowerCase().trim();
     const lc=(e.level_code||'').trim();
     const lk=dept+'|'+lc;
     enrolMap[lk]=(enrolMap[lk]||0)+1;
   });
-  return {sessMap,certMap,groupMap,enrolMap,enrolTotal:enrols.length};
+
+  return {sessMap,certMap,groupMap,enrolMap,enrolTotal:enrols.length,groupCertMap};
 }
 
 function render() {
-  const {sessMap,certMap,groupMap,enrolMap,enrolTotal} = computeMaps();
-  let totSess=0,totCert=0,totGroups=0;
+  const {sessMap,certMap,groupMap,enrolMap,enrolTotal,groupCertMap} = computeMaps();
+
+  let totSess=0, totCert=0, totGroups=0, totGCert=0, totGPend=0;
   Object.values(sessMap).forEach(n=>totSess+=n);
   Object.values(certMap).forEach(n=>totCert+=n);
   Object.values(groupMap).forEach(s=>totGroups+=s.size);
+  Object.values(groupCertMap).forEach(g=>{totGCert+=g.cert;totGPend+=g.pend;});
+
   const pct = totSess>0 ? Math.round(totCert/totSess*100) : 0;
+
   document.getElementById('kpi-total').textContent    = enrolTotal;
   document.getElementById('kpi-groups').textContent   = totGroups;
   document.getElementById('kpi-sessions').textContent = totSess;
   document.getElementById('kpi-cert').textContent     = totCert;
   document.getElementById('kpi-pend').textContent     = totSess-totCert;
   document.getElementById('cert-bar').style.width     = pct+'%';
-  document.getElementById('strip-total').textContent  = `${enrolTotal} inscritos · ${totSess} sessões · ${totCert} cert.`;
-  document.getElementById('footer-info').textContent  = `${TOTAL_COLS} níveis · ${totGroups} grupos · ${totCert} sessões certificadas`;
-  const maxSess = Math.max(...ALL_LEVELS.map(lv=>sessMap[lv.key]||0), 1);
-  const TOTAL_SLOTS = Math.min(MAX_BEADS, Math.max(maxSess+1, 4));
+  document.getElementById('strip-total').textContent  =
+    `${enrolTotal} inscritos · ${totGroups} grupos · ${totGCert} cert. · ${totGPend} pend.`;
+  document.getElementById('footer-info').textContent  =
+    `${TOTAL_COLS} níveis · ${totGroups} grupos · ${totCert} sessões certificadas`;
+
+  // DYNAMIC SLOTS: 1 bead per group, scale to the level with most groups + 1 spare
+  // Minimum 4 so empty columns still look like an abacus rod
+  const maxGroups = Math.max(
+    ...ALL_LEVELS.map(lv => (groupCertMap[lv.key]?.cert||0) + (groupCertMap[lv.key]?.pend||0)),
+    3
+  );
+  const TOTAL_SLOTS = maxGroups + 1;
+
+  // Dept headers
   const deptHdr = document.getElementById('dept-headers');
   deptHdr.innerHTML = '';
   DEPTS.forEach(d => {
@@ -439,32 +462,41 @@ function render() {
     el.textContent = d.label;
     deptHdr.appendChild(el);
   });
+
   const colsRow = document.getElementById('cols-row');
   colsRow.innerHTML = '';
+
   ALL_LEVELS.forEach((lv, ci) => {
-    const sess  = sessMap[lv.key]  || 0;
-    const cert  = certMap[lv.key]  || 0;
-    const grps  = groupMap[lv.key]?.size || 0;
-    const enrol = enrolMap[lv.key] || 0;
-    const pend  = sess - cert;
-    const dept  = lv.dept;
+    const sess   = sessMap[lv.key]  || 0;
+    const cert   = certMap[lv.key]  || 0;
+    const grps   = groupMap[lv.key]?.size || 0;
+    const enrol  = enrolMap[lv.key] || 0;
+    const pend   = sess - cert;
+    const dept   = lv.dept;
+    const gcert  = groupCertMap[lv.key]?.cert || 0;
+    const gpend  = groupCertMap[lv.key]?.pend || 0;
+    const gtotal = gcert + gpend;
+
+    // Build bead array — one bead per GROUP, padded with empty up to TOTAL_SLOTS
+    // Beads stack bottom-up (column-reverse), so index 0 = bottom bead
     const beads = [];
-    for(let i=0; i<TOTAL_SLOTS; i++){
-      let cls;
-      if(i < cert)      cls = 'certified';
-      else if(i < sess) cls = 'session';
-      else              cls = 'empty';
-      beads.push(cls);
+    for(let i = 0; i < TOTAL_SLOTS; i++){
+      if(i < gcert)        beads.push('certified'); // fully certified group
+      else if(i < gtotal)  beads.push('session');   // pending group
+      else                 beads.push('empty');      // no group yet
     }
-    const badgeBg  = cert>0 ? 'rgba(29,184,122,.15)' : 'rgba(255,255,255,.04)';
-    const badgeBdr = cert>0 ? 'rgba(29,184,122,.4)'  : 'rgba(255,255,255,.08)';
-    const badgeClr = cert>0 ? 'var(--green)'          : 'var(--t3)';
-    const badgeTxt = cert>0 ? `✓ ${cert}` : sess>0 ? `${sess}` : '—';
+
+    // Badge reflects group counts, not session counts
+    const badgeBg  = gcert>0 ? 'rgba(29,184,122,.15)' : gpend>0 ? 'rgba(74,143,245,.12)' : 'rgba(255,255,255,.04)';
+    const badgeBdr = gcert>0 ? 'rgba(29,184,122,.4)'  : gpend>0 ? 'rgba(74,143,245,.35)' : 'rgba(255,255,255,.08)';
+    const badgeClr = gcert>0 ? 'var(--green)'          : gpend>0 ? 'var(--blue)'           : 'var(--t3)';
+    const badgeTxt = gcert>0 ? `✓ ${gcert}` : gpend>0 ? `~ ${gpend}` : '—';
+
     const col = document.createElement('div');
     col.className = 'lv-col';
     col.innerHTML = `
       <div class="col-top">
-        <div class="col-label" style="color:${sess>0?dept.color:'var(--t3)'}">${lv.lc||lv.label}</div>
+        <div class="col-label" style="color:${gtotal>0?dept.color:'var(--t3)'}">${lv.lc||lv.label}</div>
         <div class="col-cert-badge" style="background:${badgeBg};border-color:${badgeBdr};color:${badgeClr}">${badgeTxt}</div>
       </div>
       <div class="rod-wrap">
@@ -478,11 +510,12 @@ function render() {
       </div>
     `;
     col.style.borderLeft = `2px solid ${dept.color}44`;
-    col.addEventListener('mouseenter', e => showTip(e, {lv, dept, sess, cert, pend, grps, enrol}));
+    col.addEventListener('mouseenter', e => showTip(e, {lv, dept, sess, cert, pend, grps, enrol, gcert, gpend}));
     col.addEventListener('mousemove',  moveTip);
     col.addEventListener('mouseleave', hideTip);
     colsRow.appendChild(col);
   });
+
   requestAnimationFrame(() => adjustBeadHeights(TOTAL_SLOTS));
 }
 
@@ -491,8 +524,8 @@ function adjustBeadHeights(slots) {
   if (!firstWrap) return;
   const rodH = firstWrap.parentElement.offsetHeight;
   const available = rodH - 8;
-  let h = Math.floor((available - (slots-1)*2) / slots);
-  h = Math.max(5, Math.min(h, 22));
+  let h = Math.floor((available - (slots - 1) * 2) / slots);
+  h = Math.max(4, Math.min(h, 24));
   document.querySelectorAll('.bead').forEach(b => { b.style.height = h + 'px'; });
 }
 
@@ -500,29 +533,36 @@ let _tipData = null;
 function showTip(e, data) {
   _tipData = data;
   const tip = document.getElementById('tip');
-  const {lv,dept,sess,cert,pend,grps,enrol} = data;
+  const {lv, dept, sess, cert, pend, grps, enrol, gcert, gpend} = data;
   tip.innerHTML = `
     <div class="tip-title">${dept.label} · ${lv.label}</div>
-    Inscritos: ${enrol}<br>
+    Inscritos: <strong>${enrol}</strong><br>
     Grupos únicos: <strong>${grps}</strong><br>
-    <span class="tip-sess">Sessões criadas: ${sess}</span><br>
-    <span class="tip-cert">Certificadas: ${cert}</span><br>
-    ${pend>0?`<span class="tip-warn">Por certificar: ${pend}</span>`:'<span style="color:var(--green)">Tudo certificado ✓</span>'}
+    <span class="tip-cert">● Grupos certificados: ${gcert}</span><br>
+    ${gpend > 0 ? `<span class="tip-sess">● Grupos pendentes: ${gpend}</span><br>` : ''}
+    <span style="color:var(--t3)">Sessões criadas: ${sess} · certificadas: ${cert}</span><br>
+    ${pend > 0
+      ? `<span class="tip-warn">⚠ ${pend} sessão${pend!==1?'ões':''} por certificar</span>`
+      : grps > 0
+        ? '<span style="color:var(--green)">✓ Tudo certificado</span>'
+        : '<span style="color:var(--t3)">Sem grupos ainda</span>'
+    }
   `;
   tip.style.display = 'block';
   moveTip(e);
 }
+
 function moveTip(e) {
   const tip = document.getElementById('tip');
-  const x = e.clientX+16, y = e.clientY-8;
-  tip.style.left = Math.min(x, window.innerWidth-tip.offsetWidth-10)+'px';
-  tip.style.top  = Math.max(8, Math.min(y, window.innerHeight-tip.offsetHeight-8))+'px';
+  const x = e.clientX + 16, y = e.clientY - 8;
+  tip.style.left = Math.min(x, window.innerWidth  - tip.offsetWidth  - 10) + 'px';
+  tip.style.top  = Math.max(8, Math.min(y, window.innerHeight - tip.offsetHeight - 8)) + 'px';
 }
-function hideTip() { document.getElementById('tip').style.display='none'; }
+function hideTip() { document.getElementById('tip').style.display = 'none'; }
 
 window.addEventListener('resize', () => {
   const slots = document.querySelectorAll('#bw-0 .bead').length;
-  if(slots>0) adjustBeadHeights(slots);
+  if(slots > 0) adjustBeadHeights(slots);
 });
 
 boot();
