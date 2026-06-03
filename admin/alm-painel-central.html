@@ -1762,7 +1762,16 @@ async function decCertifySession(levelKey,groupIdx,suffix,btn){
   const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
   const dayL=suffix==='A'?(g.dayL_A||g.dayL):(g.dayL_B||g.dayL_A||g.dayL);
 
-  const confirmed=confirm(`CERTIFICAR SESSÃO\n${meta.label||levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}\n${g.students.length} alunos\n\nConfirmar?`);
+const confirmed=await almConfirm({
+    title:'CERTIFICAR SESSÃO',
+    accent:'var(--green)',
+    okBg:'rgba(29,184,122,.9)',
+    okLabel:'✓ Certificar',
+    lines:[
+      `${meta.label||levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`,
+      `${g.students.length} alunos`,
+    ],
+  });
   if(!confirmed)return;
 
   btn.disabled=true;btn.textContent='⏳ A certificar…';
@@ -2683,6 +2692,31 @@ function closeDossier(){
 /* ══════════════════════════════════════════════
    UTILITIES
 ══════════════════════════════════════════════ */
+function almConfirm(opts){
+  return new Promise(resolve=>{
+    const o=opts||{};
+    document.getElementById('alm-confirm-overlay')?.remove();
+    const ov=document.createElement('div');
+    ov.id='alm-confirm-overlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.62);backdrop-filter:blur(20px) saturate(160%);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML=`<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)">
+      <div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent||'var(--gold2)'}">${o.title||'CONFIRMAR'}</div>
+        ${o.lines?o.lines.map(l=>`<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join(''):''}
+      </div>
+      <div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end">
+        <button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel||'Cancelar'}</button>
+        <button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg||'rgba(201,168,76,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel||'Confirmar'}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    const done=v=>{ov.remove();resolve(v);};
+    ov.querySelector('#alm-confirm-ok').onclick=()=>done(true);
+    ov.querySelector('#alm-confirm-cancel').onclick=()=>done(false);
+    ov.onclick=e=>{if(e.target===ov)done(false);};
+  });
+}
+  
 function pinStudent(ref,name){showToast(`📌 ${name} fixado`,'ok');}
 function dlCSV(content,filename){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));a.download=filename.replace(/\s+/g,'_');a.click();}
 let _toastT;
