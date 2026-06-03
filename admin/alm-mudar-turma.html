@@ -165,8 +165,10 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div class="ctrl">
-  <span class="ctrl-lbl">Filial</span>
+<span class="ctrl-lbl">Filial</span>
   <div id="branch-pills" style="display:flex;gap:5px;flex-wrap:wrap"><div class="spinner" style="width:12px;height:12px"></div></div>
+  <div class="ctrl-sep"></div>
+  <span class="ctrl-lbl" id="load-count" style="color:var(--t2)">—</span>
   <div class="ctrl-sep"></div>
   <div class="search-wrap">
     <div class="search-inner">
@@ -253,17 +255,19 @@ async function loadBranch(branch){
   renderBranchPills();
   document.getElementById('stage').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar ${BRANCH_LABELS[branch]||branch}…</div>`;
   try{
-    const [enrol,classes]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&branch=eq.${encodeURIComponent(branch)}&order=name`),
-      sbGet('classes',`select=turma_code,group_code,branch,department,level_code,level_display,day_of_week,start_time,end_time,student_refs,status,locked&academic_year=eq.${encodeURIComponent(AY)}&branch=eq.${encodeURIComponent(branch)}`),
+  const [enrol,classes]=await Promise.all([
+      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}&order=name`),
+      sbGet('classes',`select=turma_code,group_code,branch,department,level_code,level_display,day_of_week,start_time,end_time,student_refs,status,locked&academic_year=eq.${encodeURIComponent(AY)}`),
     ]);
     setConn(true);
-    allE=enrol||[];
-    classRows=(classes||[]).filter(c=>c.turma_code);
+    allE=(enrol||[]).filter(e=>normB(e.branch)===branch);
+    classRows=(classes||[]).filter(c=>c.turma_code&&normB(c.branch)===branch);
     indexClasses();
     document.getElementById('pill-status').textContent='Supabase OK';
     document.getElementById('pill-status').className='tb-status ok';
-    document.getElementById('stage').innerHTML=`<div class="placeholder"><div class="ph-icon">⇄</div><div class="ph-text">${classRows.length} sessões certificadas em ${BRANCH_LABELS[branch]||branch}<br/>Procure um aluno acima para mudar as suas turmas</div></div>`;
+    
+   const lvlCount=Object.keys(poolByLevel).length;
+    document.getElementById('stage').innerHTML=`<div class="placeholder"><div class="ph-icon">⇄</div><div class="ph-text">${allE.length} alunos · ${classRows.length} sessões · ${lvlCount} nívei${lvlCount!==1?'s':''} certificado${lvlCount!==1?'s':''} em ${BRANCH_LABELS[branch]||branch}<br/>${classRows.length?'Procure um aluno acima para mudar as suas turmas':'Ainda não há turmas certificadas — certifique primeiro em OVERVIEW'}</div></div>`;
   }catch(err){
     setConn(false);
     document.getElementById('pill-status').textContent='Erro DB';
