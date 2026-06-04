@@ -666,13 +666,13 @@ async function loadBranchData() {
     // Build URLs with year filter where possible
     const yearFilter = academicYear ? `&academic_year=eq.${encodeURIComponent(academicYear)}` : '';
 
-    const enrolUrl   = `${SB}/rest/v1/enrolments?select=ref,branch${yearFilter}&limit=5000`;
-    const turmasUrl  = `${SB}/rest/v1/turmas?select=turma_code,branch${yearFilter}&limit=2000`;
+ const enrolUrl   = `${SB}/rest/v1/enrolments?select=ref,branch${yearFilter}&limit=5000`;
+    const kpiUrl     = `${SB}/rest/v1/v_branch_kpis?select=branch,turmas,grupos,turmas_com_prof,profs_activos`;
     const teacherUrl = `${SB}/rest/v1/teachers?select=id&limit=500`;
 
-    const [enrolRes, turmasRes, profRes] = await Promise.all([
+    const [enrolRes, kpiRes, profRes] = await Promise.all([
       fetch(enrolUrl,   { headers: SBH }),
-      fetch(turmasUrl,  { headers: SBH }),
+      fetch(kpiUrl,     { headers: SBH }),
       fetch(teacherUrl, { headers: SBH }),
     ]);
 
@@ -681,16 +681,10 @@ async function loadBranchData() {
 
     const enrols = await enrolRes.json();
 
-    // turmas: if year-filtered fetch fails, retry without filter (e.g. column absent)
-    let turmasRows = [];
-    if (turmasRes.ok) {
-      turmasRows = await turmasRes.json();
-    } else {
-      console.warn('turmas year-filter failed, retrying without filter');
-      const fb = await fetch(`${SB}/rest/v1/turmas?select=turma_code,branch&limit=2000`, { headers: SBH });
-      if (fb.ok) turmasRows = await fb.json();
-    }
-
+    // Branch KPIs computed live in Postgres view v_branch_kpis (reads from classes)
+    const kpiRows = kpiRes.ok ? await kpiRes.json() : [];
+    const kpiByBranch = {};
+    kpiRows.forEach(k => { kpiByBranch[normaliseBranch(k.branch)] = k; });
     const profs = profRes.ok ? await profRes.json() : [];
 
     // Count students per branch
@@ -702,40 +696,35 @@ async function loadBranchData() {
     });
 
     // Count turmas per branch — from the REAL turmas table
-    const turmasByBranch = {};
-    turmasRows.forEach(t => {
-      const key = normaliseBranch(t.branch);
-      if (!key) return;
-      turmasByBranch[key] = (turmasByBranch[key] || 0) + 1;
-    });
-
-    // Merge: include branches present in either dataset
-    const allKeys = new Set([...Object.keys(studentsByBranch), ...Object.keys(turmasByBranch)]);
-    const DEFAULT_CAP = 12; // seats per turma
+   // Merge: include branches present in either dataset (enrolments or KPI view)
+    const allKeys = new Set([...Object.keys(studentsByBranch), ...Object.keys(kpiByBranch)]);
 
     _branches = Array.from(allKeys).map(id => {
       const alunos   = studentsByBranch[id] || 0;
-      const turmas   = turmasByBranch[id]   || 0;
-      const capacity = turmas > 0 ? turmas * DEFAULT_CAP : DEFAULT_CAP;
-      const enrolPct = Math.min(100, Math.round((alunos / capacity) * 100));
+      const k        = kpiByBranch[id] || {};
+      const grupos   = k.grupos          || 0;   // class-groups (A+B counted as 1)
+      const turmas   = k.turmas          || 0;   // raw sessions
+      const comProf  = k.turmas_com_prof || 0;   // sessions with a teacher
+      // Honest health: teacher coverage of certified sessions (no invented capacity)
+      const coverage = turmas > 0 ? Math.round((comProf / turmas) * 100) : 0;
       return {
         id, label: BRANCH_LABELS[id] || id.replace(/_/g,' '),
-        alunos, turmas, capacity, enrolPct,
-        status: branchStatus(enrolPct),
+        alunos, grupos, turmas, comProf, coverage,
+        status: branchStatus(coverage),
         barPct: enrols.length > 0 ? Math.round((alunos / enrols.length) * 100) : 0,
       };
     }).sort((a,b) => b.alunos - a.alunos);
 
     const totalAlunos = enrols.length;
-    const totalTurmas = turmasRows.length;
+    const totalGrupos = _branches.reduce((s,b) => s + b.grupos, 0);
     const totalProfs  = profs.length;
     const avgEnrol    = _branches.length > 0
-      ? Math.round(_branches.reduce((s,b) => s + b.enrolPct, 0) / _branches.length)
+      ? Math.round(_branches.reduce((s,b) => s + b.coverage, 0) / _branches.length)
       : 0;
 
     // Update taskbar stats
     document.getElementById('stat-alunos').textContent = totalAlunos.toLocaleString('pt-PT');
-    document.getElementById('stat-turmas').textContent = totalTurmas || '—';
+    document.getElementById('stat-turmas').textContent = totalGrupos || '—';
     document.getElementById('stat-profs').textContent  = totalProfs  || '—';
 
     // Tooltip data
