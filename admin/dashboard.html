@@ -911,77 +911,104 @@ let _branches = [];
 
 async function loadBranchData() {
   try {
-    const [enrolRes, classRes, profRes, capacityRes] = await Promise.all([
-      fetch(`${SB}/rest/v1/enrolments?select=ref,branch&limit=5000`, { headers: SBH }),
-      fetch(`${SB}/rest/v1/classes?select=branch,turma_code,level_code,max_students&limit=5000`, { headers: SBH }),
+    const [enrolRes, profRes] = await Promise.all([
+    fetch(`${SB}/rest/v1/enrolments?select=ref,branch&limit=5000`, { headers: SBH }),
       fetch(`${SB}/rest/v1/teachers?select=id&limit=500`, { headers: SBH }),
-      fetch(`${SB}/rest/v1/school_config?key=eq.default_class_capacity&select=value`, { headers: SBH }),
     ]);
     setConnState(enrolRes.ok);
     if (!enrolRes.ok) throw new Error('enrolments HTTP ' + enrolRes.status);
-    const enrols  = await enrolRes.json();
-    const classes = classRes.ok  ? await classRes.json()  : [];
-    const profs   = profRes.ok   ? await profRes.json()   : [];
-    let defaultCapacity = 12;
-    if (capacityRes.ok) {
-      const capRows = await capacityRes.json();
-      if (capRows && capRows[0] && capRows[0].value) {
-        const parsed = parseInt(capRows[0].value, 10);
-        if (!isNaN(parsed) && parsed > 0) defaultCapacity = parsed;
-      }
-    }
-    const branchMap = {};
-    enrols.forEach(e => {
-      if (!e.branch) return;
-      if (!branchMap[e.branch]) branchMap[e.branch] = { alunos:0, turmas:0, capacitySum:0 };
-      branchMap[e.branch].alunos++;
-    });
-    classes.forEach(c => {
-      if (!c.branch) return;
-      if (!branchMap[c.branch]) branchMap[c.branch] = { alunos:0, turmas:0, capacitySum:0 };
-      branchMap[c.branch].turmas = (branchMap[c.branch].turmas || 0) + 1;
-      const cap = (c.max_students && c.max_students > 0) ? c.max_students : defaultCapacity;
-      branchMap[c.branch].capacitySum = (branchMap[c.branch].capacitySum || 0) + cap;
-    });
-    const BRANCH_LABELS = {
-      funchal:'Funchal · Sede', machico:'Machico', scruz:'S. Cruz',
-      rbrava:'R. Brava', calheta:'Calheta', psol:'P. do Sol', estreito:'Estreito',
-    };
-    const totalAlunos = Object.values(branchMap).reduce((a,b) => a + b.alunos, 0);
-    _branches = Object.entries(branchMap).map(([id, data]) => {
-      const capacity = data.capacitySum > 0 ? data.capacitySum : (data.turmas > 0 ? data.turmas * defaultCapacity : defaultCapacity);
-      const enrolPct = Math.min(100, Math.round((data.alunos / capacity) * 100));
-      return { id, label: BRANCH_LABELS[id] || id, alunos: data.alunos, turmas: data.turmas || 0, enrolPct, capacity, status: branchStatus(enrolPct), barPct: totalAlunos > 0 ? Math.round((data.alunos / totalAlunos) * 100) : 0 };
-    }).sort((a,b) => b.alunos - a.alunos);
 
-    const totalTurmas = classes.length, totalProfs = profs.length;
+    const enrols = await enrolRes.json();
+    const profs  = profRes.ok ? await profRes.json() : [];
+
+    // Normalise branch key — merge any casing variants into canonical form
+    function normaliseBranch(raw) {
+      if (!raw) return null;
+      const upper = raw.toUpperCase();
+      if (upper === 'FUNCHAL')        return 'Funchal';
+      if (upper === 'CAMARA_LOBOS')   return 'Camara_Lobos';
+      if (upper === 'MACHICO')        return 'Machico';
+      if (upper === 'RIBEIRA_BRAVA')  return 'Ribeira_Brava';
+      if (upper === 'CALHETA')        return 'Calheta';
+      if (upper === 'SANTA_CRUZ')     return 'Santa_Cruz';
+      return raw; // pass through unknown branches unchanged
+    }
+
+    const BRANCH_LABELS = {
+      'Funchal':       'Funchal · Sede',
+      'Camara_Lobos':  'Câmara de Lobos',
+      'Machico':       'Machico',
+      'Ribeira_Brava': 'Ribeira Brava',
+      'Calheta':       'Calheta',
+      'Santa_Cruz':    'Santa Cruz',
+    };
+
+    // Build branch map — derive turma count from distinct turma_code per branch
+    const branchMap = {};
+   // NEW — students only, turmas will be 0 until classes is repopulated
+enrols.forEach(e => {
+  const key = normaliseBranch(e.branch);
+  if (!key) return;
+  if (!branchMap[key]) branchMap[key] = { alunos: 0, turmas: 0 };
+  branchMap[key].alunos++;
+});
+
+    const totalAlunos     = enrols.length;
+    const defaultCapacity = 12;
+
+    _branches = Object.entries(branchMap).map(([id, data]) => {
+    const turmasCount = data.turmas; // already 0
+      const capacity    = turmasCount > 0 ? turmasCount * defaultCapacity : defaultCapacity;
+      const enrolPct    = Math.min(100, Math.round((data.alunos / capacity) * 100));
+      return {
+        id,
+        label:    BRANCH_LABELS[id] || id.replace(/_/g, ' '),
+        alunos:   data.alunos,
+        turmas:   turmasCount,
+        enrolPct,
+        capacity,
+        status:   branchStatus(enrolPct),
+        barPct:   totalAlunos > 0 ? Math.round((data.alunos / totalAlunos) * 100) : 0,
+      };
+    }).sort((a, b) => b.alunos - a.alunos);
+
+    const totalTurmas = _branches.reduce((s, b) => s + b.turmas, 0);
+    const totalProfs  = profs.length;
+
     document.getElementById('stat-alunos').textContent = totalAlunos.toLocaleString('pt-PT');
     document.getElementById('tt-total').textContent    = totalAlunos.toLocaleString('pt-PT') + ' alunos';
     document.getElementById('stat-turmas').textContent = totalTurmas || '—';
     document.getElementById('stat-profs').textContent  = totalProfs  || '—';
     document.getElementById('tt-profs').textContent    = totalProfs;
-    document.getElementById('tt-turmas-per-prof').textContent = totalProfs > 0 ? (totalTurmas / totalProfs).toFixed(1) : '—';
-    const avgEnrol = _branches.length > 0 ? Math.round(_branches.reduce((a,b) => a + b.enrolPct, 0) / _branches.length) : 0;
+    document.getElementById('tt-turmas-per-prof').textContent =
+      totalProfs > 0 ? (totalTurmas / totalProfs).toFixed(1) : '—';
+
+    const avgEnrol = _branches.length > 0
+      ? Math.round(_branches.reduce((a, b) => a + b.enrolPct, 0) / _branches.length)
+      : 0;
     document.getElementById('tt-avg-enrol').textContent = avgEnrol + '%';
+
     document.getElementById('tt-branch-bars').innerHTML = _branches.map(b => `
       <div class="tt-bar-row">
         <span class="tt-bar-label">${b.label}</span>
         <div class="tt-bar-track"><div class="tt-bar-fill" style="width:${b.barPct}%"></div></div>
         <span class="tt-bar-num">${b.alunos}</span>
       </div>`).join('');
+
     document.getElementById('tt-turmas-rows').innerHTML = _branches.map(b =>
       `<div class="tt-row"><span class="tt-key">${b.label}</span><span class="tt-val">${b.turmas} turmas</span></div>`
     ).join('');
+
     renderBranches();
     renderSchoolHealth(totalAlunos, avgEnrol, totalTurmas);
     loadAlertBadges(totalProfs, totalTurmas);
+
   } catch(e) {
     console.warn('loadBranchData failed:', e.message);
     setConnState(false);
     renderBranchError(e.message);
   }
 }
-
 function renderBranches() {
   document.getElementById('branch-row').innerHTML = _branches.map(b => `
     <div class="branch" onclick="goBranch('${b.id}')">
