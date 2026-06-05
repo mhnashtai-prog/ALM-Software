@@ -343,6 +343,15 @@ body{display:flex;flex-direction:column}
 .stu-row:hover{background:rgba(201,168,76,.02)}
 .stu-cell{padding:5px 3px}
 .heatstrip{display:flex;gap:1px}
+  
+/* ══ AUDIT compact grid ══ */
+.au-grid{display:flex;flex-direction:column;gap:2px;padding:6px 0}
+.au-grid-row{display:flex;align-items:center;gap:2px}
+.au-grid-daylbl{width:26px;flex-shrink:0;font-size:6.5px;font-weight:700;letter-spacing:.04em;color:var(--t3);text-align:right;padding-right:4px;font-family:var(--mono)}
+.au-grid-hlbl{flex:1;min-width:0;font-size:6px;color:var(--t4);text-align:center;font-family:var(--mono)}
+.au-gcell{flex:1;min-width:0;height:9px;border-radius:1px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.04)}
+.au-gcell.on{background:rgba(40,200,176,.38);border-color:rgba(40,200,176,.55)}
+.au-grid-empty{font-size:7px;color:var(--t3);font-style:italic;padding:6px 0;letter-spacing:.04em}  
 .hcell{width:11px;height:8px;border-radius:1px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.04)}
 .hcell.on{background:rgba(40,200,176,.38);border-color:rgba(40,200,176,.55)}
 
@@ -2326,7 +2335,7 @@ function sbSearchInput(val){
     const col=avCol(e.name||e.ref),meta=LEVEL_MAP[lk(e)]||{};
     const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
     const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;border-bottom:.5px solid var(--b);transition:background .1s" onmouseover="this.style.background='var(--gold4)'" onmouseout="this.style.background=''" onclick="ovClear();openDossier('${e.ref}')"><div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(e.name||e.ref)}</div><div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">${e.name||e.ref}</div><div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'} · ${meta.label||'—'}</div></div><span style="font-size:6.5px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55;flex-shrink:0">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div>`;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;border-bottom:.5px solid var(--b);transition:background .1s" onmouseover="this.style.background='var(--gold4)'" onmouseout="this.style.background=''" onclick="ovClear();openDossier('${e.ref}')"><div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(e.name||e.ref)}</div><div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">${e.name||e.ref}</div><div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'} · ${meta.label||'—'}</div></div><span style="font-size:6.5px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55;flex-shrink:0">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div>${gridBlock}</div>`;
   }).join('')||`<div style="padding:12px;font-size:8px;color:var(--t3);text-align:center">Nenhum aluno encontrado</div>`;
   drop.classList.add('open');
 }
@@ -2624,17 +2633,38 @@ function setAF(btn){
   const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;auditFilters.levelKey=null;
   document.querySelectorAll(`#au-filters .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));btn.classList.add('act');renderAudit();
 }
-function renderAudit(){
-  let students=[...allE];
-  if(auditFilters.branch!=='all')students=students.filter(e=>normB(e.branch)===auditFilters.branch);
-  if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
-  if(auditFilters.levelKey)students=students.filter(e=>lk(e)===auditFilters.levelKey);
-  if(auditFilters.status!=='all')students=students.filter(e=>{
-    const req=rByRef[e.ref];
-    if(auditFilters.status==='noreq')return!req;
-    if(auditFilters.status==='pendente')return req&&normS(req.status)==='pendente';
-    if(auditFilters.status==='atribuido')return req&&normS(req.status)==='atribuido';
-    return true;
+/* ── AUDIT: compact per-student availability grid (hour-level, gap-accurate by hour) ──
+   Reads raw slots [{day,time,available}]. Lights an hour-cell if any painted slot
+   falls in that hour. 6 day-rows × HOUR_COLS. Heatstrip-scale, fits in a list row. */
+function renderSlotGrid(slots){
+  if(!Array.isArray(slots)||!slots.length) return '<div class="au-grid-empty">sem disponibilidade</div>';
+  // Build a set of "dayIdx-hour" keys that are painted
+  const painted = new Set();
+  slots.forEach(s=>{
+    if(s.available===false) return;
+    const di = DAY_NORM[String(s.day||'').toLowerCase()];
+    if(di===undefined) return;
+    const hr = parseInt(String(s.time||'').split(':')[0],10);
+    if(isNaN(hr)) return;
+    painted.add(di+'-'+hr);
+  });
+  let html = '<div class="au-grid">';
+  // header row: hour labels
+  html += '<div class="au-grid-row"><div class="au-grid-daylbl"></div>';
+  HOUR_COLS.forEach(h=>{ html += `<div class="au-grid-hlbl">${h}</div>`; });
+  html += '</div>';
+  // one row per day
+  for(let di=0; di<DAYS_PT.length; di++){
+    html += `<div class="au-grid-row"><div class="au-grid-daylbl">${DAYS_PT[di]}</div>`;
+    HOUR_COLS.forEach(h=>{
+      const on = painted.has(di+'-'+h);
+      html += `<div class="au-gcell${on?' on':''}"></div>`;
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
   });
   const q=(document.getElementById('au-search')?.value||'').toLowerCase().trim();
   if(q)students=students.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q));
