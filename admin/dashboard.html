@@ -492,6 +492,21 @@ const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
 const SBH = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
 
+
+/* Paginating GET — pulls ALL rows in 1000-row pages, beating the server row cap */
+async function sbGetAll(table, qs) {
+  let all = [], page = 0, ps = 1000;
+  while (true) {
+    const s = page * ps, e = s + ps - 1;
+    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, { headers: { ...SBH, Range: `${s}-${e}` } });
+    if (!r.ok) throw new Error(`${table} HTTP ${r.status}`);
+    const d = await r.json();
+    all = all.concat(d);
+    if (d.length < ps) break;
+    page++; if (page > 9) break;
+  }
+  return all;
+}
 /* ── YEAR BROADCAST ── */
 const yearChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('alm_academic_year') : null;
 if (yearChannel) {
@@ -666,20 +681,17 @@ async function loadBranchData() {
     // Build URLs with year filter where possible
     const yearFilter = academicYear ? `&academic_year=eq.${encodeURIComponent(academicYear)}` : '';
 
- const enrolUrl   = `${SB}/rest/v1/enrolments?select=ref,branch${yearFilter}&limit=5000`;
+ const enrolQs    = `select=ref,branch${yearFilter}`;
     const kpiUrl     = `${SB}/rest/v1/v_branch_kpis?select=branch,turmas,grupos,turmas_com_prof,profs_activos`;
     const teacherUrl = `${SB}/rest/v1/teachers?select=id&limit=500`;
 
-    const [enrolRes, kpiRes, profRes] = await Promise.all([
-      fetch(enrolUrl,   { headers: SBH }),
+    const [enrols, kpiRes, profRes] = await Promise.all([
+      sbGetAll('enrolments', enrolQs),
       fetch(kpiUrl,     { headers: SBH }),
       fetch(teacherUrl, { headers: SBH }),
     ]);
 
-    setConnState(enrolRes.ok);
-    if (!enrolRes.ok) throw new Error('enrolments HTTP ' + enrolRes.status);
-
-    const enrols = await enrolRes.json();
+    setConnState(true);;
 
     // Branch KPIs computed live in Postgres view v_branch_kpis (reads from classes)
     const kpiRows = kpiRes.ok ? await kpiRes.json() : [];
@@ -763,11 +775,11 @@ function renderBranches() {
       ${b.label}
       <div class="branch-tooltip">
         <div class="bt-name">${b.label}</div>
-        <div class="bt-row"><span class="bt-key">Alunos</span><span class="bt-val">${b.alunos}</span></div>
-        <div class="bt-row"><span class="bt-key">Turmas</span><span class="bt-val">${b.turmas}</span></div>
-        <div class="bt-row"><span class="bt-key">Capacidade total</span><span class="bt-val">${b.capacity} lugares</span></div>
-        <div class="bt-row"><span class="bt-key">Ocupação</span><span class="bt-val">${b.enrolPct}%</span></div>
-        <div class="bt-enrol-bar"><div class="bt-enrol-fill" style="width:${b.enrolPct}%;background:${enrolColour(b.enrolPct)}"></div></div>
+        <div class="bt-row"><span class="bt-key">Grupos</span><span class="bt-val">${b.grupos}</span></div>
+        <div class="bt-row"><span class="bt-key">Sessões</span><span class="bt-val">${b.turmas}</span></div>
+        <div class="bt-row"><span class="bt-key">Com professor</span><span class="bt-val">${b.comProf} / ${b.turmas}</span></div>
+        <div class="bt-row"><span class="bt-key">Cobertura</span><span class="bt-val">${b.coverage}%</span></div>
+        <div class="bt-enrol-bar"><div class="bt-enrol-fill" style="width:${b.coverage}%;background:${enrolColour(b.coverage)}"></div></div>
         <div><span class="bt-status ${b.status}">${STATUS_LABEL[b.status]}</span></div>
         <div class="bt-hint">Clique para ver o painel →</div>
       </div>
@@ -909,8 +921,8 @@ async function generateReport() {
   const healthStatus = document.getElementById('tb-health-lbl').textContent;
   const avgOcupacao  = document.getElementById('tt-avg-enrol').textContent;
   const ano          = document.getElementById('yearVal').textContent;
-  const branchSummary = _branches.map(b =>
-    `${b.label}: ${b.alunos} alunos, ${b.turmas} turmas, capacidade ${b.capacity} lugares, ${b.enrolPct}% ocupação → ${STATUS_LABEL[b.status]}`
+ const branchSummary = _branches.map(b =>
+    `${b.label}: ${b.alunos} alunos, ${b.grupos} grupos (${b.turmas} sessões), ${b.comProf}/${b.turmas} sessões com professor (${b.coverage}% cobertura) → ${STATUS_LABEL[b.status]}`
   ).join('\n');
   const badgeCount = (id) => {
     const el = document.getElementById('badge-' + id);
