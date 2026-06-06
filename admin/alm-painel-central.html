@@ -354,6 +354,35 @@ body{display:flex;flex-direction:column}
 .au-row:hover{background:rgba(201,168,76,.02)}
 .au-cell{padding:6px 4px}
 
+/* ══ AUDIT GROUP CARD GRID ══ */
+.au-group-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 0 40px}
+.au-gc{background:var(--bg2);border:1px solid var(--b2);border-left:3px solid transparent;cursor:pointer;transition:all .15s;overflow:hidden}
+.au-gc:hover{border-color:var(--b3);background:rgba(255,255,255,.015)}
+.au-gc.au-gc-clean{border-left-color:var(--green)}
+.au-gc.au-gc-warn{border-left-color:var(--amber)}
+.au-gc.au-gc-fail{border-left-color:var(--red)}
+.au-gc-head{padding:10px 12px 8px;border-bottom:1px solid var(--b)}
+.au-gc-code{font-family:var(--display);font-size:19px;letter-spacing:3px;line-height:1}
+.au-gc-slot{font-size:7.5px;color:var(--t2);margin-top:3px;letter-spacing:.04em}
+.au-gc-meta{font-size:7px;color:var(--t3);margin-top:2px}
+.au-gc-body{padding:8px 12px 10px}
+.au-gc-stats{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.au-gc-n{font-size:26px;font-weight:700;line-height:1}
+.au-gc-cap{flex:1;height:3px;background:rgba(255,255,255,.05);overflow:hidden;border-radius:1px}
+.au-gc-cap-fill{height:100%;border-radius:1px;transition:width .5s}
+.au-gc-audit{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.au-gc-pill{font-size:6.5px;font-weight:700;padding:1px 6px;border:1px solid}
+.au-gc-pill.pass{background:var(--green-a);border-color:var(--green-b);color:var(--green)}
+.au-gc-pill.warn{background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)}
+.au-gc-pill.fail{background:var(--red-a);border-color:var(--red-b);color:var(--red)}
+.au-gc-avs{display:flex;gap:2px;flex-wrap:wrap}
+.au-gc-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;flex-shrink:0;border:1px solid}
+.au-gc-av.warn{outline:1.5px solid var(--amber);outline-offset:1px}
+.au-gc-av.fail{outline:1.5px solid var(--red);outline-offset:1px}
+.au-gc-week{display:flex;gap:1px;margin-top:7px}
+.au-gc-day{flex:1;height:5px;border-radius:1px;background:rgba(255,255,255,.04)}
+.au-gc-day.on{background:var(--teal)}
+
 /* ══ STAMP BASE ══ */
 .sg-stamp{position:absolute;display:flex;align-items:center;gap:5px;padding:0 6px 0 4px;cursor:pointer;z-index:11;overflow:hidden;box-sizing:border-box;border-radius:3px;transition:opacity .15s,box-shadow .15s}
 .sg-stamp:hover{opacity:.82!important;box-shadow:0 2px 12px rgba(0,0,0,.6);z-index:20!important}
@@ -801,7 +830,7 @@ body{display:flex;flex-direction:column}
         <div class="kpi-card" style="color:var(--amber)"><div class="kpi-v" id="a-pend">—</div><div class="kpi-l">Pendentes</div></div>
       </div>
       <div style="font-size:7.5px;color:var(--t3);margin-bottom:8px" id="au-count">—</div>
-      <div class="au-hdr"><span>Nome</span><span>Nível</span><span>Disponibilidade</span><span>Status</span></div>
+      <div class="au-hdr" id="au-hdr-row"><span>Nome</span><span>Nível</span><span>Disponibilidade</span><span>Status</span></div>
       <div id="au-rows"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
     </div>
   </div>
@@ -2679,21 +2708,24 @@ function drillToSinalizados(levelKey){_drillSetupLevel(levelKey);switchCC('forma
 ══════════════════════════════════════════════ */
 function setAF(btn){
   const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;auditFilters.levelKey=null;
-  document.querySelectorAll(`#panel-audit .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));
+document.querySelectorAll(`#panel-audit .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));
   btn.classList.add('act');
   renderAudit();
+  renderAuditTree();
 }
-  function auSetBranch(b,btn){
+function auSetBranch(b,btn){
   auditFilters.branch=b;
+  auditFilters.levelKey=null;
   document.querySelectorAll('#au-branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   renderAudit();
+  renderAuditTree();
 }
   
 function renderAudit(){
   let students=[...allE];
   if(auditFilters.branch!=='all')students=students.filter(e=>normB(e.branch)===auditFilters.branch);
-  if(auditFilters.dept!=='all')students=students.filter(e=>(e.family||'').toLowerCase()===auditFilters.dept);
+  if(auditFilters.dept!=='all')students=students.filter(e=>(LEVEL_MAP[lk(e)]||{}).dept===auditFilters.dept);
   if(auditFilters.levelKey)students=students.filter(e=>lk(e)===auditFilters.levelKey);
   if(auditFilters.status!=='all')students=students.filter(e=>{
     const req=rByRef[e.ref];
@@ -2702,7 +2734,7 @@ function renderAudit(){
     if(auditFilters.status==='atribuido')return req&&normS(req.status)==='atribuido';
     return true;
   });
-const q=((document.getElementById('au-search-lp')?.value||document.getElementById('au-search')?.value||'')).toLowerCase().trim();
+  const q=((document.getElementById('au-search-lp')?.value||'')).toLowerCase().trim();
   if(q)students=students.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q));
   const total=allE.length,com=allE.filter(e=>rByRef[e.ref]).length,sem=total-com;
   const pend=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length;
@@ -2712,7 +2744,16 @@ const q=((document.getElementById('au-search-lp')?.value||document.getElementByI
   document.getElementById('a-sem-lp').textContent=sem;
   document.getElementById('a-sem').textContent=sem;document.getElementById('a-pend').textContent=pend;
   document.getElementById('badge-audit').textContent=sem;
+
+  // ── GROUP CARD MODE when filter is "atribuído" ──
+  if(auditFilters.status==='atribuido'){
+    renderAuditGroupCards(students,q);
+    return;
+  }
+
+  // ── LIST MODE ──
   document.getElementById('au-count').textContent=`Mostrando ${Math.min(students.length,500)} de ${students.length} registos`;
+  const hdr=document.getElementById('au-hdr-row');if(hdr)hdr.style.display='';
   document.getElementById('au-rows').innerHTML=students.slice(0,500).map(e=>{
     const req=rByRef[e.ref],meta=LEVEL_MAP[lk(e)]||{},dc=DEPT_CFG[meta.dept||'adults']||{};
     const a=analysePrefs(e.ref),dayIdxs=a?a.dayIdxs:[];
@@ -2720,8 +2761,91 @@ const q=((document.getElementById('au-search-lp')?.value||document.getElementByI
     const st=req?normS(req.status):'sem_pedido';
     const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
     return`<div class="au-row" onclick="openDossier('${e.ref}')"><div class="au-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref||'—'}</div></div><div class="au-cell"><div style="font-size:9px;font-weight:600;color:${meta.color||'var(--t3)'}">${meta.label||'—'}</div><div style="font-size:7px;color:var(--t3)">${dc.label||''}</div></div><div class="au-cell"><div class="heatstrip">${cells}</div><div style="font-size:5.5px;color:var(--t4);margin-top:2px;letter-spacing:.04em">S T Q Q S S</div></div><div class="au-cell" style="text-align:center"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div></div>`;
- }).join('')||`<div class="empty-msg">Nenhum resultado.</div>`;
-  renderAuditTree();
+  }).join('')||`<div class="empty-msg">Nenhum resultado.</div>`;
+}
+
+function renderAuditGroupCards(students,q){
+  // Build index: ref → {levelKey, groupIdx}
+  const refToGroup={};
+  Object.keys(_allResults).forEach(levelKey=>{
+    (_allResults[levelKey]?.groups||[]).forEach((g,i)=>{
+      const committed=(_groupCodes[levelKey]||{})[i];
+      g.students.forEach(s=>{refToGroup[s.ref]={levelKey,groupIdx:i,committed};});
+    });
+  });
+
+  // Collect unique groups that have at least one student matching filters
+  const groupsSeen=new Map(); // key: levelKey+groupIdx
+  students.forEach(e=>{
+    const entry=refToGroup[e.ref];if(!entry)return;
+    const key=`${entry.levelKey}__${entry.groupIdx}`;
+    if(!groupsSeen.has(key))groupsSeen.set(key,entry);
+  });
+
+  const groups=[...groupsSeen.values()].sort((a,b)=>{
+    const ma=LEVEL_MAP[a.levelKey]||{},mb=LEVEL_MAP[b.levelKey]||{};
+    if((ma.order||99)!==(mb.order||99))return(ma.order||99)-(mb.order||99);
+    const ga=_allResults[a.levelKey]?.groups[a.groupIdx];
+    const gb=_allResults[b.levelKey]?.groups[b.groupIdx];
+    return(ga?.startMins||0)-(gb?.startMins||0);
+  });
+
+  const hdr=document.getElementById('au-hdr-row');if(hdr)hdr.style.display='none';
+  document.getElementById('au-count').textContent=`${groups.length} turma${groups.length!==1?'s':''} · ${students.length} alunos atribuídos`;
+
+  if(!groups.length){
+    document.getElementById('au-rows').innerHTML=`<div class="empty-msg">Nenhuma turma encontrada.</div>`;
+    return;
+  }
+
+  document.getElementById('au-rows').innerHTML=`<div class="au-group-grid">${groups.map(({levelKey,groupIdx,committed})=>{
+    const g=_allResults[levelKey]?.groups[groupIdx];if(!g)return'';
+    const ar=(_auditResults[levelKey]||{})[groupIdx];
+    const meta=LEVEL_MAP[levelKey]||{};
+    const col=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+    const auditCls=!ar?'au-gc-clean':ar.status==='fail'?'au-gc-fail':ar.status==='warn'?'au-gc-warn':'au-gc-clean';
+    const pairLabel=g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—');
+    const codeDisplay=committed?(committed.turmaCodeA&&committed.turmaCodeB&&committed.turmaCodeA!==committed.turmaCodeB?`${committed.turmaCodeA}/${committed.turmaCodeB}`:committed.turmaCodeA||committed.turmaCode||`G${groupIdx+1}`):`G${groupIdx+1}`;
+    const n=g.students.length,capPct=Math.round(n/MAX_G*100);
+    const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':col;
+    const passC=ar?.passCount??n,warnC=ar?.warnCount??0,failC=ar?.failCount??0;
+
+    // Filter students to those matching current audit filters for display
+    const visStudents=q?g.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.ref||'').toLowerCase().includes(q)):g.students;
+
+    const avs=visStudents.slice(0,18).map(s=>{
+      const ac=avCol(s.name||s.ref);
+      const verdict=ar?.log?.[s.ref]?.verdict||'pass';
+      return`<div class="au-gc-av ${verdict!=='pass'?verdict:''}" style="background:${ac.bg};color:${ac.t};border-color:${ac.t}44" title="${s.name||s.ref}">${avInit(s.name||s.ref)}</div>`;
+    }).join('');
+    const extra=visStudents.length>18?`<div style="font-size:6.5px;color:var(--t3);padding:2px 3px">+${visStudents.length-18}</div>`:'';
+
+    // Mini week strip — aggregate available days across all students in this group
+    const dayHits=new Set(g.students.flatMap(s=>{const a=analysePrefs(s.ref);return a?a.dayIdxs:[];}));
+    const weekStrip=DAYS_PT.map((_,di)=>`<div class="au-gc-day${dayHits.has(di)?' on':''}" title="${DAYS_PT[di]}"></div>`).join('');
+
+    return`<div class="au-gc ${auditCls}" onclick="openGroupModal('${levelKey}',${groupIdx})">
+      <div class="au-gc-head">
+        <div class="au-gc-code" style="color:${col}">${codeDisplay}</div>
+        <div class="au-gc-slot">${pairLabel} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}</div>
+        <div class="au-gc-meta" style="color:${meta.color||'var(--t3)'}">${meta.label||'—'} · ${BRANCH_LABELS[normB(g.students[0]?.branch)]||'—'}</div>
+      </div>
+      <div class="au-gc-body">
+        <div class="au-gc-stats">
+          <div class="au-gc-n" style="color:${col}">${n}</div>
+          <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:3px">/${MAX_G}</div>
+          <div class="au-gc-cap"><div class="au-gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div>
+        </div>
+        <div class="au-gc-audit">
+          ${passC>0?`<span class="au-gc-pill pass">✓ ${passC}</span>`:''}
+          ${warnC>0?`<span class="au-gc-pill warn">⚠ ${warnC}</span>`:''}
+          ${failC>0?`<span class="au-gc-pill fail">✕ ${failC}</span>`:''}
+        </div>
+        <div class="au-gc-avs">${avs}${extra}</div>
+        <div class="au-gc-week">${weekStrip}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderAuditTree(){
@@ -2745,8 +2869,8 @@ function renderAuditTree(){
 
 function auSetLevel(key){
   auditFilters.levelKey=key;
-  renderAuditTree();
   renderAudit();
+  renderAuditTree();
 }
 
 /* ══════════════════════════════════════════════
