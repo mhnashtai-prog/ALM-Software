@@ -801,9 +801,11 @@ body{display:flex;flex-direction:column}
     </div>
     <div style="font-size:7.5px;color:var(--t3);margin-bottom:8px" id="au-count">—</div>
     <div class="au-hdr"><span>Nome</span><span>Nível</span><span>Disponibilidade</span><span>Status</span></div>
-    <div id="au-rows"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
+  <div id="au-rows"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
   </div>
   </div>
+</div>
+</div>
 
   <!-- ══ FORMATION ══ -->
   <div class="cc-panel" id="panel-formation">
@@ -1761,16 +1763,14 @@ function decStuChips(students,ar){
   }).join('');
 }
 
- async function renderDecision(){
+async function renderDecision(){
   const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
   if(!triageEl||!mainEl)return;
 
   triageEl.innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>`;
 
-  // Always re-fetch locked classes from DB to get true state
   try{
     const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
-    // Group by group_code
     const byGC={};
     rows.forEach(c=>{
       const gc=c.group_code||(c.turma_code?.replace(/[AB]$/i,''));
@@ -1778,11 +1778,9 @@ function decStuChips(students,ar){
       if(!byGC[gc])byGC[gc]=[];
       byGC[gc].push(c);
     });
-    // Rebuild _groupCodes from DB truth
     Object.values(byGC).forEach(groupRows=>{
       const first=groupRows[0];
       const key=`${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
-      // ensure _allResults has this level
       if(!_allResults[key]){
         const refs=Array.isArray(first.student_refs)?first.student_refs:[];
         const students=refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
@@ -1804,7 +1802,6 @@ function decStuChips(students,ar){
         if(!_auditResults[key])_auditResults[key]={};
         _auditResults[key][0]=auditGroupSync(_allResults[key].groups[0]);
       }
-      // update _groupCodes
       const gc=first.group_code||(first.turma_code?.replace(/[AB]$/i,''));
       const result=_allResults[key];
       if(!result?.groups)return;
@@ -1821,9 +1818,6 @@ function decStuChips(students,ar){
     });
   }catch(e){console.warn('renderDecision DB fetch failed',e);}
 
-function renderDecision(){
-  const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
-  if(!triageEl||!mainEl)return;
   let totalSessions=0,certifiedSessions=0;
   Object.keys(_allResults).forEach(key=>{
     const result=_allResults[key];if(!result?.groups?.length)return;
@@ -1843,7 +1837,6 @@ function renderDecision(){
   document.getElementById('dec-sidebar-sub').textContent=`${certifiedSessions} sessões cert. · ${pendingSessions} por certificar`;
   const fill=document.getElementById('dec-progress-fill');if(fill)fill.style.width=pct+'%';
 
-  // Build triage list — ALL levels with groups, not just pending
   const byLevel={};
   Object.keys(_allResults).forEach(key=>{
     const result=_allResults[key];if(!result?.groups?.length)return;
@@ -2687,6 +2680,8 @@ function drillToSinalizados(levelKey){_drillSetupLevel(levelKey);switchCC('forma
 function setAF(btn){
   const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;auditFilters.levelKey=null;
   document.querySelectorAll(`#panel-audit .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  renderAudit();
 }
   function auSetBranch(b,btn){
   auditFilters.branch=b;
@@ -2712,6 +2707,9 @@ const q=((document.getElementById('au-search-lp')?.value||document.getElementByI
   const total=allE.length,com=allE.filter(e=>rByRef[e.ref]).length,sem=total-com;
   const pend=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length;
   document.getElementById('a-total').textContent=total;document.getElementById('a-com').textContent=com;
+  document.getElementById('a-total-lp').textContent=total;
+  document.getElementById('a-com-lp').textContent=com;
+  document.getElementById('a-sem-lp').textContent=sem;
   document.getElementById('a-sem').textContent=sem;document.getElementById('a-pend').textContent=pend;
   document.getElementById('badge-audit').textContent=sem;
   document.getElementById('au-count').textContent=`Mostrando ${Math.min(students.length,500)} de ${students.length} registos`;
