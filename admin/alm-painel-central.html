@@ -2820,9 +2820,21 @@ function renderAuditGroupCards(students,q){
     }).join('');
     const extra=visStudents.length>18?`<div style="font-size:6.5px;color:var(--t3);padding:2px 3px">+${visStudents.length-18}</div>`:'';
 
-    // Mini week strip — aggregate available days across all students in this group
-    const dayHits=new Set(g.students.flatMap(s=>{const a=analysePrefs(s.ref);return a?a.dayIdxs:[];}));
-    const weekStrip=DAYS_PT.map((_,di)=>`<div class="au-gc-day${dayHits.has(di)?' on':''}" title="${DAYS_PT[di]}"></div>`).join('');
+    // Compact timetable: show the group's actual pair + time
+const pairA=g.dayL_A||g.dayL||'—';
+const pairB=(g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)?(g.dayL_B||'—'):null;
+const timeStr=`${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
+const slotC2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+const weekStrip=`<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}11;border-radius:2px">
+    <span style="font-size:8px;font-weight:700;color:${slotC2}">${pairA}</span>
+    <span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span>
+  </div>
+  ${pairB?`<div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}0D;border-radius:2px;opacity:.85">
+    <span style="font-size:8px;font-weight:700;color:${slotC2}">${pairB}</span>
+    <span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span>
+  </div>`:``}
+</div>`;
 
     return`<div class="au-gc ${auditCls}" onclick="openGroupModal('${levelKey}',${groupIdx})">
       <div class="au-gc-head">
@@ -2841,8 +2853,10 @@ function renderAuditGroupCards(students,q){
           ${warnC>0?`<span class="au-gc-pill warn">⚠ ${warnC}</span>`:''}
           ${failC>0?`<span class="au-gc-pill fail">✕ ${failC}</span>`:''}
         </div>
-        <div class="au-gc-avs">${avs}${extra}</div>
-        <div class="au-gc-week">${weekStrip}</div>
+     <div class="au-gc-avs">${avs}${extra}</div>
+        ${weekStrip}
+      </div>
+    </div>`;
       </div>
     </div>`;
   }).join('')}</div>`;
