@@ -48,6 +48,7 @@ function paintCellHeatmap(containerId, withReq, levelKey, result) {
   const maxVal = Math.max(1, ...DAYS_PT.map(d =>
     Math.max(0, ...HOUR_COLS.map(h => map[d]?.[h] || 0))
   ));
+   if (result?.groups?.length) return;
   DAYS_PT.forEach(day => {
     HOUR_COLS.forEach(h => {
       const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
