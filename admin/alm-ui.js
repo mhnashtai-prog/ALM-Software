@@ -20,15 +20,25 @@ function buildHeatmap(students){
   return map;
 }
 
-function paintCellHeatmap(containerId,withReq,levelKey,result){
-  const map=buildHeatmap(withReq);
-  const maxVal=Math.max(1,...DAYS_PT.map(d=>Math.max(0,...HOUR_COLS.map(h=>map[d]?.[h]||0))));
-  DAYS_PT.forEach(day=>{
-    HOUR_COLS.forEach(h=>{
-      const cell=document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
-      if(!cell)return;
-      cell.style.background='rgba(0,0,0,0)';
-      cell.style.border='.5px solid rgba(255,255,255,.03)';
+function paintCellHeatmap(containerId, withReq, levelKey, result) {
+  const map = buildHeatmap(withReq);
+  const maxVal = Math.max(1, ...DAYS_PT.map(d =>
+    Math.max(0, ...HOUR_COLS.map(h => map[d]?.[h] || 0))
+  ));
+  DAYS_PT.forEach(day => {
+    HOUR_COLS.forEach(h => {
+      const cell = document.querySelector(`#${containerId}-row-${day} [data-h="${h}"]`);
+      if (!cell) return;
+      const count = map[day]?.[h] || 0;
+      if (count === 0) {
+        cell.style.background = 'rgba(0,0,0,0)';
+        cell.style.border = '.5px solid rgba(255,255,255,.03)';
+      } else {
+        const intensity = count / maxVal;
+        const opacity = (0.08 + intensity * 0.32).toFixed(3);
+        cell.style.background = `rgba(40,200,176,${opacity})`;
+        cell.style.border = `.5px solid rgba(40,200,176,${(opacity * 1.5).toFixed(3)})`;
+      }
       cell.removeAttribute('data-group');
     });
   });
@@ -123,15 +133,18 @@ function drawStamps(containerId,levelKey,result){
     const dayRows=isSameDay?[g.dayL_A||g.dayL]:[g.dayL_A||g.dayL,g.dayL_B];
     const wrapRect=wrap.getBoundingClientRect();
 
-    dayRows.forEach((dayL,di)=>{
-      const rowEl=document.getElementById(`${containerId}-row-${dayL}`);
-      if(!rowEl)return;
-      const pos=timeToBandPos(g.startTime,g.endTime,rowEl);
-      if(!pos)return;
-      const showText=pos.width>72,showCount=pos.width>50;
-      const rowRect=rowEl.getBoundingClientRect();
-      const bandLeft=(rowRect.left-wrapRect.left)+pos.left;
-      const bandTop=rowRect.top-wrapRect.top;
+  if(!_rowRectCache[containerId]) _primeRowRectCache(containerId);
+ 
+     dayRows.forEach((dayL,di)=>{
+       const rowEl=document.getElementById(`${containerId}-row-${dayL}`);
+       if(!rowEl)return;
+       const pos=timeToBandPos(g.startTime,g.endTime,rowEl);
+       if(!pos)return;
+       const showText=pos.width>72,showCount=pos.width>50;
+       const cached=_rowRectCache[containerId]?.[dayL];
+       if(!cached)return;
+       const bandLeft=cached.left+pos.left;
+       const bandTop=cached.top;
       const opacity=di===1?'0.82':'1';
       const stampCode=di===0
         ?(isSameDay
@@ -369,6 +382,27 @@ function buildSinalizadosHTML(result){
 }
 function toggleSinal(){_sinalOpen=!_sinalOpen;document.getElementById('sinal-body')?.classList.toggle('open',_sinalOpen);const arr=document.getElementById('sinal-arr');if(arr)arr.style.transform=_sinalOpen?'rotate(180deg)':'';}
 
+function reAuditLevel(levelKey) {
+  const result = _allResults[levelKey];
+  if (!result?.groups?.length) return;
+  if (!_auditResults[levelKey]) _auditResults[levelKey] = {};
+  result.groups.forEach((g, i) => {
+    if ((_groupCodes[levelKey] || {})[i]) return; // certified — skip
+    _auditResults[levelKey][i] = auditGroupSync(g);
+  });
+  // Rebuild the full exception queue from scratch
+  _exceptionQueue = [];
+  for (const key of Object.keys(_allResults)) {
+    (_allResults[key].groups || []).forEach((g, i) => {
+      const ar = (_auditResults[key] || {})[i];
+      if (!ar || ar.status === 'pass') return;
+      if ((_groupCodes[key] || {})[i]) return;
+      _exceptionQueue.push({ levelKey: key, groupIdx: i, group: g, auditResult: ar });
+    });
+  }
+  renderExcBar();
+}
+
 /* ── EXCEPTION BAR ────────────────────────────────────────── */
 function renderExcBar(){
   const bar=document.getElementById('exc-bar');
@@ -392,9 +426,9 @@ function renderExcBar(){
   }
   bar.className=fails.length>0?'exc-bar fail':'exc-bar';
   lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
-  const byLevel={};
-  _exceptionQueue.forEach(exc=>{const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;if(!byLevel[lb])byLevel[lb]={f:0,w:0};if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;});
-  items.innerHTML=Object.entries(byLevel).map(([lb,c])=>`<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`).join('');
+   const byLevel={};
+     _exceptionQueue.forEach(exc=>{const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;if(!byLevel[lb])byLevel[lb]={f:0,w:0,key:exc.levelKey};if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;});
+     items.innerHTML=Object.entries(byLevel).map(([lb,c])=>`<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions('${c.key}')">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`).join('');
   if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warnSessions} sessõe${warnSessions!==1?'s':''} (${warns.length} grupo${warns.length!==1?'s':''})`;}
   else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
 }
@@ -406,7 +440,14 @@ function jumpToException(levelKey,groupIdx){
   setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
 }
 
-function showAllExceptions(){if(_exceptionQueue.length)jumpToException(_exceptionQueue[0].levelKey,_exceptionQueue[0].groupIdx);}
+function showAllExceptions(levelKey) {
+  if (!_exceptionQueue.length) return;
+  if (levelKey) {
+    const exc = _exceptionQueue.find(e => e.levelKey === levelKey);
+    if (exc) { jumpToException(exc.levelKey, exc.groupIdx); return; }
+  }
+  jumpToException(_exceptionQueue[0].levelKey, _exceptionQueue[0].groupIdx);
+}
 
 function batchConfirm(){
   const btn=document.getElementById('exc-confirm-btn');
@@ -459,11 +500,30 @@ function initBranchStrip(){
     ordered.map(b=>`<button class="branch-pill${auditFilters.branch===b?' active':''}" onclick="auSetBranch('${b}',this)">${BRANCH_LABELS[b]||b}</button>`).join('');
 }
 
-function setLoc(loc,btn){
-  activeLoc=loc;
-  document.querySelectorAll('#branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
-  activeLevelKey=null;_lastResult=null;
-  updateSidebarKPIs();renderTree();renderLevelContent();
+
+function setLoc(loc, btn) {
+  activeLoc = loc;
+  document.querySelectorAll('#branch-strip .branch-pill').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  // C-03: preserve activeLevelKey — rebuild proposals for this branch
+  if (activeLevelKey) {
+    const branch = loc === 'all' ? 'all' : loc;
+    const withReq = locStu().filter(e => lk(e) === activeLevelKey && !!rByRef[e.ref]);
+    if (withReq.length >= MIN_G) {
+      _allResults[activeLevelKey] = buildProposalsCached(activeLevelKey, branch);
+      _auditResults[activeLevelKey] = {};
+      _allResults[activeLevelKey].groups.forEach((g, i) => {
+        if (!(_groupCodes[activeLevelKey] || {})[i])
+          _auditResults[activeLevelKey][i] = auditGroupSync(g);
+      });
+    } else {
+      delete _allResults[activeLevelKey];
+    }
+    _lastResult = _allResults[activeLevelKey] || null;
+  }
+  updateSidebarKPIs();
+  renderTree();
+  renderLevelContent();
 }
 
 function updateSidebarKPIs(){
@@ -500,7 +560,7 @@ function selectLevel(key){
   activeLevelKey=key;_sinalOpen=false;
   const withReq=locStu().filter(e=>lk(e)===key&&!!rByRef[e.ref]);
   if(withReq.length>=MIN_G){
-    _allResults[key]=buildProposals(key,'all');
+   _allResults[key]=buildProposalsCached(key,'all');
     _auditResults[key]={};
     _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
   }else{delete _allResults[key];}
@@ -564,6 +624,7 @@ function renderLevelContent(){
     paintCellHeatmap('sg-grid-container',withReq,_capturedKey,_capturedResult);
     drawStamps('sg-grid-container',_capturedKey,_capturedResult);
   }));
+   _rowRectCache[containerId] = {};   // will be lazily rebuilt by drawStamps
 }
 
 /* ── SEARCH ───────────────────────────────────────────────── */
@@ -635,7 +696,7 @@ function ovDrillToFormation(levelKey){
   if(!_lastResult){
     const withReq=allE.filter(e=>lk(e)===levelKey&&!!rByRef[e.ref]);
     if(withReq.length>=MIN_G){
-      _lastResult=buildProposals(levelKey,'all');_allResults[levelKey]=_lastResult;
+     _lastResult=buildProposalsCached(levelKey,'all');_allResults[levelKey]=_lastResult;
       if(!_auditResults[levelKey])_auditResults[levelKey]={};
       _lastResult.groups.forEach((g,i)=>{_auditResults[levelKey][i]=auditGroupSync(g);});
     }
@@ -1078,7 +1139,7 @@ async function decCertifySession(levelKey,groupIdx,suffix,btn){
     _groupCodes[levelKey][groupIdx]={...existing,turmaCode:groupCode,[`turmaCode${suffix}`]:sessionCode,sentAt:new Date().toISOString(),status:ar.status||'pass',locked:true};
     const card=document.getElementById(`dec-card-${groupIdx}-${suffix}`);
     if(card){card.style.borderLeftColor='var(--green)';card.style.background='rgba(29,184,122,.04)';btn.textContent=`✓ ${sessionCode}`;btn.style.cssText='border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';}
-    showToast(`${sessionCode} certificada ✓`,'ok');
+  reAuditLevel(levelKey);
     _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
     renderExcBar();renderDecision();
   }catch(e){btn.disabled=false;btn.textContent='✓ Certificar';showToast('Erro: '+e.message,'err');}
@@ -1236,6 +1297,24 @@ function closeDossier(){
 }
 
 /* ── MUDAR TURMA ──────────────────────────────────────────── */
+let _rowRectCache = {};
+ 
+function _primeRowRectCache(containerId) {
+  _rowRectCache[containerId] = {};
+  const wrap = document.getElementById(`${containerId}-rows-wrap`);
+  if (!wrap) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  DAYS_PT.forEach(day => {
+    const rowEl = document.getElementById(`${containerId}-row-${day}`);
+    if (!rowEl) return;
+    const r = rowEl.getBoundingClientRect();
+    _rowRectCache[containerId][day] = {
+      top:  r.top  - wrapRect.top,
+      left: r.left - wrapRect.left,
+      height: r.height,
+    };
+  });
+}
 let _mtRef=null,_mtSelectedCode=null,_mtSelectedGroupIdx=null,_mtSelectedLevelKey=null;
 let _mtChangeSuffix=null,_mtCurrentSuffixA=null,_mtCurrentSuffixB=null;
 
@@ -1266,7 +1345,7 @@ function _showMudarStep1(ref,enrol,codeA,codeB,currentGroupKey,currentGroupIdx){
   const slotA=g?`${g.dayL_A||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
   const slotB=g?`${g.dayL_B||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
   const pairLabel=g?.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g?.dayL||'—');
-  document.getElementById('mt-columns').innerHTML=`<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA||'—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB||'—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div><div onclick="showToast('Mudança de par completo indisponível — altere a sessão A e depois a B','warn')" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);padding:12px 14px;cursor:not-allowed;border-radius:8px;display:flex;align-items:center;gap:12px;opacity:.5"><div style="flex:1"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:3px">Par completo · indisponível</div><div style="font-size:9px;color:rgba(255,255,255,.35)">${pairLabel} · altere A e B separadamente</div></div><div style="font-size:16px;color:var(--t3);opacity:.4">⇄</div></div></div>`;
+  document.getElementById('mt-columns').innerHTML=`<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA||'—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB||'—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div>
   document.getElementById('mt-overlay').classList.add('open');
   document.getElementById('mt-success').className='mt-success';
   document.getElementById('mt-confirm-btn').disabled=true;
@@ -1444,12 +1523,13 @@ async function boot(){
       sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};allR.forEach(r=>{rByRef[r.ref]=r;});
+    allE=enrol||[];allR=reqs||[];rByRef={};allR.forEach(r=>{rByRef[r.ref]=r;}); _proposalCache = {};
     document.getElementById('boot-count').textContent=allE.length;
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     setBootProgress(35);
     setBoot('A carregar fixações…');
     await loadLocks();
+      _proposalCache = {};
     const{committed,exceptions}=await runBootAudit();
     _bootComplete=true;
     document.getElementById('pill-status').textContent='Supabase OK';
@@ -1470,7 +1550,7 @@ async function boot(){
     showToast('Erro Supabase: '+err.message,'err');
   }
 }
-
+window.addEventListener('resize', debounce(() => { _rowRectCache = {}; }, 200));
 boot();
 setInterval(()=>{if(_bootComplete)refreshData();},60000);
 /* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
