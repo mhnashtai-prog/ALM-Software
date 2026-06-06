@@ -14,6 +14,11 @@
    U-07  Wax seal hover — rotation removed, shadow reduced
 ═══════════════════════════════════════════════════════════════ */
 
+const debounce = (fn, ms) => {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+};
+
 /* ── ROW-RECT CACHE (P-01) ────────────────────────────────── */
 let _rowRectCache = {};
 
@@ -1773,10 +1778,6 @@ boot();
 setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
 
 /* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
-const debounce = (fn, ms) => {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-};
 
 const ovSearchDebounced = debounce(ovSearch, 150);
 const sbSearchDebounced = debounce(sbSearchInput, 150);
