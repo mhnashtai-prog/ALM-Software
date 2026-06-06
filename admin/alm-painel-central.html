@@ -783,28 +783,28 @@ body{display:flex;flex-direction:column}
       <button class="fbt" data-ag="status" data-av="atribuido" onclick="setAF(this)">Atribuído</button>
       <button class="fbt" data-ag="status" data-av="noreq" onclick="setAF(this)">Sem pedido</button>
     </div>
-    <div style="padding:8px;flex-shrink:0;display:flex;flex-wrap:wrap;gap:4px">
+    <div style="padding:8px;border-bottom:1px solid var(--b);flex-shrink:0;display:flex;flex-wrap:wrap;gap:4px">
       <button class="fbt act" data-ag="dept" data-av="all" onclick="setAF(this)">Todos dept</button>
       <button class="fbt" data-ag="dept" data-av="kids" onclick="setAF(this)">Infantil</button>
       <button class="fbt" data-ag="dept" data-av="kids_juv" onclick="setAF(this)">Juvenil</button>
       <button class="fbt" data-ag="dept" data-av="adults" onclick="setAF(this)">Geral</button>
       <button class="fbt" data-ag="dept" data-av="exam" onclick="setAF(this)">Exames</button>
     </div>
+    <div class="lp-tree" id="au-level-tree"><div class="spinner-wrap" style="padding:12px"><div class="spinner"></div></div></div>
   </div>
   <div class="main-pane">
-  <div class="scroll-area" style="padding:14px 18px 60px">
-    <div class="kpi-row" style="padding:0 0 10px">
-      <div class="kpi-card" style="color:var(--gold2)"><div class="kpi-v" id="a-total">—</div><div class="kpi-l">Total</div></div>
-      <div class="kpi-card" style="color:var(--green)"><div class="kpi-v" id="a-com">—</div><div class="kpi-l">Com pedido</div></div>
-      <div class="kpi-card" style="color:var(--red)"><div class="kpi-v" id="a-sem">—</div><div class="kpi-l">Sem pedido</div></div>
-      <div class="kpi-card" style="color:var(--amber)"><div class="kpi-v" id="a-pend">—</div><div class="kpi-l">Pendentes</div></div>
+    <div class="scroll-area" style="padding:14px 18px 60px">
+      <div class="kpi-row" style="padding:0 0 10px">
+        <div class="kpi-card" style="color:var(--gold2)"><div class="kpi-v" id="a-total">—</div><div class="kpi-l">Total</div></div>
+        <div class="kpi-card" style="color:var(--green)"><div class="kpi-v" id="a-com">—</div><div class="kpi-l">Com pedido</div></div>
+        <div class="kpi-card" style="color:var(--red)"><div class="kpi-v" id="a-sem">—</div><div class="kpi-l">Sem pedido</div></div>
+        <div class="kpi-card" style="color:var(--amber)"><div class="kpi-v" id="a-pend">—</div><div class="kpi-l">Pendentes</div></div>
+      </div>
+      <div style="font-size:7.5px;color:var(--t3);margin-bottom:8px" id="au-count">—</div>
+      <div class="au-hdr"><span>Nome</span><span>Nível</span><span>Disponibilidade</span><span>Status</span></div>
+      <div id="au-rows"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
     </div>
-    <div style="font-size:7.5px;color:var(--t3);margin-bottom:8px" id="au-count">—</div>
-    <div class="au-hdr"><span>Nome</span><span>Nível</span><span>Disponibilidade</span><span>Status</span></div>
-  <div id="au-rows"><div class="spinner-wrap"><div class="spinner"></div>A carregar…</div></div>
   </div>
-  </div>
-</div>
 </div>
 
   <!-- ══ FORMATION ══ -->
@@ -2720,7 +2720,33 @@ const q=((document.getElementById('au-search-lp')?.value||document.getElementByI
     const st=req?normS(req.status):'sem_pedido';
     const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
     return`<div class="au-row" onclick="openDossier('${e.ref}')"><div class="au-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:7px;color:var(--t3)">${e.ref||'—'}</div></div><div class="au-cell"><div style="font-size:9px;font-weight:600;color:${meta.color||'var(--t3)'}">${meta.label||'—'}</div><div style="font-size:7px;color:var(--t3)">${dc.label||''}</div></div><div class="au-cell"><div class="heatstrip">${cells}</div><div style="font-size:5.5px;color:var(--t4);margin-top:2px;letter-spacing:.04em">S T Q Q S S</div></div><div class="au-cell" style="text-align:center"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div></div>`;
-  }).join('')||`<div class="empty-msg">Nenhum resultado.</div>`;
+ }).join('')||`<div class="empty-msg">Nenhum resultado.</div>`;
+  renderAuditTree();
+}
+
+function renderAuditTree(){
+  const el=document.getElementById('au-level-tree');if(!el)return;
+  let html='';
+  DEPT_ORDER.forEach(dk=>{
+    const dc=DEPT_CFG[dk]||{};
+    const levels=Object.keys(LEVEL_MAP).filter(k=>LEVEL_MAP[k].dept===dk);
+    if(!levels.length)return;
+    html+=`<div style="padding:5px 10px 3px;font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${dc.color};border-top:.5px solid var(--b)">${dc.label}</div>`;
+    levels.forEach(key=>{
+      const meta=LEVEL_MAP[key]||{};
+      const n=allE.filter(e=>lk(e)===key).length;
+      const isActive=auditFilters.levelKey===key;
+      html+=`<div class="lp-lv${isActive?' active':''}" onclick="auSetLevel('${key}')"><div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div><div class="lp-lv-name">${meta.label||key}</div><div class="lp-lv-n">${n}</div></div>`;
+    });
+  });
+  html+=`<div class="lp-lv${!auditFilters.levelKey?' active':''}" onclick="auSetLevel(null)" style="margin-top:4px;border-top:.5px solid var(--b)"><div class="lp-lv-dot" style="background:var(--gold)"></div><div class="lp-lv-name">Todos os níveis</div><div class="lp-lv-n">${allE.length}</div></div>`;
+  document.getElementById('au-level-tree').innerHTML=html;
+}
+
+function auSetLevel(key){
+  auditFilters.levelKey=key;
+  renderAuditTree();
+  renderAudit();
 }
 
 /* ══════════════════════════════════════════════
