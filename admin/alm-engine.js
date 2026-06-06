@@ -600,12 +600,11 @@ function parseSlotsForRuler(req){
 
 async function fetchDossierData(ref){
   return Promise.all([
-    sbGet('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,enrolment_date,academic_year,returning_student,guardian_name,guardian_phone,notes&limit=1`),
-    sbGet('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,slots,day_preferences,sessions_per_week,status,created_at,notes&limit=1`),
-    sbGet('turma_students',`ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,family,outcome,absences,grade_final,notes&order=academic_year.desc`),
-  ]).catch(()=>[[],[],[]]);
+    sbGet('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,enrolment_date,academic_year,returning_student,guardian_name,guardian_phone,notes&limit=1`).catch(()=>[]),
+    sbGet('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,slots,day_preferences,sessions_per_week,status,created_at,notes&limit=1`).catch(()=>[]),
+    sbGet('turma_students',`ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,family,outcome,absences,grade_final,notes&order=academic_year.desc`).catch(()=>[]),
+  ]);
 }
-
 async function dsSaveNote(ref){
   const txt=document.getElementById('ds-note')?.value?.trim();if(txt==null)return;
   const ok=await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(ref)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:txt})}).then(r=>r.ok).catch(()=>false);
