@@ -3,6 +3,8 @@
    All rendering, DOM manipulation, navigation, modals.
    Depends on: alm-engine.js (must load first)
 ═══════════════════════════════════════════════════════════════ */
+
+/* ── GRID / HEATMAP ───────────────────────────────────────── */
 function buildHeatmap(students){
   const map={};
   DAYS_PT.forEach(d=>{map[d]={};HOUR_COLS.forEach(h=>map[d][h]=0);});
@@ -61,6 +63,29 @@ function buildPermanentGrid(containerId,withReq){
   container.innerHTML=`<div class="day-col-wrap"><div class="day-lbl-col">${dayColHTML}</div><div class="scroll-cols">${timeHdrHTML}<div id="${containerId}-rows-wrap" style="position:relative">${rowsHTML}</div></div></div>`;
 }
 
+function timeToBandPos(startTime,endTime,rowEl){
+  const cells=Array.from(rowEl.querySelectorAll('.gcell'));
+  const GAP=3;let x=0;
+  const sm=toMins(startTime),em=toMins(endTime);
+  if(sm===null||em===null)return null;
+  let left=null,right=null;
+  for(let i=0;i<ALL_HRS.length;i++){
+    const h=ALL_HRS[i],cell=cells[i];
+    if(!cell)continue;
+    const w=cell.offsetWidth;
+    if(h===null){x+=w+GAP;continue;}
+    const hStart=h*60,hEnd=(h+1)*60;
+    if(sm<hEnd&&em>hStart){
+      const overlapStart=Math.max(sm,hStart),overlapEnd=Math.min(em,hEnd);
+      if(left===null)left=x+((overlapStart-hStart)/60)*w;
+      right=x+((overlapEnd-hStart)/60)*w;
+    }
+    x+=w+GAP;
+  }
+  if(left===null)return null;
+  return{left:Math.round(left),width:Math.max(38,Math.round(right-left))};
+}
+
 function drawStamps(containerId,levelKey,result){
   const wrap=document.getElementById(`${containerId}-rows-wrap`);
   if(!wrap)return;
@@ -70,10 +95,7 @@ function drawStamps(containerId,levelKey,result){
   result.groups.forEach((g,i)=>{
     const committed=(_groupCodes[levelKey]||{})[i];
     const ar=(_auditResults[levelKey]||{})[i];
-    const isCert=!!committed;
-    const isFail=ar?.status==='fail';
-    const isWarn=ar?.status==='warn';
-
+    const isCert=!!committed,isFail=ar?.status==='fail',isWarn=ar?.status==='warn';
     const col=isFail?'#E8455A':isWarn?'#E8A020':slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
     const bandBg=isFail?'rgba(232,69,90,.25)':isWarn?'rgba(232,160,32,.22)':isCert?col+'28':col+'35';
     const borderCol=isFail?'#E8455A99':isCert?col:col+'CC';
@@ -133,699 +155,7 @@ function drawStamps(containerId,levelKey,result){
   });
 }
 
-/* ══════════════════════════════════════════════
-   PAIR ENGINE v2
-══════════════════════════════════════════════ */
-function buildProposals(levelKey,branch){
-  const STEP=30;
-  const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
-  const all=allE.filter(e=>{
-    if(lk(e)!==levelKey)return false;
-    if(branch!=='all'&&normB(e.branch)!==branch)return false;
-    return true;
-  });
-
-  const lockedHere=_lockedRefs[levelKey]||new Set();
-  const withReq=all.filter(e=>!!rByRef[e.ref]&&!lockedHere.has(e.ref));
-
-  const studentWindows={};
-  withReq.forEach(e=>{
-    const a=analysePrefs(e.ref);
-    if(!a||!a.windows.length)return;
-    studentWindows[e.ref]=a.windows;
-  });
-
-  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-
-  function coversSlot(windows,dayIdx,startMins){
-    return windows.some(w=>w.dayIdx===dayIdx&&w.earliest<=startMins+30&&w.latest>=startMins+CLASS_DUR-30);
-  }
-
-  const SLOTS=[];
-  for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
-
-  const freqMap={};
-  withReq.forEach(e=>{
-    const windows=studentWindows[e.ref];
-    if(!windows)return;
-    activePairs.forEach((pair,pi)=>{
-      SLOTS.forEach(startMins=>{
-        const okA=coversSlot(windows,pair.a,startMins);
-        const okB=pair.a===pair.b?okA:coversSlot(windows,pair.b,startMins);
-        if(!okA||!okB)return;
-        const key=`${pi}|${startMins}`;
-        if(!freqMap[key])freqMap[key]=new Set();
-        freqMap[key].add(e.ref);
-      });
-    });
-  });
-
-  const candidates=Object.entries(freqMap)
-    .map(([key,refs])=>({key,refs,count:refs.size}))
-    .filter(c=>c.count>=MIN_G)
-    .sort((a,b)=>b.count-a.count);
-
-  const placed=new Set();
-  const groups=[];
-
-  const studentCandidateCount={};
-  candidates.forEach(({refs})=>{refs.forEach(r=>{studentCandidateCount[r]=(studentCandidateCount[r]||0)+1;});});
-
-  candidates.forEach(({key,refs})=>{
-    const available=[...refs].filter(r=>!placed.has(r)).sort((a,b)=>(studentCandidateCount[a]||0)-(studentCandidateCount[b]||0));
-    if(available.length<MIN_G)return;
-    const [piStr,startMinsStr]=key.split('|');
-    const pi=parseInt(piStr,10),startMins=parseInt(startMinsStr,10);
-    const pair=activePairs[pi];
-    if(!pair)return;
-    const students=available.slice(0,MAX_G).map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
-    students.forEach(e=>placed.add(e.ref));
-    groups.push({
-      pairDef:pair,
-      dayIdx_A:pair.a,dayIdx_B:pair.b,
-      dayL_A:pair.aL||DAYS_PT[pair.a],
-      dayL_B:pair.bL||DAYS_PT[pair.b],
-      dayL:pair.aL||DAYS_PT[pair.a],
-      dayIdx:pair.a,
-      startMins,
-      startTime:minsToT(startMins),
-      endTime:minsToT(startMins+CLASS_DUR),
-      students,
-    });
-  });
-
-  const noWindows=withReq.filter(e=>!studentWindows[e.ref]);
-  const noGroup=withReq.filter(e=>studentWindows[e.ref]&&!placed.has(e.ref));
-
-  function whyNoGroup(e){
-    const windows=studentWindows[e.ref];
-    if(!windows)return'Sem janelas de disponibilidade válidas';
-    const days=[...new Set(windows.map(w=>w.dayIdx))];
-    if(days.length<2)return`Apenas ${days.length} dia(s) disponível — necessita par de dias`;
-    const coveredPairs=activePairs.filter(pair=>SLOTS.some(t=>coversSlot(windows,pair.a,t)&&coversSlot(windows,pair.b,t)));
-    if(!coveredPairs.length)return'Nenhum par de dias compatível com disponibilidade';
-    return'Par de dias sem grupo suficiente (< 5 alunos compatíveis)';
-  }
-
-  const sinalizados=[
-    ...noWindows.map(e=>({e,reason:'invalid-window',why:'Horário sem janelas válidas reconhecidas'})),
-    ...noGroup.map(e=>({e,reason:'no-group',why:whyNoGroup(e)})),
-  ];
-
-  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length};
-}
-
-/* ══════════════════════════════════════════════
-   AUDIT
-══════════════════════════════════════════════ */
-function auditGroupSync(g){
-  const log={};
-  let passCount=0,warnCount=0,failCount=0;
-  const pair=g.pairDef;
-
-  g.students.forEach(e=>{
-    const req=rByRef[e.ref];
-    if(!req){log[e.ref]={verdict:'fail',reason:'Sem pedido registado'};failCount++;return;}
-    const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const slotsA=[],slotsB=[];
-    raw.forEach(p=>{
-      const s=parseSlot(p);if(!s)return;
-      if(s.dayIdx===g.dayIdx_A)slotsA.push(s);
-      if(pair&&pair.a!==pair.b&&s.dayIdx===g.dayIdx_B)slotsB.push(s);
-    });
-    const fitsA=slotsA.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR);
-    const fitsB=pair&&pair.a!==pair.b?slotsB.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR):fitsA;
-    const hasA=slotsA.length>0;
-    const hasB=pair&&pair.a!==pair.b?slotsB.length>0:hasA;
-    let verdict='pass',reason='Par de dias confirmado';
-    if(!hasA&&!hasB){verdict='fail';reason=`Não pediu ${g.dayL_A||g.dayL} nem ${g.dayL_B||g.dayL}`;}
-    else if(!hasA){verdict='fail';reason=`Não pediu ${g.dayL_A||g.dayL}`;}
-    else if(pair&&pair.a!==pair.b&&!hasB){verdict='fail';reason=`Não pediu ${g.dayL_B}`;}
-    else if(!fitsA||!fitsB){
-      verdict='warn';
-      const which=!fitsA?(g.dayL_A||g.dayL):(g.dayL_B||g.dayL);
-      reason=`${which} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} não cabe na janela declarada`;
-    }
-    log[e.ref]={verdict,reason};
-    if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
-  });
-
-  const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
-  const auditStatus=failCount>0?'fail':(warnCount>0||sizeStatus==='warn')?'warn':'pass';
-  if(sizeStatus==='warn'){Object.keys(log).forEach(ref=>{if(log[ref].verdict==='pass')log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;});}
-  return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
-}
-
-/* ══════════════════════════════════════════════
-   COMMIT — single session row
-══════════════════════════════════════════════ */
-async function commitGroup(levelKey,groupIdx){
-  const result=_allResults[levelKey];if(!result)return null;
-  const g=result.groups[groupIdx];if(!g)return null;
-  const meta=LEVEL_MAP[levelKey]||{};
-  const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-  const seqNum=generateTurmaCodeSync(branch);
-  const codeA=`${seqNum}A`,codeB=`${seqNum}B`,groupCode=`${seqNum}`;
-  const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
-  const studentRefs=g.students.map(s=>s.ref);
-  const baseRow={
-    group_code:groupCode,academic_year:AY,branch,
-    lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
-    department:meta.dept||'adults',
-    level_code:(levelKey.split('|')[1]||'').trim(),
-    level_display:meta.label||'',
-    start_time:g.startTime,end_time:g.endTime,duration_min:CLASS_DUR,
-    student_refs:studentRefs,status:'confirmed',locked:true,
-    assignment_source:'decision_panel',
-    audit_log:ar.log||{},audited_at:new Date().toISOString(),
-    pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0,
-  };
-  const rowA={...baseRow,turma_code:codeA,day_of_week:g.dayL_A||g.dayL,hour:Math.floor(g.startMins/60)};
-  const rows=[rowA];
-  if((g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)){
-    rows.push({...baseRow,turma_code:codeB,day_of_week:g.dayL_B||g.dayL_A,hour:Math.floor(g.startMins/60)});
-  }
-  const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(rows)});
-  if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  _retiredCodes.add(groupCode);_retiredCodes.add(codeA);_retiredCodes.add(codeB);
-  if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-  _groupCodes[levelKey][groupIdx]={turmaCode:groupCode,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:new Date().toISOString(),status:ar.status||'pass',locked:true};
-  const sealBase={group_code:groupCode,level_code:(levelKey.split('|')[1]||'').trim(),department:meta.dept||'adults',branch,start_time:g.startTime,end_time:g.endTime,student_refs:studentRefs,academic_year:AY};
-  await fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify([
-    {...sealBase,turma_code:codeA,day:g.dayL_A||g.dayL},
-    ...((g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)?[{...sealBase,turma_code:codeB,day:g.dayL_B}]:[]),
-  ])});
-  return groupCode;
-}
-
-async function loadNextSeqBase(){
-  try{
-    const rows=await sbGet('classes',`select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`);
-    const maxByBranch={};
-    rows.forEach(r=>{const m=(r.turma_code||'').match(/^([A-Z]{2,4})-(\d+)[AB]?$/);if(!m)return;const bc=m[1],n=parseInt(m[2],10);if(!maxByBranch[bc]||n>maxByBranch[bc])maxByBranch[bc]=n;});
-    Object.keys(maxByBranch).forEach(bc=>{_nextSeqBase[bc]=maxByBranch[bc]+1;});
-  }catch(e){console.warn('loadNextSeqBase failed',e);}
-}
-
-function generateTurmaCodeSync(branch){
-  const bc=BC[normB(branch)]||'XXX';
-  if(_nextSeqBase[bc]===undefined)_nextSeqBase[bc]=1;
-  const n=_nextSeqBase[bc]++;
-  return`${bc}-${String(n).padStart(2,'0')}`;
-}
-
-/* ══════════════════════════════════════════════
-   BOOT AUDIT
-══════════════════════════════════════════════ */
-async function runBootAudit(){
-  const levelKeys=Object.keys(LEVEL_MAP);
-  const total=levelKeys.length;let done=0;
-  await loadNextSeqBase();
-  setBoot('A agrupar e auditar todos os níveis…');
-  for(const key of levelKeys){
-    const allGroups=[],allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
-    for(const branch of BRANCH_ORDER){
-      const result=buildProposals(key,branch);
-      if(!result.groups.length&&!result.sinalizados.length)continue;
-      const offset=allGroups.length;
-      allGroups.push(...result.groups);allSinal.push(...result.sinalizados);
-      totalPlaced+=result.placed;totalWithReq+=result.withRequest;totalAll+=result.total;
-      if(!_auditResults[key])_auditResults[key]={};
-      result.groups.forEach((g,i)=>{_auditResults[key][offset+i]=auditGroupSync(g);});
-    }
-    if(allGroups.length){_allResults[key]={groups:allGroups,sinalizados:allSinal,total:totalAll,withRequest:totalWithReq,placed:totalPlaced};}
-    done++;setBootProgress(40+Math.round(done/total*40));
-  }
-  setBoot('A verificar turmas existentes…');
-  try{
-    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
-    if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
-    existing.forEach(c=>{
-      if(c.turma_code)_retiredCodes.add(c.turma_code);
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const refs=Array.isArray(c.student_refs)?c.student_refs:[];
-      if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
-      refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
-    });
-    existing.forEach(c=>{
-      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const result=_allResults[key];if(!result)return;
-      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-      result.groups.forEach((g,i)=>{
-        if((_groupCodes[key]||{})[i])return;
-        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          const codeA=`${gc}A`,codeB=`${gc}B`;
-          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
-        }
-      });
-    });
-  }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
-  setBootProgress(85);
-  await reconstructLockedGroups();
-  _exceptionQueue=[];
-  for(const key of Object.keys(_allResults)){
-    const result=_allResults[key];
-    result.groups.forEach((g,i)=>{
-      const ar=(_auditResults[key]||{})[i];
-      if(!ar||ar.status==='pass')return;
-      if((_groupCodes[key]||{})[i])return;
-      _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
-    });
-  }
-  setBootProgress(100);
-  (function reconcileDBvsEngine(){
-    const warnings=[];
-    Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
-      const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
-      const engineCount=_allResults[key]?.placed||0;
-      const diff=Math.abs(dbCount-engineCount);
-      if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
-    });
-    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
-  })();
-  return{committed:0,exceptions:_exceptionQueue.length};
-}
-
-function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
-function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
-
-/* ══════════════════════════════════════════════
-   EXCEPTION BAR
-══════════════════════════════════════════════ */
-function renderExcBar(){
-  const bar=document.getElementById('exc-bar');
-  if(!_bootComplete){bar.classList.add('hidden');return;}
-  bar.classList.remove('hidden');
-const fails=_exceptionQueue.filter(e=>e.auditResult.status==='fail');
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  const total=_exceptionQueue.length;
-  // session count: each group is 2 sessions (A+B) unless same-day
-  const sessionCount=q=>q.reduce((n,e)=>{const g=e.group;return n+(((g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx))?1:2);},0);
-  const totalSessions=sessionCount(_exceptionQueue);
-  const warnSessions=sessionCount(warns);
-  const lbl=document.getElementById('exc-bar-lbl');
-  const items=document.getElementById('exc-items');
-  const btn=document.getElementById('exc-confirm-btn');
-  if(total===0){
-    bar.className='exc-bar clear';lbl.textContent='✓ TUDO CERTIFICADO';
-    let totalGroups=0,totalPlaced=0;
-    Object.keys(_groupCodes).forEach(key=>{totalGroups+=Object.keys(_groupCodes[key]||{}).length;const result=_allResults[key];if(result)totalPlaced+=result.placed||0;});
-    const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))].length;
-    items.innerHTML=`<span style="font-size:8px;color:var(--green);padding:0 14px;display:flex;align-items:center;gap:18px"><span>Todos os grupos auditados e certificados automaticamente.</span><span style="font-size:9px;font-weight:700;color:var(--green);border-left:1px solid var(--green-b);padding-left:14px">${totalGroups} turma${totalGroups!==1?'s':''} criada${totalGroups!==1?'s':''}</span><span style="font-size:9px;font-weight:700;color:var(--teal)">${totalPlaced} alunos alocados</span><span style="font-size:8px;color:rgba(29,184,122,.5)">${allE.length} inscritos · ${branches} filiai${branches!==1?'s':''}</span></span>`;
-    btn.className='exc-confirm-btn disabled';btn.style.display='none';return;
-  }
-  bar.className=fails.length>0?'exc-bar fail':'exc-bar';
-  lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
-  const byLevel={};
-  _exceptionQueue.forEach(exc=>{const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;if(!byLevel[lb])byLevel[lb]={f:0,w:0};if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;});
-  items.innerHTML=Object.entries(byLevel).map(([lb,c])=>`<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`).join('');
- if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warnSessions} sessõe${warnSessions!==1?'s':''} (${warns.length} grupo${warns.length!==1?'s':''})`;}
-  else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
-}
-
-function jumpToException(levelKey,groupIdx){
-  activeLevelKey=levelKey;_lastResult=_allResults[levelKey];
-  switchCC('formation',document.getElementById('tab-formation'));
-  renderTree();renderLevelContent();
-  setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
-}
-
-function batchConfirm(){
-  const btn=document.getElementById('exc-confirm-btn');
-  if(btn.classList.contains('disabled'))return;
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  if(!warns.length)return;
-  const existing=document.getElementById('bc-overlay');if(existing)existing.remove();
-  const overlay=document.createElement('div');
-  overlay.id='bc-overlay';
-  overlay.style.cssText='position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
-  const rows=warns.map(exc=>{
-    const meta=LEVEL_MAP[exc.levelKey]||{},g=exc.group;
-    const session=`${g.dayL_A||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
-    const warnReasons=[...new Set(Object.values(exc.auditResult.log||{}).map(l=>l.reason||l.sizeWarn||'').filter(Boolean))];
-    const reasonText=exc.auditResult.sizeWarn?`${g.students.length} alunos (mín. ${ASSIGN_MIN})`:warnReasons[0]||'aviso';
-    const col=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
-    return`<tr style="border-bottom:.5px solid rgba(255,255,255,.06)"><td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color||'var(--gold2)'}">${meta.label||exc.levelKey}</td><td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td><td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td><td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td></tr>`;
-  }).join('');
-  overlay.innerHTML=`<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(232,160,32,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
-  document.body.appendChild(overlay);
-}
-
-async function batchConfirmExecute(){
-  const btn=document.getElementById('bc-confirm-btn');
-  if(btn)btn.disabled=true;if(btn)btn.textContent='⏳ A certificar…';
-  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
-  let ok=0;
-  for(const exc of warns){try{await commitGroup(exc.levelKey,exc.groupIdx);ok++;}catch{}}
-  _exceptionQueue=_exceptionQueue.filter(e=>e.auditResult.status!=='warn');
-  document.getElementById('bc-overlay')?.remove();
-  showToast(`${ok} turma${ok!==1?'s':''} com avisos certificadas`,'warn');
-  renderExcBar();if(activeLevelKey&&_allResults[activeLevelKey])renderLevelContent();
-}
-function showAllExceptions(){if(_exceptionQueue.length)jumpToException(_exceptionQueue[0].levelKey,_exceptionQueue[0].groupIdx);}
-function overrideException(levelKey,groupIdx){
-  _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
-  commitGroup(levelKey,groupIdx).then(code=>{showToast(`Turma ${code||''} aceite com excepção`,'warn');renderExcBar();renderLevelContent();}).catch(err=>showToast('Erro: '+err.message,'err'));
-}
-
-/* ══════════════════════════════════════════════
-   DECISION PANEL
-══════════════════════════════════════════════ */
-function decStuChips(students,ar){
-  return[...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
-    const av=avCol(e.name||e.ref),verdict=ar?.log?.[e.ref]?.verdict||'pass';
-    const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
-    return'<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier(\''+e.ref+'\')">'
-      +'<div style="width:16px;height:16px;border-radius:50%;background:'+av.bg+';color:'+av.t+';font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+avInit(e.name||e.ref)+'</div>'
-      +'<span style="font-size:8px;color:var(--t)">'+(e.name||e.ref)+'</span>'
-      +'<span style="font-size:7px;color:'+vCol+'">'+(verdict==='pass'?'✓':'⚠')+'</span>'
-      +'</div>';
-  }).join('');
-}
-
-async function renderDecision(){
-  const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
-  if(!triageEl||!mainEl)return;
-
-  triageEl.innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>`;
-
-  try{
-    const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
-    const byGC={};
-    rows.forEach(c=>{
-      const gc=c.group_code||(c.turma_code?.replace(/[AB]$/i,''));
-      if(!gc)return;
-      if(!byGC[gc])byGC[gc]=[];
-      byGC[gc].push(c);
-    });
-    Object.values(byGC).forEach(groupRows=>{
-      const first=groupRows[0];
-      const key=`${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
-      if(!_allResults[key]){
-        const refs=Array.isArray(first.student_refs)?first.student_refs:[];
-        const students=refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
-        if(!students.length)return;
-        const startMins=timeToMins(first.start_time)??8*60;
-        const dayRaw=(first.day_of_week||'').toUpperCase().trim();
-        const dayIdx=DAYS_PT.indexOf(dayRaw);if(dayIdx<0)return;
-        const rowB=groupRows.find(r=>r.turma_code!==first.turma_code);
-        const dayRawB=rowB?(rowB.day_of_week||'').toUpperCase().trim():dayRaw;
-        const dayIdxB=rowB?DAYS_PT.indexOf(dayRawB):dayIdx;
-        const pairDef=ALM_PAIRS.find(p=>p.a===dayIdx&&p.b===dayIdxB)||null;
-        _allResults[key]={groups:[{
-          pairDef,dayIdx_A:dayIdx,dayIdx_B:dayIdxB,
-          dayL_A:DAYS_PT[dayIdx],dayL_B:DAYS_PT[dayIdxB],
-          dayIdx,dayL:DAYS_PT[dayIdx],startMins,
-          startTime:minsToT(startMins),endTime:minsToT(startMins+CLASS_DUR),
-          students,_locked:true
-        }],sinalizados:[],total:students.length,withRequest:students.length,placed:students.length};
-        if(!_auditResults[key])_auditResults[key]={};
-        _auditResults[key][0]=auditGroupSync(_allResults[key].groups[0]);
-      }
-      const gc=first.group_code||(first.turma_code?.replace(/[AB]$/i,''));
-      const result=_allResults[key];
-      if(!result?.groups)return;
-      const dbRefs=new Set(Array.isArray(first.student_refs)?first.student_refs:[]);
-      result.groups.forEach((g,i)=>{
-        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.5)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          const codeA=groupRows.find(r=>/A$/i.test(r.turma_code))?.turma_code||`${gc}A`;
-          const codeB=groupRows.find(r=>/B$/i.test(r.turma_code))?.turma_code||`${gc}B`;
-          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass',locked:true};
-        }
-      });
-    });
-  }catch(e){console.warn('renderDecision DB fetch failed',e);}
-
-  let totalSessions=0,certifiedSessions=0;
-  Object.keys(_allResults).forEach(key=>{
-    const result=_allResults[key];if(!result?.groups?.length)return;
-    result.groups.forEach((g,i)=>{
-      const committed=(_groupCodes[key]||{})[i];
-      const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
-      const sessionCount=isSameDay?1:2;
-      totalSessions+=sessionCount;
-      if(committed){
-        if(committed.turmaCodeA)certifiedSessions++;
-        if(!isSameDay&&committed.turmaCodeB)certifiedSessions++;
-      }
-    });
-  });
-  const pendingSessions=totalSessions-certifiedSessions;
-  const pct=totalSessions>0?Math.round(certifiedSessions/totalSessions*100):0;
-  document.getElementById('dec-sidebar-sub').textContent=`${certifiedSessions} sessões cert. · ${pendingSessions} por certificar`;
-  const fill=document.getElementById('dec-progress-fill');if(fill)fill.style.width=pct+'%';
-
-  const byLevel={};
-  Object.keys(_allResults).forEach(key=>{
-    const result=_allResults[key];if(!result?.groups?.length)return;
-    let pending=0,certified=0;
-    result.groups.forEach((g,i)=>{
-      const committed=(_groupCodes[key]||{})[i];
-      const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
-      if(!committed?.turmaCodeA)pending++;else certified++;
-      if(!isSameDay){if(!committed?.turmaCodeB)pending++;else certified++;}
-    });
-    byLevel[key]={pending,certified};
-  });
-
-  if(!Object.keys(byLevel).length){
-    triageEl.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px;letter-spacing:.1em">Sem grupos formados ainda</div>`;
-    mainEl.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">✓</div><div class="placeholder-text">← Seleccione um grupo</div></div>`;
-    return;
-  }
-
-  triageEl.innerHTML=Object.entries(byLevel).map(([key,{pending,certified}])=>{
-    const meta=LEVEL_MAP[key]||{};
-    const result=_allResults[key];
-    const hasFails=result?.groups?.some((g,i)=>(_auditResults[key]||{})[i]?.status==='fail'&&!(_groupCodes[key]||{})[i]);
-    const hasWarns=result?.groups?.some((g,i)=>(_auditResults[key]||{})[i]?.status==='warn'&&!(_groupCodes[key]||{})[i]);
-    const allCert=pending===0;
-    const col=hasFails?'var(--red)':allCert?'var(--green)':hasWarns?'var(--amber)':'var(--gold2)';
-    const statusLabel=hasFails?'FAIL':allCert?'✓':hasWarns?'WARN':`${pending}↓`;
-    return`<div class="dec-triage-item${hasFails?' exception':allCert?' certified':''}" onclick="decShowLevel('${key}')">
-      <div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:9px;font-weight:600;color:var(--t)">${meta.label||key}</div>
-        <div style="font-size:7px;color:var(--t3);margin-top:1px">${allCert?`${certified} cert. ✓`:`${pending} por cert.`}</div>
-      </div>
-      <span style="font-size:7px;font-weight:700;color:${col};padding:1px 6px;border:1px solid ${col}55">${statusLabel}</span>
-    </div>`;
-  }).join('');
-
-  const firstKey=Object.keys(byLevel)[0];if(firstKey)decShowLevel(firstKey);
-}
-
-function decShowLevel(levelKey){
-  const mainEl=document.getElementById('dec-main');
-  const result=_allResults[levelKey];
-  if(!result?.groups?.length){mainEl.innerHTML='<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>';return;}
-  const meta=LEVEL_MAP[levelKey]||{};
-
-  // Build one card per session (A and B independently)
-  const sessionCards=[];
-  result.groups.forEach((g,i)=>{
-    const committed=(_groupCodes[levelKey]||{})[i];
-    const ar=(_auditResults[levelKey]||{})[i];
-    const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
-    const slots=isSameDay
-      ?[{suffix:'A',dayL:g.dayL_A||g.dayL,dayIdx:g.dayIdx_A??g.dayIdx}]
-      :[
-        {suffix:'A',dayL:g.dayL_A||g.dayL,dayIdx:g.dayIdx_A??g.dayIdx},
-        {suffix:'B',dayL:g.dayL_B||g.dayL,dayIdx:g.dayIdx_B??g.dayIdx},
-      ];
-    slots.forEach(({suffix,dayL})=>{
-      const alreadyCert=committed&&(suffix==='A'?!!committed.turmaCodeA:!!committed.turmaCodeB);
-      if(alreadyCert)return;
-      const slotCode=committed
-        ?(suffix==='A'?(committed.turmaCodeA||`${committed.turmaCode}A`):(committed.turmaCodeB||`${committed.turmaCode}B`))
-        :`T${i+1}${suffix}`;
-      sessionCards.push({groupIdx:i,suffix,dayL,slotCode,g,ar});
-    });
-  });
-
-  const pending=sessionCards.length;
-  let html=`<div class="sec" style="margin-bottom:14px">${meta.label||levelKey} · ${pending} sessão${pending!==1?'ões':''} por certificar</div>`;
-
-  sessionCards.forEach(({groupIdx,suffix,dayL,slotCode,g,ar})=>{
-    const slotC=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
-    const session=`${dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
-    const auditSummary=ar
-      ?`<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 6px;border:1px solid var(--green-b);background:var(--green-a)">✓ ${ar.passCount}</span>`
-      +(ar.warnCount?`<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>`:'')
-      +(ar.failCount?`<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>`:'')
-      :'';
-    html+=`<div class="dec-card" id="dec-card-${groupIdx}-${suffix}" style="border-left-color:${slotC}">
-      <div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')">
-        <span class="dc-arr">›</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:600;color:${slotC}">${slotCode} · ${session}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:3px">${auditSummary}</div>
-        </div>
-        <div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div>
-        <button class="dc-btn dc-btn-create" id="dec-btn-${groupIdx}-${suffix}"
-          onclick="event.stopPropagation();decCertifySession('${levelKey}',${groupIdx},'${suffix}',this)">✓ Certificar</button>
-      </div>
-      <div class="dc-body">
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${decStuChips(g.students,ar)}</div>
-      </div>
-    </div>`;
-  });
-
-  if(!sessionCards.length){
-    html+=`<div style="padding:40px;text-align:center;color:var(--green);font-size:9px;letter-spacing:.1em">✓ Todas as sessões deste nível certificadas</div>`;
-  }
-
-  mainEl.innerHTML=html;
-}
-
-async function decCertifySession(levelKey,groupIdx,suffix,btn){
-  const g=_allResults[levelKey]?.groups[groupIdx];
-  if(!g){showToast('Grupo não encontrado','err');return;}
-  const meta=LEVEL_MAP[levelKey]||{};
-  const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
-  const dayL=suffix==='A'?(g.dayL_A||g.dayL):(g.dayL_B||g.dayL_A||g.dayL);
-
-const confirmed=await almConfirm({
-    title:'CERTIFICAR SESSÃO',
-    accent:'var(--green)',
-    okBg:'rgba(29,184,122,.9)',
-    okLabel:'✓ Certificar',
-    lines:[
-      `${meta.label||levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`,
-      `${g.students.length} alunos`,
-    ],
-  });
-  if(!confirmed)return;
-
-  btn.disabled=true;btn.textContent='⏳ A certificar…';
-
-  try{
-    const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-
-    // Reuse existing group_code if sibling session already committed, else mint new
-    let groupCode=(_groupCodes[levelKey]||{})[groupIdx]?.turmaCode||null;
-    if(!groupCode){
-      groupCode=generateTurmaCodeSync(branch);
-    }
-    const sessionCode=`${groupCode}${suffix}`;
-
-    const row={
-      group_code:groupCode,
-      turma_code:sessionCode,
-      academic_year:AY,
-      branch,
-      lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
-      department:(LEVEL_MAP[levelKey]||{}).dept||'adults',
-      level_code:(levelKey.split('|')[1]||'').trim(),
-      level_display:(LEVEL_MAP[levelKey]||{}).label||'',
-      day_of_week:dayL,
-      hour:Math.floor(g.startMins/60),
-      start_time:g.startTime,
-      end_time:g.endTime,
-      duration_min:CLASS_DUR,
-      student_refs:g.students.map(s=>s.ref),
-      status:'confirmed',
-      locked:true,
-      assignment_source:'decision_panel',
-      audit_log:ar.log||{},
-      audited_at:new Date().toISOString(),
-      pass_count:ar.passCount||g.students.length,
-      warn_count:ar.warnCount||0,
-      fail_count:ar.failCount||0,
-    };
-
-    const r=await fetch(`${SB}/rest/v1/classes`,{
-      method:'POST',
-      headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},
-      body:JSON.stringify([row])
-    });
-    if(!r.ok)throw new Error(`HTTP ${r.status}`);
-
-    _retiredCodes.add(sessionCode);
-
-    // Update local _groupCodes — merge with existing to preserve sibling
-    if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-    const existing=_groupCodes[levelKey][groupIdx]||{};
-    _groupCodes[levelKey][groupIdx]={
-      ...existing,
-      turmaCode:groupCode,
-      [`turmaCode${suffix}`]:sessionCode,
-      sentAt:new Date().toISOString(),
-      status:ar.status||'pass',
-      locked:true,
-    };
-
-    // Mark card certified in UI
-    const card=document.getElementById(`dec-card-${groupIdx}-${suffix}`);
-    if(card){
-      card.style.borderLeftColor='var(--green)';
-      card.style.background='rgba(29,184,122,.04)';
-      btn.textContent=`✓ ${sessionCode}`;
-      btn.style.cssText='border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
-    }
-
-    showToast(`${sessionCode} certificada ✓`,'ok');
-
-    // Remove from exception queue if present
-    _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
-    renderExcBar();
-    renderDecision();
-
-  }catch(e){
-    btn.disabled=false;
-    btn.textContent='✓ Certificar';
-    showToast('Erro: '+e.message,'err');
-  }
-}
-
-/* ══════════════════════════════════════════════
-   NAVIGATION
-══════════════════════════════════════════════ */
-function switchCC(panel,el){
-  document.querySelectorAll('.cc-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
-  const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
-  if(el)el.classList.add('active');
-if(panel==='audit'){renderAudit();renderAuditTree();}
-  if(panel==='decision')renderDecision();
-  if(panel==='overview'){_ovActiveLevel=null;refreshData().then(()=>{ovRenderStats();ovRenderTree();ovRenderSummary();});}
-}
-
-async function refreshData(){
-  try{
-    const [enrol,reqs]=await Promise.all([
-      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${AY}&order=ref`),
-      sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
-    ]);
-    setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};
-    allR.forEach(r=>{rByRef[r.ref]=r;});
-    document.getElementById('pill-total').textContent=`${allE.length} al`;
-    for(const key of Object.keys(LEVEL_MAP)){
-      const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
-      if(withReq.length>=MIN_G){
-        _allResults[key]=buildProposals(key,'all');
-        _auditResults[key]={};
-        _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
-      } else {delete _allResults[key];}
-    }
-    await reconstructLockedGroups();
-    updateSidebarKPIs();initBranchStrip();renderExcBar();renderTree();
-    if(activeLevelKey){_lastResult=_allResults[activeLevelKey]||null;renderLevelContent();}
-    document.getElementById('badge-audit').textContent=allE.filter(e=>!rByRef[e.ref]).length||'0';
-    document.getElementById('badge-pending').textContent=allE.filter(e=>{const r=rByRef[e.ref];return r&&normS(r.status)==='pendente';}).length||'0';
-  }catch(err){setConn(false);console.warn('refreshData error',err);}
-}
-
-/* ══════════════════════════════════════════════
-   PAIR MATRIX — 1 card per session (A+B split)
-══════════════════════════════════════════════ */
+/* ── PAIR MATRIX ──────────────────────────────────────────── */
 function countPair(students,pair){
   return students.filter(e=>{
     const a=analysePrefs(e.ref);if(!a)return false;
@@ -868,9 +198,7 @@ function buildPairMatrix(pairCounts){
   return html+`</div>`;
 }
 
-/* ══════════════════════════════════════════════
-   GROUP CARD (compact list below matrix)
-══════════════════════════════════════════════ */
+/* ── GROUP CARD ───────────────────────────────────────────── */
 function buildGroupCard(g,i){
   const committed=(_groupCodes[activeLevelKey]||{})[i];
   const ar=(_auditResults[activeLevelKey]||{})[i];
@@ -921,16 +249,14 @@ function buildGroupCard(g,i){
   </div>`;
 }
 
-/* ══════════════════════════════════════════════
-   GROUP MODAL
-══════════════════════════════════════════════ */
+/* ── GROUP MODAL ──────────────────────────────────────────── */
 function openGroupModal(levelKey,i){
   const result=_allResults[levelKey];if(!result)return;
   const g=result.groups[i];if(!g)return;
   const ar=(_auditResults[levelKey]||{})[i];
   const committed=(_groupCodes[levelKey]||{})[i];
   const meta=LEVEL_MAP[levelKey]||{};
-  const isCert=!!committed,isWarn=!isCert&&ar?.status==='warn',isFail=!isCert&&ar?.status==='fail',isExc=isWarn||isFail;
+  const isCert=!!committed,isWarn=!isCert&&ar?.status==='warn',isFail=!isCert&&ar?.status==='fail';
   const col=isFail?'#E8455A':isWarn?'#E8A020':slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
   const dept=meta.dept||'adults';
   const sheet=document.getElementById('gm-sheet');
@@ -954,7 +280,7 @@ function openGroupModal(levelKey,i){
   document.getElementById('gm-pills').innerHTML=
     `<span class="gc-block-tag ${blockCls}">${blockLbl}</span>`+
     (isCert?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${certCode}</span>`:'')
-    +(isExc?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'');
+    +(isWarn?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount!==1?'s':''}</span>`:'');
   document.getElementById('gm-strip').innerHTML=
     `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${g.students.length}</div><div class="gm-stat-l">alunos</div></div>`+
     `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount??g.students.length}</div><div class="gm-stat-l">ok</div></div>`+
@@ -996,7 +322,7 @@ function openGroupModal(levelKey,i){
         <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
         ${reason&&verdict!=='pass'?`<div style="font-size:6.5px;color:var(--amber-d);margin-top:1px">${reason}</div>`:''}
       </div>
-     <span class="gm-verd ${verdict}">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
+      <span class="gm-verd ${verdict}">${verdict==='pass'?'✓':verdict==='warn'?'⚠':'✕'}</span>
       <span style="font-size:9px;color:var(--sub-d)">↗</span>
     </div>`;
   }).join('');
@@ -1026,9 +352,7 @@ function exportGroup(levelKey,idx){
   showToast(`CSV Turma ${idx+1} exportado`,'ok');
 }
 
-/* ══════════════════════════════════════════════
-   SINALIZADOS
-══════════════════════════════════════════════ */
+/* ── SINALIZADOS ──────────────────────────────────────────── */
 function buildSinalizadosHTML(result){
   const{sinalizados,sameDayCt,invalidWinCt,noGroupCt}=result;
   let html=`<div class="sinal-block"><div class="sinal-hdr" onclick="toggleSinal()"><div style="flex:1"><div class="sinal-title">⚠ Sinalizados · não alocados</div><div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">${sameDayCt?sameDayCt+' mesmo dia · ':''}${invalidWinCt?invalidWinCt+' inválido · ':''}${noGroupCt?noGroupCt+' sem grupo':''}</div></div><div class="sinal-count">${sinalizados.length}</div><div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div></div><div class="sinal-body" id="sinal-body">`;
@@ -1045,20 +369,96 @@ function buildSinalizadosHTML(result){
 }
 function toggleSinal(){_sinalOpen=!_sinalOpen;document.getElementById('sinal-body')?.classList.toggle('open',_sinalOpen);const arr=document.getElementById('sinal-arr');if(arr)arr.style.transform=_sinalOpen?'rotate(180deg)':'';}
 
-/* ══════════════════════════════════════════════
-   SIDEBAR
-══════════════════════════════════════════════ */
+/* ── EXCEPTION BAR ────────────────────────────────────────── */
+function renderExcBar(){
+  const bar=document.getElementById('exc-bar');
+  if(!_bootComplete){bar.classList.add('hidden');return;}
+  bar.classList.remove('hidden');
+  const fails=_exceptionQueue.filter(e=>e.auditResult.status==='fail');
+  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
+  const total=_exceptionQueue.length;
+  const sessionCount=q=>q.reduce((n,e)=>{const g=e.group;return n+(((g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx))?1:2);},0);
+  const warnSessions=sessionCount(warns);
+  const lbl=document.getElementById('exc-bar-lbl');
+  const items=document.getElementById('exc-items');
+  const btn=document.getElementById('exc-confirm-btn');
+  if(total===0){
+    bar.className='exc-bar clear';lbl.textContent='✓ TUDO CERTIFICADO';
+    let totalGroups=0,totalPlaced=0;
+    Object.keys(_groupCodes).forEach(key=>{totalGroups+=Object.keys(_groupCodes[key]||{}).length;const result=_allResults[key];if(result)totalPlaced+=result.placed||0;});
+    const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))].length;
+    items.innerHTML=`<span style="font-size:8px;color:var(--green);padding:0 14px;display:flex;align-items:center;gap:18px"><span>Todos os grupos auditados e certificados automaticamente.</span><span style="font-size:9px;font-weight:700;color:var(--green);border-left:1px solid var(--green-b);padding-left:14px">${totalGroups} turma${totalGroups!==1?'s':''} criada${totalGroups!==1?'s':''}</span><span style="font-size:9px;font-weight:700;color:var(--teal)">${totalPlaced} alunos alocados</span><span style="font-size:8px;color:rgba(29,184,122,.5)">${allE.length} inscritos · ${branches} filiai${branches!==1?'s':''}</span></span>`;
+    btn.className='exc-confirm-btn disabled';btn.style.display='none';return;
+  }
+  bar.className=fails.length>0?'exc-bar fail':'exc-bar';
+  lbl.textContent=fails.length>0?'EXCEPÇÕES':'AVISOS';
+  const byLevel={};
+  _exceptionQueue.forEach(exc=>{const lb=(LEVEL_MAP[exc.levelKey]||{}).label||exc.levelKey;if(!byLevel[lb])byLevel[lb]={f:0,w:0};if(exc.auditResult.status==='fail')byLevel[lb].f++;else byLevel[lb].w++;});
+  items.innerHTML=Object.entries(byLevel).map(([lb,c])=>`<div class="exc-chip ${c.f>0?'fail':'warn'}" onclick="showAllExceptions()">${lb} · ${c.f>0?c.f+'F':''}${c.w>0?' '+c.w+'W':''}</div>`).join('');
+  if(fails.length===0){btn.className='exc-confirm-btn ready';btn.textContent=`✓ Confirmar ${warnSessions} sessõe${warnSessions!==1?'s':''} (${warns.length} grupo${warns.length!==1?'s':''})`;}
+  else{btn.className='exc-confirm-btn disabled';btn.textContent=`${fails.length} falha${fails.length!==1?'s':''} bloqueiam confirmação`;}
+}
+
+function jumpToException(levelKey,groupIdx){
+  activeLevelKey=levelKey;_lastResult=_allResults[levelKey];
+  switchCC('formation',document.getElementById('tab-formation'));
+  renderTree();renderLevelContent();
+  setTimeout(()=>{const c=document.getElementById(`gcard-${groupIdx}`);if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},120);
+}
+
+function showAllExceptions(){if(_exceptionQueue.length)jumpToException(_exceptionQueue[0].levelKey,_exceptionQueue[0].groupIdx);}
+
+function batchConfirm(){
+  const btn=document.getElementById('exc-confirm-btn');
+  if(btn.classList.contains('disabled'))return;
+  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
+  if(!warns.length)return;
+  const existing=document.getElementById('bc-overlay');if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='bc-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const rows=warns.map(exc=>{
+    const meta=LEVEL_MAP[exc.levelKey]||{},g=exc.group;
+    const session=`${g.dayL_A||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
+    const warnReasons=[...new Set(Object.values(exc.auditResult.log||{}).map(l=>l.reason||l.sizeWarn||'').filter(Boolean))];
+    const reasonText=exc.auditResult.sizeWarn?`${g.students.length} alunos (mín. ${ASSIGN_MIN})`:warnReasons[0]||'aviso';
+    const col=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+    return`<tr style="border-bottom:.5px solid rgba(255,255,255,.06)"><td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color||'var(--gold2)'}">${meta.label||exc.levelKey}</td><td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td><td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td><td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td></tr>`;
+  }).join('');
+  overlay.innerHTML=`<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(232,160,32,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
+  document.body.appendChild(overlay);
+}
+
+async function batchConfirmExecute(){
+  const btn=document.getElementById('bc-confirm-btn');
+  if(btn)btn.disabled=true;if(btn)btn.textContent='⏳ A certificar…';
+  const warns=_exceptionQueue.filter(e=>e.auditResult.status==='warn');
+  let ok=0;
+  for(const exc of warns){try{await commitGroup(exc.levelKey,exc.groupIdx);ok++;}catch{}}
+  _exceptionQueue=_exceptionQueue.filter(e=>e.auditResult.status!=='warn');
+  document.getElementById('bc-overlay')?.remove();
+  showToast(`${ok} turma${ok!==1?'s':''} com avisos certificadas`,'warn');
+  renderExcBar();if(activeLevelKey&&_allResults[activeLevelKey])renderLevelContent();
+}
+
+function overrideException(levelKey,groupIdx){
+  _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
+  commitGroup(levelKey,groupIdx).then(code=>{showToast(`Turma ${code||''} aceite com excepção`,'warn');renderExcBar();renderLevelContent();}).catch(err=>showToast('Erro: '+err.message,'err'));
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
 function initBranchStrip(){
   const branches=[...new Set(allE.map(e=>normB(e.branch)).filter(Boolean))];
   const ordered=BRANCH_ORDER.filter(b=>branches.includes(b)).concat(branches.filter(b=>!BRANCH_ORDER.includes(b)));
   document.getElementById('branch-strip').innerHTML=
     `<button class="branch-pill${activeLoc==='all'?' active':''}" onclick="setLoc('all',this)">Tudo</button>`+
     ordered.map(b=>`<button class="branch-pill${activeLoc===b?' active':''}" onclick="setLoc('${b}',this)">${BRANCH_LABELS[b]||b}</button>`).join('');
- document.getElementById('au-branch-strip').innerHTML=
-  `<button class="branch-pill${auditFilters.branch==='all'?' active':''}" onclick="auSetBranch('all',this)">Tudo</button>`+
-  ordered.map(b=>`<button class="branch-pill${auditFilters.branch===b?' active':''}" onclick="auSetBranch('${b}',this)">${BRANCH_LABELS[b]||b}</button>`).join('');
+  document.getElementById('au-branch-strip').innerHTML=
+    `<button class="branch-pill${auditFilters.branch==='all'?' active':''}" onclick="auSetBranch('all',this)">Tudo</button>`+
+    ordered.map(b=>`<button class="branch-pill${auditFilters.branch===b?' active':''}" onclick="auSetBranch('${b}',this)">${BRANCH_LABELS[b]||b}</button>`).join('');
 }
-  
+
 function setLoc(loc,btn){
   activeLoc=loc;
   document.querySelectorAll('#branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
@@ -1071,14 +471,6 @@ function updateSidebarKPIs(){
   document.getElementById('st-total').textContent=students.length;
   document.getElementById('st-com').textContent=com;
   document.getElementById('st-sem').textContent=students.length-com;
-}
-
-function levelAuditDot(key){
-  const ar=_auditResults[key];if(!ar)return'pending';
-  const vals=Object.values(ar);if(!vals.length)return'pending';
-  if(vals.some(v=>v.status==='fail'))return'fail';
-  if(vals.some(v=>v.status==='warn'))return'warn';
-  return'pass';
 }
 
 function renderTree(){
@@ -1116,31 +508,7 @@ function selectLevel(key){
   renderTree();renderLevelContent();
 }
 
-function sbSearchInput(val){
-  const q=val.trim().toLowerCase();
-  document.getElementById('sb-search-clear').classList.toggle('vis',val.length>0);
-  const drop=document.getElementById('sb-search-results');
-  if(q.length<2){drop.classList.remove('open');return;}
-  const matches=locStu().filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)).slice(0,12);
-  if(!matches.length){drop.innerHTML=`<div style="padding:12px;font-size:8px;color:var(--t3);text-align:center">Nenhum aluno encontrado</div>`;drop.classList.add('open');return;}
-  drop.innerHTML=matches.map(e=>{
-    const col=avCol(e.name||e.ref),meta=LEVEL_MAP[lk(e)]||{};
-    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
-    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
-    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;border-bottom:.5px solid var(--b);transition:background .1s" onmouseover="this.style.background='var(--gold4)'" onmouseout="this.style.background=''" onclick="ovClear();openDossier('${e.ref}')"><div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(e.name||e.ref)}</div><div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">${e.name||e.ref}</div><div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'} · ${meta.label||'—'}</div></div><span style="font-size:6.5px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55;flex-shrink:0">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div>`;
-  }).join('')||`<div style="padding:12px;font-size:8px;color:var(--t3);text-align:center">Nenhum aluno encontrado</div>`;
-  drop.classList.add('open');
-}
-function sbSearchSelect(ref){sbSearchClear();openDossier(ref);}
-function sbSearchClear(){
-  const i=document.getElementById('sb-search-inp');if(i)i.value='';
-  document.getElementById('sb-search-clear').classList.remove('vis');
-  document.getElementById('sb-search-results').classList.remove('open');
-}
-
-/* ══════════════════════════════════════════════
-   FORMATION LEVEL RENDER
-══════════════════════════════════════════════ */
+/* ── FORMATION LEVEL CONTENT ──────────────────────────────── */
 function renderLevelContent(){
   const area=document.getElementById('scroll-area');
   if(!activeLevelKey){area.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">◈</div><div class="placeholder-text">Seleccione um nível para ver os dados</div></div>`;return;}
@@ -1198,9 +566,31 @@ function renderLevelContent(){
   }));
 }
 
-/* ══════════════════════════════════════════════
-   OVERVIEW
-══════════════════════════════════════════════ */
+/* ── SEARCH ───────────────────────────────────────────────── */
+function sbSearchInput(val){
+  const q=val.trim().toLowerCase();
+  document.getElementById('sb-search-clear').classList.toggle('vis',val.length>0);
+  const drop=document.getElementById('sb-search-results');
+  if(q.length<2){drop.classList.remove('open');return;}
+  const matches=locStu().filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)).slice(0,12);
+  if(!matches.length){drop.innerHTML=`<div style="padding:12px;font-size:8px;color:var(--t3);text-align:center">Nenhum aluno encontrado</div>`;drop.classList.add('open');return;}
+  drop.innerHTML=matches.map(e=>{
+    const col=avCol(e.name||e.ref),meta=LEVEL_MAP[lk(e)]||{};
+    const st=rByRef[e.ref]?normS(rByRef[e.ref].status):'sem_pedido';
+    const stCol=st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;border-bottom:.5px solid var(--b);transition:background .1s" onmouseover="this.style.background='var(--gold4)'" onmouseout="this.style.background=''" onclick="ovClear();openDossier('${e.ref}')"><div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0;border:1px solid;background:${col.bg};border-color:${col.t}55;color:${col.t}">${avInit(e.name||e.ref)}</div><div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">${e.name||e.ref}</div><div style="font-size:7px;color:var(--t3)">${e.ref} · ${BRANCH_LABELS[normB(e.branch)]||e.branch||'—'} · ${meta.label||'—'}</div></div><span style="font-size:6.5px;font-weight:700;color:${stCol};padding:1px 5px;border:1px solid ${stCol}55;flex-shrink:0">${st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente'}</span></div>`;
+  }).join('');
+  drop.classList.add('open');
+}
+function sbSearchClear(){
+  const i=document.getElementById('sb-search-inp');if(i)i.value='';
+  document.getElementById('sb-search-clear').classList.remove('vis');
+  document.getElementById('sb-search-results').classList.remove('open');
+}
+
+/* ── OVERVIEW ─────────────────────────────────────────────── */
+const BRANCH_COLORS={FUNCHAL:'#4A8FF5',CAMARA_LOBOS:'#1DB87A',SANTA_CRUZ:'#E8A020',MACHICO:'#E8455A',RIBEIRA_BRAVA:'#9B5ECA',CALHETA:'#28C8B0'};
+
 function ovSetLoc(loc,btn){
   _ovActiveLoc=loc;_ovActiveLevel=null;
   document.querySelectorAll('#ov-branches .branch-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
@@ -1258,7 +648,6 @@ function ovDrillToFormation(levelKey){
   const placed=_lastResult?_lastResult.placed:0;
   const sinal=_lastResult?_lastResult.sinalizados.length:0;
   const certCount=Object.keys(_groupCodes[levelKey]||{}).length;
-  const excCount=_exceptionQueue.filter(e=>e.levelKey===levelKey).length;
 
   let html=`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px"><div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color||'var(--gold2)'}">${meta.label||levelKey}</div><div style="font-size:8.5px;color:${dc.color||'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label||''}</div><button onclick="_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button><div style="display:flex;gap:0"><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--red)">${noReq}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>${_lastResult?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>`:''}${certCount>0?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${certCount}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Cert.</div></div>`:''}${sinal>0?`<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--amber)">${sinal}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sinalizados</div></div>`:''}</div></div>`;
 
@@ -1266,10 +655,8 @@ function ovDrillToFormation(levelKey){
 
   const dept=meta.dept||'adults';
   const pairCounts=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam')).map(p=>({pair:p,count:countPair(withReq,p)}));
-
   html+=`<div class="school-grid-wrap" style="margin-bottom:14px"><div class="school-grid-head"><span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>${certCount>0?`<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>`:''}</div><div class="school-grid-outer"><div id="ov-grid-container" style="min-width:540px"></div></div></div>`;
   html+=buildPairMatrix(pairCounts);
-
   if(_lastResult?.groups?.length){
     const lvCert=Object.keys(_groupCodes[levelKey]||{}).length;
     const lvExc=_exceptionQueue.filter(e=>e.levelKey===levelKey).length;
@@ -1290,8 +677,6 @@ function ovDrillToFormation(levelKey){
     drawStamps('ov-grid-container',_ovCapturedKey,_ovCapturedResult);
   }));
 }
-
-const BRANCH_COLORS={FUNCHAL:'#4A8FF5',CAMARA_LOBOS:'#1DB87A',SANTA_CRUZ:'#E8A020',MACHICO:'#E8455A',RIBEIRA_BRAVA:'#9B5ECA',CALHETA:'#28C8B0'};
 
 function buildBranchBarChart(students){
   const byLevel={};
@@ -1399,6 +784,7 @@ function ovSearch(val){
 }
 function ovClear(){const i=document.getElementById('ov-search');if(i)i.value='';document.getElementById('ov-clr').classList.remove('vis');document.getElementById('ov-drop').classList.remove('open');}
 
+/* ── DRILL HELPERS ────────────────────────────────────────── */
 function _drillSetupLevel(levelKey){
   activeLevelKey=levelKey;activeLoc='all';
   _lastResult=_allResults[levelKey]||null;
@@ -1418,25 +804,19 @@ function _drillSetupLevel(levelKey){
 function drillToGroups(levelKey){_drillSetupLevel(levelKey);switchCC('formation',document.getElementById('tab-formation'));setTimeout(()=>{document.getElementById('gcard-0')?.scrollIntoView({behavior:'smooth',block:'start'});},150);}
 function drillToSinalizados(levelKey){_drillSetupLevel(levelKey);switchCC('formation',document.getElementById('tab-formation'));setTimeout(()=>{_sinalOpen=true;const body=document.getElementById('sinal-body');const arr=document.getElementById('sinal-arr');if(body){body.classList.add('open');if(arr)arr.style.transform='rotate(180deg)';}document.querySelector('.sinal-hdr')?.scrollIntoView({behavior:'smooth',block:'start'});},150);}
 
-/* ══════════════════════════════════════════════
-   AUDIT PANEL
-══════════════════════════════════════════════ */
+/* ── AUDIT PANEL ──────────────────────────────────────────── */
 function setAF(btn){
   const g=btn.dataset.ag,v=btn.dataset.av;auditFilters[g]=v;auditFilters.levelKey=null;
-document.querySelectorAll(`#panel-audit .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));
-  btn.classList.add('act');
-  renderAudit();
-  renderAuditTree();
+  document.querySelectorAll(`#panel-audit .fbt[data-ag="${g}"]`).forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');renderAudit();renderAuditTree();
 }
 function auSetBranch(b,btn){
-  auditFilters.branch=b;
-  auditFilters.levelKey=null;
+  auditFilters.branch=b;auditFilters.levelKey=null;
   document.querySelectorAll('#au-branch-strip .branch-pill').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  renderAudit();
-  renderAuditTree();
+  btn.classList.add('active');renderAudit();renderAuditTree();
 }
-  
+function auSetLevel(key){auditFilters.levelKey=key;renderAudit();renderAuditTree();}
+
 function renderAudit(){
   let students=[...allE];
   if(auditFilters.branch!=='all')students=students.filter(e=>normB(e.branch)===auditFilters.branch);
@@ -1460,13 +840,8 @@ function renderAudit(){
   document.getElementById('a-sem').textContent=sem;document.getElementById('a-pend').textContent=pend;
   document.getElementById('badge-audit').textContent=sem;
 
-  // ── GROUP CARD MODE when filter is "atribuído" ──
-  if(auditFilters.status==='atribuido'){
-    renderAuditGroupCards(students,q);
-    return;
-  }
+  if(auditFilters.status==='atribuido'){renderAuditGroupCards(students,q);return;}
 
-  // ── LIST MODE ──
   document.getElementById('au-count').textContent=`Mostrando ${Math.min(students.length,500)} de ${students.length} registos`;
   const hdr=document.getElementById('au-hdr-row');if(hdr)hdr.style.display='';
   document.getElementById('au-rows').innerHTML=students.slice(0,500).map(e=>{
@@ -1480,7 +855,6 @@ function renderAudit(){
 }
 
 function renderAuditGroupCards(students,q){
-  // Build index: ref → {levelKey, groupIdx}
   const refToGroup={};
   Object.keys(_allResults).forEach(levelKey=>{
     (_allResults[levelKey]?.groups||[]).forEach((g,i)=>{
@@ -1488,15 +862,12 @@ function renderAuditGroupCards(students,q){
       g.students.forEach(s=>{refToGroup[s.ref]={levelKey,groupIdx:i,committed};});
     });
   });
-
-  // Collect unique groups that have at least one student matching filters
-  const groupsSeen=new Map(); // key: levelKey+groupIdx
+  const groupsSeen=new Map();
   students.forEach(e=>{
     const entry=refToGroup[e.ref];if(!entry)return;
     const key=`${entry.levelKey}__${entry.groupIdx}`;
     if(!groupsSeen.has(key))groupsSeen.set(key,entry);
   });
-
   const groups=[...groupsSeen.values()].sort((a,b)=>{
     const ma=LEVEL_MAP[a.levelKey]||{},mb=LEVEL_MAP[b.levelKey]||{};
     if((ma.order||99)!==(mb.order||99))return(ma.order||99)-(mb.order||99);
@@ -1504,15 +875,9 @@ function renderAuditGroupCards(students,q){
     const gb=_allResults[b.levelKey]?.groups[b.groupIdx];
     return(ga?.startMins||0)-(gb?.startMins||0);
   });
-
   const hdr=document.getElementById('au-hdr-row');if(hdr)hdr.style.display='none';
   document.getElementById('au-count').textContent=`${groups.length} turma${groups.length!==1?'s':''} · ${students.length} alunos atribuídos`;
-
-  if(!groups.length){
-    document.getElementById('au-rows').innerHTML=`<div class="empty-msg">Nenhuma turma encontrada.</div>`;
-    return;
-  }
-
+  if(!groups.length){document.getElementById('au-rows').innerHTML=`<div class="empty-msg">Nenhuma turma encontrada.</div>`;return;}
   document.getElementById('au-rows').innerHTML=`<div class="au-group-grid">${groups.map(({levelKey,groupIdx,committed})=>{
     const g=_allResults[levelKey]?.groups[groupIdx];if(!g)return'';
     const ar=(_auditResults[levelKey]||{})[groupIdx];
@@ -1524,54 +889,15 @@ function renderAuditGroupCards(students,q){
     const n=g.students.length,capPct=Math.round(n/MAX_G*100);
     const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':col;
     const passC=ar?.passCount??n,warnC=ar?.warnCount??0,failC=ar?.failCount??0;
-
-    // Filter students to those matching current audit filters for display
     const visStudents=q?g.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.ref||'').toLowerCase().includes(q)):g.students;
-
-    const avs=visStudents.slice(0,18).map(s=>{
-      const ac=avCol(s.name||s.ref);
-      const verdict=ar?.log?.[s.ref]?.verdict||'pass';
-      return`<div class="au-gc-av ${verdict!=='pass'?verdict:''}" style="background:${ac.bg};color:${ac.t};border-color:${ac.t}44" title="${s.name||s.ref}">${avInit(s.name||s.ref)}</div>`;
-    }).join('');
+    const avs=visStudents.slice(0,18).map(s=>{const ac=avCol(s.name||s.ref);const verdict=ar?.log?.[s.ref]?.verdict||'pass';return`<div class="au-gc-av ${verdict!=='pass'?verdict:''}" style="background:${ac.bg};color:${ac.t};border-color:${ac.t}44" title="${s.name||s.ref}">${avInit(s.name||s.ref)}</div>`;}).join('');
     const extra=visStudents.length>18?`<div style="font-size:6.5px;color:var(--t3);padding:2px 3px">+${visStudents.length-18}</div>`:'';
-
-    // Compact timetable: show the group's actual pair + time
-const pairA=g.dayL_A||g.dayL||'—';
-const pairB=(g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)?(g.dayL_B||'—'):null;
-const timeStr=`${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
-const slotC2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
-const weekStrip=`<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
-  <div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}11;border-radius:2px">
-    <span style="font-size:8px;font-weight:700;color:${slotC2}">${pairA}</span>
-    <span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span>
-  </div>
-  ${pairB?`<div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}0D;border-radius:2px;opacity:.85">
-    <span style="font-size:8px;font-weight:700;color:${slotC2}">${pairB}</span>
-    <span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span>
-  </div>`:``}
-</div>`;
-
-    return`<div class="au-gc ${auditCls}" onclick="openGroupModal('${levelKey}',${groupIdx})">
-      <div class="au-gc-head">
-        <div class="au-gc-code" style="color:${col}">${codeDisplay}</div>
-        <div class="au-gc-slot">${pairLabel} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}</div>
-        <div class="au-gc-meta" style="color:${meta.color||'var(--t3)'}">${meta.label||'—'} · ${BRANCH_LABELS[normB(g.students[0]?.branch)]||'—'}</div>
-      </div>
-      <div class="au-gc-body">
-        <div class="au-gc-stats">
-          <div class="au-gc-n" style="color:${col}">${n}</div>
-          <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:3px">/${MAX_G}</div>
-          <div class="au-gc-cap"><div class="au-gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div>
-        </div>
-        <div class="au-gc-audit">
-          ${passC>0?`<span class="au-gc-pill pass">✓ ${passC}</span>`:''}
-          ${warnC>0?`<span class="au-gc-pill warn">⚠ ${warnC}</span>`:''}
-          ${failC>0?`<span class="au-gc-pill fail">✕ ${failC}</span>`:''}
-        </div>
-    <div class="au-gc-avs">${avs}${extra}</div>
-        ${weekStrip}
-      </div>
-    </div>`;
+    const pairA=g.dayL_A||g.dayL||'—';
+    const pairB=(g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)?(g.dayL_B||'—'):null;
+    const timeStr=`${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
+    const slotC2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+    const weekStrip=`<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}11;border-radius:2px"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairA}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>${pairB?`<div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}0D;border-radius:2px;opacity:.85"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairB}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>`:``}</div>`;
+    return`<div class="au-gc ${auditCls}" onclick="openGroupModal('${levelKey}',${groupIdx})"><div class="au-gc-head"><div class="au-gc-code" style="color:${col}">${codeDisplay}</div><div class="au-gc-slot">${pairLabel} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}</div><div class="au-gc-meta" style="color:${meta.color||'var(--t3)'}">${meta.label||'—'} · ${BRANCH_LABELS[normB(g.students[0]?.branch)]||'—'}</div></div><div class="au-gc-body"><div class="au-gc-stats"><div class="au-gc-n" style="color:${col}">${n}</div><div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:3px">/${MAX_G}</div><div class="au-gc-cap"><div class="au-gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div><div class="au-gc-audit">${passC>0?`<span class="au-gc-pill pass">✓ ${passC}</span>`:''}${warnC>0?`<span class="au-gc-pill warn">⚠ ${warnC}</span>`:''}${failC>0?`<span class="au-gc-pill fail">✕ ${failC}</span>`:''}</div><div class="au-gc-avs">${avs}${extra}</div>${weekStrip}</div></div>`;
   }).join('')}</div>`;
 }
 
@@ -1584,9 +910,7 @@ function renderAuditTree(){
     if(!levels.length)return;
     html+=`<div style="padding:5px 10px 3px;font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${dc.color};border-top:.5px solid var(--b)">${dc.label}</div>`;
     levels.forEach(key=>{
-      const meta=LEVEL_MAP[key]||{};
-      const n=allE.filter(e=>lk(e)===key).length;
-      const isActive=auditFilters.levelKey===key;
+      const meta=LEVEL_MAP[key]||{},n=allE.filter(e=>lk(e)===key).length,isActive=auditFilters.levelKey===key;
       html+=`<div class="lp-lv${isActive?' active':''}" onclick="auSetLevel('${key}')"><div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div><div class="lp-lv-name">${meta.label||key}</div><div class="lp-lv-n">${n}</div></div>`;
     });
   });
@@ -1594,24 +918,188 @@ function renderAuditTree(){
   document.getElementById('au-level-tree').innerHTML=html;
 }
 
-function auSetLevel(key){
-  auditFilters.levelKey=key;
-  renderAudit();
-  renderAuditTree();
+/* ── DECISION PANEL ───────────────────────────────────────── */
+function decStuChips(students,ar){
+  return[...students].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e=>{
+    const av=avCol(e.name||e.ref),verdict=ar?.log?.[e.ref]?.verdict||'pass';
+    const vCol=verdict==='pass'?'var(--green)':verdict==='warn'?'var(--amber)':'var(--red)';
+    return'<div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border:1px solid var(--b);cursor:pointer" onclick="openDossier(\''+e.ref+'\')">'
+      +'<div style="width:16px;height:16px;border-radius:50%;background:'+av.bg+';color:'+av.t+';font-size:6px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+avInit(e.name||e.ref)+'</div>'
+      +'<span style="font-size:8px;color:var(--t)">'+(e.name||e.ref)+'</span>'
+      +'<span style="font-size:7px;color:'+vCol+'">'+(verdict==='pass'?'✓':'⚠')+'</span>'
+      +'</div>';
+  }).join('');
 }
 
-/* ══════════════════════════════════════════════
-   DOSSIER
-══════════════════════════════════════════════ */
+async function renderDecision(){
+  const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
+  if(!triageEl||!mainEl)return;
+  triageEl.innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>`;
+  try{
+    const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    const byGC={};
+    rows.forEach(c=>{
+      const gc=c.group_code||(c.turma_code?.replace(/[AB]$/i,''));if(!gc)return;
+      if(!byGC[gc])byGC[gc]=[];byGC[gc].push(c);
+    });
+    Object.values(byGC).forEach(groupRows=>{
+      const first=groupRows[0];
+      const key=`${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
+      if(!_allResults[key]){
+        const refs=Array.isArray(first.student_refs)?first.student_refs:[];
+        const students=refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
+        if(!students.length)return;
+        const startMins=timeToMins(first.start_time)??8*60;
+        const dayRaw=(first.day_of_week||'').toUpperCase().trim();
+        const dayIdx=DAYS_PT.indexOf(dayRaw);if(dayIdx<0)return;
+        const rowB=groupRows.find(r=>r.turma_code!==first.turma_code);
+        const dayRawB=rowB?(rowB.day_of_week||'').toUpperCase().trim():dayRaw;
+        const dayIdxB=rowB?DAYS_PT.indexOf(dayRawB):dayIdx;
+        const pairDef=ALM_PAIRS.find(p=>p.a===dayIdx&&p.b===dayIdxB)||null;
+        _allResults[key]={groups:[{pairDef,dayIdx_A:dayIdx,dayIdx_B:dayIdxB,dayL_A:DAYS_PT[dayIdx],dayL_B:DAYS_PT[dayIdxB],dayIdx,dayL:DAYS_PT[dayIdx],startMins,startTime:minsToT(startMins),endTime:minsToT(startMins+CLASS_DUR),students,_locked:true}],sinalizados:[],total:students.length,withRequest:students.length,placed:students.length};
+        if(!_auditResults[key])_auditResults[key]={};
+        _auditResults[key][0]=auditGroupSync(_allResults[key].groups[0]);
+      }
+      const gc=first.group_code||(first.turma_code?.replace(/[AB]$/i,''));
+      const result=_allResults[key];if(!result?.groups)return;
+      const dbRefs=new Set(Array.isArray(first.student_refs)?first.student_refs:[]);
+      result.groups.forEach((g,i)=>{
+        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap>=Math.floor(g.students.length*0.5)){
+          if(!_groupCodes[key])_groupCodes[key]={};
+          const codeA=groupRows.find(r=>/A$/i.test(r.turma_code))?.turma_code||`${gc}A`;
+          const codeB=groupRows.find(r=>/B$/i.test(r.turma_code))?.turma_code||`${gc}B`;
+          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass',locked:true};
+        }
+      });
+    });
+  }catch(e){console.warn('renderDecision DB fetch failed',e);}
+
+  let totalSessions=0,certifiedSessions=0;
+  Object.keys(_allResults).forEach(key=>{
+    const result=_allResults[key];if(!result?.groups?.length)return;
+    result.groups.forEach((g,i)=>{
+      const committed=(_groupCodes[key]||{})[i];
+      const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
+      const sessionCount=isSameDay?1:2;
+      totalSessions+=sessionCount;
+      if(committed){if(committed.turmaCodeA)certifiedSessions++;if(!isSameDay&&committed.turmaCodeB)certifiedSessions++;}
+    });
+  });
+  const pendingSessions=totalSessions-certifiedSessions;
+  const pct=totalSessions>0?Math.round(certifiedSessions/totalSessions*100):0;
+  document.getElementById('dec-sidebar-sub').textContent=`${certifiedSessions} sessões cert. · ${pendingSessions} por certificar`;
+  const fill=document.getElementById('dec-progress-fill');if(fill)fill.style.width=pct+'%';
+
+  const byLevel={};
+  Object.keys(_allResults).forEach(key=>{
+    const result=_allResults[key];if(!result?.groups?.length)return;
+    let pending=0,certified=0;
+    result.groups.forEach((g,i)=>{
+      const committed=(_groupCodes[key]||{})[i];
+      const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
+      if(!committed?.turmaCodeA)pending++;else certified++;
+      if(!isSameDay){if(!committed?.turmaCodeB)pending++;else certified++;}
+    });
+    byLevel[key]={pending,certified};
+  });
+
+  if(!Object.keys(byLevel).length){
+    triageEl.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:8px;letter-spacing:.1em">Sem grupos formados ainda</div>`;
+    mainEl.innerHTML=`<div class="placeholder-main"><div class="placeholder-icon">✓</div><div class="placeholder-text">← Seleccione um grupo</div></div>`;
+    return;
+  }
+
+  triageEl.innerHTML=Object.entries(byLevel).map(([key,{pending,certified}])=>{
+    const meta=LEVEL_MAP[key]||{},result=_allResults[key];
+    const hasFails=result?.groups?.some((g,i)=>(_auditResults[key]||{})[i]?.status==='fail'&&!(_groupCodes[key]||{})[i]);
+    const hasWarns=result?.groups?.some((g,i)=>(_auditResults[key]||{})[i]?.status==='warn'&&!(_groupCodes[key]||{})[i]);
+    const allCert=pending===0;
+    const col=hasFails?'var(--red)':allCert?'var(--green)':hasWarns?'var(--amber)':'var(--gold2)';
+    const statusLabel=hasFails?'FAIL':allCert?'✓':hasWarns?'WARN':`${pending}↓`;
+    return`<div class="dec-triage-item${hasFails?' exception':allCert?' certified':''}" onclick="decShowLevel('${key}')"><div class="lp-lv-dot" style="background:${meta.color||'var(--t3)'}"></div><div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:600;color:var(--t)">${meta.label||key}</div><div style="font-size:7px;color:var(--t3);margin-top:1px">${allCert?`${certified} cert. ✓`:`${pending} por cert.`}</div></div><span style="font-size:7px;font-weight:700;color:${col};padding:1px 6px;border:1px solid ${col}55">${statusLabel}</span></div>`;
+  }).join('');
+  const firstKey=Object.keys(byLevel)[0];if(firstKey)decShowLevel(firstKey);
+}
+
+function decShowLevel(levelKey){
+  const mainEl=document.getElementById('dec-main');
+  const result=_allResults[levelKey];
+  if(!result?.groups?.length){mainEl.innerHTML='<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>';return;}
+  const meta=LEVEL_MAP[levelKey]||{};
+  const sessionCards=[];
+  result.groups.forEach((g,i)=>{
+    const committed=(_groupCodes[levelKey]||{})[i];
+    const ar=(_auditResults[levelKey]||{})[i];
+    const isSameDay=(g.dayIdx_A??g.dayIdx)===(g.dayIdx_B??g.dayIdx);
+    const slots=isSameDay?[{suffix:'A',dayL:g.dayL_A||g.dayL,dayIdx:g.dayIdx_A??g.dayIdx}]:[{suffix:'A',dayL:g.dayL_A||g.dayL,dayIdx:g.dayIdx_A??g.dayIdx},{suffix:'B',dayL:g.dayL_B||g.dayL,dayIdx:g.dayIdx_B??g.dayIdx}];
+    slots.forEach(({suffix,dayL})=>{
+      const alreadyCert=committed&&(suffix==='A'?!!committed.turmaCodeA:!!committed.turmaCodeB);
+      if(alreadyCert)return;
+      const slotCode=committed?(suffix==='A'?(committed.turmaCodeA||`${committed.turmaCode}A`):(committed.turmaCodeB||`${committed.turmaCode}B`)):`T${i+1}${suffix}`;
+      sessionCards.push({groupIdx:i,suffix,dayL,slotCode,g,ar});
+    });
+  });
+  const pending=sessionCards.length;
+  let html=`<div class="sec" style="margin-bottom:14px">${meta.label||levelKey} · ${pending} sessão${pending!==1?'ões':''} por certificar</div>`;
+  sessionCards.forEach(({groupIdx,suffix,dayL,slotCode,g,ar})=>{
+    const slotC=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+    const session=`${dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`;
+    const auditSummary=ar
+      ?`<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 6px;border:1px solid var(--green-b);background:var(--green-a)">✓ ${ar.passCount}</span>`
+      +(ar.warnCount?`<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>`:'')
+      +(ar.failCount?`<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>`:'')
+      :'';
+    html+=`<div class="dec-card" id="dec-card-${groupIdx}-${suffix}" style="border-left-color:${slotC}"><div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')"><span class="dc-arr">›</span><div style="flex:1;min-width:0"><div style="font-size:10px;font-weight:600;color:${slotC}">${slotCode} · ${session}</div><div style="display:flex;align-items:center;gap:6px;margin-top:3px">${auditSummary}</div></div><div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div><button class="dc-btn dc-btn-create" id="dec-btn-${groupIdx}-${suffix}" onclick="event.stopPropagation();decCertifySession('${levelKey}',${groupIdx},'${suffix}',this)">✓ Certificar</button></div><div class="dc-body"><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${decStuChips(g.students,ar)}</div></div></div>`;
+  });
+  if(!sessionCards.length){html+=`<div style="padding:40px;text-align:center;color:var(--green);font-size:9px;letter-spacing:.1em">✓ Todas as sessões deste nível certificadas</div>`;}
+  mainEl.innerHTML=html;
+}
+
+async function decCertifySession(levelKey,groupIdx,suffix,btn){
+  const g=_allResults[levelKey]?.groups[groupIdx];if(!g){showToast('Grupo não encontrado','err');return;}
+  const meta=LEVEL_MAP[levelKey]||{};
+  const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
+  const dayL=suffix==='A'?(g.dayL_A||g.dayL):(g.dayL_B||g.dayL_A||g.dayL);
+  const confirmed=await almConfirm({title:'CERTIFICAR SESSÃO',accent:'var(--green)',okBg:'rgba(29,184,122,.9)',okLabel:'✓ Certificar',lines:[`${meta.label||levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`,`${g.students.length} alunos`]});
+  if(!confirmed)return;
+  btn.disabled=true;btn.textContent='⏳ A certificar…';
+  try{
+    const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
+    let groupCode=(_groupCodes[levelKey]||{})[groupIdx]?.turmaCode||null;
+    if(!groupCode)groupCode=generateTurmaCodeSync(branch);
+    const sessionCode=`${groupCode}${suffix}`;
+    const row={group_code:groupCode,turma_code:sessionCode,academic_year:AY,branch,lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),department:(LEVEL_MAP[levelKey]||{}).dept||'adults',level_code:(levelKey.split('|')[1]||'').trim(),level_display:(LEVEL_MAP[levelKey]||{}).label||'',day_of_week:dayL,hour:Math.floor(g.startMins/60),start_time:g.startTime,end_time:g.endTime,duration_min:CLASS_DUR,student_refs:g.students.map(s=>s.ref),status:'confirmed',locked:true,assignment_source:'decision_panel',audit_log:ar.log||{},audited_at:new Date().toISOString(),pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0};
+    const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify([row])});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    _retiredCodes.add(sessionCode);
+    if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
+    const existing=_groupCodes[levelKey][groupIdx]||{};
+    _groupCodes[levelKey][groupIdx]={...existing,turmaCode:groupCode,[`turmaCode${suffix}`]:sessionCode,sentAt:new Date().toISOString(),status:ar.status||'pass',locked:true};
+    const card=document.getElementById(`dec-card-${groupIdx}-${suffix}`);
+    if(card){card.style.borderLeftColor='var(--green)';card.style.background='rgba(29,184,122,.04)';btn.textContent=`✓ ${sessionCode}`;btn.style.cssText='border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';}
+    showToast(`${sessionCode} certificada ✓`,'ok');
+    _exceptionQueue=_exceptionQueue.filter(e=>!(e.levelKey===levelKey&&e.groupIdx===groupIdx));
+    renderExcBar();renderDecision();
+  }catch(e){btn.disabled=false;btn.textContent='✓ Certificar';showToast('Erro: '+e.message,'err');}
+}
+
+/* ── NAVIGATION ───────────────────────────────────────────── */
+function switchCC(panel,el){
+  document.querySelectorAll('.cc-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tb-pill-nav').forEach(t=>t.classList.remove('active'));
+  const pEl=document.getElementById('panel-'+panel);if(pEl)pEl.classList.add('active');
+  if(el)el.classList.add('active');
+  if(panel==='audit'){renderAudit();renderAuditTree();}
+  if(panel==='decision')renderDecision();
+  if(panel==='overview'){_ovActiveLevel=null;refreshData().then(()=>{ovRenderStats();ovRenderTree();ovRenderSummary();});}
+}
+
+/* ── DOSSIER UI ───────────────────────────────────────────── */
 const DS_FLAGS={EN:'🇬🇧',PT:'🇵🇹',FR:'🇫🇷',ES:'🇪🇸',DE:'🇩🇪'};
 const DEPT_LABELS_D={kids:'INFANTIL',kids_juv:'JUVENIL',adults:'GERAL',exam:'EXAMES'};
 function dsRow(k,v,c){return`<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c||''}">${v}</div></div>`;}
 function dsSec(id,icon,title,meta,content){return`<div class="ds-section" id="${id}"><div class="ds-section-hdr"><div class="ds-section-title"><span class="ds-section-icon">${icon}</span>${title}</div><div class="ds-section-r"><span class="ds-section-meta">${meta}</span><span class="ds-section-chv">›</span></div></div><div class="ds-section-body">${content}</div></div>`;}
-function parseSlotsForRuler(req){
-  if(!req)return[];
-  const raw=parseDayPrefs(req.slots||req.day_preferences);
-  return raw.map(p=>parseSlot(p)).filter(Boolean).map(s=>({dayIdx:s.dayIdx,day:DAYS_PT[s.dayIdx]||'?',fromMins:s.fromMins,toMins:s.toMins,startLabel:minsToT(s.fromMins),endLabel:minsToT(s.toMins)}));
-}
 
 async function openDossier(ref){
   _dsTTLoaded=false;_dsData={};
@@ -1626,12 +1114,7 @@ async function openDossier(ref){
   document.getElementById('ds-strip').innerHTML='';
   document.getElementById('ds-body').innerHTML=`<div class="ds-empty" style="padding:48px 0">a carregar…</div>`;
 
-  const [enrols,reqs,hist]=await Promise.all([
-    sbGet('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,enrolment_date,academic_year,returning_student,guardian_name,guardian_phone,notes&limit=1`),
-    sbGet('timetable_requests',`ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,slots,day_preferences,sessions_per_week,status,created_at,notes&limit=1`),
-    sbGet('turma_students',`ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,family,outcome,absences,grade_final,notes&order=academic_year.desc`),
-  ]).catch(()=>[[],[],[]]);
-
+  const [enrols,reqs,hist]=await fetchDossierData(ref);
   const enrol=enrols[0]||null,req=reqs[0]||rByRef[ref]||null,hst=hist||[];
   _dsData={enrol,req,hst};
   const dept=(enrol?.family||'adults').toLowerCase();
@@ -1746,26 +1229,166 @@ function dsLoadTimetable(){
   el.innerHTML=html;
 }
 
-async function dsSaveNote(ref){
-  const txt=document.getElementById('ds-note')?.value?.trim();if(txt==null)return;
-  const ok=await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(ref)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:txt})}).then(r=>r.ok).catch(()=>false);
-  showToast(ok?'Nota guardada ✓':'Erro ao guardar',ok?'ok':'err');
-}
-async function dsClearNote(ref){
-  if(!confirm('Limpar a nota?'))return;
-  const ok=await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(ref)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:''})}).then(r=>r.ok).catch(()=>false);
-  if(ok)document.getElementById('ds-note').value='';
-  showToast(ok?'Nota removida':'Erro',ok?'ok':'err');
-}
 function closeDossier(){
   const s=document.getElementById('ds-sheet');if(!s)return;
   s.classList.add('ds-exit');
   setTimeout(()=>{document.getElementById('ds-overlay')?.classList.remove('open');s.classList.remove('ds-exit');},240);
 }
 
-/* ══════════════════════════════════════════════
-   UTILITIES
-══════════════════════════════════════════════ */
+/* ── MUDAR TURMA ──────────────────────────────────────────── */
+let _mtRef=null,_mtSelectedCode=null,_mtSelectedGroupIdx=null,_mtSelectedLevelKey=null;
+let _mtChangeSuffix=null,_mtCurrentSuffixA=null,_mtCurrentSuffixB=null;
+
+function openMudarTurma(ref,changeSuffix){
+  _mtRef=ref;_mtSelectedCode=null;_mtSelectedGroupIdx=null;_mtSelectedLevelKey=null;_mtChangeSuffix=changeSuffix||null;
+  const enrol=allE.find(e=>e.ref===ref);
+  if(!enrol){showToast('Aluno não encontrado','err');return;}
+  let currentGroupKey=null,currentGroupIdx=null,currentCommitted=null;
+  for(const [key,result] of Object.entries(_allResults)){
+    result.groups.forEach((g,i)=>{if(g.students.find(s=>s.ref===ref)){currentGroupKey=key;currentGroupIdx=i;currentCommitted=(_groupCodes[key]||{})[i]||null;}});
+  }
+  if(!currentCommitted){showToast('Só turmas certificadas podem ser alteradas — certifique primeiro','warn');return;}
+  _mtCurrentSuffixA=currentCommitted?.turmaCodeA||null;_mtCurrentSuffixB=currentCommitted?.turmaCodeB||null;
+  if(!changeSuffix){_showMudarStep1(ref,enrol,_mtCurrentSuffixA,_mtCurrentSuffixB,currentGroupKey,currentGroupIdx);return;}
+  _showMudarStep2(ref,enrol,changeSuffix,currentGroupKey,currentGroupIdx,currentCommitted);
+}
+
+function _showMudarStep1(ref,enrol,codeA,codeB,currentGroupKey,currentGroupIdx){
+  const meta=getLM(enrol),dept=meta.dept||'adults';
+  const col=avCol(enrol.name||ref);
+  document.getElementById('mt-banner').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  document.getElementById('mt-banner-tag').textContent='⇄ mudar turma';
+  const av=document.getElementById('mt-av');av.style.cssText=`background:${col.bg};color:${col.t};border-color:${col.t}44`;av.textContent=avInit(enrol.name||ref);
+  document.getElementById('mt-name').textContent=enrol.name||ref;
+  document.getElementById('mt-sub').textContent=`${ref} · ${BRANCH_LABELS[normB(enrol.branch)]||enrol.branch||'—'} · ${enrol.lang||'EN'}`;
+  document.getElementById('mt-badges').innerHTML=`<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label||'—'}</span>`+(codeA?`<span class="mt-badge" style="background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.3);color:#7AABEE">A · ${codeA}</span>`:'')+( codeB?`<span class="mt-badge" style="background:rgba(155,94,202,.1);border-color:rgba(155,94,202,.3);color:#C080F0">B · ${codeB}</span>`:'');
+  const g=currentGroupKey?_allResults[currentGroupKey]?.groups[currentGroupIdx]:null;
+  const slotA=g?`${g.dayL_A||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
+  const slotB=g?`${g.dayL_B||g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'—';
+  const pairLabel=g?.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g?.dayL||'—');
+  document.getElementById('mt-columns').innerHTML=`<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA||'—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB||'—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div><div onclick="showToast('Mudança de par completo indisponível — altere a sessão A e depois a B','warn')" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);padding:12px 14px;cursor:not-allowed;border-radius:8px;display:flex;align-items:center;gap:12px;opacity:.5"><div style="flex:1"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:3px">Par completo · indisponível</div><div style="font-size:9px;color:rgba(255,255,255,.35)">${pairLabel} · altere A e B separadamente</div></div><div style="font-size:16px;color:var(--t3);opacity:.4">⇄</div></div></div>`;
+  document.getElementById('mt-overlay').classList.add('open');
+  document.getElementById('mt-success').className='mt-success';
+  document.getElementById('mt-confirm-btn').disabled=true;
+  document.getElementById('mt-confirm-btn').textContent='Escolha uma opção acima';
+}
+
+function _showMudarStep2(ref,enrol,suffix,currentGroupKey,currentGroupIdx,currentCommitted){
+  const meta=getLM(enrol),dept=meta.dept||'adults';
+  const col=avCol(enrol.name||ref);
+  document.getElementById('mt-banner').style.background=DEPT_GRADS[dept]||DEPT_GRADS.adults;
+  document.getElementById('mt-banner-tag').textContent=suffix==='A'?'⇄ mudar sessão A':suffix==='B'?'⇄ mudar sessão B':'⇄ mudar par completo';
+  const av=document.getElementById('mt-av');av.style.cssText=`background:${col.bg};color:${col.t};border-color:${col.t}44`;av.textContent=avInit(enrol.name||ref);
+  document.getElementById('mt-name').textContent=enrol.name||ref;
+  document.getElementById('mt-sub').textContent=`${ref} · ${BRANCH_LABELS[normB(enrol.branch)]||enrol.branch||'—'} · ${enrol.lang||'EN'}`;
+  const codeA=currentCommitted?.turmaCodeA||null,codeB=currentCommitted?.turmaCodeB||null;
+  const keepCode=suffix==='A'?codeB:suffix==='B'?codeA:null;
+  const keepLabel=suffix==='A'?'Mantém B':'Mantém A';
+  document.getElementById('mt-badges').innerHTML=`<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label||'—'}</span>`+(keepCode?`<span class="mt-badge" style="background:rgba(29,184,122,.1);border-color:rgba(29,184,122,.3);color:var(--green)">✓ ${keepLabel} · ${keepCode}</span>`:'')+`<span class="mt-badge" style="background:transparent;border-color:rgba(255,255,255,.1);color:var(--t3);cursor:pointer" onclick="openMudarTurma('${ref}')">← voltar</span>`;
+  const levelKey=lk(enrol);
+  let optHtml='',optCount=0;
+  const result=_allResults[levelKey];
+  if(!result?.groups?.length){optHtml=`<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem turmas disponíveis para este nível.</div>`;}
+  else{
+    result.groups.forEach((g,i)=>{
+      const isCurrent=(currentGroupKey===levelKey&&currentGroupIdx===i);
+      const committed=(_groupCodes[levelKey]||{})[i];if(!committed)return;
+      let displayCode,displayDay,isCurrentSession;
+      if(suffix==='A'){displayCode=committed?.turmaCodeA||`T${i+1}A`;displayDay=g.dayL_A||g.dayL;isCurrentSession=isCurrent&&(displayCode===codeA);}
+      else if(suffix==='B'){displayCode=committed?.turmaCodeB||`T${i+1}B`;displayDay=g.dayL_B||g.dayL;isCurrentSession=isCurrent&&(displayCode===codeB);}
+      else{displayCode=committed?(committed.turmaCodeA&&committed.turmaCodeB&&committed.turmaCodeA!==committed.turmaCodeB?`${committed.turmaCodeA}/${committed.turmaCodeB}`:committed.turmaCodeA||committed.turmaCode||`T${i+1}`):`T${i+1}`;displayDay=g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—');isCurrentSession=isCurrent;}
+      if(isCurrentSession)return;
+      const slotCol2=slotCol(g.dayIdx_A??g.dayIdx,g.startMins);
+      const n=g.students.length,full=n>=MAX_G,capPct=Math.round(n/MAX_G*100);
+      const fillCol=capPct>=90?'var(--red)':capPct>=70?'var(--amber)':slotCol2;
+      optCount++;
+      optHtml+=`<div class="mt-option${full?' mt-full':''}" onclick="mtSelectOption(this,'${levelKey}',${i},'${displayCode}','${suffix}',${full})" id="mt-opt-${i}-${suffix}"><div class="mt-radio"></div><div class="mt-opt-code" style="color:${slotCol2}">${displayCode}</div><div class="mt-opt-info"><div class="mt-opt-days">${displayDay}</div><div class="mt-opt-meta">${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} · ${n} al</div>${full?`<div class="mt-opt-warn" style="border-color:rgba(232,69,90,.4);background:rgba(232,69,90,.1);color:var(--red)">✕ turma cheia</div>`:''}</div><div class="mt-opt-right"><div class="mt-opt-n">${n}<span style="font-size:7px;font-weight:400;color:var(--t4)">/${MAX_G}</span></div><div class="mt-opt-bar"><div class="mt-opt-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div></div>`;
+    });
+  }
+  if(!optCount&&!optHtml)optHtml=`<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem sessões ${suffix==='A'?'A':suffix==='B'?'B':'alternativas'} disponíveis.</div>`;
+  const g=currentGroupKey?_allResults[currentGroupKey]?.groups[currentGroupIdx]:null;
+  const curSlot=g?`${suffix==='A'?(g.dayL_A||g.dayL):suffix==='B'?(g.dayL_B||g.dayL):(g.pairDef?(g.dayIdx_A===g.dayIdx_B?g.dayL_A:`${g.dayL_A}+${g.dayL_B}`):(g.dayL||'—'))} ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)}`:'Sem turma';
+  document.getElementById('mt-columns').innerHTML=`<div class="mt-col-left"><div class="mt-col-hdr">${suffix==='A'?'Sessão A actual':suffix==='B'?'Sessão B actual':'Par actual'}</div><div class="mt-current-card"><div class="mt-current-code" style="font-size:20px">${suffix==='A'?codeA||'—':suffix==='B'?codeB||'—':`${codeA||'—'}/${codeB||'—'}`}</div><div class="mt-current-sub">${curSlot}</div>${keepCode?`<div style="margin-top:10px;padding-top:10px;border-top:.5px solid rgba(255,255,255,.07)"><div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(29,184,122,.6);margin-bottom:3px">✓ Mantém</div><div style="font-size:9px;color:var(--green)">${keepCode}</div></div>`:''}</div><div class="mt-hint" style="margin-top:10px">${suffix==='AB'?'Seleccione um novo par completo à direita.':suffix==='A'?'Seleccione uma nova sessão A. A sessão B é mantida.':'Seleccione uma nova sessão B. A sessão A é mantida.'}</div></div><div class="mt-col-right" id="mt-options-list"><div class="mt-col-hdr">Sessão ${suffix==='AB'?'(par completo)':suffix} disponível</div>${optHtml}</div>`;
+  document.getElementById('mt-overlay').classList.add('open');
+  document.getElementById('mt-success').className='mt-success';
+  const btn=document.getElementById('mt-confirm-btn');btn.disabled=true;btn.textContent='Escolha uma sessão acima';
+}
+
+function mtSelectOption(el,levelKey,groupIdx,code,suffix,full){
+  if(full){showToast('Turma cheia — não é possível mover','warn');return;}
+  document.querySelectorAll('#mt-options-list .mt-option').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  _mtSelectedLevelKey=levelKey;_mtSelectedGroupIdx=groupIdx;_mtSelectedCode=code;
+  if(suffix)_mtChangeSuffix=suffix;
+  const btn=document.getElementById('mt-confirm-btn');
+  const suffixLabel=_mtChangeSuffix==='A'?'sessão A':_mtChangeSuffix==='B'?'sessão B':'par';
+  btn.disabled=false;btn.textContent=`✓ MOVER ${suffixLabel.toUpperCase()} PARA ${code}`;
+}
+
+async function confirmMudarTurma(){
+  if(!_mtRef||!_mtSelectedCode||_mtSelectedGroupIdx===null)return;
+  const btn=document.getElementById('mt-confirm-btn');btn.disabled=true;btn.textContent='A guardar…';
+  const suffix=_mtChangeSuffix||'AB';
+  const enrol=allE.find(e=>e.ref===_mtRef);
+  const targetCommitted=(_groupCodes[_mtSelectedLevelKey]||{})[_mtSelectedGroupIdx];
+  let targetTurmaCode=_mtSelectedCode;
+  if(suffix==='A') targetTurmaCode=targetCommitted?.turmaCodeA||_mtSelectedCode;
+  if(suffix==='B') targetTurmaCode=targetCommitted?.turmaCodeB||_mtSelectedCode;
+  let sourceTurmaCode=null;
+  if(suffix==='A') sourceTurmaCode=_mtCurrentSuffixA;
+  else if(suffix==='B') sourceTurmaCode=_mtCurrentSuffixB;
+  let assignedCode=targetTurmaCode;
+  if(suffix==='A'){const keepB=_mtCurrentSuffixB;assignedCode=keepB?`${targetTurmaCode}/${keepB}`:targetTurmaCode;}
+  else if(suffix==='B'){const keepA=_mtCurrentSuffixA;assignedCode=keepA?`${keepA}/${targetTurmaCode}`:targetTurmaCode;}
+  const payload={assigned_turma:assignedCode,status:'atribuido'};
+  const existing=rByRef[_mtRef];
+  let ok=false;
+  try{
+    if(existing){const r=await fetch(`${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(_mtRef)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(payload)});ok=r.ok;}
+    else{const r=await fetch(`${SB}/rest/v1/timetable_requests`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({ref:_mtRef,academic_year:AY,student_name:enrol?.name||_mtRef,branch:enrol?.branch||'',family:enrol?.family||'adults',level_code:enrol?.level_code||'',level_cefr:enrol?.level_cefr||'',day_preferences:'[]',...payload})});ok=r.ok;}
+  }catch(e){console.error('confirmMudarTurma:',e);}
+  if(ok){
+    if(!rByRef[_mtRef]){rByRef[_mtRef]={ref:_mtRef,academic_year:AY};allR.push(rByRef[_mtRef]);}
+    rByRef[_mtRef].assigned_turma=assignedCode;rByRef[_mtRef].status='atribuido';
+    try{
+      const tRows=await sbGet('classes',`select=student_refs&turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+      const tRefs=new Set(Array.isArray(tRows[0]?.student_refs)?tRows[0].student_refs:[]);tRefs.add(_mtRef);
+      const rT=await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:[...tRefs],locked:true,assignment_source:'staff_move',locked_at:new Date().toISOString()})});
+      if(!rT.ok)throw new Error('target write failed HTTP '+rT.status);
+      if(sourceTurmaCode&&sourceTurmaCode!==targetTurmaCode){
+        const sRows=await sbGet('classes',`select=student_refs&turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+        const sRefs=(Array.isArray(sRows[0]?.student_refs)?sRows[0].student_refs:[]).filter(r=>r!==_mtRef);
+        await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({student_refs:sRefs})});
+      }
+      await loadLocks();
+    }catch(lockErr){console.warn('roster move failed',lockErr);showToast('Aviso: falha parcial na base de dados','warn');}
+    if(enrol){
+      for(const [key,result] of Object.entries(_allResults)){result.groups.forEach(g=>{const idx=g.students.findIndex(s=>s.ref===_mtRef);if(idx>=0)g.students.splice(idx,1);});}
+      const tg=_allResults[_mtSelectedLevelKey]?.groups[_mtSelectedGroupIdx];
+      if(tg&&!tg.students.find(s=>s.ref===_mtRef))tg.students.push(enrol);
+    }
+    const enrolName=(allE.find(e=>e.ref===_mtRef)?.name||_mtRef).split(' ')[0];
+    const suffixLabel=suffix==='A'?'Sessão A':suffix==='B'?'Sessão B':'Par';
+    document.getElementById('mt-success-title').textContent='MUDANÇA OK';
+    document.getElementById('mt-success-sub').textContent=`${enrolName} · ${suffixLabel} → ${targetTurmaCode} · guardado ✓`;
+    document.getElementById('mt-success').className='mt-success show';
+    showToast(`${enrolName} → ${targetTurmaCode} ✓`,'ok');
+    setTimeout(()=>closeMudarTurma(),1600);
+    if(activeLevelKey===_mtSelectedLevelKey)renderLevelContent();
+  }else{
+    showToast('Erro ao guardar — ver consola','err');btn.disabled=false;
+    const suffixLabel=suffix==='A'?'sessão A':suffix==='B'?'sessão B':'par';
+    btn.textContent=`✓ MOVER ${suffixLabel.toUpperCase()} PARA ${_mtSelectedCode}`;
+  }
+}
+
+function closeMudarTurma(){
+  document.getElementById('mt-overlay').classList.remove('open');
+  _mtRef=null;_mtSelectedCode=null;_mtSelectedGroupIdx=null;_mtSelectedLevelKey=null;
+  _mtChangeSuffix=null;_mtCurrentSuffixA=null;_mtCurrentSuffixB=null;
+}
+
+/* ── UTILITIES ────────────────────────────────────────────── */
 function almConfirm(opts){
   return new Promise(resolve=>{
     const o=opts||{};
@@ -1773,16 +1396,7 @@ function almConfirm(opts){
     const ov=document.createElement('div');
     ov.id='alm-confirm-overlay';
     ov.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.62);backdrop-filter:blur(20px) saturate(160%);display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML=`<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)">
-      <div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)">
-        <div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent||'var(--gold2)'}">${o.title||'CONFIRMAR'}</div>
-        ${o.lines?o.lines.map(l=>`<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join(''):''}
-      </div>
-      <div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end">
-        <button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel||'Cancelar'}</button>
-        <button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg||'rgba(201,168,76,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel||'Confirmar'}</button>
-      </div>
-    </div>`;
+    ov.innerHTML=`<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)"><div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent||'var(--gold2)'}">${o.title||'CONFIRMAR'}</div>${o.lines?o.lines.map(l=>`<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join(''):''}  </div><div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end"><button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel||'Cancelar'}</button><button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg||'rgba(201,168,76,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel||'Confirmar'}</button></div></div>`;
     document.body.appendChild(ov);
     const done=v=>{ov.remove();resolve(v);};
     ov.querySelector('#alm-confirm-ok').onclick=()=>done(true);
@@ -1790,14 +1404,28 @@ function almConfirm(opts){
     ov.onclick=e=>{if(e.target===ov)done(false);};
   });
 }
-  
+
 function pinStudent(ref,name){showToast(`📌 ${name} fixado`,'ok');}
-function dlCSV(content,filename){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));a.download=filename.replace(/\s+/g,'_');a.click();}
+
 let _toastT;
 function showToast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('show'),3000);}
 
+function openAbacusModal(){
+  const ex=document.getElementById('abacus-modal-ov');if(ex){ex.remove();return;}
+  const ov=document.createElement('div');ov.id='abacus-modal-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.72);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  ov.innerHTML=`<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(232,69,90,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:12px;display:block"></iframe></div>`;
+  document.body.appendChild(ov);
+  document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',esc);}});
+}
+
+/* ── EVENT LISTENERS ──────────────────────────────────────── */
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.lp-search-wrap')){document.getElementById('ov-drop')?.classList.remove('open');document.getElementById('sb-search-results')?.classList.remove('open');}
+  if(!e.target.closest('.lp-search-wrap')){
+    document.getElementById('ov-drop')?.classList.remove('open');
+    document.getElementById('sb-search-results')?.classList.remove('open');
+  }
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
@@ -1807,9 +1435,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-/* ══════════════════════════════════════════════
-   BOOT
-══════════════════════════════════════════════ */
+/* ── BOOT SEQUENCE ────────────────────────────────────────── */
 async function boot(){
   try{
     setBoot('A carregar inscrições e pedidos…');setBootProgress(5);
@@ -1818,8 +1444,7 @@ async function boot(){
       sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};
-    allR.forEach(r=>{rByRef[r.ref]=r;});
+    allE=enrol||[];allR=reqs||[];rByRef={};allR.forEach(r=>{rByRef[r.ref]=r;});
     document.getElementById('boot-count').textContent=allE.length;
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     setBootProgress(35);
@@ -1848,4 +1473,3 @@ async function boot(){
 
 boot();
 setInterval(()=>{if(_bootComplete)refreshData();},60000);
-
