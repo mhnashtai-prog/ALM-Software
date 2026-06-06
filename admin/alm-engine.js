@@ -204,14 +204,7 @@ function buildProposals(levelKey,branch){
 
   const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
    
-/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
-function buildProposalsCached(levelKey, branch) {
-  const cacheKey = `${levelKey}│${branch}`;
-  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
-  const result = buildProposals(levelKey, branch);
-  _proposalCache[cacheKey] = result;
-  return result;
-}
+
    
   function coversSlot(windows,dayIdx,startMins){
     return windows.some(w=>w.dayIdx===dayIdx&&w.earliest<=startMins+30&&w.latest>=startMins+CLASS_DUR-30);
@@ -289,6 +282,15 @@ function buildProposalsCached(levelKey, branch) {
   ];
 
   return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length};
+}
+
+/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
+function buildProposalsCached(levelKey, branch) {
+  const cacheKey = `${levelKey}│${branch}`;
+  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
+  const result = buildProposals(levelKey, branch);
+  _proposalCache[cacheKey] = result;
+  return result;
 }
 
 /* ── AUDIT ────────────────────────────────────────────────── */
