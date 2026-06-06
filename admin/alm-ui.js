@@ -1473,3 +1473,46 @@ async function boot(){
 
 boot();
 setInterval(()=>{if(_bootComplete)refreshData();},60000);
+/* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
+/* Fixes: HTML calls ovSearchDebounced / sbSearchDebounced /
+   auditSearchDebounced but those were never defined.           */
+const debounce = (fn, ms) => {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+};
+
+const ovSearchDebounced    = debounce(ovSearch, 150);
+const sbSearchDebounced    = debounce(sbSearchInput, 150);
+const auditSearchDebounced = debounce(() => renderAudit(), 150);
+
+/* ── DECISION ← FORMATION BACK BUTTON (U-04) ─────────────── */
+/* Fixes: HTML has dec-back-btn with onclick="decBackToFormation()"
+   but that function was never defined.
+   Also patches decShowLevel to (a) record the last visited level
+   and (b) show the back button whenever a level is opened.      */
+let _decLastLevelKey = null;
+
+/* Patch decShowLevel in-place by reassigning after definition. */
+(function () {
+  const _orig = decShowLevel;
+  decShowLevel = function (levelKey) {
+    _decLastLevelKey = levelKey;
+    _orig(levelKey);
+    const btn = document.getElementById('dec-back-btn');
+    if (btn) btn.style.display = 'block';
+  };
+})();
+
+function decBackToFormation() {
+  switchCC('formation', document.getElementById('tab-formation'));
+  if (_decLastLevelKey) {
+    const meta = LEVEL_MAP[_decLastLevelKey] || {};
+    if (meta.dept) openDepts[meta.dept] = true;
+    activeLevelKey = _decLastLevelKey;
+    if (!activeLoc) activeLoc = 'all';
+    _lastResult = _allResults[_decLastLevelKey] || null;
+    updateSidebarKPIs();
+    renderTree();
+    renderLevelContent();
+  }
+}
