@@ -1761,6 +1761,66 @@ function decStuChips(students,ar){
   }).join('');
 }
 
+ async function renderDecision(){
+  const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
+  if(!triageEl||!mainEl)return;
+
+  triageEl.innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>`;
+
+  // Always re-fetch locked classes from DB to get true state
+  try{
+    const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    // Group by group_code
+    const byGC={};
+    rows.forEach(c=>{
+      const gc=c.group_code||(c.turma_code?.replace(/[AB]$/i,''));
+      if(!gc)return;
+      if(!byGC[gc])byGC[gc]=[];
+      byGC[gc].push(c);
+    });
+    // Rebuild _groupCodes from DB truth
+    Object.values(byGC).forEach(groupRows=>{
+      const first=groupRows[0];
+      const key=`${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
+      // ensure _allResults has this level
+      if(!_allResults[key]){
+        const refs=Array.isArray(first.student_refs)?first.student_refs:[];
+        const students=refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
+        if(!students.length)return;
+        const startMins=timeToMins(first.start_time)??8*60;
+        const dayRaw=(first.day_of_week||'').toUpperCase().trim();
+        const dayIdx=DAYS_PT.indexOf(dayRaw);if(dayIdx<0)return;
+        const rowB=groupRows.find(r=>r.turma_code!==first.turma_code);
+        const dayRawB=rowB?(rowB.day_of_week||'').toUpperCase().trim():dayRaw;
+        const dayIdxB=rowB?DAYS_PT.indexOf(dayRawB):dayIdx;
+        const pairDef=ALM_PAIRS.find(p=>p.a===dayIdx&&p.b===dayIdxB)||null;
+        _allResults[key]={groups:[{
+          pairDef,dayIdx_A:dayIdx,dayIdx_B:dayIdxB,
+          dayL_A:DAYS_PT[dayIdx],dayL_B:DAYS_PT[dayIdxB],
+          dayIdx,dayL:DAYS_PT[dayIdx],startMins,
+          startTime:minsToT(startMins),endTime:minsToT(startMins+CLASS_DUR),
+          students,_locked:true
+        }],sinalizados:[],total:students.length,withRequest:students.length,placed:students.length};
+        if(!_auditResults[key])_auditResults[key]={};
+        _auditResults[key][0]=auditGroupSync(_allResults[key].groups[0]);
+      }
+      // update _groupCodes
+      const gc=first.group_code||(first.turma_code?.replace(/[AB]$/i,''));
+      const result=_allResults[key];
+      if(!result?.groups)return;
+      const dbRefs=new Set(Array.isArray(first.student_refs)?first.student_refs:[]);
+      result.groups.forEach((g,i)=>{
+        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap>=Math.floor(g.students.length*0.5)){
+          if(!_groupCodes[key])_groupCodes[key]={};
+          const codeA=groupRows.find(r=>/A$/i.test(r.turma_code))?.turma_code||`${gc}A`;
+          const codeB=groupRows.find(r=>/B$/i.test(r.turma_code))?.turma_code||`${gc}B`;
+          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass',locked:true};
+        }
+      });
+    });
+  }catch(e){console.warn('renderDecision DB fetch failed',e);}
+
 function renderDecision(){
   const triageEl=document.getElementById('dec-triage-list'),mainEl=document.getElementById('dec-main');
   if(!triageEl||!mainEl)return;
