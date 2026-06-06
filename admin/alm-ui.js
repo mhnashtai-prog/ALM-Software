@@ -1549,7 +1549,7 @@ async function boot(){
     showToast('Erro Supabase: '+err.message,'err');
   }
 }
-window.addEventListener('resize', debounce(() => { _rowRectCache = {}; }, 200));
+
 boot();
 setInterval(()=>{if(_bootComplete)refreshData();},60000);
 /* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
