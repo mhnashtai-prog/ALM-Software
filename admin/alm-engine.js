@@ -111,6 +111,7 @@ let _decActiveIdx=null,_decActiveBranch='all';
 let _nextSeqBase={};
 let _lockedRefs={};
 let _lockMeta={};
+let _proposalCache={};
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
@@ -202,7 +203,16 @@ function buildProposals(levelKey,branch){
   });
 
   const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-
+   
+/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
+function buildProposalsCached(levelKey, branch) {
+  const cacheKey = `${levelKey}│${branch}`;
+  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
+  const result = buildProposals(levelKey, branch);
+  _proposalCache[cacheKey] = result;
+  return result;
+}
+   
   function coversSlot(windows,dayIdx,startMins){
     return windows.some(w=>w.dayIdx===dayIdx&&w.earliest<=startMins+30&&w.latest>=startMins+CLASS_DUR-30);
   }
