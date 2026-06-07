@@ -1574,9 +1574,6 @@ async function openDossier(ref) {
         <button class="ds-act purple-btn" id="ds-act-email">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Enviar email
         </button>
-        <button class="ds-act" id="ds-act-just" style="margin-left:auto">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="15" y2="16"/></svg>Justificar falta
-        </button>
         <button class="ds-act" onclick="window.print()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir
         </button>
@@ -1633,18 +1630,18 @@ window.dsTab = async (id, btn) => {
   }
 };
   // Fetch
-  let enrol = null, req = null, hst = [], absCount = 0;
-  try {
-   const [enrols, reqs] = await Promise.all([
-  sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
-  sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-]);
-const hist = []; // lazy-loaded when Historial tab is clicked
-const absCount = 0;
-  } catch(e) {
-    ov.querySelectorAll('.ds-spinner').forEach(s => s.innerHTML = `<div style="font-size:12px;color:#B83030;font-family:'IBM Plex Mono',monospace">Erro: ${e.message}</div>`);
-    return;
-  }
+let enrol = null, req = null;
+try {
+  const [enrols, reqs] = await Promise.all([
+    sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
+    sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
+  ]);
+  enrol = enrols[0] || null;
+  req   = reqs[0]   || rByRef[ref] || null;
+} catch(e) {
+  ov.querySelectorAll('.ds-spinner').forEach(s => s.innerHTML = `<div style="font-size:12px;color:#B83030;font-family:'IBM Plex Mono',monospace">Erro: ${e.message}</div>`);
+  return;
+}
 
   // Dept / level
   const dept     = (enrol?.family || 'adults').toLowerCase();
@@ -1787,7 +1784,7 @@ document.getElementById('ds-pane-historial')._loaded = false;
   document.getElementById('ds-act-ee').onclick    = () => enrol?.guardian_phone ? window.open(`tel:${enrol.guardian_phone}`) : showToast('Sem telefone do EE','warn');
   document.getElementById('ds-act-hor').onclick   = () => showToast('Horário enviado ✓','ok');
   document.getElementById('ds-act-email').onclick = () => enrol?.email ? window.open(`mailto:${enrol.email}?subject=ALM · ${enrol.name||ref}`) : showToast('Sem email','warn');
-  document.getElementById('ds-act-just').onclick  = () => { closeDossier(); window.location.href = `/admin/alm-mensagens.html?justify=${encodeURIComponent(ref)}`; };
+
 
   // Save note helper
   window.dsSaveNoteNew = async function(r) {
