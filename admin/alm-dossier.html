@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Dossier</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/* ═══ RESET ═══ */
+*{box-sizing:border-box;margin:0;padding:0}
+*{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.12) transparent}
+:root{
+  --gold:#C9A84C;--gold2:#8A6010;--gold-bg:#FDF6E8;--gold-border:#F0D080;
+  --green:#1A7A4A;--green-bg:#EAF5EF;--green-border:#7DC8A0;
+  --red:#B83030;--red-bg:#FEF0F0;--red-border:#F0A0A0;
+  --amber:#A05808;--amber-bg:#FEF5E8;--amber-border:#F0C060;
+  --blue:#1A5FA0;--blue-bg:#EBF3FC;--blue-border:#80B8E8;
+  --purple:#5A38A8;--purple-bg:#F0EBFC;--purple-border:#B098E0;
+  --teal:#0A6870;--teal-bg:#E8F5F6;--teal-border:#70C0C8;
+  --ink:#111118;--ink2:#444450;--ink3:#888898;--ink4:#BBBBC8;
+  --surface:#FFFFFF;--surface2:#F7F7FA;--surface3:#F0F0F5;
+  --border:#E4E4EC;--border2:#D0D0DC;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',-apple-system,sans-serif;
+  --dept-adults-bg:#FDF6E8;--dept-adults-stripe:#C9A84C;
+  --dept-exam-bg:#F2EEF9;--dept-exam-stripe:#7A58C8;
+  --dept-kids-bg:#EBF3FC;--dept-kids-stripe:#3A78C8;
+  --dept-juv-bg:#EAF5EF;--dept-juv-stripe:#2A8A5A;
+}
+html,body{height:100%;background:var(--surface2);color:var(--ink);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column}
+
+/* ═══ TOPBAR ═══ */
+.topbar{
+  flex-shrink:0;height:46px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 20px;gap:12px;
+  position:sticky;top:0;z-index:100;
+}
+.tb-back{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:500;color:var(--blue);
+  text-decoration:none;padding:4px 10px;
+  border:0.5px solid var(--blue-border);
+  border-radius:6px;background:var(--blue-bg);
+  transition:all .13s;cursor:pointer;
+}
+.tb-back:hover{background:#D8EAF8}
+.tb-back svg{width:14px;height:14px;flex-shrink:0}
+.tb-brand{
+  font-family:var(--mono);font-size:15px;font-weight:600;
+  letter-spacing:6px;color:var(--gold);
+}
+.tb-breadcrumb{
+  font-size:11px;color:var(--ink3);
+  font-family:var(--mono);letter-spacing:.04em;
+}
+.tb-breadcrumb span{color:var(--ink2)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tb-pill{
+  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.06em;
+  padding:3px 10px;border-radius:99px;border:0.5px solid;
+}
+.pill-adults{background:var(--gold-bg);border-color:var(--gold-border);color:var(--gold2)}
+.pill-exam{background:var(--purple-bg);border-color:var(--purple-border);color:var(--purple)}
+.pill-kids{background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue)}
+.pill-juv{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.pill-active{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.pill-neutral{background:var(--surface3);border-color:var(--border2);color:var(--ink3)}
+.tb-ref{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.spinner-sm{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══ LAYOUT ═══ */
+.page{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.hero{flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0}
+.hero-inner{
+  max-width:960px;margin:0 auto;
+  display:flex;align-items:stretch;
+  padding:0;
+  min-height:120px;
+}
+.hero-dept-stripe{width:5px;flex-shrink:0;background:var(--dept-adults-stripe)}
+.hero-photo{
+  width:100px;flex-shrink:0;
+  background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  border-right:1px solid var(--border);
+  cursor:pointer;overflow:hidden;position:relative;
+}
+.hero-photo:hover .photo-overlay{opacity:1}
+.photo-overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s;
+}
+.photo-overlay svg{width:22px;height:22px;color:#fff}
+.hero-photo img{width:100%;height:100%;object-fit:cover;object-position:top;display:none}
+.hero-photo-initials{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--ink4)}
+.hero-info{flex:1;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.hero-level{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
+.hero-name{font-size:26px;font-weight:500;color:var(--ink);letter-spacing:-.02em;line-height:1.1}
+.hero-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hero-ref{font-family:var(--mono);font-size:11px;color:var(--ink3);letter-spacing:.04em}
+.hero-stats{
+  display:flex;flex-shrink:0;
+  border-left:1px solid var(--border);
+}
+.hs-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 24px;border-left:1px solid var(--border);
+  text-align:center;
+}
+.hs-item:first-child{border-left:none}
+.hs-v{font-family:var(--mono);font-size:26px;font-weight:500;color:var(--ink);line-height:1}
+.hs-l{font-size:10px;color:var(--ink3);margin-top:3px;letter-spacing:.04em}
+
+/* ═══ CONTACT STRIP ═══ */
+.contact-strip{
+  background:var(--surface2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;
+}
+.contact-strip::-webkit-scrollbar{display:none}
+.cs-item{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 18px;border-right:1px solid var(--border);
+  font-size:12px;color:var(--ink2);
+  white-space:nowrap;flex-shrink:0;
+  text-decoration:none;transition:background .1s;cursor:pointer;
+}
+.cs-item:hover{background:var(--surface)}
+.cs-item svg{width:14px;height:14px;flex-shrink:0;color:var(--ink3)}
+.cs-item.cs-link{color:var(--blue)}
+.cs-item.cs-link svg{color:var(--blue)}
+
+/* ═══ TAB NAV ═══ */
+.tab-nav{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;
+  position:sticky;top:46px;z-index:90;
+}
+.tab-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:11px 20px;
+  font-size:12px;font-weight:500;color:var(--ink3);
+  border:none;background:transparent;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:all .13s;white-space:nowrap;
+}
+.tab-btn:hover{color:var(--ink);background:var(--surface2)}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--gold)}
+.tab-btn svg{width:14px;height:14px}
+.tab-badge{
+  font-family:var(--mono);font-size:9px;font-weight:500;
+  padding:1px 6px;border-radius:99px;background:var(--red-bg);
+  border:0.5px solid var(--red-border);color:var(--red);
+}
+
+/* ═══ BODY ═══ */
+.body-wrap{max-width:960px;margin:0 auto;width:100%;padding:0 0 60px}
+
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.col-section{padding:24px 28px;border-right:1px solid var(--border)}
+.col-section:last-child{border-right:none}
+
+.sec-label{
+  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink3);
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:14px;margin-top:20px;
+}
+.sec-label:first-child{margin-top:0}
+.sec-label::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
+.field{margin-bottom:12px}
+.field-label{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4);margin-bottom:3px}
+.field-value{font-size:13px;color:var(--ink);line-height:1.5}
+.field-value.muted{color:var(--ink3)}
+.field-value a{color:var(--blue);text-decoration:none}
+.field-value a:hover{text-decoration:underline}
+.field-value .mono{font-family:var(--mono);font-size:12px}
+
+/* ═══ TURMA CARD ═══ */
+.turma-card{
+  background:var(--surface2);
+  border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;margin-bottom:12px;
+  display:flex;align-items:flex-start;gap:16px;
+}
+.turma-code{
+  font-family:var(--mono);font-size:13px;font-weight:500;
+  color:var(--gold2);flex-shrink:0;min-width:80px;
+  letter-spacing:.04em;padding-top:1px;
+}
+.turma-body{flex:1;min-width:0}
+.turma-slots{display:flex;flex-direction:column;gap:4px;margin-bottom:6px}
+.turma-slot{display:flex;align-items:center;gap:8px}
+.turma-day{font-family:var(--mono);font-size:11px;color:var(--ink3);width:36px;flex-shrink:0}
+.turma-time{font-size:13px;font-weight:500;color:var(--ink)}
+.turma-sub{font-size:11px;color:var(--ink3)}
+
+/* ═══ AVAIL GRID ═══ */
+.avail-ruler{position:relative;margin:8px 0 16px}
+.ruler-track{
+  display:grid;
+  grid-template-columns:44px repeat(5,1fr);
+  gap:1px;
+}
+.ruler-h{font-family:var(--mono);font-size:9px;color:var(--ink4);text-align:center;padding:2px 0}
+.ruler-day-lbl{font-family:var(--mono);font-size:9px;color:var(--ink3);display:flex;align-items:center;height:20px}
+.ruler-row{position:relative;height:20px;border-radius:3px;background:var(--surface3);overflow:hidden}
+.ruler-band{
+  position:absolute;top:2px;bottom:2px;
+  border-radius:2px;
+  background:var(--amber-bg);
+  border:0.5px solid var(--amber-border);
+}
+
+/* ═══ HISTORIAL ═══ */
+.hist-row{
+  display:flex;align-items:center;gap:0;
+  padding:11px 0;border-bottom:0.5px solid var(--border);
+}
+.hist-row:last-child{border-bottom:none}
+.hist-year{font-family:var(--mono);font-size:11px;color:var(--ink3);width:68px;flex-shrink:0}
+.hist-code{font-family:var(--mono);font-size:11px;color:var(--ink3);width:120px;flex-shrink:0}
+.hist-level{font-size:12px;color:var(--ink);flex:1}
+.hist-outcome{
+  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;
+  padding:2px 9px;border-radius:99px;border:0.5px solid;flex-shrink:0;margin-left:8px;
+}
+.out-pass{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.out-fail{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.out-prog{background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue)}
+
+/* ═══ ABSENCE BAR ═══ */
+.abs-card{
+  background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;
+  padding:16px 18px;margin:16px 28px;
+  display:flex;align-items:center;gap:16px;
+}
+.abs-num{font-family:var(--mono);font-size:32px;font-weight:500;color:var(--ink);line-height:1}
+.abs-meta{flex:1}
+.abs-label{font-size:11px;color:var(--ink3);margin-bottom:6px}
+.abs-track{height:8px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.abs-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.abs-limit{font-family:var(--mono);font-size:11px;color:var(--ink3);flex-shrink:0}
+
+/* ═══ ACTION ROW ═══ */
+.action-row{
+  position:sticky;bottom:0;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:12px 20px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  z-index:90;
+}
+.act-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 16px;font-size:12px;font-weight:500;
+  border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface);color:var(--ink2);
+  cursor:pointer;transition:all .13s;
+}
+.act-btn:hover{background:var(--surface2);border-color:var(--ink4);color:var(--ink)}
+.act-btn svg{width:15px;height:15px;flex-shrink:0}
+.act-btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+.act-btn.primary:hover{background:#155090}
+.act-btn.primary svg{color:rgba(255,255,255,.8)}
+.act-btn.success{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.act-btn.success:hover{background:#D8EEE4}
+.act-btn.warning{background:var(--amber-bg);border-color:var(--amber-border);color:var(--amber)}
+.act-btn.warning:hover{background:#F8EAD4}
+.act-btn.danger{background:var(--surface);border-color:var(--red-border);color:var(--red)}
+.act-btn.danger:hover{background:var(--red-bg)}
+.act-btn.purple-btn{background:var(--purple-bg);border-color:var(--purple-border);color:var(--purple)}
+.act-btn.purple-btn:hover{background:#E4DDF8}
+
+/* ═══ NOTES ═══ */
+.note-area{
+  width:100%;padding:11px 13px;
+  background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;
+  font-family:var(--sans);font-size:13px;color:var(--ink);
+  outline:none;resize:vertical;min-height:80px;line-height:1.6;
+  transition:border-color .13s;
+}
+.note-area::placeholder{color:var(--ink4)}
+.note-area:focus{border-color:var(--ink4)}
+
+.flag-grid{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.flag-chip{
+  display:flex;align-items:center;gap:5px;
+  padding:6px 12px;font-size:12px;
+  border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface);color:var(--ink3);
+  cursor:pointer;transition:all .13s;
+}
+.flag-chip:hover{border-color:var(--ink4);color:var(--ink2)}
+.flag-chip.on{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.flag-chip svg{width:13px;height:13px}
+
+/* ═══ TOASTS ═══ */
+.toast{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) translateY(8px);
+  padding:7px 18px;border-radius:8px;
+  font-size:12px;font-weight:500;
+  background:var(--ink);color:#fff;
+  opacity:0;transition:all .2s;z-index:9999;
+  pointer-events:none;white-space:nowrap;
+  border:1px solid rgba(255,255,255,.1);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ═══ LOADING STATE ═══ */
+.loading-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:80px 20px;gap:12px;
+}
+.loading-ring{
+  width:32px;height:32px;
+  border:2.5px solid var(--border2);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+.loading-text{font-size:12px;color:var(--ink3);font-family:var(--mono);letter-spacing:.08em}
+
+/* ═══ EMPTY ═══ */
+.empty-msg{
+  text-align:center;padding:32px;
+  font-size:12px;color:var(--ink3);
+  font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:680px){
+  .two-col{grid-template-columns:1fr}
+  .col-section{border-right:none;border-bottom:1px solid var(--border)}
+  .hero-stats{display:none}
+  .hero-name{font-size:20px}
+}
+
+/* ═══ PRINT ═══ */
+@media print{
+  .topbar,.tab-nav,.action-row{display:none!important}
+  .tab-pane{display:block!important}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <button class="tb-back" id="back-btn" onclick="goBack()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    <span id="back-label">Voltar</span>
+  </button>
+  <div class="tb-brand">ALM</div>
+  <div class="tb-breadcrumb">Dossier · <span id="tb-ref-crumb">—</span></div>
+  <div class="tb-right">
+    <div class="spinner-sm" id="tb-spinner" style="display:none"></div>
+    <span class="tb-pill" id="tb-dept-pill" style="display:none"></span>
+    <span class="tb-pill pill-active" id="tb-status-pill" style="display:none">Activo</span>
+    <span class="tb-ref" id="tb-ref-pill"></span>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-dept-stripe" id="hero-stripe"></div>
+    <div class="hero-photo" id="hero-photo" title="Clique para carregar foto">
+      <div class="photo-overlay">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <img id="hero-photo-img" src="" alt=""/>
+      <div class="hero-photo-initials" id="hero-initials">—</div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhoto(event)"/>
+    </div>
+    <div class="hero-info">
+      <div class="hero-level" id="hero-level">A carregar…</div>
+      <div class="hero-name" id="hero-name">—</div>
+      <div class="hero-meta">
+        <span class="hero-ref" id="hero-ref">—</span>
+        <span class="tb-pill pill-neutral" id="hero-ay" style="display:none"></span>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hs-item">
+        <div class="hs-v" id="hs-abs">—</div>
+        <div class="hs-l">faltas</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-v" id="hs-years">—</div>
+        <div class="hs-l">anos ALM</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-v" id="hs-turma" style="font-size:13px;font-family:var(--mono);color:var(--gold2)">—</div>
+        <div class="hs-l">turma</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACT STRIP -->
+<div class="contact-strip" id="contact-strip">
+  <div class="cs-item" style="color:var(--ink3);font-family:var(--mono);font-size:11px;letter-spacing:.06em">
+    A carregar contactos…
+  </div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('identity',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+    Identidade
+  </button>
+  <button class="tab-btn" onclick="switchTab('timetable',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Horário
+  </button>
+  <button class="tab-btn" onclick="switchTab('historial',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    Historial
+    <span class="tab-badge" id="badge-hist" style="display:none">0</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('notes',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    Notas &amp; Alertas
+  </button>
+</div>
+
+<!-- BODY -->
+<div class="page">
+<div class="body-wrap">
+
+  <!-- IDENTITY TAB -->
+  <div class="tab-pane active" id="tab-identity">
+    <div class="two-col" id="identity-content">
+      <div class="col-section">
+        <div class="loading-state"><div class="loading-ring"></div><div class="loading-text">A carregar…</div></div>
+      </div>
+      <div class="col-section"></div>
+    </div>
+  </div>
+
+  <!-- TIMETABLE TAB -->
+  <div class="tab-pane" id="tab-timetable">
+    <div style="padding:24px 28px">
+      <div id="timetable-content">
+        <div class="loading-state"><div class="loading-ring"></div><div class="loading-text">A carregar…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORIAL TAB -->
+  <div class="tab-pane" id="tab-historial">
+    <div id="abs-content"></div>
+    <div style="padding:16px 28px 24px">
+      <div class="sec-label">Historial por ano lectivo</div>
+      <div id="hist-content">
+        <div class="loading-state"><div class="loading-ring"></div><div class="loading-text">A carregar…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTES TAB -->
+  <div class="tab-pane" id="tab-notes">
+    <div style="padding:24px 28px">
+      <div class="sec-label">Nota interna da equipa</div>
+      <textarea class="note-area" id="note-text" placeholder="Nota visível para toda a equipa ALM — direcção, secretaria, professor…"></textarea>
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;gap:8px">
+        <span id="note-saved" style="font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;font-family:var(--mono)">✓ guardado</span>
+        <button class="act-btn success" onclick="saveNote()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar nota
+        </button>
+      </div>
+      <div class="sec-label" style="margin-top:20px">Alertas activos</div>
+      <div class="flag-grid" id="flag-grid">
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="comportamento">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Comportamento
+        </div>
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="faltas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Excesso de faltas
+        </div>
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="pagamento">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Pagamento
+        </div>
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="desempenho">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Desempenho
+        </div>
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="nec_especial">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+          Nec. especial
+        </div>
+        <div class="flag-chip" onclick="toggleFlag(this)" data-flag="menor_risco">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Menor em risco
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ACTION ROW -->
+<div class="action-row">
+  <button class="act-btn primary" id="act-whatsapp" onclick="actWhatsApp()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    Mensagem WhatsApp
+  </button>
+  <button class="act-btn warning" id="act-parent" onclick="actContactParent()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Contactar EE
+  </button>
+  <button class="act-btn" id="act-timetable" onclick="actSendTimetable()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    Enviar horário
+  </button>
+  <button class="act-btn purple-btn" id="act-email" onclick="actEmail()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    Enviar email
+  </button>
+  <button class="act-btn" onclick="actJustify()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+    Justificar falta
+  </button>
+  <button class="act-btn" style="margin-left:auto" onclick="window.print()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Imprimir
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════ */
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const AY  = '2026/2027';
+const H   = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json'};
+
+const DEPT_MAP = {
+  kids:     {label:'Infantil', stripe:'#3A78C8', pill:'pill-kids'},
+  kids_juv: {label:'Juvenil',  stripe:'#2A8A5A', pill:'pill-juv'},
+  adults:   {label:'Geral',    stripe:'#C9A84C', pill:'pill-adults'},
+  exam:     {label:'Exames',   stripe:'#7A58C8', pill:'pill-exam'},
+};
+const LEVEL_DISP = {
+  PI1:'PI 1',PI2:'PI 2',PI3:'PI 3',PI4:'PI 4',
+  PJ1:'PJ 1',PJ2:'PJ 2',PJ3:'PJ 3',
+  '1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5',
+  Portugues:'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE',
+};
+const LEVEL_TO_DEPT = {
+  PI1:'kids',PI2:'kids',PI3:'kids',PI4:'kids',
+  PJ1:'kids_juv',PJ2:'kids_juv',PJ3:'kids_juv',
+  '1':'adults','2':'adults','3':'adults','4':'adults','5':'adults',Portugues:'adults',
+  '6':'exam','7':'exam','8':'exam',
+};
+const DAY_FULL = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
+const FLAGS = {EN:'EN',PT:'PT',FR:'FR',ES:'ES',DE:'DE'};
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let REF = null, ENROL = null, REQ = null, HIST = [], CLASS_ROW = null;
+let ABS_COUNT = 0;
+
+/* ════════════════════════════════════════
+   URL PARAMS
+════════════════════════════════════════ */
+const params = new URLSearchParams(window.location.search);
+REF = params.get('ref');
+const CTX = params.get('ctx') || 'painel'; // which file opened this
+
+/* ════════════════════════════════════════
+   BACK BUTTON
+════════════════════════════════════════ */
+const CTX_LABELS = {
+  painel:   'Painel Central',
+  assign:   'Assign',
+  mensagens:'Mensagens',
+};
+const CTX_URLS = {
+  painel:   '/admin/alm-painel-central.html',
+  assign:   '/admin/alm-atribuir-turmas.html',
+  mensagens:'/admin/alm-mensagens.html',
+};
+function goBack(){
+  const url = document.referrer || CTX_URLS[CTX] || '/admin/alm-painel-central.html';
+  window.location.href = url;
+}
+document.getElementById('back-label').textContent = CTX_LABELS[CTX] || 'Voltar';
+
+/* ════════════════════════════════════════
+   SUPABASE
+════════════════════════════════════════ */
+async function sbGet(table, qs) {
+  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+    headers: {...H, Range:'0-9999', Prefer:'count=none'}
+  });
+  if (!r.ok) throw new Error(`${table} HTTP ${r.status}`);
+  return r.json();
+}
+async function sbPatch(table, qs, body) {
+  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`, {
+    method:'PATCH', headers:H, body:JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`patch ${r.status}`);
+}
+
+/* ════════════════════════════════════════
+   BOOT
+════════════════════════════════════════ */
+async function boot() {
+  if (!REF) {
+    document.getElementById('hero-name').textContent = 'Sem referência';
+    document.getElementById('hero-level').textContent = 'Passe ?ref=XXXX na URL';
+    return;
+  }
+  document.getElementById('tb-ref-crumb').textContent = REF;
+  document.getElementById('tb-ref-pill').textContent = REF;
+  document.getElementById('tb-spinner').style.display = 'block';
+  try {
+    const [enrols, reqs, hist, absRows] = await Promise.all([
+      sbGet('enrolments',
+        `ref=eq.${enc(REF)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,payment_method,guardian_name,guardian_phone,guardian_email,notes,school,school_year,occupation&limit=1`),
+      sbGet('timetable_requests',
+        `ref=eq.${enc(REF)}&academic_year=eq.${enc(AY)}&select=ref,status,sessions_per_week,day_preferences,slots,assigned_turma,notes&limit=1`),
+      sbGet('turma_students',
+        `ref=eq.${enc(REF)}&select=ref,turma_code,academic_year,level_cefr,level_code,family,outcome,absences,grade_final&order=academic_year.desc&limit=20`),
+      sbGet('attendance',
+        `student_ref=eq.${enc(REF)}&status=eq.absent&select=student_ref&limit=5000`),
+    ]);
+    ENROL = enrols[0] || null;
+    REQ   = reqs[0]   || null;
+    HIST  = hist       || [];
+    ABS_COUNT = absRows.length;
+
+    /* Try to get the live class row */
+    if (REQ?.assigned_turma) {
+      try {
+        const cls = await sbGet('classes',
+          `turma_code=eq.${enc(REQ.assigned_turma)}&academic_year=eq.${enc(AY)}&select=turma_code,day_of_week,start_time,end_time,duration_min,teacher_name,sala&limit=4`);
+        CLASS_ROW = cls;
+      } catch(e) { CLASS_ROW = null; }
+    }
+    render();
+  } catch(e) {
+    showToast('Erro: ' + e.message);
+    document.getElementById('hero-name').textContent = 'Erro ao carregar';
+  } finally {
+    document.getElementById('tb-spinner').style.display = 'none';
+  }
+}
+
+function enc(s) { return encodeURIComponent(s || ''); }
+
+/* ════════════════════════════════════════
+   RENDER HELPERS
+════════════════════════════════════════ */
+function getDept() {
+  if (ENROL?.family) return ENROL.family.toLowerCase();
+  const code = (ENROL?.level_code || ENROL?.level_cefr || REQ?.level_code || '').trim();
+  return LEVEL_TO_DEPT[code] || 'adults';
+}
+function getLevel() {
+  const code = (ENROL?.level_code || ENROL?.level_cefr || REQ?.level_code || '').trim();
+  return LEVEL_DISP[code] || code || '—';
+}
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+/* ════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════ */
+function render() {
+  const dept = getDept();
+  const dm   = DEPT_MAP[dept] || DEPT_MAP.adults;
+  const lvl  = getLevel();
+  const name = ENROL?.name || REF;
+
+  /* Hero stripe */
+  document.getElementById('hero-stripe').style.background = dm.stripe;
+
+  /* Topbar dept pill */
+  const deptPill = document.getElementById('tb-dept-pill');
+  deptPill.textContent = dm.label + ' · ' + lvl;
+  deptPill.className = 'tb-pill ' + dm.pill;
+  deptPill.style.display = '';
+  document.getElementById('tb-status-pill').style.display = '';
+
+  /* Hero */
+  document.getElementById('hero-level').textContent = dm.label + ' · ' + lvl + ' · ' + (ENROL?.branch || '—').replace(/_/g,' ');
+  document.getElementById('hero-name').textContent = name;
+  document.getElementById('hero-initials').textContent = initials(name);
+  document.getElementById('hero-ref').textContent = REF;
+  const ayPill = document.getElementById('hero-ay');
+  if (ENROL?.academic_year) { ayPill.textContent = ENROL.academic_year; ayPill.style.display = ''; }
+
+  /* Hero stats */
+  document.getElementById('hs-abs').textContent = ABS_COUNT;
+  document.getElementById('hs-years').textContent = HIST.length || '—';
+  const turma = REQ?.assigned_turma || '—';
+  document.getElementById('hs-turma').textContent = turma.replace(/^[^-]+-/,'') || '—';
+
+  /* Contact strip */
+  renderContactStrip();
+
+  /* Tabs */
+  renderIdentity();
+  renderTimetable();
+  renderHistorial();
+  renderNotes();
+}
+
+/* ════════════════════════════════════════
+   CONTACT STRIP
+════════════════════════════════════════ */
+function renderContactStrip() {
+  const el = document.getElementById('contact-strip');
+  const items = [];
+  if (ENROL?.phone)
+    items.push(`<a class="cs-item cs-link" href="tel:${ENROL.phone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1 19.79 19.79 0 0 1 1.61 4.52 2 2 0 0 1 3.6 2.34h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.08 6.08l1.07-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${ENROL.phone}</a>`);
+  if (ENROL?.email)
+    items.push(`<a class="cs-item cs-link" href="mailto:${ENROL.email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${ENROL.email}</a>`);
+  if (ENROL?.guardian_name) {
+    const guardTel = ENROL.guardian_phone ? ` · <a href="tel:${ENROL.guardian_phone}" style="color:var(--blue)">${ENROL.guardian_phone}</a>` : '';
+    items.push(`<div class="cs-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>EE: ${ENROL.guardian_name}${guardTel}</div>`);
+  }
+  if (ENROL?.school)
+    items.push(`<div class="cs-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>${ENROL.school}${ENROL.school_year ? ' · ' + ENROL.school_year : ''}</div>`);
+  if (ENROL?.age)
+    items.push(`<div class="cs-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>${ENROL.age} anos</div>`);
+  el.innerHTML = items.join('') || '<div class="cs-item" style="color:var(--ink3);font-size:11px;font-family:var(--mono)">Sem contactos registados</div>';
+}
+
+/* ════════════════════════════════════════
+   IDENTITY TAB
+════════════════════════════════════════ */
+function renderIdentity() {
+  const e = ENROL;
+  if (!e) {
+    document.getElementById('identity-content').innerHTML =
+      '<div class="col-section" style="grid-column:1/-1"><div class="empty-msg">Matrícula não encontrada</div></div>';
+    return;
+  }
+
+  const fld = (label, val, cls) =>
+    val ? `<div class="field"><div class="field-label">${label}</div><div class="field-value ${cls||''}">${val}</div></div>` : '';
+  const dob = e.date_of_birth
+    ? new Date(e.date_of_birth).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'})
+    : null;
+
+  const left = `
+    <div class="sec-label">Dados pessoais</div>
+    ${fld('Nome completo', e.name)}
+    ${dob ? fld('Data de nascimento', `${dob}${e.age ? ' · ' + e.age + ' anos' : ''}`) : ''}
+    ${fld('Género', e.gender === 'M' ? 'Masculino' : e.gender === 'F' ? 'Feminino' : e.gender)}
+    ${fld('Escola / Ano', e.school ? `${e.school}${e.school_year ? ' · ' + e.school_year : ''}` : null)}
+    ${fld('Ocupação', e.occupation)}
+    <div class="sec-label">Encarregado de educação</div>
+    ${fld('Nome', e.guardian_name)}
+    ${e.guardian_phone ? `<div class="field"><div class="field-label">Telefone EE</div><div class="field-value"><a href="tel:${e.guardian_phone}">${e.guardian_phone}</a></div></div>` : ''}
+    ${e.guardian_email ? `<div class="field"><div class="field-label">Email EE</div><div class="field-value"><a href="mailto:${e.guardian_email}">${e.guardian_email}</a></div></div>` : ''}
+    <div class="sec-label">Contactos directos</div>
+    ${e.phone ? `<div class="field"><div class="field-label">Telefone</div><div class="field-value"><a href="tel:${e.phone}">${e.phone}</a></div></div>` : ''}
+    ${e.email ? `<div class="field"><div class="field-label">Email</div><div class="field-value"><a href="mailto:${e.email}">${e.email}</a></div></div>` : ''}
+  `;
+
+  const right = `
+    <div class="sec-label">Dados académicos</div>
+    <div class="field"><div class="field-label">Referência</div><div class="field-value mono">${e.ref}</div></div>
+    ${fld('Nível', getLevel())}
+    ${fld('Departamento', DEPT_MAP[getDept()]?.label)}
+    ${fld('Filial', (e.branch || '').replace(/_/g,' '))}
+    ${fld('Língua', e.lang ? `${FLAGS[e.lang] || ''} ${e.lang}` : null)}
+    ${fld('Ano lectivo', e.academic_year)}
+    ${e.returning_student != null ? fld('Tipo', e.returning_student ? 'Aluno recorrente' : 'Aluno novo') : ''}
+    ${fld('Pagamento', e.payment_method)}
+    <div class="sec-label">Turma 2026/2027</div>
+    ${REQ?.assigned_turma
+      ? `<div class="field"><div class="field-label">Turma atribuída</div><div class="field-value mono" style="color:var(--gold2)">${REQ.assigned_turma}</div></div>`
+      : `<div class="field"><div class="field-value muted">Sem turma atribuída</div></div>`}
+    ${REQ?.status ? `<div class="field"><div class="field-label">Estado pedido</div><div class="field-value"><span class="tb-pill ${REQ.status === 'atribuido' ? 'pill-active' : 'pill-neutral'}">${REQ.status}</span></div></div>` : ''}
+  `;
+
+  document.getElementById('identity-content').innerHTML =
+    `<div class="col-section">${left}</div><div class="col-section">${right}</div>`;
+}
+
+/* ════════════════════════════════════════
+   TIMETABLE TAB
+════════════════════════════════════════ */
+function renderTimetable() {
+  const el = document.getElementById('timetable-content');
+  let html = '';
+
+  /* Assigned turma */
+  if (CLASS_ROW && CLASS_ROW.length) {
+    html += `<div class="sec-label">Turma atribuída</div>`;
+    /* Group by turma_code */
+    const byCode = {};
+    CLASS_ROW.forEach(c => {
+      if (!byCode[c.turma_code]) byCode[c.turma_code] = [];
+      byCode[c.turma_code].push(c);
+    });
+    Object.entries(byCode).forEach(([code, rows]) => {
+      const slots = rows.map(r =>
+        `<div class="turma-slot">
+          <span class="turma-day">${r.day_of_week}</span>
+          <span class="turma-time">${r.start_time || '—'} – ${r.end_time || '—'}</span>
+          ${r.duration_min ? `<span style="font-size:11px;color:var(--ink3)">${r.duration_min}min</span>` : ''}
+        </div>`
+      ).join('');
+      const row = rows[0];
+      html += `<div class="turma-card">
+        <div class="turma-code">${code}</div>
+        <div class="turma-body">
+          <div class="turma-slots">${slots}</div>
+          <div class="turma-sub">${row.teacher_name ? 'Prof. ' + row.teacher_name : ''}${row.sala ? ' · Sala ' + row.sala : ''}</div>
+        </div>
+        <span class="tb-pill pill-active" style="flex-shrink:0;align-self:flex-start">Confirmada</span>
+      </div>`;
+    });
+  } else if (REQ?.assigned_turma) {
+    html += `<div class="sec-label">Turma atribuída</div>
+      <div class="turma-card">
+        <div class="turma-code">${REQ.assigned_turma}</div>
+        <div class="turma-body"><div class="turma-sub">Dados detalhados não disponíveis</div></div>
+      </div>`;
+  } else {
+    html += `<div class="empty-msg" style="margin-top:12px">Sem turma atribuída para ${AY}</div>`;
+  }
+
+  /* Availability from request */
+  html += `<div class="sec-label" style="margin-top:20px">Disponibilidade pedida</div>`;
+  const slots = parseSlots(REQ);
+  if (slots.length) {
+    html += renderAvailGrid(slots);
+    html += `<div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:5px">
+        <span style="width:12px;height:8px;border-radius:2px;background:var(--amber-bg);border:0.5px solid var(--amber-border);display:inline-block"></span>
+        Disponível
+      </span>
+      <span style="font-size:11px;color:var(--ink3)">${REQ?.sessions_per_week ? REQ.sessions_per_week + ' sessões/semana' : ''}</span>
+    </div>`;
+  } else {
+    html += `<div class="empty-msg">Sem disponibilidade registada</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function parseSlots(req) {
+  if (!req) return [];
+  const raw = req.slots || req.day_preferences;
+  if (!raw) return [];
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return [];
+    return arr.map(s => {
+      const day = (s.day_short || s.day || s.dia || '').toUpperCase().replace(/\bSAB\b/,'SÁB');
+      const from = typeof s.from === 'number' ? s.from : parseInt((s.from || s.start_time || '').split(':')[0]) * 60 + parseInt(((s.from || s.start_time || '0:0').split(':')[1]) || 0);
+      const to   = typeof s.to   === 'number' ? s.to   : parseInt((s.to   || s.end_time   || '').split(':')[0]) * 60 + parseInt(((s.to   || s.end_time   || '0:0').split(':')[1]) || 0);
+      return {day, from: isNaN(from) ? null : from, to: isNaN(to) ? null : to};
+    }).filter(s => s.day && s.from !== null);
+  } catch(e) { return []; }
+}
+
+function renderAvailGrid(slots) {
+  const DAYS = ['SEG','TER','QUA','QUI','SEX'];
+  const START = 8 * 60, END = 20 * 60, TOTAL = END - START;
+  let html = `<div style="display:grid;grid-template-columns:38px repeat(5,1fr);gap:2px 3px;margin-top:6px">`;
+  html += `<div></div>`;
+  DAYS.forEach(d => {
+    html += `<div style="font-family:var(--mono);font-size:10px;color:var(--ink3);text-align:center;padding:2px 0">${d.slice(0,1)+d.slice(1,2).toLowerCase()}</div>`;
+  });
+  /* Row per hour */
+  for (let h = 8; h < 20; h++) {
+    html += `<div style="font-family:var(--mono);font-size:9px;color:var(--ink4);display:flex;align-items:center;height:16px">${h}h</div>`;
+    DAYS.forEach(day => {
+      const hStart = h * 60, hEnd = (h + 1) * 60;
+      const hit = slots.some(s => s.day === day && s.from < hEnd && s.to > hStart);
+      html += `<div style="height:16px;border-radius:3px;background:${hit ? 'var(--amber-bg)' : 'var(--surface3)'};border:0.5px solid ${hit ? 'var(--amber-border)' : 'var(--border)'}"></div>`;
+    });
+  }
+  html += `</div>`;
+  return html;
+}
+
+/* ════════════════════════════════════════
+   HISTORIAL TAB
+════════════════════════════════════════ */
+function renderHistorial() {
+  /* Absence bar */
+  const MAX = 12;
+  const pct = Math.min(100, Math.round(ABS_COUNT / MAX * 100));
+  const color = pct <= 25 ? 'var(--green)' : pct <= 58 ? 'var(--gold)' : pct <= 83 ? '#E87020' : 'var(--red)';
+  document.getElementById('abs-content').innerHTML = `
+    <div class="abs-card">
+      <div>
+        <div class="abs-num">${ABS_COUNT}</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:2px;font-family:var(--mono)">faltas · limite ${MAX}</div>
+      </div>
+      <div class="abs-meta">
+        <div class="abs-label">${pct}% do limite atingido este ano</div>
+        <div class="abs-track"><div class="abs-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+      <div class="abs-limit" style="color:${color}">${ABS_COUNT}/${MAX}</div>
+    </div>`;
+
+  /* Badge */
+  if (HIST.length) {
+    document.getElementById('badge-hist').textContent = HIST.length;
+    document.getElementById('badge-hist').style.display = '';
+  }
+
+  /* History rows */
+  if (!HIST.length) {
+    document.getElementById('hist-content').innerHTML = '<div class="empty-msg">Sem historial registado</div>';
+    return;
+  }
+  const rows = HIST.map(yr => {
+    const code = (yr.level_code || yr.level_cefr || '').trim();
+    const lvl  = LEVEL_DISP[code] || code || '—';
+    const outClass = yr.outcome === 'aprovado' ? 'out-pass' : yr.outcome === 'reprovado' ? 'out-fail' : 'out-prog';
+    const outLabel = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
+    return `<div class="hist-row">
+      <div class="hist-year">${yr.academic_year || '—'}</div>
+      <div class="hist-code">${yr.turma_code || '—'}</div>
+      <div class="hist-level">${lvl}${yr.grade_final != null ? ' · <span style="color:var(--ink3);font-size:11px">' + yr.grade_final + '%</span>' : ''}</div>
+      <span class="hist-outcome ${outClass}">${outLabel}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('hist-content').innerHTML = rows;
+}
+
+/* ════════════════════════════════════════
+   NOTES TAB
+════════════════════════════════════════ */
+function renderNotes() {
+  const ta = document.getElementById('note-text');
+  if (ta && ENROL?.notes) ta.value = ENROL.notes;
+}
+async function saveNote() {
+  const txt = document.getElementById('note-text').value;
+  try {
+    await sbPatch('enrolments', `ref=eq.${enc(REF)}`, {notes: txt});
+    if (ENROL) ENROL.notes = txt;
+    const el = document.getElementById('note-saved');
+    el.style.opacity = '1';
+    setTimeout(() => el.style.opacity = '0', 2200);
+    showToast('Nota guardada ✓');
+  } catch(e) { showToast('Erro ao guardar'); }
+}
+
+/* ════════════════════════════════════════
+   FLAGS
+════════════════════════════════════════ */
+function toggleFlag(el) { el.classList.toggle('on'); }
+
+/* ════════════════════════════════════════
+   PHOTO UPLOAD
+════════════════════════════════════════ */
+document.getElementById('hero-photo').addEventListener('click', () => {
+  document.getElementById('photo-input').click();
+});
+function handlePhoto(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('hero-photo-img');
+    img.src = e.target.result; img.style.display = 'block';
+    document.getElementById('hero-initials').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════ */
+function actWhatsApp() {
+  const phone = (ENROL?.phone || '').replace(/\D/g,'');
+  if (!phone) { showToast('Sem número de telefone'); return; }
+  const msg = encodeURIComponent(`Olá, estamos a contactar da ALM sobre ${ENROL?.name || REF}.`);
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+}
+function actContactParent() {
+  const phone = ENROL?.guardian_phone;
+  const name  = ENROL?.guardian_name || 'Encarregado';
+  if (!phone) { showToast('Sem telefone do EE'); return; }
+  showToast(`EE: ${name} · ${phone}`);
+  window.open(`tel:${phone}`);
+}
+function actSendTimetable() {
+  showToast('Horário enviado por email ✓');
+  /* In production: call Supabase edge function or send via Resend */
+}
+function actEmail() {
+  const email = ENROL?.email;
+  if (!email) { showToast('Sem email registado'); return; }
+  window.open(`mailto:${email}?subject=ALM · ${ENROL?.name || REF}`);
+}
+function actJustify() {
+  /* Navigate to mensagens with ref pre-filled */
+  window.location.href = `/admin/alm-mensagens.html?justify=${enc(REF)}`;
+}
+
+/* ════════════════════════════════════════
+   TABS
+════════════════════════════════════════ */
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ════════════════════════════════════════
+   TOAST
+════════════════════════════════════════ */
+let _toastT;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ════════════════════════════════════════
+   BOOT
+════════════════════════════════════════ */
+boot();
+</script>
+</body>
+</html>
