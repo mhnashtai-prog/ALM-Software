@@ -1806,23 +1806,10 @@ document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaI
     rows += `</div></div>`;
   });
 
-  ttHTML += `<div style="margin-bottom:14px">${ruler}${rows}</div>`;
-  if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:4px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
+ ttHTML += `<div style="margin-bottom:14px">${ruler}${rows}</div>`;
+    if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:4px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
 } else {
-  ttHTML += `<div style="padding:20px;text-align:center;font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase">Sem disponibilidade registada</div>`;
-}
-    `;
-    for (let h = 8; h < 20; h++) {
-      ttHTML += `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#BBBBC8;display:flex;align-items:center;height:16px">${h}h</div>`;
-      DAYS.forEach((_, di) => {
-        const hit = slots.some(s => s.dayIdx === di && s.fromMins <= h * 60 + 30 && s.toMins >= h * 60 + 30);
-        ttHTML += `<div class="ds-avail-cell" style="background:${hit?'#FEF5E8':'#F0F0F5'};border:.5px solid ${hit?'#F0C060':'#E4E4EC'}"></div>`;
-      });
-    }
-    ttHTML += `</div>`;
-    if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:8px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
-  } else {
-    ttHTML += `<div class="ds-empty-msg">Sem disponibilidade registada</div>`;
+    ttHTML += `<div style="padding:20px;text-align:center;font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase">Sem disponibilidade registada</div>`;
   }
   document.getElementById('ds-pane-timetable').innerHTML = ttHTML;
 
