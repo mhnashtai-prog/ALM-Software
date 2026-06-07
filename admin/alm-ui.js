@@ -1513,11 +1513,19 @@ async function openDossier(ref) {
       <!-- BANNER -->
       <div id="alm-ds-banner">
         <div id="alm-ds-stripe"></div>
-        <div id="alm-ds-binfo">
-          <div id="alm-ds-blevel">A carregar…</div>
-          <div id="alm-ds-bname">—</div>
-          <div id="alm-ds-bref">—</div>
-        </div>
+       <div id="alm-ds-avatar-wrap" style="position:relative;z-index:2;padding:16px 0 16px 20px;flex-shrink:0;display:flex;align-items:flex-end">
+  <div id="alm-ds-av" style="width:64px;height:64px;border-radius:50%;background:#2A2A3A;border:2.5px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:rgba(255,255,255,.5);overflow:hidden;flex-shrink:0;cursor:pointer;position:relative" onclick="document.getElementById('alm-ds-photo-input').click()" title="Clique para alterar foto">
+    <span id="alm-ds-av-initials">?</span>
+    <img id="alm-ds-av-img" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%"/>
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;font-size:11px;color:transparent" id="alm-ds-av-hover" onmouseover="this.style.background='rgba(0,0,0,.45)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,0,0,0)';this.style.color='transparent'">📷</div>
+  </div>
+  <input type="file" id="alm-ds-photo-input" accept="image/*" style="display:none"/>
+</div>
+<div id="alm-ds-binfo">
+  <div id="alm-ds-blevel">A carregar…</div>
+  <div id="alm-ds-bname">—</div>
+  <div id="alm-ds-bref">—</div>
+</div>
         <div id="alm-ds-stats">
           <div class="ds-stat"><div class="ds-stat-v" id="ds-s-abs">—</div><div class="ds-stat-l">faltas</div></div>
           <div class="ds-stat"><div class="ds-stat-v" id="ds-s-yrs">—</div><div class="ds-stat-l">anos ALM</div></div>
@@ -1669,6 +1677,29 @@ try {
   document.getElementById('alm-ds-blevel').textContent = `${deptLbl} · ${lvlDisp} · ${branch}`;
   document.getElementById('alm-ds-bname').textContent  = enrol?.name || ref;
   document.getElementById('alm-ds-bref').textContent   = `${ref} · ${AY}`;
+   
+   // Avatar
+const avEl = document.getElementById('alm-ds-av');
+const avInitialsEl = document.getElementById('alm-ds-av-initials');
+const avImgEl = document.getElementById('alm-ds-av-img');
+const avCol2 = avCol(enrol?.name || ref);
+avEl.style.background = avCol2.bg;
+avEl.style.borderColor = avCol2.t + '44';
+avInitialsEl.style.color = avCol2.t;
+avInitialsEl.textContent = avInit(enrol?.name || ref);
+
+// Photo upload handler
+document.getElementById('alm-ds-photo-input').onchange = async function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    avImgEl.src = ev.target.result;
+    avImgEl.style.display = 'block';
+    avInitialsEl.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  showToast('Foto actualizada localmente', 'ok');
+};
 
   // Stats
   const MAX_ABS = 12;
@@ -1735,9 +1766,51 @@ document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaI
   }
   ttHTML += `<div class="ds-slabel" style="margin-top:${req?.assigned_turma?'16px':'0'}">Disponibilidade pedida</div>`;
   if (slots.length) {
-    ttHTML += `<div class="ds-avail-grid" style="grid-template-columns:38px repeat(5,1fr)">
-      <div></div>
-      ${DAYS.map(d=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#888898;text-align:center;padding:2px 0">${d[0]+d[1].toLowerCase()}</div>`).join('')}
+   if (slots.length) {
+  const byDay = {};
+  slots.forEach(s => { if (!byDay[s.dayIdx]) byDay[s.dayIdx] = []; byDay[s.dayIdx].push(s); });
+  const TOTAL_MINS = (20 - 8) * 60;
+  function pct(mins) { return ((mins - 480) / TOTAL_MINS * 100).toFixed(2) + '%'; }
+  function wPct(from, to) { return ((Math.min(to,1200) - Math.max(from,480)) / TOTAL_MINS * 100).toFixed(2) + '%'; }
+
+  // Hour header
+  let ruler = `<div style="display:flex;margin-left:44px;margin-bottom:3px">`;
+  [8,9,10,11,12,13,14,15,16,17,18,19,20].forEach(h => {
+    ruler += `<div style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#888898;text-align:center">${h}h</div>`;
+  });
+  ruler += `</div>`;
+
+  // Day rows
+  let rows = '';
+  ['SEG','TER','QUA','QUI','SEX'].forEach((day, di) => {
+    const windows = byDay[di] || [];
+    const hasData = windows.length > 0;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <div style="width:38px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:${hasData ? '#C9A84C' : '#BBBBC8'};flex-shrink:0;text-align:right">${day}</div>
+      <div style="flex:1;position:relative;height:22px;background:#F0F0F5;border-radius:3px;overflow:hidden">`;
+
+    // Grid lines
+    [8,9,10,11,12,13,14,15,16,17,18,19,20].forEach(h => {
+      rows += `<div style="position:absolute;left:${((h-8)/12*100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.06)"></div>`;
+    });
+
+    // Availability bands
+    windows.forEach(s => {
+      const from = Math.max(s.fromMins, 480), to = Math.min(s.toMins, 1200);
+      if (from >= to) return;
+      rows += `<div style="position:absolute;left:${pct(from)};width:${wPct(s.fromMins,s.toMins)};top:2px;bottom:2px;background:#C9A84C;border-radius:2px;display:flex;align-items:center;padding:0 5px;overflow:hidden">
+        <span style="font-size:8px;color:#fff;white-space:nowrap;font-weight:600;font-family:'IBM Plex Mono',monospace">${s.startLabel}–${s.endLabel}</span>
+      </div>`;
+    });
+
+    rows += `</div></div>`;
+  });
+
+  ttHTML += `<div style="margin-bottom:14px">${ruler}${rows}</div>`;
+  if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:4px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
+} else {
+  ttHTML += `<div style="padding:20px;text-align:center;font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase">Sem disponibilidade registada</div>`;
+}
     `;
     for (let h = 8; h < 20; h++) {
       ttHTML += `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#BBBBC8;display:flex;align-items:center;height:16px">${h}h</div>`;
