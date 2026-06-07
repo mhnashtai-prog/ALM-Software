@@ -1559,8 +1559,8 @@ async function openDossier(ref) {
   let enrol = null, req = null, hst = [];
   try {
     const [enrols, reqs, hist] = await Promise.all([
-    sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
-     sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
+      sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
+      sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
       sbGet('turma_students', `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,level_code,family,outcome,absences,grade_final&order=academic_year.desc`),
     ]);
     enrol = enrols[0] || null;
@@ -1739,7 +1739,6 @@ function closeDossier() {
   setTimeout(() => ov.remove(), 200);
   document.getElementById('ds-overlay')?.classList.remove('open');
 }
-
 /* ── MUDAR TURMA ──────────────────────────────────────────── */
 let _mtRef = null, _mtSelectedCode = null, _mtSelectedGroupIdx = null, _mtSelectedLevelKey = null;
 let _mtChangeSuffix = null, _mtCurrentSuffixA = null, _mtCurrentSuffixB = null;
