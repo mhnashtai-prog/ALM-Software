@@ -1758,7 +1758,7 @@ let _mtRef = null, _mtSelectedCode = null, _mtSelectedGroupIdx = null, _mtSelect
 let _mtChangeSuffix = null, _mtCurrentSuffixA = null, _mtCurrentSuffixB = null;
 
 function openMudarTurma(ref, changeSuffix) {
- _mtRef = ref; _mtSelectedCode = null; _mtSelectedGroupIdx = null; _mtSelectedLevelKey = null; _mtChangeSuffix = changeSuffix || null;
+  _mtRef = ref; _mtSelectedCode = null; _mtSelectedGroupIdx = null; _mtSelectedLevelKey = null; _mtChangeSuffix = changeSuffix || null;
   const enrol = allE.find(e => e.ref === ref);
   if (!enrol) { showToast('Aluno não encontrado', 'err'); return; }
   let currentGroupKey = null, currentGroupIdx = null, currentCommitted = null;
