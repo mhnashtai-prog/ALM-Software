@@ -1766,7 +1766,6 @@ document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaI
   }
   ttHTML += `<div class="ds-slabel" style="margin-top:${req?.assigned_turma?'16px':'0'}">Disponibilidade pedida</div>`;
   if (slots.length) {
-   if (slots.length) {
   const byDay = {};
   slots.forEach(s => { if (!byDay[s.dayIdx]) byDay[s.dayIdx] = []; byDay[s.dayIdx].push(s); });
   const TOTAL_MINS = (20 - 8) * 60;
@@ -1807,12 +1806,12 @@ document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaI
   });
 
  ttHTML += `<div style="margin-bottom:14px">${ruler}${rows}</div>`;
-    if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:4px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
-} else {
-    ttHTML += `<div style="padding:20px;text-align:center;font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase">Sem disponibilidade registada</div>`;
+    if (req?.sessions_per_week) ttHTML += `...sessões/semana...`;
+  } else {
+    ttHTML += `<div style="...">Sem disponibilidade registada</div>`;
   }
   document.getElementById('ds-pane-timetable').innerHTML = ttHTML;
-
+   
 // ── HISTORIAL TAB — lazy loaded on tab click ──
 document.getElementById('ds-pane-historial').innerHTML = 
   `<div class="ds-spinner"><div class="ds-ring"></div><span style="font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace">Clique no separador para carregar…</span></div>`;
