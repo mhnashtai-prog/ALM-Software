@@ -1383,7 +1383,6 @@ function dsSec(id, icon, title, meta, content, openByDefault) {
 }
 
 /* ── NEW DOSSIER (drop-in replacement for openDossier) ───── */
-/* ── NEW DOSSIER (drop-in replacement for openDossier) ───── */
 async function openDossier(ref) {
   _dsTTLoaded = false; _dsData = {};
 
