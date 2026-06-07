@@ -1383,6 +1383,7 @@ function dsSec(id, icon, title, meta, content, openByDefault) {
 }
 
 /* ── NEW DOSSIER (drop-in replacement for openDossier) ───── */
+/* ── NEW DOSSIER (drop-in replacement for openDossier) ───── */
 async function openDossier(ref) {
   _dsTTLoaded = false; _dsData = {};
 
@@ -1461,7 +1462,7 @@ async function openDossier(ref) {
 
   /* ── shell ── */
   ov.innerHTML = `
-  <div id="alm-ds-card" style="width:min(620px,96vw);max-height:88dvh;background:#0E0C1C;border-radius:18px;border:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden;animation:shUp .28s cubic-bezier(.32,.72,0,1);position:relative">
+  <div id="alm-ds-card" style="width:min(860px,96vw);max-height:88dvh;background:#0E0C1C;border-radius:18px;border:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden;animation:shUp .28s cubic-bezier(.32,.72,0,1);position:relative">
 
     <!-- CLOSE -->
     <button id="ds-close-btn" style="position:absolute;top:14px;right:14px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:.5px solid rgba(255,255,255,.15);cursor:pointer;color:rgba(255,255,255,.7);font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>
@@ -1474,11 +1475,7 @@ async function openDossier(ref) {
           <div id="ds-name" style="font-size:18px;font-weight:600;color:#fff;line-height:1.2;margin-bottom:4px">A carregar…</div>
           <div id="ds-ref-line" style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);letter-spacing:.04em">—</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;margin-top:4px">
-          <button id="ds-wa-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="WhatsApp">📲</button>
-          <button id="ds-em-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="Email">✉️</button>
-          <button id="ds-hor-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="Enviar horário">📅</button>
-        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-top:4px"></div>
       </div>
       <div id="ds-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
       <div id="ds-stat-strip" style="display:flex;border-top:.5px solid rgba(255,255,255,.07)">
@@ -1503,12 +1500,8 @@ async function openDossier(ref) {
     </div>
 
     <!-- ACTION BAR -->
-    <div id="ds-action-bar" style="display:flex;gap:6px;padding:10px 16px;border-top:.5px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);flex-wrap:wrap;flex-shrink:0">
-      <button id="ds-btn-wa" class="dsabtn primary">📲 WhatsApp</button>
-      <button id="ds-btn-ee" class="dsabtn">👨‍👩‍👧 Contactar EE</button>
-      <button id="ds-btn-send" class="dsabtn">📅 Enviar horário</button>
+    <div id="ds-action-bar" style="display:flex;gap:6px;padding:10px 16px;border-top:.5px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);flex-shrink:0">
       <button id="ds-btn-move" class="dsabtn">⇄ Mudar turma</button>
-      <button class="dsabtn" style="margin-left:auto" onclick="window.print()">🖨️ Imprimir</button>
     </div>
   </div>
 
@@ -1581,14 +1574,16 @@ async function openDossier(ref) {
   }
 
   /* ── populate hero ── */
-  const dept     = (enrol?.family || 'adults').toLowerCase();
+  const dept      = (enrol?.family || 'adults').toLowerCase();
   const accentHex = DEPT_HEX[dept] || '#C9A84C';
-  const rawCode  = (enrol?.level_code || enrol?.level_cefr || '').trim();
-  const lvlDisp  = ALM_DISP[rawCode] || rawCode || '—';
-  const branch   = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g,' ');
+  const rawCode   = (enrol?.level_code || enrol?.level_cefr || '').trim();
+  const lvlDisp   = ALM_DISP[rawCode] || rawCode || '—';
+  const branch    = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g,' ');
 
-  /* hero background accent stripe */
-  document.getElementById('ds-hero').style.borderTop = `3px solid ${accentHex}`;
+  /* hero: deep neutral surface, single dept-colour top border */
+  const heroEl = document.getElementById('ds-hero');
+  heroEl.style.borderTop = `3px solid ${accentHex}`;
+  heroEl.style.background = '#0A0910';
 
   /* avatar */
   const avEl = ov.querySelector('#ds-av');
@@ -1724,14 +1719,7 @@ async function openDossier(ref) {
   `;
 
   /* action buttons */
-  const phone = (enrol?.phone || '').replace(/\D/g, '');
-  ov.querySelector('#ds-btn-wa').onclick = () => phone ? window.open(`https://wa.me/${phone}`) : showToast('Sem número', 'warn');
-  ov.querySelector('#ds-btn-ee').onclick = () => enrol?.guardian_phone ? window.open(`tel:${enrol.guardian_phone}`) : showToast('Sem telefone do EE', 'warn');
-  ov.querySelector('#ds-btn-send').onclick = () => showToast('Horário enviado ✓', 'ok');
   ov.querySelector('#ds-btn-move').onclick = () => { closeDossier(); setTimeout(() => openMudarTurma(ref), 240); };
-  ov.querySelector('#ds-wa-btn').onclick = ov.querySelector('#ds-btn-wa').onclick;
-  ov.querySelector('#ds-em-btn').onclick = () => enrol?.email ? window.open(`mailto:${enrol.email}`) : showToast('Sem email', 'warn');
-  ov.querySelector('#ds-hor-btn').onclick = ov.querySelector('#ds-btn-send').onclick;
 
   /* save note */
   window.dsSaveNote = async (r) => {
