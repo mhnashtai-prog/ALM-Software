@@ -335,7 +335,7 @@ function auditGroupSync(g){
 /* ── COMMIT ───────────────────────────────────────────────── */
 async function loadNextSeqBase(){
   try{
-    const rows=await sbGet('classes',`select=turma_code&academic_year=eq.${encodeURIComponent(AY)}&limit=500`);
+    const rows=await sbGet('classes',`select=turma_code&academic_year=eq.${AY}&limit=500`);
     const maxByBranch={};
     rows.forEach(r=>{const m=(r.turma_code||'').match(/^([A-Z]{2,4})-(\d+)[AB]?$/);if(!m)return;const bc=m[1],n=parseInt(m[2],10);if(!maxByBranch[bc]||n>maxByBranch[bc])maxByBranch[bc]=n;});
     Object.keys(maxByBranch).forEach(bc=>{_nextSeqBase[bc]=maxByBranch[bc]+1;});
@@ -392,7 +392,7 @@ async function commitGroup(levelKey,groupIdx){
 async function loadLocks(){
   _lockedRefs={}; _lockMeta={};
   try{
-    const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs,locked,assignment_source,override_tier,override_by,override_reason&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    const rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs,locked,assignment_source,override_tier,override_by,override_reason&academic_year=eq.${AY}&locked=eq.true`);
     rows.forEach(c=>{
       const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
       const refs=Array.isArray(c.student_refs)?c.student_refs:[];
@@ -408,7 +408,7 @@ async function loadLocks(){
 async function reconstructLockedGroups(){
   let rows;
   try{
-    rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs,locked,assignment_source&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    rows=await sbGet('classes',`select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs,locked,assignment_source&academic_year=eq.${AY}&locked=eq.true`);
   }catch(e){ console.warn('reconstructLockedGroups fetch failed',e); return; }
   if(!rows?.length) return;
 
@@ -497,7 +497,7 @@ async function runBootAudit(){
   }
   setBoot('A verificar turmas existentes…');
   try{
-    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${encodeURIComponent(AY)}`);
+    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
       if(c.turma_code)_retiredCodes.add(c.turma_code);
