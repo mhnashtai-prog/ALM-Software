@@ -1179,7 +1179,7 @@ async function renderDecision() {
   if (!triageEl || !mainEl) return;
   triageEl.innerHTML = `<div class="spinner-wrap"><div class="spinner"></div>A carregar…</div>`;
   try {
-    const rows = await sbGet('classes', `select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${encodeURIComponent(AY)}&locked=eq.true`);
+    const rows = await sbGet('classes', `select=turma_code,group_code,level_code,department,day_of_week,start_time,end_time,student_refs&academic_year=eq.${AY}&locked=eq.true`);
     const byGC = {};
     rows.forEach(c => {
       const gc = c.group_code || (c.turma_code?.replace(/[AB]$/i, '')); if (!gc) return;
@@ -1861,21 +1861,21 @@ async function confirmMudarTurma() {
   const existing = rByRef[_mtRef];
   let ok = false;
   try {
-    if (existing) { const r = await fetch(`${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(_mtRef)}&academic_year=eq.${encodeURIComponent(AY)}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(payload) }); ok = r.ok; }
+    if (existing) { const r = await fetch(`${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(_mtRef)}&academic_year=eq.${AY}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(payload) }); ok = r.ok; }
     else { const r = await fetch(`${SB}/rest/v1/timetable_requests`, { method: 'POST', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ ref: _mtRef, academic_year: AY, student_name: enrol?.name || _mtRef, branch: enrol?.branch || '', family: enrol?.family || 'adults', level_code: enrol?.level_code || '', level_cefr: enrol?.level_cefr || '', day_preferences: '[]', ...payload }) }); ok = r.ok; }
   } catch (e) { console.error('confirmMudarTurma:', e); }
   if (ok) {
     if (!rByRef[_mtRef]) { rByRef[_mtRef] = { ref: _mtRef, academic_year: AY }; allR.push(rByRef[_mtRef]); }
     rByRef[_mtRef].assigned_turma = assignedCode; rByRef[_mtRef].status = 'atribuido';
     try {
-      const tRows = await sbGet('classes', `select=student_refs&turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+      const tRows = await sbGet('classes', `select=student_refs&turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${AY}&limit=1`);
       const tRefs = new Set(Array.isArray(tRows[0]?.student_refs) ? tRows[0].student_refs : []); tRefs.add(_mtRef);
-      const rT = await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: [...tRefs], locked: true, assignment_source: 'staff_move', locked_at: new Date().toISOString() }) });
+      const rT = await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${AY}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: [...tRefs], locked: true, assignment_source: 'staff_move', locked_at: new Date().toISOString() }) });
       if (!rT.ok) throw new Error('target write failed HTTP ' + rT.status);
       if (sourceTurmaCode && sourceTurmaCode !== targetTurmaCode) {
-        const sRows = await sbGet('classes', `select=student_refs&turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}&limit=1`);
+        const sRows = await sbGet('classes', `select=student_refs&turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${AY}&limit=1`);
         const sRefs = (Array.isArray(sRows[0]?.student_refs) ? sRows[0].student_refs : []).filter(r => r !== _mtRef);
-        await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${encodeURIComponent(AY)}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: sRefs }) });
+        await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${AY}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: sRefs }) });
       }
       await loadLocks();
     } catch (lockErr) { console.warn('roster move failed', lockErr); showToast('Aviso: falha parcial na base de dados', 'warn'); }
