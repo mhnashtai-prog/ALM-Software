@@ -1383,144 +1383,427 @@ function dsSec(id, icon, title, meta, content, openByDefault) {
 }
 
 async function openDossier(ref) {
-  _dsTTLoaded = false; _dsData = {};
-  const overlay = document.getElementById('ds-overlay');
-  const sheet = document.getElementById('ds-sheet');
-  sheet.classList.remove('ds-exit');
-  overlay.classList.add('open');
-  const col = avCol(ref);
-  document.getElementById('ds-avatar').style.cssText = `background:${col.bg};color:${col.t}`;
-  document.getElementById('ds-avatar').textContent = ref.slice(-2);
-  document.getElementById('ds-banner-bg').style.background = DEPT_GRADS.adults;
-  document.getElementById('ds-name').textContent = ref;
-  document.getElementById('ds-ref').textContent = 'a carregar…';
-  document.getElementById('ds-strip').innerHTML = '';
-  document.getElementById('ds-body').innerHTML = `<div class="ds-empty" style="padding:48px 0">a carregar…</div>`;
+  document.getElementById('alm-dossier-ov')?.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'alm-dossier-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.72);backdrop-filter:blur(24px) saturate(180%);display:flex;align-items:center;justify-content:center;padding:40px';
+  ov.onclick = e => { if (e.target === ov) closeDossier(); };
+
+  const DEPT_STRIPE = { kids:'#3A78C8', kids_juv:'#2A8A5A', adults:'#C9A84C', exam:'#7A58C8' };
+  const DEPT_LABEL  = { kids:'Infantil', kids_juv:'Juvenil', adults:'Geral', exam:'Exames' };
+  const PILL_CLS    = { kids:'pill-kids', kids_juv:'pill-juv', adults:'pill-adults', exam:'pill-exam' };
+
+  ov.innerHTML = `
+  <style>
+  #alm-ds-card{
+    width:min(600px,92vw);max-height:86dvh;
+    background:#fff;border-radius:20px;
+    box-shadow:0 32px 80px rgba(0,0,0,.85);
+    display:flex;flex-direction:column;overflow:hidden;
+    font-family:'IBM Plex Sans',-apple-system,sans-serif;
+    animation:dsCardIn .28s cubic-bezier(.32,.72,0,1);
+  }
+  @keyframes dsCardIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+  #alm-ds-banner{
+    min-height:100px;background:#1A1A2E;
+    flex-shrink:0;display:flex;align-items:flex-end;
+    padding:0;position:relative;overflow:hidden;
+  }
+  #alm-ds-stripe{position:absolute;left:0;top:0;bottom:0;width:5px}
+  #alm-ds-binfo{position:relative;z-index:2;flex:1;padding:18px 24px 16px 24px}
+  #alm-ds-blevel{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:5px}
+  #alm-ds-bname{font-size:24px;font-weight:500;color:#fff;letter-spacing:-.02em;line-height:1.15;font-family:'IBM Plex Sans',-apple-system,sans-serif}
+  #alm-ds-bref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(255,255,255,.4);margin-top:4px}
+  #alm-ds-stats{position:relative;z-index:2;display:flex;flex-shrink:0;border-left:1px solid rgba(255,255,255,.08)}
+  .ds-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px;border-left:1px solid rgba(255,255,255,.08);text-align:center}
+  .ds-stat:first-child{border-left:none}
+  .ds-stat-v{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500;color:#fff;line-height:1}
+  .ds-stat-l{font-size:10px;color:rgba(255,255,255,.35);margin-top:3px;letter-spacing:.04em}
+  #alm-ds-contact{
+    display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;
+    background:#F7F7FA;border-bottom:1px solid #E4E4EC;flex-shrink:0;
+  }
+  #alm-ds-contact::-webkit-scrollbar{display:none}
+  .ds-ci{display:flex;align-items:center;gap:7px;padding:9px 16px;border-right:1px solid #E4E4EC;font-size:12px;color:#444450;white-space:nowrap;flex-shrink:0;text-decoration:none;transition:background .1s;cursor:pointer}
+  .ds-ci:hover{background:#EEEEF4}
+  .ds-ci.link{color:#185FA5}
+  .ds-ci svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+  .ds-ci.link svg{opacity:1}
+  #alm-ds-tabs{display:flex;background:#fff;border-bottom:1px solid #E4E4EC;flex-shrink:0}
+  .ds-tab{display:flex;align-items:center;gap:6px;padding:10px 18px;font-size:12px;font-weight:500;color:#888898;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .13s;white-space:nowrap}
+  .ds-tab:hover{color:#111118;background:#F7F7FA}
+  .ds-tab.active{color:#111118;border-bottom-color:#C9A84C}
+  .ds-tab svg{width:13px;height:13px}
+  #alm-ds-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#E4E4EC transparent}
+  .ds-pane{display:none;padding:22px 24px 28px}
+  .ds-pane.active{display:block}
+  .ds-two{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .ds-col{padding:0 20px 0 0}
+  .ds-col+.ds-col{padding:0 0 0 20px;border-left:1px solid #E4E4EC}
+  .ds-slabel{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#BBBBC8;display:flex;align-items:center;gap:10px;margin-bottom:12px;margin-top:18px}
+  .ds-slabel:first-child{margin-top:0}
+  .ds-slabel::after{content:'';flex:1;height:.5px;background:#E4E4EC}
+  .ds-field{margin-bottom:11px}
+  .ds-flabel{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#BBBBC8;margin-bottom:3px}
+  .ds-fval{font-size:13px;color:#111118;line-height:1.5}
+  .ds-fval.muted{color:#888898}
+  .ds-fval a{color:#185FA5;text-decoration:none}
+  .ds-fval a:hover{text-decoration:underline}
+  .ds-fval .mono{font-family:'IBM Plex Mono',monospace;font-size:12px}
+  .ds-pill{display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.05em;padding:2px 8px;border-radius:99px;border:.5px solid}
+  .pill-adults{background:#FDF6E8;border-color:#F0D080;color:#8A6010}
+  .pill-exam{background:#F2EEF9;border-color:#B098E0;color:#5A38A8}
+  .pill-kids{background:#EBF3FC;border-color:#80B8E8;color:#1A5FA0}
+  .pill-juv{background:#EAF5EF;border-color:#7DC8A0;color:#1A7A4A}
+  .pill-active{background:#EAF3DE;border-color:#97C459;color:#3B6D11}
+  .ds-turma{background:#F7F7FA;border:1px solid #E4E4EC;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px}
+  .ds-turma-code{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#8A6010;flex-shrink:0;min-width:80px;letter-spacing:.04em;padding-top:1px}
+  .ds-turma-body{flex:1}
+  .ds-turma-slot{font-size:13px;font-weight:500;color:#111118}
+  .ds-turma-sub{font-size:11px;color:#888898;margin-top:2px}
+  .ds-hist-row{display:flex;align-items:center;padding:10px 0;border-bottom:.5px solid #E4E4EC}
+  .ds-hist-row:last-child{border-bottom:none}
+  .ds-hist-yr{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#888898;width:65px;flex-shrink:0}
+  .ds-hist-code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#888898;width:110px;flex-shrink:0}
+  .ds-hist-lvl{font-size:12px;color:#111118;flex:1}
+  .ds-hist-out{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;border:.5px solid;flex-shrink:0;margin-left:8px}
+  .out-pass{background:#EAF3DE;border-color:#97C459;color:#3B6D11}
+  .out-fail{background:#FEF0F0;border-color:#F0A0A0;color:#B83030}
+  .out-prog{background:#EBF3FC;border-color:#80B8E8;color:#1A5FA0}
+  .ds-abs-card{background:#fff;border:1px solid #E4E4EC;border-radius:10px;padding:14px 18px;margin:16px 24px;display:flex;align-items:center;gap:16px}
+  .ds-abs-num{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;color:#111118;line-height:1}
+  .ds-abs-track{flex:1;height:7px;background:#F0F0F5;border-radius:99px;overflow:hidden;margin:0 8px}
+  .ds-abs-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+  .ds-abs-lim{font-family:'IBM Plex Mono',monospace;font-size:11px;flex-shrink:0}
+  .ds-note-area{width:100%;padding:10px 12px;background:#F7F7FA;border:1px solid #E4E4EC;border-radius:8px;font-family:'IBM Plex Sans',-apple-system,sans-serif;font-size:13px;color:#111118;outline:none;resize:vertical;min-height:76px;line-height:1.6;transition:border-color .13s}
+  .ds-note-area::placeholder{color:#BBBBC8}
+  .ds-note-area:focus{border-color:#888898}
+  .ds-flag-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .ds-flag{display:flex;align-items:center;gap:5px;padding:5px 11px;font-size:12px;border-radius:8px;border:1px solid #E4E4EC;background:#fff;color:#888898;cursor:pointer;transition:all .13s}
+  .ds-flag:hover{border-color:#BBBBC8}
+  .ds-flag.on{background:#FEF0F0;border-color:#F0A0A0;color:#B83030}
+  .ds-flag svg{width:13px;height:13px}
+  .ds-action-row{position:sticky;bottom:0;background:#fff;border-top:1px solid #E4E4EC;padding:11px 20px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex-shrink:0}
+  .ds-act{display:flex;align-items:center;gap:6px;padding:7px 14px;font-size:12px;font-weight:500;border-radius:8px;border:1px solid #D0D0DC;background:#fff;color:#444450;cursor:pointer;transition:all .13s}
+  .ds-act:hover{background:#F7F7FA;border-color:#888898}
+  .ds-act svg{width:14px;height:14px;flex-shrink:0}
+  .ds-act.primary{background:#185FA5;color:#fff;border-color:transparent}
+  .ds-act.primary:hover{background:#0C447C}
+  .ds-act.primary svg{opacity:.85}
+  .ds-act.amber-btn{background:#FEF5E8;border-color:#F0C060;color:#A05808}
+  .ds-act.amber-btn:hover{background:#F8EAD4}
+  .ds-act.purple-btn{background:#F0EBFC;border-color:#B098E0;color:#5A38A8}
+  .ds-act.purple-btn:hover{background:#E4DDF8}
+  .ds-act.danger{border-color:#F0A0A0;color:#B83030}
+  .ds-act.danger:hover{background:#FEF0F0}
+  .ds-spinner{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px}
+  .ds-ring{width:28px;height:28px;border:2.5px solid #E4E4EC;border-top-color:#C9A84C;border-radius:50%;animation:spin .8s linear infinite}
+  .ds-empty-msg{text-align:center;padding:28px;font-size:12px;color:#888898;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+  .ds-avail-grid{display:grid;gap:2px 3px;margin-top:6px}
+  .ds-avail-cell{height:16px;border-radius:3px}
+  </style>
+  <div style="position:relative">
+    <button id="alm-ds-close"
+      style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(232,69,90,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5);transition:background .15s"
+      onmouseover="this.style.background='rgba(232,69,90,1)'"
+      onmouseout="this.style.background='rgba(232,69,90,.85)'">✕</button>
+    <div id="alm-ds-card">
+
+      <!-- BANNER -->
+      <div id="alm-ds-banner">
+        <div id="alm-ds-stripe"></div>
+        <div id="alm-ds-binfo">
+          <div id="alm-ds-blevel">A carregar…</div>
+          <div id="alm-ds-bname">—</div>
+          <div id="alm-ds-bref">—</div>
+        </div>
+        <div id="alm-ds-stats">
+          <div class="ds-stat"><div class="ds-stat-v" id="ds-s-abs">—</div><div class="ds-stat-l">faltas</div></div>
+          <div class="ds-stat"><div class="ds-stat-v" id="ds-s-yrs">—</div><div class="ds-stat-l">anos ALM</div></div>
+          <div class="ds-stat"><div class="ds-stat-v" id="ds-s-turma" style="font-size:13px;font-family:'IBM Plex Mono',monospace;color:#C9A84C">—</div><div class="ds-stat-l">turma</div></div>
+        </div>
+      </div>
+
+      <!-- CONTACT STRIP -->
+      <div id="alm-ds-contact"><div class="ds-ci muted" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:#888898">A carregar contactos…</div></div>
+
+      <!-- TABS -->
+      <div id="alm-ds-tabs">
+        <button class="ds-tab active" onclick="dsTab('identity',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>Identidade
+        </button>
+        <button class="ds-tab" onclick="dsTab('timetable',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Horário
+        </button>
+        <button class="ds-tab" onclick="dsTab('historial',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Historial
+        </button>
+        <button class="ds-tab" onclick="dsTab('notes',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Notas & Alertas
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div id="alm-ds-body">
+        <div class="ds-pane active" id="ds-pane-identity">
+          <div class="ds-spinner"><div class="ds-ring"></div></div>
+        </div>
+        <div class="ds-pane" id="ds-pane-timetable">
+          <div class="ds-spinner"><div class="ds-ring"></div></div>
+        </div>
+        <div class="ds-pane" id="ds-pane-historial">
+          <div class="ds-spinner"><div class="ds-ring"></div></div>
+        </div>
+        <div class="ds-pane" id="ds-pane-notes">
+          <div class="ds-spinner"><div class="ds-ring"></div></div>
+        </div>
+      </div>
+
+      <!-- ACTION ROW -->
+      <div class="ds-action-row">
+        <button class="ds-act primary" id="ds-act-wa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>WhatsApp
+        </button>
+        <button class="ds-act amber-btn" id="ds-act-ee">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contactar EE
+        </button>
+        <button class="ds-act" id="ds-act-hor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Enviar horário
+        </button>
+        <button class="ds-act purple-btn" id="ds-act-email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Enviar email
+        </button>
+        <button class="ds-act" id="ds-act-just" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="15" y2="16"/></svg>Justificar falta
+        </button>
+        <button class="ds-act" onclick="window.print()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir
+        </button>
+      </div>
+
+    </div>
+  </div>`;
+
+  document.body.appendChild(ov);
+  document.getElementById('alm-ds-close').onclick = closeDossier;
+
+  const escHandler = e => { if (e.key === 'Escape') { closeDossier(); document.removeEventListener('keydown', escHandler); } };
+  document.addEventListener('keydown', escHandler);
+
+  // Tab switcher
+  window.dsTab = (id, btn) => {
+    ov.querySelectorAll('.ds-pane').forEach(p => p.classList.remove('active'));
+    ov.querySelectorAll('.ds-tab').forEach(b => b.classList.remove('active'));
+    ov.querySelector('#ds-pane-' + id)?.classList.add('active');
+    btn.classList.add('active');
+  };
+
+  // Fetch
+  let enrol = null, req = null, hst = [], absCount = 0;
   try {
-    const [enrols, reqs, hist] = await fetchDossierData(ref);
-    const enrol = enrols[0] || null, req = reqs[0] || rByRef[ref] || null, hst = hist || [];
-    _dsData = { enrol, req, hst };
-    const dept = (enrol?.family || 'adults').toLowerCase();
-    const rawCode = (enrol?.level_code || enrol?.level_cefr || '').trim();
-    const lvl = ALM_DISP[rawCode] || rawCode || '—';
-    const grad = DEPT_GRADS[dept] || DEPT_GRADS.adults;
-    const accent = COURSE_ACCENT[dept] || 'rgba(255,255,255,.48)';
-    document.getElementById('ds-banner-bg').style.background = grad;
-    const deptEl = document.getElementById('ds-dept');
-    deptEl.textContent = DEPT_LABELS_D[dept] || 'GERAL'; deptEl.style.color = accent;
-    const avEl = document.getElementById('ds-avatar'), col2 = avCol(enrol?.name || ref);
-    avEl.style.cssText = `background:${col2.bg};color:${col2.t}`; avEl.textContent = avInit(enrol?.name || ref);
-    document.getElementById('ds-name').textContent = enrol?.name || ref || '—';
-    document.getElementById('ds-ref').textContent = `${ref}  ·  ${lvl}  ·  ${DS_FLAGS[enrol?.lang || 'EN'] || ''} ${enrol?.lang || 'EN'}`;
-    const items = [];
-    if (enrol?.age) items.push(`<span class="ds-ci">${enrol.age} anos</span>`);
-    if (enrol?.phone) items.push(`<a class="ds-ci ds-ci-link" href="tel:${enrol.phone}">📞 ${enrol.phone}</a>`);
-    if (enrol?.email) items.push(`<a class="ds-ci ds-ci-link" href="mailto:${enrol.email}">✉ ${enrol.email}</a>`);
-    document.getElementById('ds-strip').innerHTML = items.join(`<span class="ds-ci-sep">·</span>`);
-    const recentYear = hst[0];
-    const histPreview = recentYear ? `${recentYear.academic_year || '—'} · ${recentYear.outcome || 'em curso'}` : hst.length ? `${hst.length} ano${hst.length > 1 ? 's' : ''}` : '—';
-    const slots = parseSlotsForRuler(req);
-    const ttPreview = slots.length ? slots.slice(0, 2).map(s => `${s.day} ${s.startLabel}`).join(' · ') + (slots.length > 2 ? ` +${slots.length - 2}` : '') : '—';
-    const notesPreview = enrol?.notes ? enrol.notes.slice(0, 40) + (enrol.notes.length > 40 ? '…' : '') : '';
-    let turmaInfo = '—';
-    for (const [key, result] of Object.entries(_allResults)) {
-      result.groups.forEach((g, i) => {
-        if (g.students.find(s => s.ref === ref)) {
-          const committed = (_groupCodes[key] || {})[i];
-          const code = committed ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA !== committed.turmaCodeB ? `${committed.turmaCodeA}/${committed.turmaCodeB}` : committed.turmaCodeA || committed.turmaCode || `T${i + 1}`) : `T${i + 1}`;
-          const m = LEVEL_MAP[key] || {};
-          const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A}+${g.dayL_B}`) : (g.dayL || '—');
-          turmaInfo = `${code} · ${m.label || key} · ${pairLabel} · ${g.startTime}–${g.endTime}${committed ? ' ✓' : ''}`;
-        }
+    const [enrols, reqs, hist, absRows] = await Promise.all([
+      sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
+      sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
+      sbGet('turma_students', `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,level_code,family,outcome,absences,grade_final&order=academic_year.desc&limit=20`),
+      sbGet('attendance', `student_ref=eq.${encodeURIComponent(ref)}&status=eq.absent&select=student_ref&limit=5000`),
+    ]);
+    enrol    = enrols[0] || null;
+    req      = reqs[0]   || rByRef[ref] || null;
+    hst      = hist      || [];
+    absCount = absRows.length;
+  } catch(e) {
+    ov.querySelectorAll('.ds-spinner').forEach(s => s.innerHTML = `<div style="font-size:12px;color:#B83030;font-family:'IBM Plex Mono',monospace">Erro: ${e.message}</div>`);
+    return;
+  }
+
+  // Dept / level
+  const dept     = (enrol?.family || 'adults').toLowerCase();
+  const rawCode  = (enrol?.level_code || enrol?.level_cefr || '').trim();
+  const lvlDisp  = ALM_DISP[rawCode] || rawCode || '—';
+  const stripe   = DEPT_STRIPE[dept]  || '#C9A84C';
+  const deptLbl  = DEPT_LABEL[dept]   || 'Geral';
+  const pillCls  = PILL_CLS[dept]     || 'pill-adults';
+  const branch   = (enrol?.branch || '').replace(/_/g,' ');
+
+  // Turma from engine
+  let turmaInfo = '—';
+  for (const [key, result] of Object.entries(_allResults)) {
+    result.groups.forEach((g, i) => {
+      if (g.students.find(s => s.ref === ref)) {
+        const committed = (_groupCodes[key] || {})[i];
+        const code = committed ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA !== committed.turmaCodeB ? `${committed.turmaCodeA}/${committed.turmaCodeB}` : committed.turmaCodeA || committed.turmaCode || `T${i+1}`) : `T${i+1}`;
+        turmaInfo = code;
+      }
+    });
+  }
+
+  // Banner
+  document.getElementById('alm-ds-stripe').style.background = stripe;
+  document.getElementById('alm-ds-blevel').textContent = `${deptLbl} · ${lvlDisp} · ${branch}`;
+  document.getElementById('alm-ds-bname').textContent  = enrol?.name || ref;
+  document.getElementById('alm-ds-bref').textContent   = `${ref} · ${AY}`;
+
+  // Stats
+  const MAX_ABS = 12;
+  document.getElementById('ds-s-abs').textContent   = absCount;
+  document.getElementById('ds-s-yrs').textContent   = hst.length || '—';
+  document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaInfo.replace(/^[^-]+-/,'') : '—';
+
+  // Contact strip
+  const citems = [];
+  if (enrol?.phone)         citems.push(`<a class="ds-ci link" href="tel:${enrol.phone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1 19.79 19.79 0 0 1 1.61 4.52 2 2 0 0 1 3.6 2.34h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.08 6.08l1.07-.94a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${enrol.phone}</a>`);
+  if (enrol?.email)         citems.push(`<a class="ds-ci link" href="mailto:${enrol.email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${enrol.email}</a>`);
+  if (enrol?.guardian_name) citems.push(`<div class="ds-ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>EE: ${enrol.guardian_name}${enrol.guardian_phone ? ` · <a href="tel:${enrol.guardian_phone}" style="color:#185FA5">${enrol.guardian_phone}</a>` : ''}</div>`);
+  if (enrol?.school)        citems.push(`<div class="ds-ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>${enrol.school}${enrol.school_year ? ' · ' + enrol.school_year : ''}</div>`);
+  document.getElementById('alm-ds-contact').innerHTML = citems.join('') || `<div class="ds-ci muted" style="font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace">Sem contactos</div>`;
+
+  // ── IDENTITY TAB ──
+  const fld = (lbl, val, cls) => val ? `<div class="ds-field"><div class="ds-flabel">${lbl}</div><div class="ds-fval ${cls||''}">${val}</div></div>` : '';
+  const dob = enrol?.date_of_birth ? new Date(enrol.date_of_birth).toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'}) : null;
+  const identLeft = `
+    <div class="ds-slabel">Dados pessoais</div>
+    ${fld('Nome completo', enrol?.name)}
+    ${dob ? fld('Data de nascimento', dob + (enrol?.age ? ' · ' + enrol.age + ' anos' : '')) : ''}
+    ${fld('Escola / Ano', enrol?.school ? `${enrol.school}${enrol.school_year ? ' · '+enrol.school_year:''}` : null)}
+    <div class="ds-slabel">Encarregado de educação</div>
+    ${fld('Nome EE', enrol?.guardian_name)}
+    ${enrol?.guardian_phone ? `<div class="ds-field"><div class="ds-flabel">Telefone EE</div><div class="ds-fval"><a href="tel:${enrol.guardian_phone}">${enrol.guardian_phone}</a></div></div>` : ''}
+    ${enrol?.guardian_email ? `<div class="ds-field"><div class="ds-flabel">Email EE</div><div class="ds-fval"><a href="mailto:${enrol.guardian_email}">${enrol.guardian_email}</a></div></div>` : ''}
+    <div class="ds-slabel">Contactos directos</div>
+    ${enrol?.phone ? `<div class="ds-field"><div class="ds-flabel">Telefone</div><div class="ds-fval"><a href="tel:${enrol.phone}">${enrol.phone}</a></div></div>` : ''}
+    ${enrol?.email ? `<div class="ds-field"><div class="ds-flabel">Email</div><div class="ds-fval"><a href="mailto:${enrol.email}">${enrol.email}</a></div></div>` : ''}
+  `;
+  const identRight = `
+    <div class="ds-slabel">Dados académicos</div>
+    <div class="ds-field"><div class="ds-flabel">Referência</div><div class="ds-fval"><span class="mono">${ref}</span></div></div>
+    <div class="ds-field"><div class="ds-flabel">Nível</div><div class="ds-fval"><span class="ds-pill ${pillCls}">${deptLbl}</span>&nbsp;<span class="ds-pill" style="background:#F0F0F5;border-color:#D0D0DC;color:#444450">${lvlDisp}</span></div></div>
+    ${fld('Filial', branch)}
+    ${enrol?.lang ? fld('Língua', (DS_FLAGS[enrol.lang]||'') + ' ' + enrol.lang) : ''}
+    ${fld('Ano lectivo', enrol?.academic_year)}
+    ${enrol?.returning_student != null ? fld('Tipo', enrol.returning_student ? 'Recorrente' : 'Novo') : ''}
+    <div class="ds-slabel">Turma 2026/2027</div>
+    ${req?.assigned_turma
+      ? `<div class="ds-field"><div class="ds-flabel">Turma atribuída</div><div class="ds-fval"><span class="mono" style="color:#8A6010">${req.assigned_turma}</span></div></div>`
+      : `<div class="ds-field"><div class="ds-fval muted">Sem turma atribuída</div></div>`}
+    ${req?.status ? `<div class="ds-field"><div class="ds-flabel">Estado pedido</div><div class="ds-fval"><span class="ds-pill ${req.status==='atribuido'?'pill-active':''}" style="${req.status!=='atribuido'?'background:#F0F0F5;border-color:#D0D0DC;color:#444450':''}">${req.status}</span></div></div>` : ''}
+  `;
+  document.getElementById('ds-pane-identity').innerHTML = enrol
+    ? `<div class="ds-two"><div class="ds-col">${identLeft}</div><div class="ds-col">${identRight}</div></div>`
+    : `<div class="ds-empty-msg">Matrícula não encontrada</div>`;
+
+  // ── TIMETABLE TAB ──
+  const slots = parseSlotsForRuler(req);
+  const DAYS = ['SEG','TER','QUA','QUI','SEX'];
+  let ttHTML = '';
+  if (req?.assigned_turma) {
+    ttHTML += `<div class="ds-slabel">Turma atribuída</div>
+    <div class="ds-turma">
+      <div class="ds-turma-code">${req.assigned_turma}</div>
+      <div class="ds-turma-body">
+        <div class="ds-turma-slot">${req.assigned_turma}</div>
+        <div class="ds-turma-sub">Ver horário completo em Assign</div>
+      </div>
+      <span class="ds-pill pill-active">Confirmada</span>
+    </div>`;
+  }
+  ttHTML += `<div class="ds-slabel" style="margin-top:${req?.assigned_turma?'16px':'0'}">Disponibilidade pedida</div>`;
+  if (slots.length) {
+    ttHTML += `<div class="ds-avail-grid" style="grid-template-columns:38px repeat(5,1fr)">
+      <div></div>
+      ${DAYS.map(d=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#888898;text-align:center;padding:2px 0">${d[0]+d[1].toLowerCase()}</div>`).join('')}
+    `;
+    for (let h = 8; h < 20; h++) {
+      ttHTML += `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#BBBBC8;display:flex;align-items:center;height:16px">${h}h</div>`;
+      DAYS.forEach((_, di) => {
+        const hit = slots.some(s => s.dayIdx === di && s.fromMins <= h * 60 + 30 && s.toMins >= h * 60 + 30);
+        ttHTML += `<div class="ds-avail-cell" style="background:${hit?'#FEF5E8':'#F0F0F5'};border:.5px solid ${hit?'#F0C060':'#E4E4EC'}"></div>`;
       });
     }
-    const enrolContent = !enrol ? `<div class="ds-empty">Matrícula não encontrada.</div>` : [
-      dsRow('Referência', enrol.ref || '—', 'tint'), dsRow('Nome', enrol.name || '—'),
-      enrol.age ? dsRow('Idade', enrol.age + ' anos') : '',
-      enrol.email ? dsRow('Email', enrol.email, 'tint') : '',
-      enrol.phone ? dsRow('Telefone', enrol.phone) : '',
-      enrol.guardian_name ? dsRow('Encarregado', enrol.guardian_name) : '',
-      enrol.guardian_phone ? dsRow('Tel. EE', enrol.guardian_phone) : '',
-      `<div style="height:.5px;background:var(--sep-d);margin:6px 0"></div>`,
-      dsRow('Nível', lvl), dsRow('Filial', (enrol.branch || '—').replace(/_/g, ' ')),
-      enrol.lang ? dsRow('Língua', `${DS_FLAGS[enrol.lang] || ''} ${enrol.lang}`) : '',
-      enrol.academic_year ? dsRow('Ano lectivo', enrol.academic_year) : '',
-      enrol.returning_student != null ? dsRow('Tipo', enrol.returning_student ? 'Recorrente' : 'Novo') : '',
-      `<div style="height:.5px;background:var(--sep-d);margin:6px 0"></div>`,
-      `<div class="ds-row"><div class="ds-rk">Turma proposta</div><div class="ds-rv">${turmaInfo !== '—' ? `<span class="ds-turma-badge">${turmaInfo}</span>` : '<span style="color:var(--sub-d)">—</span>'}</div></div>`,
-    ].filter(Boolean).join('');
-    const histContent = !hst.length ? `<div class="ds-empty">Sem historial registado.</div>` : hst.map(yr => {
-      const l = ALM_DISP[(yr.level_cefr || '').trim()] || yr.level_cefr || '—';
-      const cls = yr.outcome === 'aprovado' ? 'ok' : yr.outcome === 'reprovado' ? 'warn' : 'na';
-      const lbl = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
-      const att = yr.absences != null ? Math.max(0, 100 - yr.absences * 5) : null;
-      return `<div class="ds-yr"><div class="ds-yr-hdr" onclick="this.classList.toggle('open')"><div class="ds-yr-left"><span class="ds-yr-year">${yr.academic_year || '—'}</span><span class="ds-yr-turma">${yr.turma_code || '—'} · ${l}</span></div><span class="ds-yr-outcome ${cls}">${lbl}</span></div><div class="ds-yr-body">${yr.grade_final != null ? dsRow('Nota final', yr.grade_final + '%') : ''}${yr.absences != null ? dsRow('Faltas', yr.absences) : ''}${att != null ? `<div class="ds-att-bar"><div class="ds-att-fill" style="width:${att}%;background:${att > 75 ? 'var(--green-d)' : att > 50 ? 'var(--amber-d)' : 'var(--red-d)'}"></div></div>` : ''}${yr.notes ? dsRow('Notas', yr.notes) : ''}</div></div>`;
-    }).join('');
-    const notesContent = `<div class="ds-flags"><button class="ds-flag" onclick="this.classList.toggle('on')">⚠ Comportamento</button><button class="ds-flag" onclick="this.classList.toggle('on')">💳 Pagamento</button><button class="ds-flag" onclick="this.classList.toggle('on')">📉 Desempenho</button><button class="ds-flag" onclick="this.classList.toggle('on')">📅 Faltas</button><button class="ds-flag" onclick="this.classList.toggle('on')">♿ Nec. especial</button></div><textarea class="ds-note" id="ds-note" placeholder="Nota visível para toda a equipa…">${enrol?.notes || ''}</textarea><div class="ds-btn-row"><button class="ds-btn primary" onclick="dsSaveNote('${ref}')">Guardar nota</button>${enrol?.notes ? `<button class="ds-btn ghost" onclick="dsClearNote('${ref}')">Limpar</button>` : ''}</div>`;
-    document.getElementById('ds-body').innerHTML = [
-      dsSec('ds-s-insc', '📋', 'Inscrição', enrol?.academic_year || '—', enrolContent, true),
-      dsSec('ds-s-hist', '🎓', 'Historial', histPreview, histContent, false),
-      dsSec('ds-s-hora', '🗓', 'Horário · Disponibilidade', ttPreview, `<div id="ds-tt-content"><div class="ds-empty">A carregar…</div></div>`, false),
-      dsSec('ds-s-nota', '🚩', 'Notas Internas', notesPreview, notesContent, false),
-    ].join('');
-    document.getElementById('ds-body').querySelectorAll('.ds-section-hdr').forEach(hdr => {
-      hdr.addEventListener('click', () => {
-        const isOpen = hdr.classList.toggle('open');
-        const body = hdr.nextElementSibling;
-        if (body) body.style.display = isOpen ? 'block' : 'none';
-        if (isOpen && hdr.closest('#ds-s-hora')) dsLoadTimetable();
-      });
-    });
-  } catch(e) {
-    document.getElementById('ds-body').innerHTML = `<div class="ds-empty" style="padding:48px 0;color:var(--red-d)">Erro: ${e.message}</div>`;
+    ttHTML += `</div>`;
+    if (req?.sessions_per_week) ttHTML += `<div style="font-size:11px;color:#888898;margin-top:8px;font-family:'IBM Plex Mono',monospace">${req.sessions_per_week} sessões/semana</div>`;
+  } else {
+    ttHTML += `<div class="ds-empty-msg">Sem disponibilidade registada</div>`;
   }
-}
+  document.getElementById('ds-pane-timetable').innerHTML = ttHTML;
 
-function dsLoadTimetable() {
-  if (_dsTTLoaded) return; _dsTTLoaded = true;
-  const el = document.getElementById('ds-tt-content'); if (!el) return;
-  const { req } = _dsData;
-  const slots = parseSlotsForRuler(req);
-  const DAY_LABEL = 36, TOTAL_MINS = (20 - 8) * 60;
-  const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-  function pct(mins) { return ((mins - 480) / TOTAL_MINS * 100).toFixed(2) + '%'; }
-  let html = '';
-  if (slots.length) {
-    const byDay = {}; slots.forEach(s => { if (!byDay[s.dayIdx]) byDay[s.dayIdx] = []; byDay[s.dayIdx].push(s); });
-    let ruler = `<div style="display:flex;margin-left:${DAY_LABEL}px;position:relative;height:14px;margin-bottom:1px">`;
-    HOURS.forEach(hr => { ruler += `<div style="position:absolute;left:${((hr - 8) / 12 * 100).toFixed(2)}%;font-size:7px;color:var(--label-d);transform:translateX(-50%)">${hr}</div>`; });
-    ruler += `</div>`;
-    let rows = '';
-    [0, 1, 2, 3, 4, 5].forEach(di => {
-      const windows = byDay[di] || [], hasData = windows.length > 0;
-      const dayColor = hasData ? 'var(--amber-d)' : 'var(--label-d)';
-      let gridLines = '', bands = '';
-      HOURS.forEach(hr => { gridLines += `<div style="position:absolute;left:${((hr - 8) / 12 * 100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)"></div>`; });
-      windows.forEach(s => {
-        const fromC = Math.max(s.fromMins, 480), toC = Math.min(s.toMins, 1200); if (fromC >= toC) return;
-        bands += `<div style="position:absolute;left:${pct(fromC)};width:${((toC - fromC) / TOTAL_MINS * 100).toFixed(2)}%;top:2px;bottom:2px;background:var(--amber-d);border-radius:2px;display:flex;align-items:center;padding:0 5px;overflow:hidden"><span style="font-size:7px;color:#1a1a00;white-space:nowrap;font-weight:700">${s.startLabel}–${s.endLabel}</span></div>`;
-      });
-      rows += `<div style="display:flex;align-items:center;gap:0;margin-bottom:2px"><div style="width:${DAY_LABEL}px;font-size:8px;font-weight:700;color:${dayColor};flex-shrink:0;text-align:right;padding-right:6px">${DAYS_PT[di]}</div><div style="flex:1;position:relative;height:20px;background:var(--bg3-d);border-radius:2px;overflow:hidden">${gridLines}${bands}</div></div>`;
-    });
-    html += `<div style="margin-bottom:14px"><div class="ds-avail-label">Disponibilidade · Pedido</div>${ruler}${rows}</div>`;
+  // ── HISTORIAL TAB ──
+  const absPct = Math.min(100, Math.round(absCount / MAX_ABS * 100));
+  const absCol = absPct <= 25 ? '#3B6D11' : absPct <= 58 ? '#C9A84C' : absPct <= 83 ? '#E87020' : '#B83030';
+  let histHTML = `<div class="ds-abs-card">
+    <div><div class="ds-abs-num">${absCount}</div><div style="font-size:10px;color:#888898;margin-top:2px;font-family:'IBM Plex Mono',monospace">faltas · limite ${MAX_ABS}</div></div>
+    <div class="ds-abs-track"><div class="ds-abs-fill" style="width:${absPct}%;background:${absCol}"></div></div>
+    <div class="ds-abs-lim" style="color:${absCol}">${absCount}/${MAX_ABS}</div>
+  </div>`;
+  histHTML += `<div style="padding:0 24px 24px"><div class="ds-slabel">Historial por ano lectivo</div>`;
+  if (hst.length) {
+    histHTML += hst.map(yr => {
+      const l = ALM_DISP[(yr.level_cefr||'').trim()] || yr.level_cefr || '—';
+      const outCls = yr.outcome === 'aprovado' ? 'out-pass' : yr.outcome === 'reprovado' ? 'out-fail' : 'out-prog';
+      const outLbl = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
+      return `<div class="ds-hist-row">
+        <div class="ds-hist-yr">${yr.academic_year||'—'}</div>
+        <div class="ds-hist-code">${yr.turma_code||'—'}</div>
+        <div class="ds-hist-lvl">${l}${yr.grade_final!=null?' · <span style="color:#888898;font-size:11px">'+yr.grade_final+'%</span>':''}</div>
+        <span class="ds-hist-out ${outCls}">${outLbl}</span>
+      </div>`;
+    }).join('');
+  } else {
+    histHTML += `<div class="ds-empty-msg">Sem historial registado</div>`;
   }
-  // U-05: only show request metadata rows — no duplicate slotTags text
-  if (req) {
-    const st = normS(req.status || '');
-    html += [
-      req.sessions_per_week ? dsRow('Sessões/sem', req.sessions_per_week) : '',
-      `<div class="ds-row"><div class="ds-rk">Estado</div><div class="ds-rv"><span class="ds-badge-v10 ${st === 'atribuido' ? 'green' : st === 'pendente' ? 'amber' : 'gray'}">${req.status || '—'}</span></div></div>`,
-      req.created_at ? dsRow('Submetido', new Date(req.created_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })) : '',
-      req.notes ? dsRow('Nota pedido', req.notes) : '',
-    ].filter(Boolean).join('');
-  } else { html += `<div class="ds-empty">Nenhum pedido de horário.</div>`; }
-  el.innerHTML = html;
+  histHTML += `</div>`;
+  document.getElementById('ds-pane-historial').innerHTML = histHTML;
+
+  // ── NOTES TAB ──
+  document.getElementById('ds-pane-notes').innerHTML = `
+    <div class="ds-slabel">Nota interna</div>
+    <textarea class="ds-note-area" id="ds-note-ta" placeholder="Nota visível para toda a equipa ALM…">${enrol?.notes||''}</textarea>
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;gap:8px">
+      <span id="ds-note-saved" style="font-size:11px;color:#3B6D11;opacity:0;transition:opacity .3s;font-family:'IBM Plex Mono',monospace">✓ guardado</span>
+      <button class="ds-act" style="background:#EAF3DE;border-color:#97C459;color:#3B6D11" onclick="dsSaveNoteNew('${ref}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar
+      </button>
+    </div>
+    <div class="ds-slabel" style="margin-top:20px">Alertas activos</div>
+    <div class="ds-flag-grid">
+      <div class="ds-flag" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Comportamento</div>
+      <div class="ds-flag" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Excesso de faltas</div>
+      <div class="ds-flag" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Pagamento</div>
+      <div class="ds-flag" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Desempenho</div>
+      <div class="ds-flag" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>Nec. especial</div>
+    </div>`;
+
+  // Action buttons
+  const phone = (enrol?.phone||'').replace(/\D/g,'');
+  document.getElementById('ds-act-wa').onclick    = () => phone ? window.open(`https://wa.me/${phone}?text=${encodeURIComponent('Olá, contactamos da ALM sobre '+( enrol?.name||ref)+'.')}`) : showToast('Sem número','warn');
+  document.getElementById('ds-act-ee').onclick    = () => enrol?.guardian_phone ? window.open(`tel:${enrol.guardian_phone}`) : showToast('Sem telefone do EE','warn');
+  document.getElementById('ds-act-hor').onclick   = () => showToast('Horário enviado ✓','ok');
+  document.getElementById('ds-act-email').onclick = () => enrol?.email ? window.open(`mailto:${enrol.email}?subject=ALM · ${enrol.name||ref}`) : showToast('Sem email','warn');
+  document.getElementById('ds-act-just').onclick  = () => { closeDossier(); window.location.href = `/admin/alm-mensagens.html?justify=${encodeURIComponent(ref)}`; };
+
+  // Save note helper
+  window.dsSaveNoteNew = async function(r) {
+    const txt = document.getElementById('ds-note-ta')?.value;
+    if (txt == null) return;
+    const ok = await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(r)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:txt})}).then(x=>x.ok).catch(()=>false);
+    const el = document.getElementById('ds-note-saved');
+    if (el) { el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0', 2200); }
+    showToast(ok ? 'Nota guardada ✓' : 'Erro ao guardar', ok ? 'ok' : 'err');
+  };
 }
 
 function closeDossier() {
-  const s = document.getElementById('ds-sheet'); if (!s) return;
-  s.classList.add('ds-exit');
-  setTimeout(() => { document.getElementById('ds-overlay')?.classList.remove('open'); s.classList.remove('ds-exit'); }, 240);
+  const ov = document.getElementById('alm-dossier-ov');
+  if (!ov) return;
+  const card = ov.querySelector('#alm-ds-card');
+  if (card) {
+    card.style.animation = 'dsCardIn .2s cubic-bezier(.32,.72,0,1) reverse forwards';
+    setTimeout(() => ov.remove(), 200);
+  } else {
+    ov.remove();
+  }
+  // Also close old ds-overlay if still present
+  document.getElementById('ds-overlay')?.classList.remove('open');
 }
 
 /* ── MUDAR TURMA ──────────────────────────────────────────── */
