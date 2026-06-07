@@ -1592,26 +1592,55 @@ async function openDossier(ref) {
   document.addEventListener('keydown', escHandler);
 
   // Tab switcher
-  window.dsTab = (id, btn) => {
-    ov.querySelectorAll('.ds-pane').forEach(p => p.classList.remove('active'));
-    ov.querySelectorAll('.ds-tab').forEach(b => b.classList.remove('active'));
-    ov.querySelector('#ds-pane-' + id)?.classList.add('active');
-    btn.classList.add('active');
-  };
+// Tab switcher
+window.dsTab = async (id, btn) => {
+  ov.querySelectorAll('.ds-pane').forEach(p => p.classList.remove('active'));
+  ov.querySelectorAll('.ds-tab').forEach(b => b.classList.remove('active'));
+  const pane = ov.querySelector('#ds-pane-' + id);
+  if (pane) pane.classList.add('active');
+  btn.classList.add('active');
 
+  // Lazy load historial
+  if (id === 'historial' && pane && !pane._loaded) {
+    pane._loaded = true;
+    pane.innerHTML = `<div class="ds-spinner"><div class="ds-ring"></div></div>`;
+    try {
+      const hst = await sbGet('turma_students',
+        `ref=eq.${encodeURIComponent(pane._ref)}&select=ref,turma_code,academic_year,level_cefr,level_code,family,outcome,absences,grade_final&order=academic_year.desc`
+      );
+      document.getElementById('ds-s-yrs').textContent = hst.length || '—';
+      let histHTML = `<div style="padding:0 24px 24px"><div class="ds-slabel">Historial por ano lectivo</div>`;
+      if (hst.length) {
+        histHTML += hst.map(yr => {
+          const l = ALM_DISP[(yr.level_cefr||'').trim()] || yr.level_cefr || '—';
+          const outCls = yr.outcome === 'aprovado' ? 'out-pass' : yr.outcome === 'reprovado' ? 'out-fail' : 'out-prog';
+          const outLbl = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
+          return `<div class="ds-hist-row">
+            <div class="ds-hist-yr">${yr.academic_year||'—'}</div>
+            <div class="ds-hist-code">${yr.turma_code||'—'}</div>
+            <div class="ds-hist-lvl">${l}</div>
+            <span class="ds-hist-out ${outCls}">${outLbl}</span>
+          </div>`;
+        }).join('');
+      } else {
+        histHTML += `<div class="ds-empty-msg">Sem historial registado</div>`;
+      }
+      histHTML += `</div>`;
+      pane.innerHTML = histHTML;
+    } catch(e) {
+      pane.innerHTML = `<div class="ds-empty-msg" style="color:#B83030">Erro ao carregar historial</div>`;
+    }
+  }
+};
   // Fetch
   let enrol = null, req = null, hst = [], absCount = 0;
   try {
-    const [enrols, reqs, hist, absRows] = await Promise.all([
-      sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
-      sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-      sbGet('turma_students', `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_cefr,level_code,family,outcome,absences,grade_final&order=academic_year.desc&limit=20`),
-      sbGet('attendance', `student_ref=eq.${encodeURIComponent(ref)}&status=eq.absent&select=student_ref&limit=5000`),
-    ]);
-    enrol    = enrols[0] || null;
-    req      = reqs[0]   || rByRef[ref] || null;
-    hst      = hist      || [];
-    absCount = absRows.length;
+   const [enrols, reqs] = await Promise.all([
+  sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,notes,school,school_year&limit=1`),
+  sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${encodeURIComponent(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
+]);
+const hist = []; // lazy-loaded when Historial tab is clicked
+const absCount = 0;
   } catch(e) {
     ov.querySelectorAll('.ds-spinner').forEach(s => s.innerHTML = `<div style="font-size:12px;color:#B83030;font-family:'IBM Plex Mono',monospace">Erro: ${e.message}</div>`);
     return;
@@ -1646,9 +1675,9 @@ async function openDossier(ref) {
 
   // Stats
   const MAX_ABS = 12;
-  document.getElementById('ds-s-abs').textContent   = absCount;
-  document.getElementById('ds-s-yrs').textContent   = hst.length || '—';
-  document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaInfo.replace(/^[^-]+-/,'') : '—';
+document.getElementById('ds-s-abs').textContent   = '—';
+document.getElementById('ds-s-yrs').textContent   = '—';
+document.getElementById('ds-s-turma').textContent = turmaInfo !== '—' ? turmaInfo.replace(/^[^-]+-/,'') : '—';
 
   // Contact strip
   const citems = [];
@@ -1727,32 +1756,11 @@ async function openDossier(ref) {
   }
   document.getElementById('ds-pane-timetable').innerHTML = ttHTML;
 
-  // ── HISTORIAL TAB ──
-  const absPct = Math.min(100, Math.round(absCount / MAX_ABS * 100));
-  const absCol = absPct <= 25 ? '#3B6D11' : absPct <= 58 ? '#C9A84C' : absPct <= 83 ? '#E87020' : '#B83030';
-  let histHTML = `<div class="ds-abs-card">
-    <div><div class="ds-abs-num">${absCount}</div><div style="font-size:10px;color:#888898;margin-top:2px;font-family:'IBM Plex Mono',monospace">faltas · limite ${MAX_ABS}</div></div>
-    <div class="ds-abs-track"><div class="ds-abs-fill" style="width:${absPct}%;background:${absCol}"></div></div>
-    <div class="ds-abs-lim" style="color:${absCol}">${absCount}/${MAX_ABS}</div>
-  </div>`;
-  histHTML += `<div style="padding:0 24px 24px"><div class="ds-slabel">Historial por ano lectivo</div>`;
-  if (hst.length) {
-    histHTML += hst.map(yr => {
-      const l = ALM_DISP[(yr.level_cefr||'').trim()] || yr.level_cefr || '—';
-      const outCls = yr.outcome === 'aprovado' ? 'out-pass' : yr.outcome === 'reprovado' ? 'out-fail' : 'out-prog';
-      const outLbl = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
-      return `<div class="ds-hist-row">
-        <div class="ds-hist-yr">${yr.academic_year||'—'}</div>
-        <div class="ds-hist-code">${yr.turma_code||'—'}</div>
-        <div class="ds-hist-lvl">${l}${yr.grade_final!=null?' · <span style="color:#888898;font-size:11px">'+yr.grade_final+'%</span>':''}</div>
-        <span class="ds-hist-out ${outCls}">${outLbl}</span>
-      </div>`;
-    }).join('');
-  } else {
-    histHTML += `<div class="ds-empty-msg">Sem historial registado</div>`;
-  }
-  histHTML += `</div>`;
-  document.getElementById('ds-pane-historial').innerHTML = histHTML;
+// ── HISTORIAL TAB — lazy loaded on tab click ──
+document.getElementById('ds-pane-historial').innerHTML = 
+  `<div class="ds-spinner"><div class="ds-ring"></div><span style="font-size:11px;color:#888898;font-family:'IBM Plex Mono',monospace">Clique no separador para carregar…</span></div>`;
+document.getElementById('ds-pane-historial')._ref = ref;
+document.getElementById('ds-pane-historial')._loaded = false;
 
   // ── NOTES TAB ──
   document.getElementById('ds-pane-notes').innerHTML = `
@@ -2046,7 +2054,7 @@ async function boot() {
 }
 
 boot();
-setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
+setInterval(() => { if (_bootComplete) refreshData(); }, 120000);
 
 /* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
 
