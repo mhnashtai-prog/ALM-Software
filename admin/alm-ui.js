@@ -1558,10 +1558,11 @@ async function openDossier(ref) {
   document.getElementById('ds-close-btn').onclick = closeDossier;
 
   /* ── tab switcher ── */
-  window.dsTab = (id, btn) => {
-    ov.querySelectorAll('.dspane').forEach(p => p.classList.remove('active'));
+ window.dsTab = (id, btn) => {
+    ov.querySelectorAll('.dspane').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
     ov.querySelectorAll('.dstab').forEach(b => b.classList.remove('active'));
-    ov.querySelector('#dspane-' + id)?.classList.add('active');
+    const pane = ov.querySelector('#dspane-' + id);
+    if (pane) { pane.classList.add('active'); pane.style.display = 'block'; }
     btn.classList.add('active');
   };
 
