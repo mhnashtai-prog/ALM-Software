@@ -12,6 +12,8 @@
    U-05  Duplicate slot-tags row removed from dsLoadTimetable()
    U-06  refreshUIAfterCertify() wired into decCertifySession()
    U-07  Wax seal hover — rotation removed, shadow reduced
+   D-01  Historial tab + pane removed (turma_students columns don't exist)
+   D-02  grade_final → grade (correct column name)
 ═══════════════════════════════════════════════════════════════ */
 
 const debounce = (fn, ms) => {
@@ -1334,8 +1336,8 @@ async function decCertifySession(levelKey, groupIdx, suffix, btn) {
       btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
     }
     // U-06: cross-panel refresh after certification
- refreshUIAfterCertify(levelKey);
-renderDecision().then(() => decShowLevel(levelKey));
+    refreshUIAfterCertify(levelKey);
+    renderDecision().then(() => decShowLevel(levelKey));
   } catch (e) {
     btn.disabled = false; btn.textContent = '✓ Certificar';
     showToast('Erro: ' + e.message, 'err');
@@ -1384,7 +1386,7 @@ function dsSec(id, icon, title, meta, content, openByDefault) {
   </div>`;
 }
 
-/* ── NEW DOSSIER (drop-in replacement for openDossier) ───── */
+/* ── NEW DOSSIER ─────────────────────────────────────────── */
 async function openDossier(ref) {
   _dsTTLoaded = false; _dsData = {};
 
@@ -1469,7 +1471,7 @@ async function openDossier(ref) {
     <button id="ds-close-btn" style="position:absolute;top:14px;right:14px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:.5px solid rgba(255,255,255,.15);cursor:pointer;color:rgba(255,255,255,.7);font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>
 
     <!-- HERO -->
-   <div id="ds-hero" style="padding:20px 20px 14px;flex-shrink:0;background:rgba(255,255,255,.04);border-bottom:.5px solid rgba(255,255,255,.08)">
+    <div id="ds-hero" style="padding:20px 20px 14px;flex-shrink:0;background:rgba(255,255,255,.04);border-bottom:.5px solid rgba(255,255,255,.08)">
       <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
         <div id="ds-av" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;border:2px solid rgba(255,255,255,.15);font-family:var(--mono)">?</div>
         <div style="flex:1;min-width:0;padding-top:4px">
@@ -1491,16 +1493,15 @@ async function openDossier(ref) {
       </div>
     </div>
 
-    <!-- TABS -->
+    <!-- TABS — Historial removed (D-01) -->
     <div style="display:flex;background:rgba(255,255,255,.03);border-bottom:.5px solid rgba(255,255,255,.08);padding:0 16px;flex-shrink:0">
       <div class="dstab active" id="dstab-identity" onclick="dsTab('identity',this)">📋 Identidade</div>
       <div class="dstab" id="dstab-timetable" onclick="dsTab('timetable',this)">🗓 Horário</div>
-      <div class="dstab" id="dstab-history" onclick="dsTab('history',this)">🎓 Historial</div>
       <div class="dstab" id="dstab-notes" onclick="dsTab('notes',this)">🚩 Notas</div>
     </div>
 
     <!-- BODY -->
-   <div id="ds-body" style="flex:1 1 auto;min-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
+    <div id="ds-body" style="flex:1 1 auto;min-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
       <div style="padding:60px;text-align:center;color:rgba(255,255,255,.3);font-size:12px">A carregar…</div>
     </div>
 
@@ -1558,7 +1559,7 @@ async function openDossier(ref) {
   document.getElementById('ds-close-btn').onclick = closeDossier;
 
   /* ── tab switcher ── */
- window.dsTab = (id, btn) => {
+  window.dsTab = (id, btn) => {
     ov.querySelectorAll('.dspane').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
     ov.querySelectorAll('.dstab').forEach(b => b.classList.remove('active'));
     const pane = ov.querySelector('#dspane-' + id);
@@ -1566,20 +1567,20 @@ async function openDossier(ref) {
     btn.classList.add('active');
   };
 
-  /* ── fetch data ── */
+  /* ── fetch data — no turma_students (crash-proof) ── */
   let enrol = null, req = null, hst = [];
   try {
-   const [enrols, reqs, hist] = await Promise.all([
- sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
-  sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=student_ref,turma_code,absences`).catch(()=>[]),
-]);
+    const [enrols, reqs, hist] = await Promise.all([
+      sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
+      sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
+      sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=student_ref,turma_code,absences`).catch(() => []),
+    ]);
     enrol = enrols[0] || null;
     req   = reqs[0]   || rByRef[ref] || null;
     hst   = hist || [];
     _dsData = { enrol, req, hst };
- } catch(err) {
-    document.getElementById('ds-body').innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message} @ ${err.stack?.split('\n')[1]?.trim()}</div>`;
+  } catch(err) {
+    document.getElementById('ds-body').innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message}</div>`;
     return;
   }
 
@@ -1590,8 +1591,8 @@ sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=studen
   const lvlDisp  = ALM_DISP[rawCode] || rawCode || '—';
   const branch   = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g,' ');
 
-  /* hero background accent stripe */
-const _card = document.getElementById('alm-ds-card');
+  /* hero accent stripe */
+  const _card = document.getElementById('alm-ds-card');
   if (_card) _card.style.borderTop = `3px solid ${accentHex}`;
 
   /* avatar */
@@ -1617,10 +1618,10 @@ const _card = document.getElementById('alm-ds-card');
     `<span style="${pillStyle};${stCls}">${stTxt}</span>`,
   ].filter(Boolean).join('');
 
-  /* stat strip */
+  /* stat strip — D-02: use grade (not grade_final) */
   ov.querySelector('#ds-s-yrs').textContent   = hst.length || '—';
   ov.querySelector('#ds-s-abs').textContent   = hst[0]?.absences ?? '—';
-  ov.querySelector('#ds-s-grade').textContent = hst[0]?.grade_final != null ? hst[0].grade_final + '%' : '—';
+  ov.querySelector('#ds-s-grade').textContent = hst[0]?.grade != null ? hst[0].grade : '—';
   ov.querySelector('#ds-s-turma').textContent = turmaInfo ? turmaInfo.code : '—';
 
   /* ── build tab panes ── */
@@ -1675,30 +1676,6 @@ const _card = document.getElementById('alm-ds-card');
     ${req?.sessions_per_week ? `<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.35)">${req.sessions_per_week} sessão/sem pedida · estado: <span style="color:${st==='atribuido'?'#3DE8A8':st==='sem_pedido'?'#E8455A':'#E8C060'}">${st}</span></div>` : ''}
   `;
 
-  /* HISTORY */
-  const histHTML = !hst.length
-    ? `<div style="padding:28px 0;text-align:center;font-size:12px;color:rgba(255,255,255,.3)">Sem historial registado.</div>`
-    : `<div class="ds-sec">Historial por ano lectivo</div>` + hst.map(yr => {
-        const l = ALM_DISP[(yr.level_cefr || '').trim()] || yr.level_cefr || '—';
-        const cls = yr.outcome === 'aprovado' ? 'hb-pass' : yr.outcome === 'reprovado' ? 'hb-fail' : 'hb-prog';
-        const lbl = yr.outcome === 'aprovado' ? 'Aprovado' : yr.outcome === 'reprovado' ? 'Reprovado' : yr.outcome || 'Em curso';
-        const att = yr.absences != null ? Math.max(0, Math.round(100 - yr.absences * 5)) : null;
-        return `<div class="ds-hrow">
-          <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.5);font-family:var(--mono);width:58px;flex-shrink:0">${yr.academic_year || '—'}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.3);font-family:var(--mono);width:76px;flex-shrink:0">${yr.turma_code || '—'}</div>
-          <div style="flex:1;font-size:13px;color:rgba(255,255,255,.75)">${l}</div>
-          ${att != null ? `<div style="width:50px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;flex-shrink:0;margin-right:8px"><div style="height:100%;width:${att}%;background:${att>75?'#3DE8A8':att>50?'#E8C060':'#E8455A'};border-radius:2px"></div></div>` : ''}
-          <span class="ds-hbadge ${cls}">${lbl}</span>
-        </div>`;
-      }).join('') +
-      `<div class="ds-sec" style="margin-top:14px">Desempenho</div>
-      <div class="ds-g2">
-        ${fld('Faltas (último ano)', hst[0]?.absences ?? '—', 'mono')}
-        ${fld('Nota final', hst[0]?.grade_final != null ? hst[0].grade_final + '%' : '—', hst[0]?.grade_final > 75 ? 'teal' : 'amber')}
-        ${fld('Tipo de aluno', enrol?.returning_student ? 'Recorrente' : 'Novo', '')}
-        ${fld('Anos em ALM', hst.length, '')}
-      </div>`;
-
   /* NOTES */
   const flagDefs = [
     { key: 'comportamento', icon: '⚠️', label: 'Comportamento' },
@@ -1719,11 +1696,10 @@ const _card = document.getElementById('alm-ds-card');
       <button class="dsabtn" style="background:rgba(29,184,122,.15);border-color:rgba(29,184,122,.4);color:#3DE8A8" onclick="dsSaveNote('${ref}')">Guardar nota</button>
     </div>`;
 
-  /* inject panes */
+  /* inject panes — no Historial pane (D-01) */
   document.getElementById('ds-body').innerHTML = `
     <div class="dspane active" id="dspane-identity">${identityHTML}</div>
     <div class="dspane" id="dspane-timetable">${ttHTML}</div>
-    <div class="dspane" id="dspane-history">${histHTML}</div>
     <div class="dspane" id="dspane-notes">${notesHTML}</div>
   `;
 
@@ -1787,7 +1763,6 @@ function _showMudarStep1(ref, enrol, codeA, codeB, currentGroupKey, currentGroup
   const g = currentGroupKey ? _allResults[currentGroupKey]?.groups[currentGroupIdx] : null;
   const slotA = g ? `${g.dayL_A || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
   const slotB = g ? `${g.dayL_B || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
-  // C-04: only two options (A and B) — no dead-end "par completo"
   document.getElementById('mt-columns').innerHTML = `<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA || '—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB || '—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div>`;
   document.getElementById('mt-overlay').classList.add('open');
   document.getElementById('mt-success').className = 'mt-success';
