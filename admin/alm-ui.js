@@ -1571,7 +1571,7 @@ async function openDossier(ref) {
    const [enrols, reqs, hist] = await Promise.all([
  sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
   sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${(AY)}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-  Promise.resolve([]),
+sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=student_ref,turma_code,absences`).catch(()=>[]),
 ]);
     enrol = enrols[0] || null;
     req   = reqs[0]   || rByRef[ref] || null;
