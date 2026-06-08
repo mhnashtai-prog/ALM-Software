@@ -1455,7 +1455,7 @@ async function openDossier(ref) {
       const gridLines = COLS.map(h => `<div style="position:absolute;left:${((h-8)/12*100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)"></div>`).join('');
       return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
         <div style="width:28px;text-align:right;font-size:11px;font-weight:500;color:${col};font-family:var(--mono);flex-shrink:0">${d}</div>
-        <div style="flex:1;position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">${gridLines}${bands}</div>
+        <div style="flex:1 1 auto;min-height:240px;position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">${gridLines}${bands}</div>
       </div>`;
     }).join('');
     return hourHdr + rows;
@@ -1463,7 +1463,7 @@ async function openDossier(ref) {
 
   /* ── shell ── */
   ov.innerHTML = `
-  <div id="alm-ds-card" style="width:min(620px,96vw);max-height:88dvh;background:#0E0C1C;border-radius:18px;border:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden;animation:shUp .28s cubic-bezier(.32,.72,0,1);position:relative">
+  <div id="alm-ds-card" style="width:min(620px,96vw);height:88dvh;max-height:88dvh;background:#0E0C1C;border-radius:18px;border:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden;animation:shUp .28s cubic-bezier(.32,.72,0,1);position:relative">
 
     <!-- CLOSE -->
     <button id="ds-close-btn" style="position:absolute;top:14px;right:14px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:.5px solid rgba(255,255,255,.15);cursor:pointer;color:rgba(255,255,255,.7);font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>
