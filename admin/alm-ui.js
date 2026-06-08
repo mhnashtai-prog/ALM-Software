@@ -1332,8 +1332,8 @@ async function decCertifySession(levelKey, groupIdx, suffix, btn) {
       btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
     }
     // U-06: cross-panel refresh after certification
-    refreshUIAfterCertify(levelKey);
-    renderDecision();
+ refreshUIAfterCertify(levelKey);
+renderDecision().then(() => decShowLevel(levelKey));
   } catch (e) {
     btn.disabled = false; btn.textContent = '✓ Certificar';
     showToast('Erro: ' + e.message, 'err');
