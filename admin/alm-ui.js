@@ -1590,7 +1590,7 @@ async function openDossier(ref) {
   const branch   = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g,' ');
 
   /* hero background accent stripe */
-  document.getElementById('ds-hero').style.borderTop = `3px solid ${accentHex}`;
+  document.getElementById('ds-banner-bg').style.borderTop = `3px solid ${accentHex}`;
 
   /* avatar */
   const avEl = ov.querySelector('#ds-av');
