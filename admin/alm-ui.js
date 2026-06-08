@@ -1500,7 +1500,7 @@ async function openDossier(ref) {
     </div>
 
     <!-- BODY -->
-    <div id="ds-body" style="flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
+   <div id="ds-body" style="flex:1 1 auto;min-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
       <div style="padding:60px;text-align:center;color:rgba(255,255,255,.3);font-size:12px">A carregar…</div>
     </div>
 
