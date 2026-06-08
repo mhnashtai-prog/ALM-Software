@@ -1577,8 +1577,8 @@ async function openDossier(ref) {
     req   = reqs[0]   || rByRef[ref] || null;
     hst   = hist || [];
     _dsData = { enrol, req, hst };
-  } catch(err) {
-    document.getElementById('ds-body').innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message}</div>`;
+ } catch(err) {
+    document.getElementById('ds-body').innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message} @ ${err.stack?.split('\n')[1]?.trim()}</div>`;
     return;
   }
 
