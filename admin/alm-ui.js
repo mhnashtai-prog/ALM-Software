@@ -1210,10 +1210,11 @@ async function renderDecision() {
         const overlap = g.students.filter(s => dbRefs.has(s.ref)).length;
         if (overlap >= Math.floor(g.students.length * 0.5)) {
           if (!_groupCodes[key]) _groupCodes[key] = {};
-          const codeA = groupRows.find(r => /A$/i.test(r.turma_code))?.turma_code || `${gc}A`;
-          const codeB = groupRows.find(r => /B$/i.test(r.turma_code))?.turma_code || `${gc}B`;
-          _groupCodes[key][i] = { turmaCode: gc, turmaCodeA: codeA, turmaCodeB: codeB, sentAt: '', status: 'pass', locked: true };
-        }
+        const codeA = groupRows.find(r => /A$/i.test(r.turma_code))?.turma_code || null;
+          const codeB = groupRows.find(r => /B$/i.test(r.turma_code))?.turma_code || null;
+          if (codeA || codeB) {
+            _groupCodes[key][i] = { turmaCode: gc, turmaCodeA: codeA, turmaCodeB: codeB, sentAt: '', status: 'pass', locked: true };
+          }
       });
     });
   } catch (e) { console.warn('renderDecision DB fetch failed', e); }
