@@ -1469,7 +1469,7 @@ async function openDossier(ref) {
     <button id="ds-close-btn" style="position:absolute;top:14px;right:14px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:.5px solid rgba(255,255,255,.15);cursor:pointer;color:rgba(255,255,255,.7);font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>
 
     <!-- HERO -->
-    <div id="ds-hero" style="padding:20px 20px 0;flex-shrink:0">
+   <div id="ds-hero" style="padding:20px 20px 14px;flex-shrink:0;background:rgba(255,255,255,.04);border-bottom:.5px solid rgba(255,255,255,.08)">
       <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
         <div id="ds-av" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;border:2px solid rgba(255,255,255,.15);font-family:var(--mono)">?</div>
         <div style="flex:1;min-width:0;padding-top:4px">
