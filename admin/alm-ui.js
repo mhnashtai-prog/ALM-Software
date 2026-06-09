@@ -636,7 +636,7 @@ function setLoc(loc, btn) {
   if (activeLevelKey) {
     const withReq = locStu().filter(e => lk(e) === activeLevelKey && !!rByRef[e.ref]);
     if (withReq.length >= MIN_G) {
-      _allResults[activeLevelKey] = buildProposalsCached(activeLevelKey, loc === 'all' ? 'all' : loc);
+   _allResults[activeLevelKey] = buildProposals(activeLevelKey, loc === 'all' ? 'all' : loc);
       _auditResults[activeLevelKey] = {};
       _allResults[activeLevelKey].groups.forEach((g, i) => {
         if (!(_groupCodes[activeLevelKey] || {})[i])
@@ -686,7 +686,7 @@ function selectLevel(key) {
   activeLevelKey = key; _sinalOpen = false;
   const withReq = locStu().filter(e => lk(e) === key && !!rByRef[e.ref]);
   if (withReq.length >= MIN_G) {
-  _allResults[key] = buildProposalsCached(key, activeLoc);
+_allResults[key] = buildProposals(key, activeLoc);
     _auditResults[key] = {};
     _allResults[key].groups.forEach((g, i) => { if (!(_groupCodes[key] || {})[i]) _auditResults[key][i] = auditGroupSync(g); });
   } else { delete _allResults[key]; }
@@ -873,7 +873,7 @@ function ovDrillToFormation(levelKey) {
   if (!_lastResult) {
     const withReq = allE.filter(e => lk(e) === levelKey && !!rByRef[e.ref]);
     if (withReq.length >= MIN_G) {
-      _lastResult = buildProposalsCached(levelKey, 'all'); _allResults[levelKey] = _lastResult;
+    _lastResult = buildProposals(levelKey, 'all'); _allResults[levelKey] = _lastResult;
       if (!_auditResults[levelKey]) _auditResults[levelKey] = {};
       _lastResult.groups.forEach((g, i) => { _auditResults[levelKey][i] = auditGroupSync(g); });
     }
@@ -1418,9 +1418,7 @@ async function openDossier(ref) {
   function avInit(n) { return (n || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 
   /* ── turma lookup from engine state ── */
-// AFTER:
 function findTurma(ref) {
-  // Also check timetable_requests assigned_turma as fallback
   const reqData = rByRef[ref];
   for (const [key, result] of Object.entries(_allResults)) {
     for (let i = 0; i < (result.groups || []).length; i++) {
