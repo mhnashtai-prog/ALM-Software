@@ -1509,10 +1509,11 @@ function findTurma(ref) {
     <!-- ACTION BAR -->
     <div id="ds-action-bar" style="display:flex;gap:6px;padding:10px 16px;border-top:.5px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);flex-wrap:wrap;flex-shrink:0">
       <button id="ds-btn-wa" class="dsabtn primary">📲 WhatsApp</button>
-      <button id="ds-btn-ee" class="dsabtn">👨‍👩‍👧 Contactar EE</button>
-      <button id="ds-btn-send" class="dsabtn">📅 Enviar horário</button>
-      <button id="ds-btn-move" class="dsabtn">⇄ Mudar turma</button>
-      <button class="dsabtn" style="margin-left:auto" onclick="window.print()">🖨️ Imprimir</button>
+<button id="ds-btn-ee" class="dsabtn">👨‍👩‍👧 Contactar EE</button>
+<button id="ds-btn-send" class="dsabtn">📅 Enviar horário</button>
+<button id="ds-btn-move" class="dsabtn">⇄ Mudar turma</button>
+<button id="ds-btn-ficha" class="dsabtn">📋 Ficha ↗</button>
+<button class="dsabtn" style="margin-left:auto" onclick="window.print()">🖨️ Imprimir</button>
     </div>
   </div>
 
@@ -1723,6 +1724,7 @@ function findTurma(ref) {
   ov.querySelector('#ds-btn-ee').onclick = () => enrol?.guardian_phone ? window.open(`tel:${enrol.guardian_phone}`) : showToast('Sem telefone do EE', 'warn');
   ov.querySelector('#ds-btn-send').onclick = () => showToast('Horário enviado ✓', 'ok');
   ov.querySelector('#ds-btn-move').onclick = () => { closeDossier(); setTimeout(() => openMudarTurma(ref), 240); };
+ ov.querySelector('#ds-btn-ficha').onclick = () => window.open(`/admin/alm-edit-enrollment.html?ref=${encodeURIComponent(ref)}`, '_blank');
   ov.querySelector('#ds-wa-btn').onclick = ov.querySelector('#ds-btn-wa').onclick;
   ov.querySelector('#ds-em-btn').onclick = () => enrol?.email ? window.open(`mailto:${enrol.email}`) : showToast('Sem email', 'warn');
   ov.querySelector('#ds-hor-btn').onclick = ov.querySelector('#ds-btn-send').onclick;
