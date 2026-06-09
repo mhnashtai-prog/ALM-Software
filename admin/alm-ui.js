@@ -1418,11 +1418,14 @@ async function openDossier(ref) {
   function avInit(n) { return (n || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 
   /* ── turma lookup from engine state ── */
-  function findTurma(ref) {
-    for (const [key, result] of Object.entries(_allResults)) {
-      for (let i = 0; i < (result.groups || []).length; i++) {
-        const g = result.groups[i];
-        if (g.students.find(s => s.ref === ref)) {
+// AFTER:
+function findTurma(ref) {
+  // Also check timetable_requests assigned_turma as fallback
+  const reqData = rByRef[ref];
+  for (const [key, result] of Object.entries(_allResults)) {
+    for (let i = 0; i < (result.groups || []).length; i++) {
+      const g = result.groups[i];
+      if (g.students.find(s => s.ref === ref)) {
           const c = (_groupCodes[key] || {})[i];
           const code = c ? (c.turmaCodeA && c.turmaCodeB && c.turmaCodeA !== c.turmaCodeB
             ? `${c.turmaCodeA}/${c.turmaCodeB}` : c.turmaCodeA || c.turmaCode || `T${i+1}`) : `T${i+1}`;
@@ -1574,7 +1577,7 @@ async function openDossier(ref) {
     const [enrols, reqs, hist] = await Promise.all([
       sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
       sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-    sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=student_ref,turma_code,absences,grade,note`).catch(() => []),
+      sbGet('turma_students', `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,absences,grade,note`).catch(() => []),
     ]);
     enrol = enrols[0] || null;
     req   = reqs[0]   || rByRef[ref] || null;
@@ -1728,11 +1731,14 @@ async function openDossier(ref) {
 
 function closeDossier() {
   const ov = document.getElementById('alm-dossier-ov');
-  if (!ov) return;
-  ov.style.opacity = '0';
-  ov.style.transition = 'opacity .2s';
-  setTimeout(() => ov.remove(), 200);
-  document.getElementById('ds-overlay')?.classList.remove('open');
+  if (ov) {
+    ov.style.opacity = '0';
+    ov.style.transition = 'opacity .2s';
+    setTimeout(() => ov.remove(), 200);
+  }
+  // Also hide the legacy overlay shell if open
+  const legacy = document.getElementById('ds-overlay');
+  if (legacy) legacy.classList.remove('open');
 }
 
 /* ── MUDAR TURMA ──────────────────────────────────────────── */
@@ -1747,7 +1753,10 @@ function openMudarTurma(ref, changeSuffix) {
   for (const [key, result] of Object.entries(_allResults)) {
     result.groups.forEach((g, i) => { if (g.students.find(s => s.ref === ref)) { currentGroupKey = key; currentGroupIdx = i; currentCommitted = (_groupCodes[key] || {})[i] || null; } });
   }
-  if (!currentCommitted) { showToast('Só turmas certificadas podem ser alteradas — certifique primeiro', 'warn'); return; }
+if (!currentCommitted) { 
+  showToast('Sem turma certificada — certifique primeiro no Decision Centre', 'warn'); 
+  return; 
+}
   _mtCurrentSuffixA = currentCommitted?.turmaCodeA || null; _mtCurrentSuffixB = currentCommitted?.turmaCodeB || null;
   if (!changeSuffix) { _showMudarStep1(ref, enrol, _mtCurrentSuffixA, _mtCurrentSuffixB, currentGroupKey, currentGroupIdx); return; }
   _showMudarStep2(ref, enrol, changeSuffix, currentGroupKey, currentGroupIdx, currentCommitted);
