@@ -1455,7 +1455,9 @@ async function openDossier(ref) {
         return `<div style="position:absolute;left:${pct(f)}%;width:${wPct(f,t2)}%;top:3px;bottom:3px;background:#C9A84C;border-radius:3px;display:flex;align-items:center;padding:0 5px;overflow:hidden"><span style="font-size:10px;color:#07060E;white-space:nowrap;font-weight:600;font-family:var(--mono)">${s.startLabel}–${s.endLabel}</span></div>`;
       }).join('');
       const gridLines = COLS.map(h => `<div style="position:absolute;left:${((h-8)/12*100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)"></div>`).join('');
-   `<div style="flex:1 1 auto;min-height:0;position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">${gridLines}${bands}</div>`
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <div style="width:28px;text-align:right;font-size:11px;font-weight:500;color:${col};font-family:var(--mono);flex-shrink:0">${d}</div>
+       <div style="flex:1 1 auto;position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">${gridLines}${bands}</div>
       </div>`;
     }).join('');
     return hourHdr + rows;
