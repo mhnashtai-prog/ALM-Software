@@ -972,7 +972,7 @@ async function sbGet(table,query=''){
   return r.json();
 }
 async function sbPatch(table,id,body){
-  const r=await fetch(`${SB}/rest/v1/${table}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
+  const r=await fetch(`${SB}/rest/v1/${table}?ref=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:H,body:JSON.stringify(body)});
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
@@ -1009,8 +1009,8 @@ function onLuNameInput(){
   clearTimeout(luTimer);
   luTimer=setTimeout(async()=>{
     let matches=[];
-    try{matches=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=id,num,name,branch,level,status&limit=7`);}
-    catch(e){matches=await sbGet('students',`name=ilike.*${encodeURIComponent(q)}*&select=id,num,name,branch,level,status&limit=7`).catch(()=>[]);}
+    try{matches=await sbGet('enrolments',`name=ilike.*${encodeURIComponent(q)}*&select=ref,name,branch,level_code,status&limit=7`);}
+   catch(e){matches=await sbGet('students',`name=ilike.*${encodeURIComponent(q)}*&select=ref,name,branch,level_code,status&limit=7`).catch(()=>[]);}
     if(!matches.length){drop.style.display='none';return;}
     drop.innerHTML=matches.map(s=>`
       <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:0.5px solid rgba(201,168,76,0.06);transition:background .1s" 
@@ -1021,7 +1021,7 @@ function onLuNameInput(){
         </div>
         <div>
           <div style="font-size:11px;font-weight:500;color:var(--text)">${s.name}</div>
-          <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">${s.num||'—'} · ${s.branch||'—'} · ${s.level||'—'}</div>
+          <div style="font-size:9px;color:var(--text3);font-family:var(--mono)">${s.ref||'—'} · ${s.branch||'—'} · ${s.level||'—'}</div>
         </div>
       </div>`).join('');
     drop.style.display='block';
@@ -1031,7 +1031,7 @@ function onLuNameInput(){
 function selectLuResult(s){
   document.getElementById('lu-name').value=s.name;
   document.getElementById('lu-ac-drop').style.display='none';
-  document.getElementById('lu-num').value=s.num||'';
+  document.getElementById('lu-num').value=s.ref||'';
 }
 
 function handleLuKey(e){
@@ -1059,7 +1059,7 @@ async function doStaffLookup(){
     for(const table of ['enrolments','students']){
       if(record)break;
       if(rawNum){
-        const rows=await sbGet(table,`num=eq.${encodeURIComponent(rawNum)}&limit=1`);
+        const rows=await sbGet(table,`ref=eq.${encodeURIComponent(rawNum)}&limit=1`);
         if(rows.length){record=rows[0];record._table=table;}
       }
       if(!record&&nameQ.length>1){
@@ -1099,11 +1099,11 @@ function openRecord(r){
 
   // Populate strip
   document.getElementById('strip-name').textContent=r.name||'—';
-  document.getElementById('strip-ref').textContent=r.num||'—';
+  document.getElementById('strip-ref').textContent=r.ref||'—';
   const statusLabel={active:'activo',pending:'pendente',pending_review:'em revisão',archive:'arquivo'};
   document.getElementById('strip-status').textContent=statusLabel[r.status]||r.status||'—';
 
-  document.getElementById('save-bar-ref').textContent=r.num||'—';
+  document.getElementById('save-bar-ref').textContent=r.ref||'—';
 
   // Populate all fields
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!==undefined)el.value=v;};
@@ -1238,7 +1238,7 @@ async function saveChanges(){
 
   try{
     if(currentRecord._table&&currentRecord._table!=='demo'){
-      await sbPatch(currentRecord._table,currentRecord.id,patch);
+   await sbPatch(currentRecord._table,currentRecord.ref,patch);
     }
     // Update local record
     Object.assign(currentRecord,patch);
@@ -1438,7 +1438,7 @@ document.addEventListener('change',e=>{
 document.getElementById('edit-shell').classList.add('hidden');
 
 // Check URL param: ?num=ALM-0042
-const urlNum=new URLSearchParams(window.location.search).get('num');
+const urlNum=new URLSearchParams(window.location.search).get('ref')||new URLSearchParams(window.location.search).get('num');
 if(urlNum){document.getElementById('lu-num').value=urlNum;doStaffLookup();}
 </script>
 </body>
