@@ -1573,16 +1573,17 @@ async function openDossier(ref) {
     const [enrols, reqs, hist] = await Promise.all([
       sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
       sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
-    sbGet('turma_students', `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,absences`).catch(() => []),
+    sbGet('turma_students', `student_ref=eq.${encodeURIComponent(ref)}&select=student_ref,turma_code,absences,grade,note`).catch(() => []),
     ]);
     enrol = enrols[0] || null;
     req   = reqs[0]   || rByRef[ref] || null;
     hst   = hist || [];
     _dsData = { enrol, req, hst };
 } catch(err) {
-  const bodyEl = ov.querySelector('#ds-body') || document.getElementById('ds-body');
-  if (bodyEl) bodyEl.innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message}</div>`;
-}
+    const bodyEl = ov.querySelector('#ds-body') || document.getElementById('ds-body');
+    if (bodyEl) bodyEl.innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message}</div>`;
+    return;  // ← add this
+  }
 
   /* ── populate hero ── */
   const dept     = (enrol?.family || 'adults').toLowerCase();
