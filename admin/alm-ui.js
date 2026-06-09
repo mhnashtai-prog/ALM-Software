@@ -686,7 +686,7 @@ function selectLevel(key) {
   activeLevelKey = key; _sinalOpen = false;
   const withReq = locStu().filter(e => lk(e) === key && !!rByRef[e.ref]);
   if (withReq.length >= MIN_G) {
-    _allResults[key] = buildProposalsCached(key, 'all');
+  _allResults[key] = buildProposalsCached(key, activeLoc);
     _auditResults[key] = {};
     _allResults[key].groups.forEach((g, i) => { if (!(_groupCodes[key] || {})[i]) _auditResults[key][i] = auditGroupSync(g); });
   } else { delete _allResults[key]; }
