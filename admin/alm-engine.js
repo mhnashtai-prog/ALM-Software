@@ -195,39 +195,42 @@ function buildProposals(levelKey,branch){
   const lockedHere=_lockedRefs[levelKey]||new Set();
   const withReq=all.filter(e=>!!rByRef[e.ref]&&!lockedHere.has(e.ref));
 
-  const studentWindows={};
-  withReq.forEach(e=>{
-    const a=analysePrefs(e.ref);
-    if(!a||!a.windows.length)return;
-    studentWindows[e.ref]=a.windows;
-  });
+ const studentWindows={};
+withReq.forEach(e=>{
+  const req=rByRef[e.ref]; if(!req) return;
+  const raw=parseDayPrefs(req.slots||req.day_preferences);
+  const parsed=raw.map(p=>parseSlot(p)).filter(Boolean);
+  if(parsed.length) studentWindows[e.ref]=parsed;
+});
 
-  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-   
+const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
 
-   
-  function coversSlot(windows,dayIdx,startMins){
-    return windows.some(w=>w.dayIdx===dayIdx&&w.earliest<=startMins+30&&w.latest>=startMins+CLASS_DUR-30);
-  }
+function coversSlot(windows,dayIdx,startMins){
+  return windows.some(w=>
+    w.dayIdx===dayIdx&&
+    w.fromMins<=startMins+15&&
+    w.toMins>=startMins+CLASS_DUR-15
+  );
+}
 
   const SLOTS=[];
   for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
 
   const freqMap={};
-  withReq.forEach(e=>{
-    const windows=studentWindows[e.ref];
-    if(!windows)return;
-    activePairs.forEach((pair,pi)=>{
-      SLOTS.forEach(startMins=>{
-        const okA=coversSlot(windows,pair.a,startMins);
-        const okB=pair.a===pair.b?okA:coversSlot(windows,pair.b,startMins);
-        if(!okA||!okB)return;
-        const key=`${pi}|${startMins}`;
-        if(!freqMap[key])freqMap[key]=new Set();
-        freqMap[key].add(e.ref);
-      });
+ withReq.forEach(e=>{
+  const windows=studentWindows[e.ref];
+  if(!windows)return;
+  activePairs.forEach((pair,pi)=>{
+    SLOTS.forEach(startMins=>{
+      const okA=coversSlot(windows,pair.a,startMins);
+      const okB=pair.a===pair.b?okA:coversSlot(windows,pair.b,startMins);
+      if(!okA||!okB)return;
+      const key=`${pi}|${startMins}`;
+      if(!freqMap[key])freqMap[key]=new Set();
+      freqMap[key].add(e.ref);
     });
   });
+});
 
   const candidates=Object.entries(freqMap)
     .map(([key,refs])=>({key,refs,count:refs.size}))
