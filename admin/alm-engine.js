@@ -479,7 +479,8 @@ function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textCon
 async function runBootAudit(){
   const levelKeys=Object.keys(LEVEL_MAP);
   const total=levelKeys.length;let done=0;
-  await loadNextSeqBase();
+ await loadNextSeqBase();
+  _proposalCache = {};                            // ← ADD THIS
   setBoot('A agrupar e auditar todos os níveis…');
   for(const key of levelKeys){
     const allGroups=[],allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
@@ -557,7 +558,8 @@ async function refreshData(){
     ]);
     setConn(true);
     allE=enrol||[];allR=reqs||[];rByRef={};
-    allR.forEach(r=>{rByRef[r.ref]=r;});
+   allR.forEach(r=>{rByRef[r.ref]=r;});
+    _proposalCache = {};                      
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
