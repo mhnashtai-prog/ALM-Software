@@ -1570,6 +1570,7 @@ async function openDossier(ref) {
   /* ── fetch data — no turma_students (crash-proof) ── */
   let enrol = null, req = null, hst = [];
   try {
+     console.log('DOSSIER REF:', ref, encodeURIComponent(ref));
     const [enrols, reqs, hist] = await Promise.all([
       sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
       sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
@@ -1698,7 +1699,7 @@ async function openDossier(ref) {
     </div>`;
 
   /* inject panes — no Historial pane (D-01) */
-  document.getElementById('ds-body').innerHTML = `
+    ov.querySelector('#ds-body').innerHTML = `
     <div class="dspane active" id="dspane-identity">${identityHTML}</div>
     <div class="dspane" id="dspane-timetable">${ttHTML}</div>
     <div class="dspane" id="dspane-notes">${notesHTML}</div>
