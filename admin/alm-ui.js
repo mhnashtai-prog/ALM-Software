@@ -1633,29 +1633,40 @@ function findTurma(ref) {
 
   /* IDENTITY */
   const identityHTML = `
-    <div class="ds-sec">Dados pessoais</div>
-    <div class="ds-g2">
-      ${fld('Nome completo', enrol?.name)}
-      ${dob ? fld('Data de nascimento', dob + (enrol?.age ? ' · ' + enrol.age + ' anos' : '')) : ''}
-      ${fld('Escola', enrol?.school)}
-      ${fld('Ano escolar', enrol?.school_year)}
+  <div class="ds-sec">Ficha de inscrição</div>
+  <div class="ds-g2">
+    ${fld('Nome completo', enrol?.name)}
+    ${fld('Referência', enrol?.ref, 'mono')}
+    ${dob ? fld('Data de nascimento', dob + (enrol?.age ? ' · ' + enrol.age + ' anos' : '')) : ''}
+    ${fld('Género', enrol?.gender)}
+    ${fld('Língua', enrol?.lang)}
+    ${fld('Ano lectivo', enrol?.academic_year)}
+    ${fld('Escola', enrol?.school)}
+    ${fld('Ano escolar', enrol?.school_year)}
+    ${fld('Aluno regressante', enrol?.returning_student ? 'Sim' : enrol?.returning_student === false ? 'Não' : null)}
+    ${fld('Data de inscrição', enrol?.enrolment_date ? new Date(enrol.enrolment_date).toLocaleDateString('pt-PT') : null)}
+  </div>
+  <div class="ds-sec" style="margin-top:14px">Contactos do aluno</div>
+  <div class="ds-g2">
+    ${fld('Telefone', enrol?.phone, 'teal')}
+    ${fld('Email', enrol?.email, 'teal')}
+  </div>
+  <div class="ds-sec" style="margin-top:14px">Encarregado de educação</div>
+  ${enrol?.guardian_name ? `<div class="ds-crow"><div class="ds-cico">👤</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Nome</div><div style="font-size:13px;color:rgba(255,255,255,.85)">${enrol.guardian_name}</div></div></div>` : ''}
+  ${enrol?.guardian_phone ? `<div class="ds-crow"><div class="ds-cico">📞</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Telefone</div><div style="font-size:13px;color:#7AABEE"><a href="tel:${enrol.guardian_phone}" style="color:inherit;text-decoration:none">${enrol.guardian_phone}</a></div></div></div>` : ''}
+  ${enrol?.guardian_email ? `<div class="ds-crow"><div class="ds-cico">✉️</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Email</div><div style="font-size:13px;color:#7AABEE"><a href="mailto:${enrol.guardian_email}" style="color:inherit;text-decoration:none">${enrol.guardian_email}</a></div></div></div>` : ''}
+  ${!enrol?.guardian_name && !enrol?.guardian_phone && !enrol?.guardian_email ? '<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem dados de EE registados</div>' : ''}
+  <div class="ds-sec" style="margin-top:14px">Turma atribuída</div>
+  ${turmaInfo ? `
+  <div style="background:rgba(201,168,76,.06);border-radius:10px;border:.5px solid rgba(201,168,76,.3);padding:12px 14px;display:flex;align-items:center;gap:12px">
+    <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:#C9A84C;flex-shrink:0;min-width:80px">${turmaInfo.code}</div>
+    <div style="flex:1">
+      <div style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600">${turmaInfo.pair} · ${turmaInfo.startTime}–${turmaInfo.endTime}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${turmaInfo.meta.label || ''}</div>
     </div>
-    <div class="ds-sec">Encarregado de educação</div>
-    ${enrol?.guardian_name ? `<div class="ds-crow"><div class="ds-cico">👤</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Nome</div><div style="font-size:13px;color:rgba(255,255,255,.85)">${enrol.guardian_name}</div></div></div>` : ''}
-    ${enrol?.guardian_phone ? `<div class="ds-crow"><div class="ds-cico">📞</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Telefone EE</div><div style="font-size:13px;color:#7AABEE"><a href="tel:${enrol.guardian_phone}" style="color:inherit;text-decoration:none">${enrol.guardian_phone}</a></div></div></div>` : ''}
-    ${enrol?.guardian_email ? `<div class="ds-crow"><div class="ds-cico">✉️</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Email EE</div><div style="font-size:13px;color:#7AABEE"><a href="mailto:${enrol.guardian_email}" style="color:inherit;text-decoration:none">${enrol.guardian_email}</a></div></div></div>` : ''}
-    ${enrol?.phone ? `<div class="ds-crow"><div class="ds-cico">📱</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Telefone aluno</div><div style="font-size:13px;color:#7AABEE"><a href="tel:${enrol.phone}" style="color:inherit;text-decoration:none">${enrol.phone}</a></div></div></div>` : ''}
-    <div class="ds-sec">Turma atribuída</div>
-    ${turmaInfo ? `
-    <div style="background:rgba(201,168,76,.06);border-radius:10px;border:.5px solid rgba(201,168,76,.3);padding:12px 14px;display:flex;align-items:center;gap:12px">
-      <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:#C9A84C;flex-shrink:0;min-width:80px">${turmaInfo.code}</div>
-      <div style="flex:1">
-        <div style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600">${turmaInfo.pair} · ${turmaInfo.startTime}–${turmaInfo.endTime}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${turmaInfo.meta.label || ''}</div>
-      </div>
-      ${turmaInfo.certified ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:.5px solid rgba(29,184,122,.4);color:#3DE8A8;background:rgba(29,184,122,.1)">✓ Cert.</span>` : ''}
-    </div>` : `<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem turma atribuída</div>`}
-  `;
+    ${turmaInfo.certified ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:.5px solid rgba(29,184,122,.4);color:#3DE8A8;background:rgba(29,184,122,.1)">✓ Cert.</span>` : ''}
+  </div>` : `<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem turma atribuída</div>`}
+`;
 
   /* TIMETABLE */
   const ttHTML = `
