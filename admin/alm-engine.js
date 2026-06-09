@@ -559,7 +559,7 @@ async function refreshData(){
     setConn(true);
     allE=enrol||[];allR=reqs||[];rByRef={};
    allR.forEach(r=>{rByRef[r.ref]=r;});
-    _proposalCache = {};                      
+  _proposalCache={};                     
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
