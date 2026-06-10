@@ -1139,33 +1139,46 @@ function setDirty(){
 ══════════════════════════════════════════ */
 function gv(id){const el=document.getElementById(id);return el?el.value.trim()||null:null;}
 
+/* ══ LEVEL / FAMILY NORMALISERS ══ */
+const LEVEL_CODE_NORM={
+  '8th':'8','7th':'7','6th':'6','5th':'5','4th':'4','3rd':'3','2nd':'2','1st':'1',
+  'Pj3':'PJ3','Pj2':'PJ2','Pj1':'PJ1','pj3':'PJ3','pj2':'PJ2','pj1':'PJ1',
+  'Pi4':'PI4','Pi3':'PI3','Pi2':'PI2','Pi1':'PI1','Pi1a':'PI1a','Pi1b':'PI1b',
+  'pi4':'PI4','pi3':'PI3','pi2':'PI2','pi1':'PI1','pi1a':'PI1a','pi1b':'PI1b',
+};
+const normLC=c=>LEVEL_CODE_NORM[c]||c;
+const DEPT_TO_FAMILY={infants:'kids',juvenil:'kids_juv',geral:'adults',exam:'exam'};
+const normFamily=(dk,fb)=>dk?(DEPT_TO_FAMILY[dk]||dk):fb;
+
 async function saveChanges(){
   const btn=document.getElementById('btn-save');
   btn.disabled=true;btn.textContent='A guardar…';
-
   const enrollLbl={renovacao:'Renovação',nova:'Nova Matrícula',regresso:'Regresso',
     modular:'Modular',intensivo:'Intensivo de Verão',individual:'Aulas Individuais'};
-
+  const resolvedEnrollType=enrollType||currentRecord.enroll_type;
+  const resolvedOcc=occType||currentRecord.occupation;
+  const resolvedFamily=normFamily(deptKey,currentRecord.family);
+  const resolvedLevelCode=normLC(levelCode||currentRecord.level_code||currentRecord.level||'');
   const patch={
     name:gv('name'),dob:gv('dob'),nationality:gv('nationality'),naturalidade:gv('naturalidade'),
     gender:gv('gender'),id_number:gv('id-num'),id_expiry:gv('id-expiry'),id_type:gv('id-type'),nif:gv('nif'),
     email:gv('email'),phone:gv('phone'),address:gv('address'),
     postal_code:gv('postal'),locality:gv('locality'),branch:gv('branch'),
     lang:gv('lang'),
-    enroll_type:enrollType||currentRecord.enroll_type,
-    enroll_type_label:enrollLbl[enrollType||currentRecord.enroll_type]||null,
-    occupation:occType||currentRecord.occupation,
-    school:(occType==='estudante'||occType==='universitario')?(gv('school-name')==='Outra / Exterior'?gv('school-other'):gv('school-name'))||null:null,
-    school_year:(occType==='estudante')?gv('school-year'):null,
-    profession:(['profissional','professor','outro'].includes(occType||currentRecord.occupation))?gv('profession'):null,
+    enroll_type:resolvedEnrollType,
+    enroll_type_label:enrollLbl[resolvedEnrollType]||null,
+    occupation:resolvedOcc,
+    school:(resolvedOcc==='estudante'||resolvedOcc==='universitario')?(gv('school-name')==='Outra / Exterior'?gv('school-other'):gv('school-name'))||null:null,
+    school_year:resolvedOcc==='estudante'?gv('school-year'):null,
+    profession:(['profissional','professor','outro'].includes(resolvedOcc))?gv('profession'):null,
     mae_name:gv('mae-name'),mae_phone:gv('mae-phone'),mae_email:gv('mae-email'),
     pai_name:gv('pai-name'),pai_phone:gv('pai-phone'),pai_email:gv('pai-email'),
     guardian_type:guardianType||currentRecord.guardian_type,
     guardian_relation:gv('g-rel'),guardian_phone:gv('g-phone'),
     guardian_email:gv('g-email'),guardian_nif:gv('g-nif'),
-    family:deptKey?({infants:'kids',juvenil:'kids_juv',geral:'adults',exam:'exam'})[deptKey]||deptKey:currentRecord.family,
+    family:resolvedFamily,
     level:levelCode||currentRecord.level,
-    level_code:levelCode||currentRecord.level,
+    level_code:resolvedLevelCode||null,
     course_notes:gv('course-notes'),
     exam_intent:examIntent||currentRecord.exam_intent,
     exam_name:examName||currentRecord.exam_name,
@@ -1177,8 +1190,11 @@ async function saveChanges(){
     gdpr_bc:document.getElementById('g-bc').checked,
     gdpr_comms:document.getElementById('g-comms').checked,
   };
+  // sanity check — never write ordinal suffix to level_code
+  if(patch.level_code&&/^\d+(st|nd|rd|th)$/i.test(patch.level_code)){
+    patch.level_code=patch.level_code.replace(/(st|nd|rd|th)$/i,'');
+  }
 
-  // Only send keys that already exist on the original record (safe schema filter)
   // Also drop keys whose value is null AND were null in the original (no change)
   const knownKeys=Object.keys(currentRecord).filter(k=>k!=='_table');
   Object.keys(patch).forEach(k=>{
