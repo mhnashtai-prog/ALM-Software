@@ -37,6 +37,16 @@ const DAYS_PT   = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
 const CLASS_DUR = 90;
 const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
+const HEALTHY_TARGET=13;        // spread-to-serve aim point (mid healthy band)
+const RIGID_MAX_WINDOWS=2;      // ≤2 declared windows = rigid (one day-pair, one time)
+
+/* Four service tiers (non-profit: reach not revenue). Values unchanged; meaning is now colour. */
+function classifyTier(n){
+  if(n>=MAX_G)      return {tier:'full',    color:'#C9A84C', label:'CHEIA'};
+  if(n>=ASSIGN_MIN) return {tier:'healthy', color:'#3DE8A8', label:'SAUDÁVEL'};
+  if(n>=MIN_G)      return {tier:'viable',  color:'#E8A020', label:'VIÁVEL'};
+  return                   {tier:'forming', color:'#4A8FF5', label:'A FORMAR'};
+}
 
 const ALM_PAIRS = [
   {a:1,b:3,aL:'TER',bL:'QUI',label:'TER+QUI'},
@@ -182,7 +192,12 @@ function toMins(t){
   return(parts[0]||0)*60+(parts[1]||0);
 }
 
-/* ── PAIR ENGINE v2 ───────────────────────────────────────── */
+/* ── PAIR ENGINE v3 · stateless · 4-tier · rigid-anchor + spread-to-serve ──
+   - per-branch signature preserved: buildProposals(levelKey, branch)
+   - NO lock-exclude (certified students participate; engine fills seats around them)
+   - sub-5 clusters surface as 'forming' (blue) groups, not rejects
+   - rigid minorities protected as visible forming cards
+   - spreads flexible majority toward HEALTHY_TARGET (headroom for latecomers)        */
 function buildProposals(levelKey,branch){
   const STEP=30;
   const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
@@ -192,91 +207,104 @@ function buildProposals(levelKey,branch){
     return true;
   });
 
-  const lockedHere=_lockedRefs[levelKey]||new Set();
-  const withReq=all.filter(e=>!!rByRef[e.ref]&&!lockedHere.has(e.ref));
+  // NO lock-exclude: every student with a request participates every sweep.
+  const withReq=all.filter(e=>!!rByRef[e.ref]);
 
- const studentWindows={};
-withReq.forEach(e=>{
-  const req=rByRef[e.ref]; if(!req) return;
-  const raw=parseDayPrefs(req.slots||req.day_preferences);
-  const parsed=raw.map(p=>parseSlot(p)).filter(Boolean);
-  if(parsed.length) studentWindows[e.ref]=parsed;
-});
-
-const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-
-function coversSlot(windows,dayIdx,startMins){
-  return windows.some(w=>
-    w.dayIdx===dayIdx&&
-    w.fromMins<=startMins+15&&
-    w.toMins>=startMins+CLASS_DUR-15
-  );
-}
-
-  const SLOTS=[];
-  for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
-
-  const freqMap={};
- withReq.forEach(e=>{
-  const windows=studentWindows[e.ref];
-  if(!windows)return;
-  activePairs.forEach((pair,pi)=>{
-    SLOTS.forEach(startMins=>{
-      const okA=coversSlot(windows,pair.a,startMins);
-      const okB=pair.a===pair.b?okA:coversSlot(windows,pair.b,startMins);
-      if(!okA||!okB)return;
-      const key=`${pi}|${startMins}`;
-      if(!freqMap[key])freqMap[key]=new Set();
-      freqMap[key].add(e.ref);
-    });
+  const studentWindows={};
+  withReq.forEach(e=>{
+    const req=rByRef[e.ref]; if(!req)return;
+    const raw=parseDayPrefs(req.slots||req.day_preferences);
+    const parsed=raw.map(p=>parseSlot(p)).filter(Boolean);
+    if(parsed.length) studentWindows[e.ref]=parsed;
   });
-});
 
-  const candidates=Object.entries(freqMap)
-    .map(([key,refs])=>({key,refs,count:refs.size}))
-    .filter(c=>c.count>=MIN_G)
-    .sort((a,b)=>b.count-a.count);
+  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
+  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
 
-  const placed=new Set();
-  const groups=[];
+  const SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
 
-  const studentCandidateCount={};
-  candidates.forEach(({refs})=>{refs.forEach(r=>{studentCandidateCount[r]=(studentCandidateCount[r]||0)+1;});});
+  // Which (pair|slot) keys does each student fit? (disjoint-window correct.)
+  const fitsByStudent={};
+  withReq.forEach(e=>{
+    const w=studentWindows[e.ref]; if(!w){fitsByStudent[e.ref]=[];return;}
+    const fits=[];
+    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
+      const okA=coversSlot(w,pair.a,s), okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
+      if(okA&&okB)fits.push(`${pi}|${s}`);
+    }));
+    fitsByStudent[e.ref]=fits;
+  });
 
-  candidates.forEach(({key,refs})=>{
-    const available=[...refs].filter(r=>!placed.has(r)).sort((a,b)=>(studentCandidateCount[a]||0)-(studentCandidateCount[b]||0));
-    if(available.length<MIN_G)return;
-    const [piStr,startMinsStr]=key.split('|');
-    const pi=parseInt(piStr,10),startMins=parseInt(startMinsStr,10);
-    const pair=activePairs[pi];
-    if(!pair)return;
-    const students=available.slice(0,MAX_G).map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
-    students.forEach(e=>placed.add(e.ref));
+  const placed=new Set(), groups=[];
+  const slotMembers=key=>withReq.filter(e=>!placed.has(e.ref)&&fitsByStudent[e.ref].includes(key));
+
+  function emit(key,refs){
+    const [piStr,sStr]=key.split('|');
+    const pi=+piStr,startMins=+sStr,pair=activePairs[pi]; if(!pair)return;
+    refs.forEach(r=>placed.add(r));
+    const students=refs.map(r=>withReq.find(e=>e.ref===r)).filter(Boolean);
+    const t=classifyTier(students.length);
     groups.push({
-      pairDef:pair,
-      dayIdx_A:pair.a,dayIdx_B:pair.b,
-      dayL_A:pair.aL||DAYS_PT[pair.a],
-      dayL_B:pair.bL||DAYS_PT[pair.b],
-      dayL:pair.aL||DAYS_PT[pair.a],
-      dayIdx:pair.a,
-      startMins,
-      startTime:minsToT(startMins),
-      endTime:minsToT(startMins+CLASS_DUR),
-      students,
+      pairDef:pair, dayIdx_A:pair.a, dayIdx_B:pair.b,
+      dayL_A:pair.aL||DAYS_PT[pair.a], dayL_B:pair.bL||DAYS_PT[pair.b],
+      dayL:pair.aL||DAYS_PT[pair.a], dayIdx:pair.a,
+      startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
+      students, tier:t.tier, tierColor:t.color, tierLabel:t.label,
     });
+  }
+
+  // ── PASS 1 · RIGID ANCHORS (protected, spread if oversized) ──
+  const rigid=withReq.filter(e=>(studentWindows[e.ref]||[]).length<=RIGID_MAX_WINDOWS && fitsByStudent[e.ref].length>0);
+  const rigidBySlot={};
+  rigid.forEach(e=>{ const k=fitsByStudent[e.ref][0]; (rigidBySlot[k]=rigidBySlot[k]||[]).push(e.ref); });
+  Object.entries(rigidBySlot).sort((a,b)=>b[1].length-a[1].length).forEach(([key,refs])=>{
+    let live=refs.filter(r=>!placed.has(r)); if(!live.length)return;
+    if(live.length>MAX_G){
+      const numG=Math.ceil(live.length/HEALTHY_TARGET), per=Math.ceil(live.length/numG);
+      for(let i=0;i<live.length;i+=per) emit(key, live.slice(i,i+per));
+    } else emit(key, live);
   });
 
+  // ── PASS 2 · SPREAD-TO-SERVE flexible majority (cap at HEALTHY_TARGET) ──
+  let guard=0;
+  while(guard++<500){
+    let best=null,bestN=0;
+    SLOTS.forEach(s=>activePairs.forEach((pair,pi)=>{
+      const key=`${pi}|${s}`, m=slotMembers(key).length;
+      if(m>bestN){bestN=m;best=key;}
+    }));
+    if(!best||bestN===0)break;
+    emit(best, slotMembers(best).map(e=>e.ref).slice(0,HEALTHY_TARGET));
+  }
+
+  // ── PASS 3 · fold flexible orphans into compatible groups with room ──
+  const orphanGroups=groups.filter(g=>g.students.length<MIN_G && g.tier==='forming');
+  orphanGroups.forEach(og=>{
+    const movable=og.students.filter(s=>(fitsByStudent[s.ref]||[]).length>1);
+    if(movable.length!==og.students.length) return; // contains a rigid → keep as blue card
+    movable.forEach(s=>{
+      const target=groups.find(g=>g!==og && g.students.length<MAX_G &&
+        fitsByStudent[s.ref].includes(`${ALM_PAIRS.indexOf(g.pairDef)}|${g.startMins}`));
+      if(target){
+        og.students=og.students.filter(x=>x.ref!==s.ref);
+        target.students.push(s);
+      }
+    });
+  });
+  for(let i=groups.length-1;i>=0;i--) if(groups[i].students.length===0) groups.splice(i,1);
+  groups.forEach(g=>{const t=classifyTier(g.students.length);g.tier=t.tier;g.tierColor=t.color;g.tierLabel=t.label;});
+
+  // Genuine outliers only (no valid windows, or fit zero slots)
   const noWindows=withReq.filter(e=>!studentWindows[e.ref]);
   const noGroup=withReq.filter(e=>studentWindows[e.ref]&&!placed.has(e.ref));
 
   function whyNoGroup(e){
-    const windows=studentWindows[e.ref];
-    if(!windows)return'Sem janelas de disponibilidade válidas';
-    const days=[...new Set(windows.map(w=>w.dayIdx))];
+    const w=studentWindows[e.ref];
+    if(!w)return'Sem janelas de disponibilidade válidas';
+    const days=[...new Set(w.map(x=>x.dayIdx))];
     if(days.length<2)return`Apenas ${days.length} dia(s) disponível — necessita par de dias`;
-    const coveredPairs=activePairs.filter(pair=>SLOTS.some(t=>coversSlot(windows,pair.a,t)&&coversSlot(windows,pair.b,t)));
-    if(!coveredPairs.length)return'Nenhum par de dias compatível com disponibilidade';
-    return'Par de dias sem grupo suficiente (< 5 alunos compatíveis)';
+    if(!fitsByStudent[e.ref].length)return'Nenhum par de dias compatível com disponibilidade';
+    return'Sem par de dias compatível';
   }
 
   const sinalizados=[
@@ -284,9 +312,11 @@ function coversSlot(windows,dayIdx,startMins){
     ...noGroup.map(e=>({e,reason:'no-group',why:whyNoGroup(e)})),
   ];
 
-  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length};
-}
+  const tierCounts={forming:0,viable:0,healthy:0,full:0};
+  groups.forEach(g=>tierCounts[g.tier]++);
 
+  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length,tierCounts};
+}
 /* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
 function buildProposalsCached(levelKey, branch) {
   const cacheKey = `${levelKey}│${branch}`;
@@ -329,10 +359,11 @@ function auditGroupSync(g){
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
   });
 
-  const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
+const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
   const auditStatus=failCount>0?'fail':(warnCount>0||sizeStatus==='warn')?'warn':'pass';
   if(sizeStatus==='warn'){Object.keys(log).forEach(ref=>{if(log[ref].verdict==='pass')log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;});}
-  return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn'};
+  const tier=classifyTier(g.students.length);
+  return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn',tier:tier.tier,tierColor:tier.color,tierLabel:tier.label};
 }
 
 /* ── COMMIT ───────────────────────────────────────────────── */
