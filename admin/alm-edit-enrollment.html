@@ -900,9 +900,14 @@ async function sbGet(table,query=''){
 }
 async function sbPatch(table,id,body){
   const r=await fetch(`${SB}/rest/v1/${table}?ref=eq.${encodeURIComponent(id)}`,
-    {method:'PATCH',headers:H,body:JSON.stringify(body)});
-  if(!r.ok)throw new Error(await r.text());
-  return r.json();
+    {method:"PATCH",headers:{...H,"Prefer":""},body:JSON.stringify(body)});
+  if(!r.ok){
+    const txt=await r.text();
+    let msg=txt;
+    try{const j=JSON.parse(txt);msg=j.message||(j.hint?"Hint: "+j.hint:txt);}catch(e){}
+    throw new Error(msg);
+  }
+  return [];
 }
 
 /* ══════════════════════════════════════════
@@ -1169,12 +1174,15 @@ async function saveChanges(){
     gdpr_photo:document.getElementById('g-photo').checked,
     gdpr_bc:document.getElementById('g-bc').checked,
     gdpr_comms:document.getElementById('g-comms').checked,
-    updated_at:new Date().toISOString(),
-    updated_by:'staff',
   };
 
-  // Remove unchanged nulls
-  Object.keys(patch).forEach(k=>{if(patch[k]===null&&currentRecord[k]===null)delete patch[k];});
+  // Only send keys that already exist on the original record (safe schema filter)
+  // Also drop keys whose value is null AND were null in the original (no change)
+  const knownKeys=Object.keys(currentRecord).filter(k=>k!=='_table');
+  Object.keys(patch).forEach(k=>{
+    if(!knownKeys.includes(k)){delete patch[k];return;}
+    if(patch[k]===null&&(currentRecord[k]===null||currentRecord[k]===undefined))delete patch[k];
+  });
 
   try{
     if(currentRecord._table&&currentRecord._table!=='demo'){
