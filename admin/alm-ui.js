@@ -21,6 +21,25 @@ const debounce = (fn, ms) => {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 };
 
+/* ── FOUR-TIER SERVICE COLOURS (Stage 2) ──────────────────────
+   blue forming · amber viable · green healthy · gold full.
+   The SEAL carries the tier; the time-band keeps its slotCol rainbow
+   so adjacent groups stay visually distinct. 'fail' (red) is a real
+   data error and overrides the size tier.                          */
+const TIER_COLORS = {
+  forming: {ink:'#4A8FF5', band:'rgba(74,143,245,.20)',  border:'#4A8FF5'},
+  viable:  {ink:'#E8A020', band:'rgba(232,160,32,.20)',  border:'#E8A020'},
+  healthy: {ink:'#3DE8A8', band:'rgba(61,232,168,.18)',  border:'#3DE8A8'},
+  full:    {ink:'#C9A84C', band:'rgba(201,168,76,.22)',  border:'#C9A84C'},
+};
+function tierSeal(g, ar){
+  if(ar && ar.status==='fail') return {ink:'#E8455A', band:'rgba(232,69,90,.25)', border:'#E8455A99', tier:'fail', label:'FALHA'};
+  const t = g.tier || (typeof classifyTier==='function' ? classifyTier(g.students.length).tier : 'healthy');
+  const c = TIER_COLORS[t] || TIER_COLORS.healthy;
+  const lbl = g.tierLabel || (typeof classifyTier==='function' ? classifyTier(g.students.length).label : '');
+  return {...c, tier:t, label:lbl};
+}
+
 /* ── ROW-RECT CACHE (P-01) ────────────────────────────────── */
 let _rowRectCache = {};
 
@@ -218,7 +237,9 @@ function drawStamps(containerId, levelKey, result) {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar = (_auditResults[levelKey] || {})[i];
     const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
-    const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+    const _ts = tierSeal(g, ar);
+    const col = isFail ? '#E8455A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
+    const sealInk = _ts.ink;   // seal carries the four-tier service colour
     const bandBg = isFail ? 'rgba(232,69,90,.25)' : isWarn ? 'rgba(232,160,32,.22)' : isCert ? col + '28' : col + '35';
     const borderCol = isFail ? '#E8455A99' : isCert ? col : col + 'CC';
     const inkCol = isFail ? '#FFB0B8' : col;
@@ -240,7 +261,7 @@ function drawStamps(containerId, levelKey, result) {
       </svg>`;
     }
 
-    const sealSVG = makeSeal(isFail ? '✕' : String(i + 1), col, inkCol, isCert);
+    const sealSVG = makeSeal(isFail ? '✕' : String(i + 1), sealInk, sealInk, isCert);
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
 
@@ -303,8 +324,9 @@ function buildPairMatrix(pairCounts) {
     const committed = (_groupCodes[activeLevelKey] || {})[i];
     const ar = (_auditResults[activeLevelKey] || {})[i];
     const isCert = !!committed, isWarn = !isCert && ar?.status === 'warn';
-    const col = isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
-    const lbl = isCert ? 'alocados' : isWarn ? 'aguardar' : 'disponíveis';
+    const _ts = tierSeal(g, ar);
+    const col = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+    const lbl = isCert ? 'alocados' : _ts.label.toLowerCase();
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const sessions = isSameDay
       ? [{ suffix: 'A', dayL: g.dayL_A || g.dayL, code: isCert ? (committed.turmaCodeA || committed.turmaCode + 'A' || `T${i + 1}A`) : `T${i + 1}A` }]
@@ -342,7 +364,7 @@ function buildGroupCard(g, i) {
       ? `${committed.turmaCodeA}/${committed.turmaCodeB}`
       : committed.turmaCodeA || committed.turmaCode || `T${i + 1}`)
     : `T${i + 1}`;
-  const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
   const inkCol = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
   const sealBg = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
   const borderCol = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
@@ -374,8 +396,9 @@ function buildGroupCard(g, i) {
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
       <div class="gc-block-tag ${blockCls}">${blockLbl}</div>
-      ${isCert ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>` : ''}
-      ${isExc ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${isFail ? 'var(--red-b)' : 'var(--amber-b)'};color:${isFail ? 'var(--red)' : 'var(--amber)'}}">${isFail ? '✕ falha' : '⚠ aviso'}</div>` : ''}
+    ${isCert ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a);letter-spacing:.04em">CERTIFIED</div>` : ''}
+      <div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${sealCol};color:${sealCol};background:${sealCol}1A;letter-spacing:.04em">${_ts.label}</div>
+      ${isExc ? `<div style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid ${isFail ? 'var(--red-b)' : 'var(--amber-b)'};color:${isFail ? 'var(--red)' : 'var(--amber)'}">${isFail ? '✕ falha' : '⚠ aviso'}</div>` : ''}
       <div style="font-size:22px;font-weight:700;color:${col};line-height:1">${g.students.length}</div>
       <div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:2px">/ ${MAX_G}</div>
     </div>
@@ -390,7 +413,9 @@ function openGroupModal(levelKey, i) {
   const committed = (_groupCodes[levelKey] || {})[i];
   const meta = LEVEL_MAP[levelKey] || {};
   const isCert = !!committed, isWarn = !isCert && ar?.status === 'warn', isFail = !isCert && ar?.status === 'fail';
-  const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+ const _ts = tierSeal(g, ar);
+    const col = isFail ? '#E8455A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
+    const sealInk = _ts.ink;  // seal + ring carry the four-tier service colour
   const dept = meta.dept || 'adults';
   const sheet = document.getElementById('gm-sheet');
   sheet.classList.remove('gm-exit');
