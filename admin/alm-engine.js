@@ -602,7 +602,7 @@ async function refreshData(){
         _allResults[key]=buildProposals(key,'all');
         _auditResults[key]={};
         _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
-      } else {delete _allResults[key];}
+    } else {delete _allResults[key];}
     }
     await reconstructLockedGroups();
     updateSidebarKPIs();initBranchStrip();renderExcBar();renderTree();
