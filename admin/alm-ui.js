@@ -43,9 +43,6 @@ function tierSeal(g, ar){
 /* ── ROW-RECT CACHE (P-01) ────────────────────────────────── */
 let _rowRectCache = {};
 
-/* manual-refresh + live-mode state */
-let _liveMode = false, _liveTimer = null;
-
 // P-01: invalidate cache on resize so stamps repaint at correct positions
 window.addEventListener('resize', debounce(() => { _rowRectCache = {}; }, 200));
 
