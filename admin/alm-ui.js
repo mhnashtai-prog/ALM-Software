@@ -43,6 +43,9 @@ function tierSeal(g, ar){
 /* ── ROW-RECT CACHE (P-01) ────────────────────────────────── */
 let _rowRectCache = {};
 
+/* manual-refresh + live-mode state */
+let _liveMode = false, _liveTimer = null;
+
 // P-01: invalidate cache on resize so stamps repaint at correct positions
 window.addEventListener('resize', debounce(() => { _rowRectCache = {}; }, 200));
 
@@ -384,9 +387,11 @@ const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.da
       ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/><path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
       : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>${glyphEl}`}
   </svg>`;
-  const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
+const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
+  const _ts = tierSeal(g, ar);
+ const sealCol = _ts.ink;
   return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
-    <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">${sealSVG}</div>
+    <div class="gc-seal" style="background:${sealBg};
     <div style="flex:1;min-width:0">
       <div style="font-size:10px;font-weight:700;color:${col}">${pairLabel}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
@@ -2018,8 +2023,66 @@ async function boot() {
   }
 }
 
-boot();
-setInterval(() => { if (_bootComplete) refreshData(); }, 120000);
+/* ══ MANUAL REFRESH + LIVE MODE (replaces 2-min auto-loop) ══ */
+function _injectRefreshControls(){
+  if (document.getElementById('alm-refresh-btn')) return;
+  const liveLbl = document.getElementById('live-lbl');
+  const anchor = (liveLbl && liveLbl.parentElement)
+    || document.querySelector('.topbar, .tb, [class*="topbar"]')
+    || document.body;
+  const wrap = document.createElement('div');
+  wrap.id = 'alm-refresh-wrap';
+  wrap.style.cssText = 'display:inline-flex;align-items:center;gap:8px;margin-left:12px';
+
+  const btn = document.createElement('button');
+  btn.id = 'alm-refresh-btn'; btn.type = 'button';
+  btn.title = 'Recarregar dados da base de dados';
+  btn.style.cssText = 'display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(201,168,76,.4);background:rgba(201,168,76,.1);color:#C9A84C;font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
+  btn.innerHTML = '↻ ACTUALIZAR';
+  btn.onmouseover = () => { btn.style.background = 'rgba(201,168,76,.2)'; };
+  btn.onmouseout  = () => { btn.style.background = 'rgba(201,168,76,.1)'; };
+  btn.onclick = async () => {
+    if (!_bootComplete) return;
+    btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '⏳ …';
+    try { await refreshData(); showToast('Dados actualizados ✓','ok'); }
+    catch(e){ showToast('Erro ao actualizar','err'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  };
+
+  const live = document.createElement('button');
+  live.id = 'alm-live-btn'; live.type = 'button';
+  live.title = 'Modo directo: actualização automática cada 60s (use só na época de inscrições)';
+  live.style.cssText = 'display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
+  live.innerHTML = '○ DIRECTO';
+  live.onclick = () => {
+    _liveMode = !_liveMode;
+    if (_liveMode){
+      live.style.background='rgba(61,232,168,.15)'; live.style.borderColor='rgba(61,232,168,.45)'; live.style.color='#3DE8A8';
+      live.innerHTML = '● DIRECTO 60s';
+      if (_liveTimer) clearInterval(_liveTimer);
+      _liveTimer = setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
+      showToast('Modo directo activado · 60s','ok');
+    } else {
+      live.style.background='rgba(255,255,255,.04)'; live.style.borderColor='rgba(255,255,255,.15)'; live.style.color='rgba(255,255,255,.55)';
+      live.innerHTML = '○ DIRECTO';
+      if (_liveTimer){ clearInterval(_liveTimer); _liveTimer = null; }
+      showToast('Modo directo desligado','ok');
+    }
+  };
+
+  wrap.appendChild(btn); wrap.appendChild(live);
+  if (anchor === document.body) anchor.appendChild(wrap);
+  else anchor.insertAdjacentElement('afterend', wrap);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && _liveTimer){ clearInterval(_liveTimer); _liveTimer = null; }
+  else if (!document.hidden && _liveMode && !_liveTimer){
+    _liveTimer = setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
+  }
+});
+
+boot().then(() => _injectRefreshControls());
 
 /* ── DEBOUNCE UTILITY + SEARCH WRAPPERS (P-03) ────────────── */
 
