@@ -113,6 +113,7 @@ let _groupCodes={};
 let _retiredCodes=new Set();
 let _exceptionQueue=[];
 let _bootComplete=false;
+let _liveMode=false, _liveTimer=null;
 let _dsData={},_dsTTLoaded=false;
 let auditFilters={branch:'all',status:'all',dept:'all',levelKey:null};
 let _sinalOpen=false;
