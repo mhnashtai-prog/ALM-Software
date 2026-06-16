@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Ordenação de Pedidos</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ── ALM tokens (matched to the painel) ───────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold2:#E8C97A;
+  --green:#1DB87A;--green-a:rgba(29,184,122,.14);--green-b:rgba(29,184,122,.30);
+  --red:#E8455A;--red-a:rgba(232,69,90,.12);--red-b:rgba(232,69,90,.30);
+  --amber:#E8A020;--amber-a:rgba(232,160,32,.13);--amber-b:rgba(232,160,32,.30);
+  --blue:#4A8FF5;--blue-a:rgba(74,143,245,.12);--blue-b:rgba(74,143,245,.30);
+  --bg:#07060E;--bg2:#0E0B1A;--bg3:#141025;
+  --b:rgba(201,168,76,.08);--b2:rgba(201,168,76,.18);
+  --t:rgba(238,218,168,.92);--t2:rgba(210,188,140,.55);--t3:rgba(210,188,140,.30);--t4:rgba(210,188,140,.12);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',system-ui,sans-serif;--display:'Bebas Neue',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--mono);font-size:12px;-webkit-font-smoothing:antialiased}
+body{min-height:100dvh;display:flex;flex-direction:column}
+a{color:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── topbar ── */
+.topbar{flex-shrink:0;height:54px;display:flex;align-items:center;background:rgba(7,6,14,.98);border-bottom:1px solid rgba(201,168,76,.12)}
+.tb-home{display:flex;align-items:center;justify-content:center;width:48px;height:100%;border-right:1px solid rgba(201,168,76,.08);text-decoration:none;color:rgba(210,188,140,.4);font-size:16px;transition:background .15s}
+.tb-home:hover{background:rgba(201,168,76,.06);color:var(--gold2)}
+.tb-brand{display:flex;align-items:baseline;gap:8px;padding:0 18px;border-right:1px solid rgba(201,168,76,.08);height:100%}
+.tb-brand-alm{font-size:17px;font-weight:700;letter-spacing:7px;color:var(--gold2);font-family:var(--sans)}
+.tb-brand-yr{font-size:7px;color:var(--t3);letter-spacing:.14em}
+.tb-title{padding:0 16px;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 16px}
+.ro-pill{display:flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;border:.5px solid var(--green-b);background:var(--green-a);color:var(--green);font-size:8px;font-weight:700;letter-spacing:.08em}
+.ro-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+/* ── shell ── */
+.wrap{flex:1;overflow-y:auto;padding:22px clamp(16px,4vw,48px) 60px;max-width:980px;margin:0 auto;width:100%}
+.lead{font-family:var(--display);font-size:34px;letter-spacing:4px;color:var(--gold2);line-height:1}
+.sublead{font-size:10px;color:var(--t2);margin-top:6px;line-height:1.6;max-width:620px}
+.notice{margin-top:16px;padding:11px 14px;border:.5px solid var(--green-b);background:var(--green-a);border-radius:10px;font-size:9px;color:var(--green);line-height:1.6;letter-spacing:.02em}
+.notice b{font-weight:700}
+
+/* ── run button ── */
+.run-row{margin-top:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.run-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 22px;border-radius:10px;border:none;background:rgba(201,168,76,.92);color:#09080F;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+.run-btn:hover{background:var(--gold2);transform:translateY(-1px)}
+.run-btn:disabled{opacity:.5;cursor:default;transform:none}
+.run-meta{font-size:9px;color:var(--t3);letter-spacing:.04em}
+.spinner{width:14px;height:14px;border:1.6px solid rgba(9,8,15,.25);border-top-color:#09080F;border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── three counts ── */
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:24px}
+.count-card{background:var(--bg2);border:1px solid var(--b2);border-left:3px solid;border-radius:10px;padding:16px 18px;animation:fadeIn .3s ease}
+.count-card.placed{border-left-color:var(--green)}
+.count-card.cluster{border-left-color:var(--blue)}
+.count-card.pending{border-left-color:var(--amber)}
+.count-v{font-size:42px;font-weight:700;line-height:1;font-family:var(--mono)}
+.count-card.placed .count-v{color:var(--green)}
+.count-card.cluster .count-v{color:var(--blue)}
+.count-card.pending .count-v{color:var(--amber)}
+.count-l{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-top:8px}
+.count-sub{font-size:8px;color:var(--t2);margin-top:5px;line-height:1.5}
+
+/* ── totals strip ── */
+.totals{margin-top:14px;display:flex;gap:0;border:1px solid var(--b);border-radius:8px;overflow:hidden;background:var(--bg2)}
+.tot{flex:1;padding:9px 14px;text-align:center}
+.tot+.tot{border-left:1px solid var(--b)}
+.tot-v{font-size:18px;font-weight:700;color:var(--gold2);line-height:1}
+.tot-l{font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px}
+
+/* ── bucket list ── */
+.sec{font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:10px;margin:28px 0 12px}
+.sec::after{content:'';flex:1;height:.5px;background:var(--b2)}
+.blist{display:flex;flex-direction:column;gap:4px}
+.brow{display:grid;grid-template-columns:1fr 64px 64px 64px;gap:8px;align-items:center;background:var(--bg2);border:1px solid var(--b);border-radius:8px;padding:9px 14px;transition:border-color .12s}
+.brow:hover{border-color:var(--b2)}
+.brow.allpending{border-left:3px solid var(--amber)}
+.brow.hasnew{border-left:3px solid var(--blue)}
+.brow.allplaced{border-left:3px solid var(--green)}
+.bname{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bname-lv{font-size:11px;font-weight:600;color:var(--t)}
+.bname-br{font-size:8px;color:var(--t3);letter-spacing:.04em}
+.bcell{text-align:center;font-family:var(--mono)}
+.bcell-v{font-size:14px;font-weight:700;line-height:1}
+.bcell-l{font-size:6.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--t4);margin-top:2px}
+.bcell.p .bcell-v{color:var(--green)}
+.bcell.c .bcell-v{color:var(--blue)}
+.bcell.w .bcell-v{color:var(--amber)}
+.bcell.zero .bcell-v{color:var(--t4)}
+.bhdr{display:grid;grid-template-columns:1fr 64px 64px 64px;gap:8px;padding:4px 14px 8px;font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.bhdr span{text-align:center}
+.bhdr span:first-child{text-align:left}
+.bnote{font-size:7.5px;color:var(--amber);margin-top:3px;font-style:italic}
+
+/* ── states ── */
+.empty,.errbox{margin-top:40px;text-align:center;padding:40px 20px;border:1px dashed var(--b2);border-radius:12px;color:var(--t3);font-size:10px;letter-spacing:.06em;line-height:1.7}
+.errbox{border-color:var(--red-b);color:var(--red);background:var(--red-a)}
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:50px;color:var(--t3);font-size:10px;letter-spacing:.08em}
+.loading .spinner{border-color:rgba(201,168,76,.15);border-top-color:var(--gold)}
+.legend{margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;font-size:8px;color:var(--t2)}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:8px;height:8px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="tb-home" href="/admin/dashboard" title="Dashboard">⌂</a>
+  <div class="tb-brand"><span class="tb-brand-alm">ALM</span><span class="tb-brand-yr">2026/27</span></div>
+  <div class="tb-title">Ordenação de Pedidos · Simulação</div>
+  <div class="tb-right">
+    <div class="ro-pill"><span class="ro-dot"></span>SÓ LEITURA · NÃO ESCREVE</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="lead">ORDENAÇÃO DE PEDIDOS</div>
+  <div class="sublead">
+    Simula a colocação dos pedidos por atribuir (<code>assigned_turma</code> vazio) contra as turmas
+    já certificadas, e identifica onde se podem formar novos grupos. Reutiliza exactamente a lógica
+    de disponibilidade do motor (<code>alm-engine.js</code>).
+  </div>
+
+  <div class="notice">
+    <b>Esta página não altera nada.</b> Lê os pedidos, calcula o que <i>faria</i>, e mostra os números.
+    Nenhum <code>assigned_turma</code> é escrito. Pode correr as vezes que quiser.
+  </div>
+
+  <div class="run-row">
+    <button class="run-btn" id="run-btn" onclick="runSort()">▶ SIMULAR ORDENAÇÃO</button>
+    <span class="run-meta" id="run-meta"></span>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<!-- Motor primeiro: fornece parseSlot, parseDayPrefs, timeToMins, lk, normB, sbGet, ALM_PAIRS, MIN_G, MAX_G, CLASS_DUR, AY, DAYS_PT -->
+<script src="alm-engine.js"></script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   ORDENAÇÃO — leitura apenas
+   ──────────────────────────────────────────────────────────────
+   Tarefa ÚNICA: computar os pedidos por atribuir. Não escreve.
+
+   Reutiliza do motor (alm-engine.js):
+     parseDayPrefs · parseSlot · timeToMins · lk · normB
+     sbGet · ALM_PAIRS · MIN_G · MAX_G · CLASS_DUR · AY · DAYS_PT
+
+   Replica apenas coversSlot (é um closure dentro de buildProposals,
+   não exportado) — palavra por palavra igual ao motor.
+   ══════════════════════════════════════════════════════════════ */
+
+const STEP = 30; // mesmo passo de 30 min do motor
+
+// IDÊNTICO ao closure dentro de buildProposals():
+const coversSlot = (w, d, s) =>
+  w.some(x => x.dayIdx === d && x.fromMins <= s + 15 && x.toMins >= s + CLASS_DUR - 15);
+
+// grelha de slots candidatos: 08:00 → (20:00 - 90min), passo 30 (igual ao motor)
+function buildSlots() {
+  const out = [];
+  for (let t = 8 * 60; t <= 20 * 60 - CLASS_DUR; t += STEP) out.push(t);
+  return out;
+}
+
+/* ── reconstrói as turmas certificadas a partir de `classes` ──
+   Cada grupo (group_code) tem 1 ou 2 sessões (A/B). Guardamos os
+   dois índices de dia, o início em minutos, e o tamanho actual.    */
+function buildCertGroups(rows) {
+  const byGC = {};
+  rows.forEach(c => {
+    const gc = c.group_code || (c.turma_code ? c.turma_code.replace(/[AB]$/i, '') : null);
+    if (!gc) return;
+    (byGC[gc] = byGC[gc] || []).push(c);
+  });
+  const groups = [];
+  Object.values(byGC).forEach(gr => {
+    const first = gr[0];
+    const levelKey = `${(first.department || '').toLowerCase()}|${(first.level_code || '').trim()}`;
+    const branch = normB(first.branch);
+    const dayA = DAYS_PT.indexOf((first.day_of_week || '').toUpperCase().trim());
+    if (dayA < 0) return;
+    const rowB = gr.find(r => r.turma_code !== first.turma_code);
+    const dayB = rowB ? DAYS_PT.indexOf((rowB.day_of_week || '').toUpperCase().trim()) : dayA;
+    const startMins = timeToMins(first.start_time);
+    if (startMins == null) return;
+    const refs = Array.isArray(first.student_refs) ? first.student_refs : [];
+    groups.push({ levelKey, branch, dayA, dayB: dayB < 0 ? dayA : dayB, startMins, size: refs.length, gc });
+  });
+  return groups;
+}
+
+/* ── parse das janelas de um pedido (igual a analysePrefs/buildProposals) ── */
+function parseWindows(req) {
+  const raw = parseDayPrefs(req.slots || req.day_preferences);
+  return raw.map(p => parseSlot(p)).filter(Boolean);
+}
+
+/* ── PASSO 2 · formar clusters num balde level+branch ──
+   Greedy: encontra o (par|slot) com mais alunos por colocar; se
+   chegar a MIN_G (5), forma grupo, marca colocados; repete.
+   Abaixo de 5 → ninguém forma → ficam pendentes.                 */
+function clusterBucket(reqs, dept, SLOTS) {
+  const activePairs = ALM_PAIRS.filter(p => !(p.examOnly && dept !== 'exam'));
+  // que chaves (par|slot) é que cada pedido satisfaz?
+  const fits = {};
+  reqs.forEach(r => {
+    const w = r._w, keys = [];
+    activePairs.forEach((pair, pi) => SLOTS.forEach(s => {
+      const okA = coversSlot(w, pair.a, s);
+      const okB = pair.a === pair.b ? okA : coversSlot(w, pair.b, s);
+      if (okA && okB) keys.push(pi + '|' + s);
+    }));
+    fits[r.ref] = keys;
+  });
+  const placed = new Set();
+  const clusters = [];
+  let guard = 0;
+  while (guard++ < 200) {
+    const counts = {};
+    reqs.forEach(r => { if (placed.has(r.ref)) return; fits[r.ref].forEach(k => counts[k] = (counts[k] || 0) + 1); });
+    let best = null, bestN = 0;
+    for (const [k, n] of Object.entries(counts)) if (n > bestN) { bestN = n; best = k; }
+    if (!best || bestN < MIN_G) break;                 // não dá para formar grupo viável
+    const members = reqs.filter(r => !placed.has(r.ref) && fits[r.ref].includes(best)).slice(0, MAX_G);
+    members.forEach(r => placed.add(r.ref));
+    const [pi, s] = best.split('|');
+    clusters.push({ key: best, size: members.length, pair: activePairs[+pi], startMins: +s });
+  }
+  const pending = reqs.filter(r => !placed.has(r.ref));
+  return { clusters, placedInClusters: placed.size, pending };
+}
+
+/* ── motor principal da simulação ── */
+async function runSort() {
+  const btn = document.getElementById('run-btn');
+  const meta = document.getElementById('run-meta');
+  const out = document.getElementById('result');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> A calcular…';
+  meta.textContent = '';
+  out.innerHTML = `<div class="loading"><span class="spinner"></span> A ler pedidos e turmas certificadas…</div>`;
+
+  // guarda: o motor carregou?
+  if (typeof parseSlot !== 'function' || typeof sbGet !== 'function' || typeof ALM_PAIRS === 'undefined') {
+    out.innerHTML = `<div class="errbox">⚠ <b>alm-engine.js não carregou.</b><br>Confirme que o ficheiro está na mesma pasta (<code>/admin/</code>) e tente recarregar.</div>`;
+    btn.disabled = false; btn.innerHTML = '▶ SIMULAR ORDENAÇÃO';
+    return;
+  }
+
+  try {
+    // 1) pedidos por atribuir (os 148) — assigned_turma EXPLÍCITO no select
+    const awaiting = await sbGet('timetable_requests',
+      `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,assigned_turma,status` +
+      `&academic_year=eq.${AY}&assigned_turma=is.null`);
+
+    // 2) turmas certificadas (as 469 já colocadas vivem aqui)
+    const certRows = await sbGet('classes',
+      `select=group_code,turma_code,department,level_code,branch,day_of_week,start_time,student_refs` +
+      `&academic_year=eq.${AY}&locked=eq.true`);
+
+    const SLOTS = buildSlots();
+    const certGroups = buildCertGroups(certRows);
+
+    // prepara pedidos: parse janelas + levelKey + branch
+    let noWindow = 0;
+    const reqs = [];
+    awaiting.forEach(r => {
+      const w = parseWindows(r);
+      const levelKey = lk(r);                 // family|level_code  (funciona no row do pedido)
+      const branch = normB(r.branch);
+      if (!w.length) { noWindow++; return; }  // sem disponibilidade válida → pendente
+      reqs.push({ ...r, _w: w, _lk: levelKey, _br: branch });
+    });
+
+    // baldes level+branch
+    const buckets = {};
+    reqs.forEach(r => { const k = r._lk + '│' + r._br; (buckets[k] = buckets[k] || []).push(r); });
+
+    let totPlaced = 0, totCluster = 0, totPending = noWindow;
+    const bucketRows = [];
+
+    Object.entries(buckets).forEach(([bkey, list]) => {
+      const [levelKey, branch] = bkey.split('│');
+      const dept = (levelKey.split('|')[0] || 'adults').toLowerCase();
+
+      // PASSO 1 — encaixar em turma certificada existente (com vaga)
+      let placedExisting = 0;
+      const remaining = [];
+      list.forEach(r => {
+        const g = certGroups.find(g =>
+          g.levelKey === levelKey && g.branch === branch && g.size < MAX_G &&
+          coversSlot(r._w, g.dayA, g.startMins) &&
+          (g.dayA === g.dayB ? true : coversSlot(r._w, g.dayB, g.startMins))
+        );
+        if (g) { g.size++; placedExisting++; }   // preenche tentativamente (simulação realista)
+        else remaining.push(r);
+      });
+
+      // PASSO 2 — formar novos grupos a partir de clusters ≥5
+      const { clusters, placedInClusters, pending } = clusterBucket(remaining, dept, SLOTS);
+
+      totPlaced += placedExisting;
+      totCluster += placedInClusters;
+      totPending += pending.length;
+
+      bucketRows.push({
+        levelKey, branch,
+        total: list.length,
+        placedExisting,
+        newClusters: clusters.length,
+        placedInClusters,
+        pending: pending.length,
+        shortBy: pending.length > 0 && pending.length < MIN_G ? (MIN_G - pending.length) : 0,
+      });
+    });
+
+    renderResult({
+      awaitingCount: awaiting.length,
+      noWindow,
+      certGroupCount: certGroups.length,
+      totPlaced, totCluster, totPending,
+      bucketRows,
+    });
+    meta.textContent = `${awaiting.length} pedidos lidos · ${certGroups.length} turmas certificadas · nada foi escrito`;
+  } catch (e) {
+    out.innerHTML = `<div class="errbox">⚠ Erro: ${e.message}</div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '▶ SIMULAR ORDENAÇÃO';
+}
+
+/* ── render: três contagens + lista de baldes ── */
+function renderResult(d) {
+  const labelLevel = (lk) => {
+    if (typeof LEVEL_MAP !== 'undefined' && LEVEL_MAP[lk]) return LEVEL_MAP[lk].label;
+    return lk.replace('|', ' · ');
+  };
+  const labelBranch = (b) => {
+    if (typeof BRANCH_LABELS !== 'undefined' && BRANCH_LABELS[b]) return BRANCH_LABELS[b];
+    return (b || '—').replace(/_/g, ' ');
+  };
+
+  // ordena baldes: mais pendentes primeiro (onde precisa de atenção)
+  const rows = [...d.bucketRows].sort((a, b) => b.pending - a.pending || b.total - a.total);
+
+  let html = `
+    <div class="counts">
+      <div class="count-card placed">
+        <div class="count-v">${d.totPlaced}</div>
+        <div class="count-l">Em turma existente</div>
+        <div class="count-sub">Encaixam numa turma já certificada com vaga.</div>
+      </div>
+      <div class="count-card cluster">
+        <div class="count-v">${d.totCluster}</div>
+        <div class="count-l">Novo grupo (≥${MIN_G})</div>
+        <div class="count-sub">Juntam-se a ${MIN_G}+ colegas para formar turma nova.</div>
+      </div>
+      <div class="count-card pending">
+        <div class="count-v">${d.totPending}</div>
+        <div class="count-l">Pendentes</div>
+        <div class="count-sub">Aguardam colegas — menos de ${MIN_G} compatíveis.</div>
+      </div>
+    </div>
+
+    <div class="totals">
+      <div class="tot"><div class="tot-v">${d.awaitingCount}</div><div class="tot-l">Pedidos lidos</div></div>
+      <div class="tot"><div class="tot-v">${d.certGroupCount}</div><div class="tot-l">Turmas cert.</div></div>
+      <div class="tot"><div class="tot-v">${d.noWindow}</div><div class="tot-l">Sem disponib.</div></div>
+      <div class="tot"><div class="tot-v">${rows.length}</div><div class="tot-l">Baldes nível+filial</div></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>tudo colocado</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>forma grupo novo</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span>fica pendente</div>
+    </div>
+  `;
+
+  if (!rows.length) {
+    html += `<div class="empty">Nenhum pedido por atribuir com disponibilidade válida.</div>`;
+    document.getElementById('result').innerHTML = html;
+    return;
+  }
+
+  html += `<div class="sec">Por nível + filial</div>`;
+  html += `<div class="bhdr"><span>Balde</span><span>Existente</span><span>Novo</span><span>Pendente</span></div>`;
+  html += `<div class="blist">`;
+  rows.forEach(r => {
+    const cls = r.pending === r.total ? 'allpending' : r.newClusters > 0 ? 'hasnew' : (r.placedExisting > 0 && r.pending === 0) ? 'allplaced' : '';
+    html += `
+      <div class="brow ${cls}">
+        <div class="bname">
+          <div class="bname-lv">${labelLevel(r.levelKey)}</div>
+          <div class="bname-br">${labelBranch(r.branch)} · ${r.total} por atribuir</div>
+          ${r.shortBy > 0 ? `<div class="bnote">faltam ${r.shortBy} para formar um grupo de ${MIN_G}</div>` : ''}
+        </div>
+        <div class="bcell p ${r.placedExisting ? '' : 'zero'}"><div class="bcell-v">${r.placedExisting}</div><div class="bcell-l">fit</div></div>
+        <div class="bcell c ${r.placedInClusters ? '' : 'zero'}"><div class="bcell-v">${r.placedInClusters}</div><div class="bcell-l">${r.newClusters} grp</div></div>
+        <div class="bcell w ${r.pending ? '' : 'zero'}"><div class="bcell-v">${r.pending}</div><div class="bcell-l">esperam</div></div>
+      </div>`;
+  });
+  html += `</div>`;
+
+  document.getElementById('result').innerHTML = html;
+}
+</script>
+</body>
+</html>
