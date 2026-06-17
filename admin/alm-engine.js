@@ -123,7 +123,7 @@ let _nextSeqBase={};
 let _lockedRefs={};
 let _lockMeta={};
 let _proposalCache={};
-let READ_PROPOSED = false;        // kill-switch: true = OVERVIEW reads proposed_turma; false = compute (current behaviour)
+let READ_PROPOSED = true;       
 let _proposedByRef = {};          // ref -> proposed_turma key, loaded from DB
 
 /* ── HELPERS ──────────────────────────────────────────────── */
