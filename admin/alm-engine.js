@@ -123,6 +123,8 @@ let _nextSeqBase={};
 let _lockedRefs={};
 let _lockMeta={};
 let _proposalCache={};
+let READ_PROPOSED = false;        // kill-switch: true = OVERVIEW reads proposed_turma; false = compute (current behaviour)
+let _proposedByRef = {};          // ref -> proposed_turma key, loaded from DB
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
@@ -199,7 +201,57 @@ function toMins(t){
    - sub-5 clusters surface as 'forming' (blue) groups, not rejects
    - rigid minorities protected as visible forming cards
    - spreads flexible majority toward HEALTHY_TARGET (headroom for latecomers)        */
+
+async function loadProposed(){
+  _proposedByRef = {};
+  if(!READ_PROPOSED) return;                       // flag off → no fetch, no change
+  try{
+    const rows = await sbGet('timetable_requests',
+      `select=ref,proposed_turma&academic_year=eq.${AY}&proposed_turma=not.is.null`);
+    rows.forEach(r=>{ if(r.proposed_turma) _proposedByRef[r.ref]=r.proposed_turma; });
+  }catch(e){ console.warn('loadProposed failed', e); }
+}
+
+function buildFromProposed(levelKey, branch){
+  const all = allE.filter(e=>{
+    if(lk(e)!==levelKey) return false;
+    if(branch!=='all' && normB(e.branch)!==branch) return false;
+    return true;
+  });
+  const withReq = all.filter(e=>!!rByRef[e.ref]);
+  const byBucket = {};
+  withReq.forEach(e=>{
+    const key = _proposedByRef[e.ref];
+    if(!key) return;                               // newcomer (no proposed_turma yet) → left for "aguarda"
+    const bk = normB(e.branch)+'§'+key;
+    (byBucket[bk] = byBucket[bk] || {key, students:[]}).students.push(e);
+  });
+  if(!Object.keys(byBucket).length) return null;   // nothing stored here → fall through to compute
+  const groups = Object.values(byBucket).map(({key, students})=>{
+    const parts = key.split('|');
+    const [dayA, dayB] = (parts[0]||'0-0').split('-').map(Number);
+    const startMins = +parts[1] || 0;
+    const pairDef = ALM_PAIRS.find(p=>p.a===dayA && p.b===dayB) || null;
+    const t = classifyTier(students.length);
+    return {
+      pairDef, dayIdx_A:dayA, dayIdx_B:dayB,
+      dayL_A:DAYS_PT[dayA], dayL_B:DAYS_PT[dayB], dayL:DAYS_PT[dayA], dayIdx:dayA,
+      startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
+      students, tier:t.tier, tierColor:t.color, tierLabel:t.label, _fromProposed:true,
+    };
+  });
+  const placed = groups.reduce((n,g)=>n+g.students.length,0);
+  const tierCounts={forming:0,viable:0,healthy:0,full:0};
+  groups.forEach(g=>tierCounts[g.tier]++);
+  return { groups, sinalizados:[], total:all.length, withRequest:withReq.length,
+           placed, invalidWinCt:0, noGroupCt:withReq.length-placed, tierCounts };
+}
 function buildProposals(levelKey,branch){
+   if (READ_PROPOSED) {
+    const fromStore = buildFromProposed(levelKey, branch);
+    if (fromStore) return fromStore;               // stored data exists → read it
+    // else: no stored data for this bucket → fall through to compute (unchanged below)
+  }
   const STEP=30;
   const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
   const all=allE.filter(e=>{
@@ -514,8 +566,9 @@ function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textCon
 async function runBootAudit(){
   const levelKeys=Object.keys(LEVEL_MAP);
   const total=levelKeys.length;let done=0;
- await loadNextSeqBase();
-  _proposalCache = {};                            // ← ADD THIS
+await loadNextSeqBase();
+  _proposalCache = {};
+  await loadProposed();    // STAGE D
   setBoot('A agrupar e auditar todos os níveis…');
   for(const key of levelKeys){
     const allGroups=[],allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
@@ -592,9 +645,10 @@ async function refreshData(){
       sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};
+  allE=enrol||[];allR=reqs||[];rByRef={};
    allR.forEach(r=>{rByRef[r.ref]=r;});
-  _proposalCache={};                     
+  _proposalCache={};
+    await loadProposed();    // STAGE D                     
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
