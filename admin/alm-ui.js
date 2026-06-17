@@ -951,9 +951,9 @@ function buildBranchBarChart(students) {
     byLevel[key].total++;
     if (rByRef[e.ref]) byLevel[key].withReq++; else byLevel[key].noReq++;
   });
-  Object.keys(byLevel).forEach(key => {
+Object.keys(byLevel).forEach(key => {
     const result = _allResults[key];
-    byLevel[key].placed = Math.max(result ? result.placed || 0 : 0, window._dbPlacedByLevel?.[key]?.size || 0);
+    byLevel[key].placed = result ? result.placed || 0 : 0;
   });
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order); if (!rows.length) return '';
   const maxTotal = Math.max(...rows.map(r => r.total), 1);
