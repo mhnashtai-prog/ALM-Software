@@ -856,6 +856,18 @@ function sbSearchClear() {
 /* ── OVERVIEW ─────────────────────────────────────────────── */
 const BRANCH_COLORS = { FUNCHAL: '#4A8FF5', CAMARA_LOBOS: '#1DB87A', SANTA_CRUZ: '#E8A020', MACHICO: '#E8455A', RIBEIRA_BRAVA: '#9B5ECA', CALHETA: '#28C8B0' };
 
+/* Branch-filtered view of a result — groups whose students match the active branch.
+   'all' returns everything. Does NOT mutate _allResults. */
+function _branchFilteredResult(result, loc){
+  if(!result || !result.groups) return result;
+  if(loc==='all') return result;
+  const groups = result.groups.filter(g=>{
+    const first = g.students && g.students[0];
+    return first ? normB(first.branch)===loc : true;
+  });
+  return { ...result, groups };
+}
+
 function ovSetLoc(loc, btn) {
   _ovActiveLoc = loc; _ovActiveLevel = null;
   document.querySelectorAll('#ov-branches .branch-pill').forEach(b => b.classList.remove('active')); btn.classList.add('active');
@@ -896,13 +908,14 @@ function ovDrillToFormation(levelKey) {
   const meta = LEVEL_MAP[levelKey] || {};
   if (meta.dept) _ovOpenDepts2[meta.dept] = true;
   ovRenderTree();
-  _lastResult = _allResults[levelKey] || null;
-  if (!_lastResult) {
+  _lastResult = _branchFilteredResult(_allResults[levelKey] || null, activeLoc);
+ if (!_lastResult) {
     const withReq = allE.filter(e => lk(e) === levelKey && !!rByRef[e.ref]);
     if (withReq.length >= MIN_G) {
     _lastResult = buildProposals(levelKey, 'all'); _allResults[levelKey] = _lastResult;
       if (!_auditResults[levelKey]) _auditResults[levelKey] = {};
       _lastResult.groups.forEach((g, i) => { _auditResults[levelKey][i] = auditGroupSync(g); });
+      _lastResult = _branchFilteredResult(_lastResult, activeLoc);
     }
   }
   const el = document.getElementById('ov-right');
