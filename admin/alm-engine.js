@@ -291,19 +291,33 @@ function buildProposals(levelKey,branch){
   const placed=new Set(), groups=[];
   const slotMembers=key=>withReq.filter(e=>!placed.has(e.ref)&&fitsByStudent[e.ref].includes(key));
 
-  function emit(key,refs){
+ function emit(key,refs){
     const [piStr,sStr]=key.split('|');
     const pi=+piStr,startMins=+sStr,pair=activePairs[pi]; if(!pair)return;
     refs.forEach(r=>placed.add(r));
-    const students=refs.map(r=>withReq.find(e=>e.ref===r)).filter(Boolean);
-    const t=classifyTier(students.length);
-    groups.push({
-      pairDef:pair, dayIdx_A:pair.a, dayIdx_B:pair.b,
-      dayL_A:pair.aL||DAYS_PT[pair.a], dayL_B:pair.bL||DAYS_PT[pair.b],
-      dayL:pair.aL||DAYS_PT[pair.a], dayIdx:pair.a,
-      startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
-      students, tier:t.tier, tierColor:t.color, tierLabel:t.label,
-    });
+    let students=refs.map(r=>withReq.find(e=>e.ref===r)).filter(Boolean);
+    // MERGE: fill an existing group at the SAME pair+slot up to MAX_G before creating a new one
+    const existing=groups.find(g=>g.pairDef===pair && g.startMins===startMins && g.students.length<MAX_G);
+    if(existing){
+      const room=MAX_G-existing.students.length;
+      existing.students.push(...students.slice(0,room));
+      const t0=classifyTier(existing.students.length);
+      existing.tier=t0.tier; existing.tierColor=t0.color; existing.tierLabel=t0.label;
+      students=students.slice(room);
+      if(!students.length) return;
+    }
+    // remaining students → new group(s), each capped at MAX_G
+    for(let i=0;i<students.length;i+=MAX_G){
+      const chunk=students.slice(i,i+MAX_G);
+      const t=classifyTier(chunk.length);
+      groups.push({
+        pairDef:pair, dayIdx_A:pair.a, dayIdx_B:pair.b,
+        dayL_A:pair.aL||DAYS_PT[pair.a], dayL_B:pair.bL||DAYS_PT[pair.b],
+        dayL:pair.aL||DAYS_PT[pair.a], dayIdx:pair.a,
+        startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
+        students:chunk, tier:t.tier, tierColor:t.color, tierLabel:t.label,
+      });
+    }
   }
 
   // ── PASS 1 · RIGID ANCHORS (protected, spread if oversized) ──
