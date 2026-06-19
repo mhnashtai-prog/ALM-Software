@@ -174,6 +174,7 @@ a{color:inherit}
 
   <div class="run-row">
     <button class="run-btn" id="run-btn" onclick="runSort()">▶ CALCULAR GRUPOS</button>
+    <button class="run-btn" id="inc-btn" onclick="runIncremental()" style="background:rgba(61,232,168,.9)">⊕ INCREMENTAL · espera</button>
     <span class="run-meta" id="run-meta"></span>
   </div>
 
@@ -336,7 +337,87 @@ async function runSort() {
   btn.disabled = false;
   btn.innerHTML = '▶ CALCULAR GRUPOS';
 }
+  
+/* ════════════════════════════════════════════════════════════════
+   STAGE E · INCREMENTAL PLACEMENT — read-only prototype
+   Places AWAITING requests (no proposed_turma) onto the EXISTING
+   snapshot WITHOUT re-sorting placed students. Writes NOTHING.
+   Reuses engine: parseDayPrefs, parseSlot, lk, normB, ALM_PAIRS,
+   MIN_G, MAX_G, CLASS_DUR.
+   ════════════════════════════════════════════════════════════════ */
+function planIncremental(levelKey, branch, proposedByRef){
+  const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
+  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
+  const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
+  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
+  const fitKeys=w=>{const fits=[];activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{const okA=coversSlot(w,pair.a,s),okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);if(okA&&okB)fits.push(`${pi}|${s}`);}));return fits;};
+  const inScope=e=>lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
+  const scope=allE.filter(inScope);
+  const groups={};
+  scope.forEach(e=>{const key=proposedByRef[e.ref];if(!key)return;if(!groups[key]){const[pairStr,sStr,ordStr]=key.split('|');const[dA,dB]=(pairStr||'0-0').split('-').map(Number);const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);groups[key]={refs:new Set(),base:`${pairStr}|${sStr}`,ord:+ordStr||0,pi,startMins:+sStr};}groups[key].refs.add(e.ref);});
+  const maxOrdAtBase=base=>Object.values(groups).filter(g=>g.base===base).reduce((m,g)=>Math.max(m,g.ord),-1);
+  const awaiting=scope.filter(e=>!proposedByRef[e.ref]).map(e=>{const req=rByRef[e.ref];const raw=parseDayPrefs(req.slots||req.day_preferences);const w=raw.map(p=>parseSlot(p)).filter(Boolean);return{ref:e.ref,w,fits:w.length?fitKeys(w):[]};});
+  const plan={};let foldedExisting=0;const stillPending=[];
+  awaiting.forEach(a=>{if(!a.fits.length){stillPending.push(a);return;}const hit=Object.entries(groups).find(([key,g])=>g.pi>=0&&a.fits.includes(`${g.pi}|${g.startMins}`)&&g.refs.size<MAX_G);if(hit){const[key,g]=hit;g.refs.add(a.ref);plan[a.ref]={key,how:'fold'};foldedExisting++;}else stillPending.push(a);});
+  let newClusters=0,newClusterStudents=0,guard=0;
+  while(guard++<300){const bySlot={};stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));let best=null,bestArr=[];Object.entries(bySlot).forEach(([k,arr])=>{if(arr.length>bestArr.length){best=k;bestArr=arr;}});if(!best||bestArr.length<MIN_G)break;const[piStr,sStr]=best.split('|');const pi=+piStr,startMins=+sStr;const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;const key=`${base}|${maxOrdAtBase(base)+1}`;const take=bestArr.slice(0,MAX_G);groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});newClusters++;newClusterStudents+=take.length;const taken=new Set(take.map(a=>a.ref));for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);}
+  return{plan,counts:{awaiting:awaiting.length,foldedExisting,newClusters,newClusterStudents,pending:stillPending.length},pendingRefs:stillPending.map(a=>a.ref)};
+}
 
+async function runIncremental(){
+  const btn=document.getElementById('inc-btn');
+  const out=document.getElementById('result');
+  const ws=document.getElementById('write-section');
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> A planear…';}
+  if(ws)ws.innerHTML='';
+  out.innerHTML=`<div class="loading"><span class="spinner"></span> A ler snapshot e planear colocações…</div>`;
+  if(typeof parseDayPrefs!=='function'||typeof sbGet!=='function'||typeof LEVEL_MAP==='undefined'){
+    out.innerHTML=`<div class="errbox">⚠ alm-engine.js não carregou.</div>`;
+    if(btn){btn.disabled=false;btn.innerHTML='⊕ INCREMENTAL · espera';} return;
+  }
+  try{
+    const [enrol,reqs]=await Promise.all([
+      sbGet('enrolments',`select=ref,name,branch,lang,family,level_code,level_cefr&academic_year=eq.${AY}&order=ref`),
+      sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status,proposed_turma&academic_year=eq.${AY}`),
+    ]);
+    allE=enrol||[]; allR=reqs||[]; rByRef={}; allR.forEach(r=>{rByRef[r.ref]=r;});
+    const proposedByRef={}; allR.forEach(r=>{ if(r.proposed_turma) proposedByRef[r.ref]=r.proposed_turma; });
+    const buckets=[]; let tA=0,tF=0,tC=0,tCS=0,tP=0;
+    for(const key of Object.keys(LEVEL_MAP)){
+      for(const branch of BRANCH_ORDER){
+        const here=allE.filter(e=>lk(e)===key && normB(e.branch)===branch && !!rByRef[e.ref]);
+        if(!here.length) continue;
+        if(!here.some(e=>!proposedByRef[e.ref])) continue;   // no awaiting here
+        const r=planIncremental(key,branch,proposedByRef);
+        if(!r.counts.awaiting) continue;
+        tA+=r.counts.awaiting; tF+=r.counts.foldedExisting; tC+=r.counts.newClusters; tCS+=r.counts.newClusterStudents; tP+=r.counts.pending;
+        buckets.push({levelKey:key,branch,...r.counts});
+      }
+    }
+    renderIncremental({buckets,tA,tF,tC,tCS,tP});
+    const meta=document.getElementById('run-meta');
+    if(meta) meta.textContent=`${tA} em espera · ${tF} dobrados · ${tCS} em ${tC} novos · ${tP} pendentes`;
+  }catch(e){ out.innerHTML=`<div class="errbox">⚠ Erro: ${e.message}</div>`; }
+  if(btn){btn.disabled=false;btn.innerHTML='⊕ INCREMENTAL · espera';}
+}
+
+function renderIncremental(d){
+  const out=document.getElementById('result');
+  const lb=b=>(typeof BRANCH_LABELS!=='undefined'&&BRANCH_LABELS[b])?BRANCH_LABELS[b]:(b||'—').replace(/_/g,' ');
+  let html=`<div class="notice" style="border-color:var(--green-b);background:var(--green-a);color:var(--green)"><b>SÓ-LEITURA · nada foi escrito.</b> Simulação de colocação incremental dos pedidos em espera (sem <code>proposed_turma</code>) sobre o snapshot existente. Os já colocados não são tocados.</div>`;
+  html+=`<div class="counts" style="grid-template-columns:repeat(4,1fr)">
+    <div class="count-card placed"><div class="count-v">${d.tF}</div><div class="count-l">Dobrados em turma</div><div class="count-sub">Encaixados num grupo existente com lugar.</div></div>
+    <div class="count-card placed" style="border-left-color:var(--teal)"><div class="count-v" style="color:var(--teal)">${d.tCS}</div><div class="count-l">Novos grupos · ${d.tC}</div><div class="count-sub">Formam ${d.tC} grupo(s) novo(s) (≥${MIN_G}).</div></div>
+    <div class="count-card wait"><div class="count-v">${d.tP}</div><div class="count-l">Ainda pendentes</div><div class="count-sub">Sem grupo nem cluster (&lt;${MIN_G} pares).</div></div>
+    <div class="count-card noreq" style="border-left-color:var(--gold)"><div class="count-v" style="color:var(--gold2)">${d.tA}</div><div class="count-l">Total em espera</div><div class="count-sub">Pedidos sem colocação no snapshot.</div></div>
+  </div>`;
+  if(!d.buckets.length){ html+=`<div class="empty">Nenhum pedido em espera — o snapshot já cobre todos os pedidos.</div>`; out.innerHTML=html; return; }
+  html+=`<div class="sec">por nível + filial</div>`;
+  d.buckets.sort((a,b)=>(LEVEL_MAP[a.levelKey]?.order||99)-(LEVEL_MAP[b.levelKey]?.order||99)||a.branch.localeCompare(b.branch));
+  d.buckets.forEach(b=>{const meta=LEVEL_MAP[b.levelKey]||{};html+=`<div class="bucket"><div class="bucket-hdr"><div><div class="bucket-lv">${meta.label||b.levelKey}</div><div class="bucket-br">${lb(b.branch)}</div></div><div class="bucket-stat"><span><b style="color:var(--green)">${b.foldedExisting}</b> dobrados</span><span><b style="color:var(--teal)">${b.newClusterStudents}</b> em ${b.newClusters} novo(s)</span><span><b style="color:var(--amber)">${b.pending}</b> pendente</span><span><b style="color:var(--gold2)">${b.awaiting}</b> espera</span></div></div></div>`;});
+  out.innerHTML=html;
+}
+  
 function setBranch(br) { _activeBranch = br; renderFiltered(); }
 
 /* ── barra de acções: gravar (escreve) + comparar (lê) ── */
