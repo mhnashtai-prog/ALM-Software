@@ -848,10 +848,12 @@ function showBadge(id, count, colour) {
    ════════════════════════════════════════════════════════════ */
 async function loadAlertBadges(totalProfs, totalTurmas) {
   const today = new Date().toISOString().slice(0,10);
+  const _ay = ((document.getElementById('yearVal').textContent || '').replace(/\s*\/\s*/,'/').replace(/\s/g,'')) || '2026/2027';
+  const _yf = `&academic_year=eq.${encodeURIComponent(_ay)}`;
 
   const results = await Promise.allSettled([
     // [0] Unassigned timetable requests → Horários badge
-    fetch(`${SB}/rest/v1/timetable_requests?select=ref&assigned_turma=is.null`,
+   fetch(`${SB}/rest/v1/timetable_requests?select=ref&proposed_turma=is.null${_yf}`,
       { headers:{...SBH, Prefer:'count=exact', Range:'0-0'} }),
     // [1] Missing summaries → query lesson_summaries (body IS NULL)
     //     was: teachers?has_missing_sumarios=eq.true  ← column doesn't exist
