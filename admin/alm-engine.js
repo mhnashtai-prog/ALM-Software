@@ -413,7 +413,7 @@ function planIncremental(levelKey, branch){
   while(guard++<300){const bySlot={};stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));let best=null,bestArr=[];Object.entries(bySlot).forEach(([k,arr])=>{if(arr.length>bestArr.length){best=k;bestArr=arr;}});if(!best||bestArr.length<MIN_G)break;const[piStr,sStr]=best.split('|');const pi=+piStr,startMins=+sStr;const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;const key=`${base}|${maxOrdAtBase(base)+1}`;const take=bestArr.slice(0,MAX_G);groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});newClusters++;newClusterStudents+=take.length;const taken=new Set(take.map(a=>a.ref));for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);}
   return{plan,counts:{awaiting:awaiting.length,foldedExisting,newClusters,newClusterStudents,pending:stillPending.length},pendingRefs:stillPending.map(a=>a.ref)};
 }
-
+function chunk(arr, n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 /* ════════════════════════════════════════════════════════════════
    STAGE E · applyIncremental() — the WRITE arm of one-click sorting.
    Loops LEVEL_MAP × BRANCH_ORDER, runs planIncremental per bucket,
