@@ -388,7 +388,7 @@ const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_
   const _ts = tierSeal(g, ar);
  const sealCol = _ts.ink;
   return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
-    <div class="gc-seal" style="background:${sealBg};
+   <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol}">${sealSVG}</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:10px;font-weight:700;color:${col}">${pairLabel}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
