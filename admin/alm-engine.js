@@ -414,6 +414,51 @@ function planIncremental(levelKey, branch){
   return{plan,counts:{awaiting:awaiting.length,foldedExisting,newClusters,newClusterStudents,pending:stillPending.length},pendingRefs:stillPending.map(a=>a.ref)};
 }
 
+/* ════════════════════════════════════════════════════════════════
+   STAGE E · applyIncremental() — the WRITE arm of one-click sorting.
+   Loops LEVEL_MAP × BRANCH_ORDER, runs planIncremental per bucket,
+   writes proposed_turma for AWAITING placeable refs ONLY, in chunks
+   of 80. Collects by branch+key so identical ordinals in different
+   branches never merge. NEVER clears, NEVER touches placed students,
+   NEVER writes sub-MIN_G pending. Returns aggregate counts.
+   Called only by a deliberate ACTUALIZAR press (see alm-ui.js).
+   ════════════════════════════════════════════════════════════════ */
+async function applyIncremental(){
+  const byBranchKey = {};                      // "BRANCH§key" -> {key, refs:[]}
+  let tA=0, tF=0, tC=0, tCS=0, tP=0;
+  for(const levelKey of Object.keys(LEVEL_MAP)){
+    for(const branch of BRANCH_ORDER){
+      const here = allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
+      if(!here.length) continue;
+      if(!here.some(e=>!_proposedByRef[e.ref])) continue;     // no awaiting in this bucket → skip
+      const r = planIncremental(levelKey, branch);
+      if(!r.counts.awaiting) continue;
+      tA+=r.counts.awaiting; tF+=r.counts.foldedExisting; tC+=r.counts.newClusters;
+      tCS+=r.counts.newClusterStudents; tP+=r.counts.pending;
+      Object.entries(r.plan).forEach(([ref,{key}])=>{
+        const bk = branch+'§'+key;
+        (byBranchKey[bk] = byBranchKey[bk] || {key, refs:[]}).refs.push(ref);
+      });
+    }
+  }
+  const entries = Object.values(byBranchKey);
+  let written = 0;
+  for(const {key, refs} of entries){
+    for(const part of chunk(refs, 80)){
+      const inList = part.map(encodeURIComponent).join(',');
+      const rr = await fetch(`${SB}/rest/v1/timetable_requests?ref=in.(${inList})&academic_year=eq.${AY}`, {
+        method:'PATCH',
+        headers:{...H, 'Content-Type':'application/json', Prefer:'return=minimal'},
+        body: JSON.stringify({ proposed_turma: key }),
+      });
+      if(!rr.ok) throw new Error(`applyIncremental: escrita falhou na chave ${key} (HTTP ${rr.status})`);
+      written += part.length;
+    }
+  }
+  return { counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS, pending:tP},
+           written, keysWritten: entries.length };
+}
+
 /* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
 function buildProposalsCached(levelKey, branch) {
   const cacheKey = `${levelKey}│${branch}`;
