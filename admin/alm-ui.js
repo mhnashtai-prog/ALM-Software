@@ -2051,14 +2051,26 @@ function _injectRefreshControls(){
   btn.innerHTML = '↻ ACTUALIZAR';
   btn.onmouseover = () => { btn.style.background = 'rgba(201,168,76,.2)'; };
   btn.onmouseout  = () => { btn.style.background = 'rgba(201,168,76,.1)'; };
-  btn.onclick = async () => {
+btn.onclick = async () => {
     if (!_bootComplete) return;
-    btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '⏳ …';
-    try { await refreshData(); showToast('Dados actualizados ✓','ok'); }
-    catch(e){ showToast('Erro ao actualizar','err'); }
+    btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '⏳ A ordenar…';
+    try {
+      const res = await applyIncremental();           // sort waiting letters → proposed_turma
+      await refreshData();                            // re-read snapshot + repaint
+      const c = res.counts;
+      if (c.awaiting > 0) {
+        const bits = [];
+        if (c.foldedExisting)     bits.push(`${c.foldedExisting} em turma`);
+        if (c.newClusterStudents) bits.push(`${c.newClusterStudents} em ${c.newClusters} novo${c.newClusters!==1?'s':''}`);
+        if (c.pending)            bits.push(`${c.pending} pendente${c.pending!==1?'s':''}`);
+        showToast(`Ordenado · ${bits.join(' · ') || c.awaiting + ' em espera'} ✓`, c.pending ? 'warn' : 'ok');
+      } else {
+        showToast('Tudo ordenado — nada em espera ✓', 'ok');
+      }
+    } catch(e){ showToast('Erro ao ordenar: ' + e.message, 'err'); }
     finally { btn.disabled = false; btn.innerHTML = orig; }
   };
-
+   
   const live = document.createElement('button');
   live.id = 'alm-live-btn'; live.type = 'button';
   live.title = 'Modo directo: actualização automática cada 60s (use só na época de inscrições)';
