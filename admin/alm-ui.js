@@ -2033,6 +2033,76 @@ async function boot() {
   }
 }
 
+/* ── AGUARDAR TURMA · badge + inspector (read-only, reuses countAguardarTurma) ── */
+let _aguardarLast = null;
+
+function updateAguardarBadge(){
+  const btn = document.getElementById('alm-aguardar-btn');
+  if (!btn || !_bootComplete) return;
+  let r;
+  try { r = countAguardarTurma(); }
+  catch(e){ console.warn('updateAguardarBadge failed', e); return; }
+  _aguardarLast = r;
+  const dot = document.getElementById('alm-aguardar-dot');
+  const inc = document.getElementById('alm-aguardar-inc');
+  if (dot){
+    if (r.basket > 0){ dot.textContent = r.basket > 99 ? '99+' : r.basket; dot.style.display = 'flex'; }
+    else dot.style.display = 'none';
+  }
+  if (inc){
+    if (r.incompleteAddress > 0){ inc.textContent = r.incompleteAddress; inc.style.display = 'inline-flex'; }
+    else inc.style.display = 'none';
+  }
+  if (r.basket > 0){
+    btn.style.borderColor = 'rgba(232,69,90,.45)';
+    btn.style.color = '#E8455A';
+    btn.style.background = 'rgba(232,69,90,.1)';
+  } else {
+    btn.style.borderColor = 'rgba(255,255,255,.15)';
+    btn.style.color = 'rgba(255,255,255,.55)';
+    btn.style.background = 'rgba(255,255,255,.04)';
+  }
+}
+
+function _openAguardarList(){
+  let r = _aguardarLast;
+  if (!r){ try { r = countAguardarTurma(); } catch { r = null; } }
+  if (!r || (!r.basket && !r.incompleteAddress)){ showToast('Nada em espera — tudo ordenado ✓','ok'); return; }
+  const nameOf   = ref => (allE.find(e=>e.ref===ref)?.name) || ref;
+  const branchOf = ref => { const e=allE.find(x=>x.ref===ref); return e?(BRANCH_LABELS[normB(e.branch)]||e.branch||'—'):'—'; };
+  const levelOf  = ref => { const e=allE.find(x=>x.ref===ref); return e?((LEVEL_MAP[lk(e)]||{}).label||'—'):'—'; };
+  const row = (ref, accent) => `<div class="stu-row" style="cursor:pointer" onclick="document.getElementById('alm-aguardar-ov').remove();openDossier('${ref}')">
+    <div class="stu-cell" style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600">${(ref||'').replace(/\D/g,'')}</div>
+    <div class="stu-cell"><div style="font-size:10px;color:var(--t)">${nameOf(ref)}</div><div style="font-size:7px;color:var(--t3)">${levelOf(ref)} · ${branchOf(ref)}</div></div>
+    <div class="stu-cell" style="text-align:right"><span style="font-size:10px;color:${accent}">↗</span></div>
+  </div>`;
+  const section = (title, sub, refs, accent) => !refs.length ? '' :
+    `<div style="padding:12px 20px 4px;display:flex;align-items:baseline;gap:8px">
+       <div style="font-family:var(--display);font-size:15px;letter-spacing:2px;color:${accent}">${title}</div>
+       <div style="font-size:7px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${sub}</div>
+       <div style="margin-left:auto;font-size:11px;font-weight:700;color:${accent}">${refs.length}</div>
+     </div>
+     <div style="padding:0 20px 8px">${refs.map(ref=>row(ref,accent)).join('')}</div>`;
+
+  document.getElementById('alm-aguardar-ov')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'alm-aguardar-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div style="width:min(560px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
+      <div style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:#E8455A">AGUARDAR TURMA</div>
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${r.basket} à espera · ${r.incompleteAddress} a rever</div>
+      <button onclick="document.getElementById('alm-aguardar-ov').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1">
+      ${section('À ESPERA DE TURMA','disponibilidade válida · falta abrir turma', r.basketRefs, '#E8455A')}
+      ${section('REVER DISPONIBILIDADE','horário não encaixa em nenhum par válido', r.incompleteRefs, '#E8A020')}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
 /* ══ MANUAL REFRESH + LIVE MODE (replaces 2-min auto-loop) ══ */
 function _injectRefreshControls(){
   if (document.getElementById('alm-refresh-btn')) return;
@@ -2055,8 +2125,9 @@ btn.onclick = async () => {
     if (!_bootComplete) return;
     btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '⏳ A ordenar…';
     try {
-      const res = await applyIncremental();           // sort waiting letters → proposed_turma
+     const res = await applyIncremental();           // sort waiting letters → proposed_turma
       await refreshData();                            // re-read snapshot + repaint
+      updateAguardarBadge();                          // recount the basket after sorting
       const c = res.counts;
       if (c.awaiting > 0) {
         const bits = [];
@@ -2092,9 +2163,19 @@ btn.onclick = async () => {
     }
   };
 
-  wrap.appendChild(btn); wrap.appendChild(live);
+const aguardar = document.createElement('button');
+  aguardar.id = 'alm-aguardar-btn'; aguardar.type = 'button';
+  aguardar.title = 'Alunos à espera de turma · clique para ver';
+  aguardar.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
+  aguardar.innerHTML = 'AGUARDAR TURMA'
+    + '<span id="alm-aguardar-inc" title="Rever disponibilidade" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:rgba(232,160,32,.15);border:.5px solid rgba(232,160,32,.4);color:#E8A020;font-size:8px;font-weight:700"></span>'
+    + '<span id="alm-aguardar-dot" style="display:none;position:absolute;top:-6px;right:-6px;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:#E8455A;color:#fff;font-size:9px;font-weight:700;box-shadow:0 2px 8px rgba(232,69,90,.5)"></span>';
+  aguardar.onclick = () => _openAguardarList();
+
+  wrap.appendChild(btn); wrap.appendChild(live); wrap.appendChild(aguardar);
   if (anchor === document.body) anchor.appendChild(wrap);
   else anchor.insertAdjacentElement('afterend', wrap);
+  updateAguardarBadge();
 }
 
 document.addEventListener('visibilitychange', () => {
