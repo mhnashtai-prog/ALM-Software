@@ -384,6 +384,36 @@ function buildProposals(levelKey,branch){
 
   return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length,tierCounts};
 }
+
+/* ════════════════════════════════════════════════════════════════
+   STAGE E · INCREMENTAL PLACEMENT — pure planner (promoted from
+   alm-ordenacao.html, proven identical). Reads engine globals:
+   allE, rByRef, _proposedByRef, ALM_PAIRS, parseDayPrefs, parseSlot,
+   lk, normB, MIN_G, MAX_G, CLASS_DUR. Writes NOTHING.
+   Places AWAITING requests (no proposed_turma) onto the existing
+   snapshot WITHOUT re-sorting placed students.
+   Returns { plan:{ref→{key,how}}, counts, pendingRefs }.
+   ════════════════════════════════════════════════════════════════ */
+function planIncremental(levelKey, branch){
+  const proposedByRef = _proposedByRef;
+  const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
+  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
+  const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
+  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
+  const fitKeys=w=>{const fits=[];activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{const okA=coversSlot(w,pair.a,s),okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);if(okA&&okB)fits.push(`${pi}|${s}`);}));return fits;};
+  const inScope=e=>lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
+  const scope=allE.filter(inScope);
+  const groups={};
+  scope.forEach(e=>{const key=proposedByRef[e.ref];if(!key)return;if(!groups[key]){const[pairStr,sStr,ordStr]=key.split('|');const[dA,dB]=(pairStr||'0-0').split('-').map(Number);const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);groups[key]={refs:new Set(),base:`${pairStr}|${sStr}`,ord:+ordStr||0,pi,startMins:+sStr};}groups[key].refs.add(e.ref);});
+  const maxOrdAtBase=base=>Object.values(groups).filter(g=>g.base===base).reduce((m,g)=>Math.max(m,g.ord),-1);
+  const awaiting=scope.filter(e=>!proposedByRef[e.ref]).map(e=>{const req=rByRef[e.ref];const raw=parseDayPrefs(req.slots||req.day_preferences);const w=raw.map(p=>parseSlot(p)).filter(Boolean);return{ref:e.ref,w,fits:w.length?fitKeys(w):[]};});
+  const plan={};let foldedExisting=0;const stillPending=[];
+  awaiting.forEach(a=>{if(!a.fits.length){stillPending.push(a);return;}const hit=Object.entries(groups).find(([key,g])=>g.pi>=0&&a.fits.includes(`${g.pi}|${g.startMins}`)&&g.refs.size<MAX_G);if(hit){const[key,g]=hit;g.refs.add(a.ref);plan[a.ref]={key,how:'fold'};foldedExisting++;}else stillPending.push(a);});
+  let newClusters=0,newClusterStudents=0,guard=0;
+  while(guard++<300){const bySlot={};stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));let best=null,bestArr=[];Object.entries(bySlot).forEach(([k,arr])=>{if(arr.length>bestArr.length){best=k;bestArr=arr;}});if(!best||bestArr.length<MIN_G)break;const[piStr,sStr]=best.split('|');const pi=+piStr,startMins=+sStr;const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;const key=`${base}|${maxOrdAtBase(base)+1}`;const take=bestArr.slice(0,MAX_G);groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});newClusters++;newClusterStudents+=take.length;const taken=new Set(take.map(a=>a.ref));for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);}
+  return{plan,counts:{awaiting:awaiting.length,foldedExisting,newClusters,newClusterStudents,pending:stillPending.length},pendingRefs:stillPending.map(a=>a.ref)};
+}
+
 /* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
 function buildProposalsCached(levelKey, branch) {
   const cacheKey = `${levelKey}│${branch}`;
