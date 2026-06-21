@@ -455,10 +455,58 @@ async function applyIncremental(){
       written += part.length;
     }
   }
-  return { counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS, pending:tP},
+return { counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS, pending:tP},
            written, keysWritten: entries.length };
 }
 
+/* ════════════════════════════════════════════════════════════════
+   AGUARDAR TURMA · read-only basket counter. Writes NOTHING.
+   Loops LEVEL_MAP × BRANCH_ORDER, runs planIncremental per bucket,
+   then classifies each still-pending awaiting ref:
+     · basket            = valid windows, no class yet  ("no route yet")
+     · incompleteAddress = no valid fit at all          ("address incomplete")
+   Returns aggregate counts + per-level breakdown + ref lists, so the
+   badge can show a number and a click can route into the dossier list.
+   ════════════════════════════════════════════════════════════════ */
+function countAguardarTurma(){
+  const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
+  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
+  const fitsFor=(dept,w)=>{
+    if(!w||!w.length) return [];
+    const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
+    const fits=[];
+    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
+      const okA=coversSlot(w,pair.a,s), okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
+      if(okA&&okB)fits.push(`${pi}|${s}`);
+    }));
+    return fits;
+  };
+  let basket=0, incompleteAddress=0;
+  const byLevel={};                     // levelKey -> {basket, incomplete}
+  const basketRefs=[], incompleteRefs=[];
+  for(const levelKey of Object.keys(LEVEL_MAP)){
+    const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
+    for(const branch of BRANCH_ORDER){
+      const here=allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
+      if(!here.length) continue;
+      if(!here.some(e=>!_proposedByRef[e.ref])) continue;   // no awaiting → skip
+      const r=planIncremental(levelKey, branch);
+      if(!r.pendingRefs.length) continue;
+      r.pendingRefs.forEach(ref=>{
+        const req=rByRef[ref]; if(!req) return;
+        const raw=parseDayPrefs(req.slots||req.day_preferences);
+        const w=raw.map(p=>parseSlot(p)).filter(Boolean);
+        const hasFit=fitsFor(dept,w).length>0;
+        if(!byLevel[levelKey]) byLevel[levelKey]={basket:0,incomplete:0};
+        if(hasFit){ basket++; byLevel[levelKey].basket++; basketRefs.push(ref); }
+        else      { incompleteAddress++; byLevel[levelKey].incomplete++; incompleteRefs.push(ref); }
+      });
+    }
+  }
+  return { basket, incompleteAddress, byLevel, basketRefs, incompleteRefs };
+}
+
+/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
 /* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
 function buildProposalsCached(levelKey, branch) {
   const cacheKey = `${levelKey}│${branch}`;
