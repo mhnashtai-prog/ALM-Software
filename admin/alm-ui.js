@@ -245,23 +245,19 @@ function drawStamps(containerId, levelKey, result) {
     const inkCol = isFail ? '#FFB0B8' : col;
     const n = g.students.length;
 
-    function makeSeal(glyph, fillCol, inkC, certified) {
-      const dash = certified ? 'none' : '2 2';
-      const outerStroke = certified ? fillCol : fillCol + '99';
+  function makeSeal(glyph, fillCol, inkC) {
       const glyphEl = glyph.length === 1
         ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace">${glyph}</text>`
         : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
       return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="2"/>
+        <circle cx="16" cy="16" r="15" stroke="${fillCol}99" stroke-width="2"/>
         <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
-        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
-        ${certified
-          ? `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".4"/><path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
-          : `<circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>${glyphEl}`}
+        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
+        <circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>${glyphEl}
       </svg>`;
     }
 
-    const sealSVG = makeSeal(isFail ? '✕' : String(i + 1), sealInk, sealInk, isCert);
+    const sealSVG = makeSeal(String(i + 1), sealInk, sealInk);
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
 
