@@ -864,6 +864,16 @@ function _branchFilteredResult(result, loc){
   return { ...result, groups };
 }
 
+function ovInitBranchStrip() {
+  const el = document.getElementById('ov-branches');
+  if (!el) return;
+  const branches = [...new Set(allE.map(e => normB(e.branch)).filter(Boolean))];
+  const ordered = BRANCH_ORDER.filter(b => branches.includes(b)).concat(branches.filter(b => !BRANCH_ORDER.includes(b)));
+  el.innerHTML =
+    `<button class="branch-pill${_ovActiveLoc === 'all' ? ' active' : ''}" onclick="ovSetLoc('all',this)">Tudo</button>` +
+    ordered.map(b => `<button class="branch-pill${_ovActiveLoc === b ? ' active' : ''}" onclick="ovSetLoc('${b}',this)">${BRANCH_LABELS[b] || b}</button>`).join('');
+}
+
 function ovSetLoc(loc, btn) {
   _ovActiveLoc = loc; _ovActiveLevel = null;
   document.querySelectorAll('#ov-branches .branch-pill').forEach(b => b.classList.remove('active')); btn.classList.add('active');
@@ -962,7 +972,11 @@ function buildBranchBarChart(students) {
   });
 Object.keys(byLevel).forEach(key => {
     const result = _allResults[key];
-    byLevel[key].placed = result ? result.placed || 0 : 0;
+    if (!result) { byLevel[key].placed = 0; return; }
+    if (_ovActiveLoc === 'all') { byLevel[key].placed = result.placed || 0; return; }
+    let p = 0;
+    (result.groups || []).forEach(g => g.students.forEach(s => { if (normB(s.branch) === _ovActiveLoc) p++; }));
+    byLevel[key].placed = p;
   });
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order); if (!rows.length) return '';
   const maxTotal = Math.max(...rows.map(r => r.total), 1);
@@ -1388,7 +1402,7 @@ function switchCC(panel, el) {
   if (el) el.classList.add('active');
   if (panel === 'audit') { renderAudit(); renderAuditTree(); }
   if (panel === 'decision') renderDecision();
-  if (panel === 'overview') { _ovActiveLevel = null; refreshData().then(() => { ovRenderStats(); ovRenderTree(); ovRenderSummary(); }); }
+if (panel === 'overview') { _ovActiveLevel = null; refreshData().then(() => { ovInitBranchStrip(); ovRenderStats(); ovRenderTree(); ovRenderSummary(); }); }
 }
 
 /* ── U-04: Decision ← Formation back ─────────────────────── */
