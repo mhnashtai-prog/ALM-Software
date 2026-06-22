@@ -48,12 +48,15 @@ function classifyTier(n){
   return                   {tier:'forming', color:'#4A8FF5', label:'A FORMAR'};
 }
 
-const ALM_PAIRS = [
-  {a:1,b:3,aL:'TER',bL:'QUI',label:'TER+QUI'},
-  {a:2,b:4,aL:'QUA',bL:'SEX',label:'QUA+SEX'},
-  {a:0,b:2,aL:'SEG',bL:'QUA',label:'SEG+QUA'},
-  {a:5,b:5,aL:'SÁB',bL:'SÁB',label:'SÁB',examOnly:true},
-];
+const ALM_PAIRS = (function(){
+  const wd = [0,1,2,3,4]; // SEG..SEX — any two different weekdays form a valid pair
+  const out = [];
+  for(let i=0;i<wd.length;i++)
+    for(let j=i+1;j<wd.length;j++)
+      out.push({a:wd[i],b:wd[j],aL:DAYS_PT[wd[i]],bL:DAYS_PT[wd[j]],label:`${DAYS_PT[wd[i]]}+${DAYS_PT[wd[j]]}`});
+  out.push({a:5,b:5,aL:'SÁB',bL:'SÁB',label:'SÁB',examOnly:true});
+  return out;
+})();
 
 const DAY_NORM = {
   monday:0,tuesday:1,wednesday:2,thursday:3,friday:4,saturday:5,
