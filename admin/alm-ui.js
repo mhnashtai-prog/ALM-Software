@@ -2060,6 +2060,31 @@ function updateAguardarBadge(){
   }
 }
 
+/* ── ACTUALIZAR · red/green sort-needed indicator ──
+   Red + count = N new requests awaiting sort (press to sort).
+   Green = nothing awaiting; no need to press. A request with no
+   proposed_turma is "awaiting" — reuses _proposedByRef. */
+function updateRefreshBadge(){
+  const btn = document.getElementById('alm-refresh-btn');
+  if (!btn || !_bootComplete) return;
+  const lbl = document.getElementById('alm-refresh-lbl');
+  const cnt = document.getElementById('alm-refresh-count');
+  const awaiting = allE.filter(e => rByRef[e.ref] && !_proposedByRef[e.ref] && LEVEL_MAP[lk(e)]).length;
+  if (awaiting > 0){
+    btn.style.borderColor = 'rgba(232,69,90,.45)';
+    btn.style.color = '#E8455A';
+    btn.style.background = 'rgba(232,69,90,.1)';
+    if (lbl) lbl.textContent = '↻ ACTUALIZAR';
+    if (cnt){ cnt.textContent = awaiting > 99 ? '99+' : awaiting; cnt.style.display = 'inline-flex'; }
+  } else {
+    btn.style.borderColor = 'rgba(29,184,122,.45)';
+    btn.style.color = '#3DE8A8';
+    btn.style.background = 'rgba(29,184,122,.1)';
+    if (lbl) lbl.textContent = '✓ ACTUALIZADO';
+    if (cnt) cnt.style.display = 'none';
+  }
+}
+
 function _openAguardarList(){
   let r = _aguardarLast;
   if (!r){ try { r = countAguardarTurma(); } catch { r = null; } }
@@ -2114,9 +2139,10 @@ function _injectRefreshControls(){
   btn.id = 'alm-refresh-btn'; btn.type = 'button';
   btn.title = 'Recarregar dados da base de dados';
   btn.style.cssText = 'display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(201,168,76,.4);background:rgba(201,168,76,.1);color:#C9A84C;font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
-  btn.innerHTML = '↻ ACTUALIZAR';
-  btn.onmouseover = () => { btn.style.background = 'rgba(201,168,76,.2)'; };
-  btn.onmouseout  = () => { btn.style.background = 'rgba(201,168,76,.1)'; };
+ btn.innerHTML = '<span id="alm-refresh-lbl">↻ ACTUALIZAR</span>'
+    + '<span id="alm-refresh-count" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;margin-left:5px;padding:0 5px;border-radius:999px;background:rgba(232,69,90,.9);color:#fff;font-size:8px;font-weight:700">0</span>';
+  btn.onmouseover = () => { btn.style.filter = 'brightness(1.15)'; };
+  btn.onmouseout  = () => { btn.style.filter = ''; };
 btn.onclick = async () => {
     if (!_bootComplete) return;
     btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '⏳ A ordenar…';
@@ -2134,8 +2160,8 @@ btn.onclick = async () => {
       } else {
         showToast('Tudo ordenado — nada em espera ✓', 'ok');
       }
-    } catch(e){ showToast('Erro ao ordenar: ' + e.message, 'err'); }
-    finally { btn.disabled = false; btn.innerHTML = orig; }
+  } catch(e){ showToast('Erro ao ordenar: ' + e.message, 'err'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; updateRefreshBadge(); }
   };
    
   const live = document.createElement('button');
@@ -2170,8 +2196,9 @@ const aguardar = document.createElement('button');
 
   wrap.appendChild(btn); wrap.appendChild(live); wrap.appendChild(aguardar);
   if (anchor === document.body) anchor.appendChild(wrap);
-  else anchor.insertAdjacentElement('afterend', wrap);
+ else anchor.insertAdjacentElement('afterend', wrap);
   updateAguardarBadge();
+  updateRefreshBadge();
 }
 
 document.addEventListener('visibilitychange', () => {
