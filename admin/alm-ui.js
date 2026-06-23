@@ -574,9 +574,7 @@ function renderExcBar() {
   }
   bar.className = fails.length > 0 ? 'exc-bar fail' : 'exc-bar';
   lbl.textContent = fails.length > 0 ? 'EXCEPÇÕES' : 'AVISOS';
-  const byLevel = {};
-  _exceptionQueue.forEach(exc => { const lb = (LEVEL_MAP[exc.levelKey] || {}).label || exc.levelKey; if (!byLevel[lb]) byLevel[lb] = { f: 0, w: 0, key: exc.levelKey }; if (exc.auditResult.status === 'fail') byLevel[lb].f++; else byLevel[lb].w++; });
-  items.innerHTML = Object.entries(byLevel).map(([lb, c]) => `<div class="exc-chip ${c.f > 0 ? 'fail' : 'warn'}" onclick="showAllExceptions('${c.key}')">${lb} · ${c.f > 0 ? c.f + 'F' : ''}${c.w > 0 ? ' ' + c.w + 'W' : ''}</div>`).join('');
+ items.innerHTML = '';
   if (fails.length === 0) { btn.className = 'exc-confirm-btn ready'; btn.textContent = `✓ Confirmar ${warnSessions} sessõe${warnSessions !== 1 ? 's' : ''} (${warns.length} grupo${warns.length !== 1 ? 's' : ''})`; }
   else { btn.className = 'exc-confirm-btn disabled'; btn.textContent = `${fails.length} falha${fails.length !== 1 ? 's' : ''} bloqueiam confirmação`; }
 }
