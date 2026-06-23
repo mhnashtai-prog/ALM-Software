@@ -553,30 +553,12 @@ function reAuditLevel(levelKey) {
 
 /* ── EXCEPTION BAR ────────────────────────────────────────── */
 function renderExcBar() {
+  // Exception bar removed from UI — queue logic stays intact for Decision
+  // and the bar-row exception icons; this just renders nothing and guards
+  // against the now-absent #exc-bar element.
   const bar = document.getElementById('exc-bar');
-  if (!_bootComplete) { bar.classList.add('hidden'); return; }
-  bar.classList.remove('hidden');
-  const fails = _exceptionQueue.filter(e => e.auditResult.status === 'fail');
-  const warns = _exceptionQueue.filter(e => e.auditResult.status === 'warn');
-  const total = _exceptionQueue.length;
-  const sessionCount = q => q.reduce((n, e) => { const g = e.group; return n + (((g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx)) ? 1 : 2); }, 0);
-  const warnSessions = sessionCount(warns);
-  const lbl = document.getElementById('exc-bar-lbl');
-  const items = document.getElementById('exc-items');
-  const btn = document.getElementById('exc-confirm-btn');
-  if (total === 0) {
-    bar.className = 'exc-bar clear'; lbl.textContent = '✓ TUDO CERTIFICADO';
-    let totalGroups = 0, totalPlaced = 0;
-    Object.keys(_groupCodes).forEach(key => { totalGroups += Object.keys(_groupCodes[key] || {}).length; const result = _allResults[key]; if (result) totalPlaced += result.placed || 0; });
-    const branches = [...new Set(allE.map(e => normB(e.branch)).filter(Boolean))].length;
-    items.innerHTML = `<span style="font-size:8px;color:var(--green);padding:0 14px;display:flex;align-items:center;gap:18px"><span>Todos os grupos auditados e certificados automaticamente.</span><span style="font-size:9px;font-weight:700;color:var(--green);border-left:1px solid var(--green-b);padding-left:14px">${totalGroups} turma${totalGroups !== 1 ? 's' : ''} criada${totalGroups !== 1 ? 's' : ''}</span><span style="font-size:9px;font-weight:700;color:var(--teal)">${totalPlaced} alunos alocados</span><span style="font-size:8px;color:rgba(29,184,122,.5)">${allE.length} inscritos · ${branches} filiai${branches !== 1 ? 's' : ''}</span></span>`;
-    btn.className = 'exc-confirm-btn disabled'; btn.style.display = 'none'; return;
-  }
-  bar.className = fails.length > 0 ? 'exc-bar fail' : 'exc-bar';
-  lbl.textContent = fails.length > 0 ? 'EXCEPÇÕES' : 'AVISOS';
- items.innerHTML = '';
-  if (fails.length === 0) { btn.className = 'exc-confirm-btn ready'; btn.textContent = `✓ Confirmar ${warnSessions} sessõe${warnSessions !== 1 ? 's' : ''} (${warns.length} grupo${warns.length !== 1 ? 's' : ''})`; }
-  else { btn.className = 'exc-confirm-btn disabled'; btn.textContent = `${fails.length} falha${fails.length !== 1 ? 's' : ''} bloqueiam confirmação`; }
+  if (!bar) return;
+  bar.classList.add('hidden');
 }
 
 function jumpToException(levelKey, groupIdx) {
