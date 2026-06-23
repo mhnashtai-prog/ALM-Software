@@ -223,32 +223,58 @@ function buildFromProposed(levelKey, branch){
   });
   const withReq = all.filter(e=>!!rByRef[e.ref]);
   const byBucket = {};
+ 
   withReq.forEach(e=>{
     const key = _proposedByRef[e.ref];
-    if(!key) return;                               // newcomer (no proposed_turma yet) → left for "aguarda"
+    if(!key) return;
+    // Scope bucket by branch so different branches never merge groups
     const bk = normB(e.branch)+'§'+key;
     (byBucket[bk] = byBucket[bk] || {key, students:[]}).students.push(e);
   });
-  if(!Object.keys(byBucket).length) return null;   // nothing stored here → fall through to compute
+ 
+  if(!Object.keys(byBucket).length) return null;
+ 
   const groups = Object.values(byBucket).map(({key, students})=>{
+    // proposed_turma format: "dayA-dayB|startMins|ordinal"
     const parts = key.split('|');
     const [dayA, dayB] = (parts[0]||'0-0').split('-').map(Number);
     const startMins = +parts[1] || 0;
-    const pairDef = ALM_PAIRS.find(p=>p.a===dayA && p.b===dayB) || null;
+ 
+    // Safe pairDef lookup — handles same-day (dayA===dayB) correctly
+    const pairDef = ALM_PAIRS.find(p=>p.a===dayA && p.b===dayB) ||
+                    ALM_PAIRS.find(p=>p.a===dayA) || null;
+ 
     const t = classifyTier(students.length);
     return {
-      pairDef, dayIdx_A:dayA, dayIdx_B:dayB,
-      dayL_A:DAYS_PT[dayA], dayL_B:DAYS_PT[dayB], dayL:DAYS_PT[dayA], dayIdx:dayA,
-      startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
-      students, tier:t.tier, tierColor:t.color, tierLabel:t.label, _fromProposed:true,
+      pairDef,
+      dayIdx_A: dayA, dayIdx_B: dayB,
+      dayL_A: DAYS_PT[dayA]||'?', dayL_B: DAYS_PT[dayB]||'?',
+      dayL:   DAYS_PT[dayA]||'?', dayIdx: dayA,
+      startMins,
+      startTime:  minsToT(startMins),
+      endTime:    minsToT(startMins+CLASS_DUR),
+      students,
+      tier: t.tier, tierColor: t.color, tierLabel: t.label,
+      _fromProposed: true,
     };
   });
-  const placed = groups.reduce((n,g)=>n+g.students.length,0);
-  const tierCounts={forming:0,viable:0,healthy:0,full:0};
+ 
+  const placed       = groups.reduce((n,g)=>n+g.students.length, 0);
+  const tierCounts   = {forming:0, viable:0, healthy:0, full:0};
   groups.forEach(g=>tierCounts[g.tier]++);
-  return { groups, sinalizados:[], total:all.length, withRequest:withReq.length,
-           placed, invalidWinCt:0, noGroupCt:withReq.length-placed, tierCounts };
+ 
+  return {
+    groups,
+    sinalizados: [],
+    total:        all.length,
+    withRequest:  withReq.length,
+    placed,
+    invalidWinCt: 0,
+    noGroupCt:    withReq.length - placed,
+    tierCounts,
+  };
 }
+ 
 function buildProposals(levelKey,branch){
    if (READ_PROPOSED) {
     const fromStore = buildFromProposed(levelKey, branch);
@@ -510,14 +536,18 @@ function countAguardarTurma(){
 }
 
 /* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
-/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
-function buildProposalsCached(levelKey, branch) {
+function buildProposalsCached(levelKey, branch){
   const cacheKey = `${levelKey}│${branch}`;
-  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
+  if(_proposalCache[cacheKey]) return _proposalCache[cacheKey];
   const result = buildProposals(levelKey, branch);
-  _proposalCache[cacheKey] = result;
+  // Don't cache empty results from the proposed path — they may
+  // legitimately have data once _proposedByRef is populated
+  if(result && (result.groups.length || result.sinalizados.length)){
+    _proposalCache[cacheKey] = result;
+  }
   return result;
 }
+ 
 
 /* ── AUDIT ────────────────────────────────────────────────── */
 function auditGroupSync(g){
@@ -704,78 +734,121 @@ function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');i
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
 
 async function runBootAudit(){
-  const levelKeys=Object.keys(LEVEL_MAP);
-  const total=levelKeys.length;let done=0;
-await loadNextSeqBase();
+  const levelKeys = Object.keys(LEVEL_MAP);
+  const total = levelKeys.length; let done = 0;
+ 
+  await loadNextSeqBase();
   _proposalCache = {};
-  await loadProposed();    // STAGE D
+  await loadProposed();           // STAGE D — fills _proposedByRef
+ 
   setBoot('A agrupar e auditar todos os níveis…');
+ 
   for(const key of levelKeys){
-    const allGroups=[],allSinal=[];let totalPlaced=0,totalWithReq=0,totalAll=0;
+    // Accumulate groups from ALL branches before storing
+    const allGroups=[], allSinal=[];
+    let totalPlaced=0, totalWithReq=0, totalAll=0;
+ 
     for(const branch of BRANCH_ORDER){
-      const result=buildProposals(key,branch);
-      if(!result.groups.length&&!result.sinalizados.length)continue;
-      const offset=allGroups.length;
-      allGroups.push(...result.groups);allSinal.push(...result.sinalizados);
-      totalPlaced+=result.placed;totalWithReq+=result.withRequest;totalAll+=result.total;
-      if(!_auditResults[key])_auditResults[key]={};
-      result.groups.forEach((g,i)=>{_auditResults[key][offset+i]=auditGroupSync(g);});
+      // buildProposals respects READ_PROPOSED internally
+      const result = buildProposals(key, branch);
+      if(!result.groups.length && !result.sinalizados.length) continue;
+ 
+      const offset = allGroups.length;
+      allGroups.push(...result.groups);
+      allSinal.push(...result.sinalizados);
+      totalPlaced   += result.placed;
+      totalWithReq  += result.withRequest;
+      totalAll      += result.total;
+ 
+      if(!_auditResults[key]) _auditResults[key]={};
+      result.groups.forEach((g,i)=>{
+        _auditResults[key][offset+i] = auditGroupSync(g);
+      });
     }
-    if(allGroups.length){_allResults[key]={groups:allGroups,sinalizados:allSinal,total:totalAll,withRequest:totalWithReq,placed:totalPlaced};}
-    done++;setBootProgress(40+Math.round(done/total*40));
+ 
+    if(allGroups.length){
+      _allResults[key] = {
+        groups:      allGroups,
+        sinalizados: allSinal,
+        total:       totalAll,
+        withRequest: totalWithReq,
+        placed:      totalPlaced,
+      };
+    }
+ 
+    done++; setBootProgress(40 + Math.round(done/total*40));
   }
+ 
+  // Clear proposal cache NOW so subsequent per-level calls
+  // (e.g. selectLevel → buildProposals(key,'all')) recompute fresh
+  _proposalCache = {};
+ 
   setBoot('A verificar turmas existentes…');
   try{
-    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
-    if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
+    const existing = await sbGet('classes',
+      `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
+    if(!window._dbPlacedByLevel) window._dbPlacedByLevel={};
     existing.forEach(c=>{
-      if(c.turma_code)_retiredCodes.add(c.turma_code);
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const refs=Array.isArray(c.student_refs)?c.student_refs:[];
-      if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
-      refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
+      if(c.turma_code) _retiredCodes.add(c.turma_code);
+      const k = `${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const refs = Array.isArray(c.student_refs)?c.student_refs:[];
+      if(!window._dbPlacedByLevel[k]) window._dbPlacedByLevel[k]=new Set();
+      refs.forEach(r=>window._dbPlacedByLevel[k].add(r));
     });
     existing.forEach(c=>{
-      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const result=_allResults[key];if(!result)return;
-      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
+      const gc = c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);
+      if(!gc) return;
+      const k = `${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const result = _allResults[k]; if(!result) return;
+      const dbRefs = new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
       result.groups.forEach((g,i)=>{
-        if((_groupCodes[key]||{})[i])return;
-        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          const codeA=`${gc}A`,codeB=`${gc}B`;
-          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
+        if((_groupCodes[k]||{})[i]) return;
+        const overlap = g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap >= Math.floor(g.students.length*0.7)){
+          if(!_groupCodes[k]) _groupCodes[k]={};
+          const codeA=`${gc}A`, codeB=`${gc}B`;
+          _groupCodes[k][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
         }
       });
     });
-  }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
+  }catch(dbErr){ console.warn('ALM: DB fetch failed', dbErr); }
+ 
   setBootProgress(85);
   await reconstructLockedGroups();
+ 
   _exceptionQueue=[];
   for(const key of Object.keys(_allResults)){
-    const result=_allResults[key];
+    const result = _allResults[key];
     result.groups.forEach((g,i)=>{
       const ar=(_auditResults[key]||{})[i];
-      if(!ar||ar.status==='pass')return;
-      if((_groupCodes[key]||{})[i])return;
+      if(!ar||ar.status==='pass') return;
+      if((_groupCodes[key]||{})[i]) return;
       _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
     });
   }
+ 
   setBootProgress(100);
+ 
   (function reconcileDBvsEngine(){
     const warnings=[];
     Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
-      const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
-      const engineCount=_allResults[key]?.placed||0;
-      const diff=Math.abs(dbCount-engineCount);
-      if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
+      const dbCount  = (window._dbPlacedByLevel[key]?.size)||0;
+      const engCount = _allResults[key]?.placed||0;
+      const diff     = Math.abs(dbCount-engCount);
+      if(diff>2){
+        const label=(LEVEL_MAP[key]||{}).label||key;
+        warnings.push(`${label}: DB=${dbCount} / Engine=${engCount}`);
+      }
     });
-    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
+    if(warnings.length){
+      console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));
+      showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');
+    }
   })();
-  return{committed:0,exceptions:_exceptionQueue.length};
+ 
+  return {committed:0, exceptions:_exceptionQueue.length};
 }
+ 
 
 /* ── DATA REFRESH ─────────────────────────────────────────── */
 async function refreshData(){
