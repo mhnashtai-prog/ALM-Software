@@ -967,7 +967,9 @@ Object.keys(byLevel).forEach(key => {
   rows.forEach(row => {
     const { key, label, total, withReq, placed, noReq } = row;
     const waiting = withReq - placed;
-    const certCount = Object.keys(_groupCodes[key] || {}).length;
+    const formedCount = (_allResults[key]?.groups?.length) || 0;
+    const validatedCount = Object.keys(_groupCodes[key] || {}).length;
+    const certCount = validatedCount;
     const sinalizadosCount = (_allResults[key]?.sinalizados?.length) || 0;
     const excCount = _exceptionQueue.filter(e => e.levelKey === key).length;
     const pPlaced = (placed / maxTotal * 100).toFixed(1), pWait = (waiting / maxTotal * 100).toFixed(1), pNoReq = (noReq / maxTotal * 100).toFixed(1);
