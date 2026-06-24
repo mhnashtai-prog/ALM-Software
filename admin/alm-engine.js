@@ -1,7 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════
-   ALM ENGINE  ·  alm-engine.js
-   Pure data / algorithm layer. No DOM manipulation here.
-   Depends on: nothing (self-contained, exposes globals consumed by alm-ui.js)
+   ALM ENGINE  ·  alm-engine.js  ·  Session-first architecture
+   ───────────────────────────────────────────────────────────────
+   KEY CHANGE v2: Sessions are independent, not paired.
+   proposed_turma now stores a JSON array of two session keys:
+     ["dayIdx|startMins", "dayIdx|startMins"]
+   e.g. ["0|870", "4|1020"] = SEG 14:30 + SEX 17:00
+   Each session key maps to one row in the classes table (one day).
+   Two students can share Session A but attend different Session B.
+   This matches how Decision Centre already certifies: per-session.
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── SUPABASE ─────────────────────────────────────────────── */
@@ -38,16 +44,42 @@ const CLASS_DUR = 90;
 const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
 const HEALTHY_TARGET=13;
 const RIGID_MAX_WINDOWS=2;
-
-/* ── SOLO QUEUE ───────────────────────────────────────────────
-   Students who have valid day preferences that fit no existing
-   group and are alone at their slot are written with a special
-   proposed_turma key: "SOLO|dayA-dayB|startMins"
-   This makes them visible in the UI and promotable once MIN_G
-   students accumulate at the same slot.
-   ─────────────────────────────────────────────────────────── */
 const SOLO_PREFIX = 'SOLO';
-const isSoloKey  = k => k && k.startsWith(SOLO_PREFIX+'|');
+
+/* ── SESSION KEY HELPERS ──────────────────────────────────────
+   A session key is "dayIdx|startMins" e.g. "0|870" = SEG 14:30
+   proposed_turma stores JSON array of exactly 2 session keys,
+   one per weekly session, with independent times.
+   Legacy pair keys ("dayA-dayB|startMins|ordinal") are detected
+   and transparently converted on read so old data still works.
+   ─────────────────────────────────────────────────────────── */
+const isSoloKey    = k => k && typeof k === 'string' && k.startsWith(SOLO_PREFIX+'|');
+const isSessionKey = k => k && typeof k === 'string' && /^\d+\|\d+$/.test(k);
+const isLegacyKey  = k => k && typeof k === 'string' && /^\d+-\d+\|\d+/.test(k);
+
+function parseProposedTurma(raw){
+  if(!raw) return [];
+  if(Array.isArray(raw)) return raw;
+  try {
+    const p = JSON.parse(raw);
+    if(Array.isArray(p)) return p;
+  } catch {}
+  return [raw];
+}
+
+function sessionKeyToMins(k){
+  const [d,s] = k.split('|').map(Number);
+  return {dayIdx:d, startMins:s};
+}
+
+function legacyKeyToSessions(k){
+  // "dayA-dayB|startMins|ordinal" → ["dayA|startMins","dayB|startMins"]
+  const parts = k.split('|');
+  const [dA,dB] = (parts[0]||'0-0').split('-').map(Number);
+  const startMins = +parts[1]||0;
+  if(dA===dB) return [`${dA}|${startMins}`];
+  return [`${dA}|${startMins}`, `${dB}|${startMins}`];
+}
 
 function classifyTier(n){
   if(n>=MAX_G)      return {tier:'full',    color:'#C9A84C', label:'CHEIA'};
@@ -56,6 +88,7 @@ function classifyTier(n){
   return                   {tier:'forming', color:'#4A8FF5', label:'A FORMAR'};
 }
 
+/* ALM_PAIRS kept for UI display only. Engine no longer uses pair logic. */
 const ALM_PAIRS = (function(){
   const wd = [0,1,2,3,4];
   const out = [];
@@ -135,7 +168,7 @@ let _lockedRefs={};
 let _lockMeta={};
 let _proposalCache={};
 let READ_PROPOSED = true;
-let _proposedByRef = {};
+let _proposedByRef = {};  // ref -> parsed session keys array [sessionKey, sessionKey]
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
@@ -206,21 +239,37 @@ function toMins(t){
   return(parts[0]||0)*60+(parts[1]||0);
 }
 
+/* ── LOAD PROPOSED ──────────────────────────────────────────── */
 async function loadProposed(){
   _proposedByRef = {};
   if(!READ_PROPOSED) return;
   try{
     const rows = await sbGet('timetable_requests',
       `select=ref,proposed_turma&academic_year=eq.${AY}&proposed_turma=not.is.null`);
-    rows.forEach(r=>{ if(r.proposed_turma) _proposedByRef[r.ref]=r.proposed_turma; });
+    rows.forEach(r=>{
+      if(!r.proposed_turma) return;
+      const raw = parseProposedTurma(r.proposed_turma);
+      // Convert legacy pair keys to session keys
+      const sessions = [];
+      raw.forEach(k=>{
+        if(isLegacyKey(k)) sessions.push(...legacyKeyToSessions(k));
+        else if(isSessionKey(k) || isSoloKey(k)) sessions.push(k);
+      });
+      if(sessions.length) _proposedByRef[r.ref] = sessions;
+    });
   }catch(e){ console.warn('loadProposed failed', e); }
 }
 
-/* ── buildFromProposed ───────────────────────────────────────
-   Reads _proposedByRef and reconstructs group objects.
-   Solo-queue entries (SOLO|...) are surfaced as sinalizados,
-   not as regular groups, so they appear in the waiting list
-   but don't pollute the grid with solo stamps.
+/* ── buildFromProposed ──────────────────────────────────────────
+   Session-first: each student has up to 2 independent session
+   keys stored in _proposedByRef[ref].
+   
+   We bucket students by EACH session key individually.
+   Each unique session key = one group cell in the grid.
+   Students appear in as many group cells as they have sessions.
+   
+   FIX: dayIdx_A and dayIdx_B now correctly reflect the actual
+   session's day, not artificially set equal.
    ─────────────────────────────────────────────────────────── */
 function buildFromProposed(levelKey, branch){
   const all = allE.filter(e=>{
@@ -229,67 +278,88 @@ function buildFromProposed(levelKey, branch){
     return true;
   });
   const withReq = all.filter(e=>!!rByRef[e.ref]);
-  const byBucket = {};
+
+  // Bucket students by each individual real session key
+  // key: branchNorm + "§" + "dayIdx|startMins"
+  const sessionBuckets = {};  // bk -> {sk, students[]}
+  const soloStudents   = [];
+  const placed         = new Set();  // refs with at least one real session
 
   withReq.forEach(e=>{
-    const key = _proposedByRef[e.ref];
-    if(!key) return;
-    const bk = normB(e.branch)+'§'+key;
-    (byBucket[bk] = byBucket[bk] || {key, students:[]}).students.push(e);
-  });
+    const sessions = _proposedByRef[e.ref];
+    if(!sessions || !sessions.length) return;
 
-  if(!Object.keys(byBucket).length) return null;
-
-  const groups = [];
-  const sinalizados = [];
-
-  Object.values(byBucket).forEach(({key, students})=>{
-    // ── Solo queue entries → surface as sinalizados, not groups ──
-    if(isSoloKey(key)){
-      // key format: "SOLO|dayA-dayB|startMins"
-      const parts  = key.split('|');
-      const pair   = parts[1] || '0-0';
-      const [dayA, dayB] = pair.split('-').map(Number);
-      const startMins = +parts[2] || 0;
-      const slotLabel = `${DAYS_PT[dayA]||'?'}+${DAYS_PT[dayB]||'?'} ${minsToT(startMins)}`;
-      students.forEach(e=>{
-        sinalizados.push({
-          e,
-          reason: 'solo-queue',
-          why: `À espera de turma · horário único · ${slotLabel} · necessita ${MIN_G - students.length} aluno(s) adicional(is)`,
-          soloKey: key,
-          soloCount: students.length,
-          slotLabel,
-        });
-      });
+    // Solo queue: single SOLO key
+    if(sessions.length === 1 && isSoloKey(sessions[0])){
+      soloStudents.push({e, soloKey: sessions[0]});
       return;
     }
 
-    // ── Normal group ──
-    const parts = key.split('|');
-    const [dayA, dayB] = (parts[0]||'0-0').split('-').map(Number);
-    const startMins = +parts[1] || 0;
-    const pairDef = ALM_PAIRS.find(p=>p.a===dayA && p.b===dayB) ||
-                    ALM_PAIRS.find(p=>p.a===dayA) || null;
-    const t = classifyTier(students.length);
+    let hasReal = false;
+    sessions.forEach(sk=>{
+      if(isSoloKey(sk)){
+        // Mixed: this session is solo-queued, others may be real
+        soloStudents.push({e, soloKey: sk});
+        return;
+      }
+      if(!isSessionKey(sk)) return;
+      const bk = normB(e.branch)+'§'+sk;
+      if(!sessionBuckets[bk]) sessionBuckets[bk] = {sk, students:[]};
+      sessionBuckets[bk].students.push(e);
+      hasReal = true;
+    });
+    if(hasReal) placed.add(e.ref);
+  });
+
+  if(!Object.keys(sessionBuckets).length && !soloStudents.length) return null;
+
+  // Build one group object per unique session bucket
+  const groups = [];
+  Object.values(sessionBuckets).forEach(({sk, students})=>{
+    const {dayIdx, startMins} = sessionKeyToMins(sk);
+    // Deduplicate (same student can appear via multiple branches if branch='all')
+    const seen = new Set();
+    const uniq = students.filter(e=>{ if(seen.has(e.ref)) return false; seen.add(e.ref); return true; });
+    if(!uniq.length) return;
+    const t = classifyTier(uniq.length);
     groups.push({
-      pairDef,
-      dayIdx_A: dayA, dayIdx_B: dayB,
-      dayL_A: DAYS_PT[dayA]||'?', dayL_B: DAYS_PT[dayB]||'?',
-      dayL:   DAYS_PT[dayA]||'?', dayIdx: dayA,
+      // dayIdx_A = this session's actual day
+      dayIdx_A:  dayIdx,
+      dayIdx_B:  dayIdx,
+      dayL_A:    DAYS_PT[dayIdx]||'?',
+      dayL_B:    DAYS_PT[dayIdx]||'?',
+      dayIdx,
+      dayL:      DAYS_PT[dayIdx]||'?',
       startMins,
       startTime: minsToT(startMins),
       endTime:   minsToT(startMins+CLASS_DUR),
-      students,
-      tier: t.tier, tierColor: t.color, tierLabel: t.label,
+      students:  uniq,
+      tier:      t.tier,
+      tierColor: t.color,
+      tierLabel: t.label,
       _fromProposed: true,
+      _sessionKey:   sk,
     });
   });
 
-  if(!groups.length && !sinalizados.length) return null;
+  // Solo sinalizados — deduplicated by soloKey+ref
+  const seenSolo = new Set();
+  const sinalizados = [];
+  soloStudents.forEach(({e, soloKey})=>{
+    const dedupKey = e.ref+'§'+soloKey;
+    if(seenSolo.has(dedupKey)) return;
+    seenSolo.add(dedupKey);
+    const parts    = soloKey.split('|');
+    const dayIdx   = +parts[1]||0;
+    const startMins= +parts[2]||0;
+    sinalizados.push({
+      e,
+      reason: 'solo-queue',
+      why:    `À espera de turma · ${DAYS_PT[dayIdx]||'?'} ${minsToT(startMins)} · aguarda mais alunos`,
+      soloKey,
+    });
+  });
 
-  const placed     = groups.reduce((n,g)=>n+g.students.length, 0);
-  const soloCount  = sinalizados.filter(s=>s.reason==='solo-queue').length;
   const tierCounts = {forming:0, viable:0, healthy:0, full:0};
   groups.forEach(g=>tierCounts[g.tier]++);
 
@@ -298,467 +368,507 @@ function buildFromProposed(levelKey, branch){
     sinalizados,
     total:        all.length,
     withRequest:  withReq.length,
-    placed,
+    placed:       placed.size,
     invalidWinCt: 0,
-    noGroupCt:    withReq.length - placed - soloCount,
+    noGroupCt:    withReq.length - placed.size,
     tierCounts,
   };
 }
 
-function buildProposals(levelKey,branch){
-  if (READ_PROPOSED) {
+/* ── buildProposals ─────────────────────────────────────────────
+   Session-first compute path (used when no stored data exists).
+   
+   FIX: coversSession now tests day AND time independently per
+   session slot. Students with different preferred times on each
+   day (e.g. SEG 14:30, SEX 17:00) are handled correctly.
+   
+   Each student is placed into the best available session on each
+   of their available days independently. Two students may share
+   one session but attend different sessions on other days.
+   ─────────────────────────────────────────────────────────── */
+function buildProposals(levelKey, branch){
+  if(READ_PROPOSED){
     const fromStore = buildFromProposed(levelKey, branch);
-    if (fromStore) return fromStore;
+    if(fromStore) return fromStore;
   }
-  const STEP=30;
-  const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
-  const all=allE.filter(e=>{
-    if(lk(e)!==levelKey)return false;
-    if(branch!=='all'&&normB(e.branch)!==branch)return false;
+
+  const STEP = 30;
+  const dept = (levelKey.split('|')[0]||'adults').toLowerCase();
+  const all  = allE.filter(e=>{
+    if(lk(e)!==levelKey) return false;
+    if(branch!=='all' && normB(e.branch)!==branch) return false;
     return true;
   });
+  const withReq = all.filter(e=>!!rByRef[e.ref]);
 
-  const withReq=all.filter(e=>!!rByRef[e.ref]);
-
-  const studentWindows={};
+  // Parse each student's available windows
+  const studentWindows = {};
   withReq.forEach(e=>{
-    const req=rByRef[e.ref]; if(!req)return;
-    const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const parsed=raw.map(p=>parseSlot(p)).filter(Boolean);
-    if(parsed.length) studentWindows[e.ref]=parsed;
+    const req = rByRef[e.ref]; if(!req) return;
+    const raw = parseDayPrefs(req.slots||req.day_preferences);
+    const parsed = raw.map(p=>parseSlot(p)).filter(Boolean);
+    if(parsed.length) studentWindows[e.ref] = parsed;
   });
 
-  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
+  const SLOTS = []; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP) SLOTS.push(t);
+  const allowedDays = dept==='exam' ? [0,1,2,3,4,5] : [0,1,2,3,4];
 
-  const SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
+  // FIX: coversSession tests ONE day at ONE time — no cross-day contamination
+  const coversSession = (windows, dayIdx, startMins) =>
+    windows.some(x =>
+      x.dayIdx === dayIdx &&
+      x.fromMins <= startMins + 15 &&
+      x.toMins   >= startMins + CLASS_DUR - 15
+    );
 
-  const fitsByStudent={};
+  // Build per-student fit map: ref -> {dayIdx -> [startMins,...]}
+  const fitsByStudentPerDay = {};
   withReq.forEach(e=>{
-    const w=studentWindows[e.ref]; if(!w){fitsByStudent[e.ref]=[];return;}
-    const fits=[];
-    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
-      const okA=coversSlot(w,pair.a,s), okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
-      if(okA&&okB)fits.push(`${pi}|${s}`);
-    }));
-    fitsByStudent[e.ref]=fits;
+    const w = studentWindows[e.ref];
+    if(!w){ fitsByStudentPerDay[e.ref] = {}; return; }
+    const byDay = {};
+    allowedDays.forEach(d=>{
+      const fits = SLOTS.filter(s => coversSession(w, d, s));
+      if(fits.length) byDay[d] = fits;
+    });
+    fitsByStudentPerDay[e.ref] = byDay;
   });
 
-  const placed=new Set(), groups=[];
-  const slotMembers=key=>withReq.filter(e=>!placed.has(e.ref)&&fitsByStudent[e.ref].includes(key));
+  // Greedy session-building per day
+  // sessionGroups["dayIdx|startMins"] -> [refs]
+  const sessionGroups  = {};
+  const placedPerDay   = {};   // ref -> Set<dayIdx>
+  withReq.forEach(e=>{ placedPerDay[e.ref] = new Set(); });
 
-  function emit(key,refs){
-    const [piStr,sStr]=key.split('|');
-    const pi=+piStr,startMins=+sStr,pair=activePairs[pi]; if(!pair)return;
-    refs.forEach(r=>placed.add(r));
-    let students=refs.map(r=>withReq.find(e=>e.ref===r)).filter(Boolean);
-    const existing=groups.find(g=>g.pairDef===pair && g.startMins===startMins && g.students.length<MAX_G);
-    if(existing){
-      const room=MAX_G-existing.students.length;
-      existing.students.push(...students.slice(0,room));
-      const t0=classifyTier(existing.students.length);
-      existing.tier=t0.tier; existing.tierColor=t0.color; existing.tierLabel=t0.label;
-      students=students.slice(room);
-      if(!students.length) return;
-    }
-    for(let i=0;i<students.length;i+=MAX_G){
-      const chunk=students.slice(i,i+MAX_G);
-      const t=classifyTier(chunk.length);
-      groups.push({
-        pairDef:pair, dayIdx_A:pair.a, dayIdx_B:pair.b,
-        dayL_A:pair.aL||DAYS_PT[pair.a], dayL_B:pair.bL||DAYS_PT[pair.b],
-        dayL:pair.aL||DAYS_PT[pair.a], dayIdx:pair.a,
-        startMins, startTime:minsToT(startMins), endTime:minsToT(startMins+CLASS_DUR),
-        students:chunk, tier:t.tier, tierColor:t.color, tierLabel:t.label,
+  allowedDays.forEach(dayIdx=>{
+    let guard = 0;
+    while(guard++ < 300){
+      // Count unplaced students available at each slot on this day
+      const slotCount = {};
+      withReq.forEach(e=>{
+        if(placedPerDay[e.ref].has(dayIdx)) return;
+        (fitsByStudentPerDay[e.ref][dayIdx]||[]).forEach(s=>{
+          slotCount[s] = (slotCount[s]||0) + 1;
+        });
+      });
+      const best = Object.entries(slotCount).sort((a,b)=>b[1]-a[1])[0];
+      if(!best || +best[1] === 0) break;
+
+      const startMins = +best[0];
+      const sk = `${dayIdx}|${startMins}`;
+      const eligible = withReq.filter(e=>
+        !placedPerDay[e.ref].has(dayIdx) &&
+        (fitsByStudentPerDay[e.ref][dayIdx]||[]).includes(startMins)
+      );
+      if(!eligible.length) break;
+
+      const take = eligible.slice(0, HEALTHY_TARGET);
+      if(!sessionGroups[sk]) sessionGroups[sk] = [];
+      take.forEach(e=>{
+        sessionGroups[sk].push(e.ref);
+        placedPerDay[e.ref].add(dayIdx);
       });
     }
-  }
-
-  const rigid=withReq.filter(e=>(studentWindows[e.ref]||[]).length<=RIGID_MAX_WINDOWS && fitsByStudent[e.ref].length>0);
-  const rigidBySlot={};
-  rigid.forEach(e=>{ const k=fitsByStudent[e.ref][0]; (rigidBySlot[k]=rigidBySlot[k]||[]).push(e.ref); });
-  Object.entries(rigidBySlot).sort((a,b)=>b[1].length-a[1].length).forEach(([key,refs])=>{
-    let live=refs.filter(r=>!placed.has(r)); if(!live.length)return;
-    if(live.length>MAX_G){
-      const numG=Math.ceil(live.length/HEALTHY_TARGET), per=Math.ceil(live.length/numG);
-      for(let i=0;i<live.length;i+=per) emit(key, live.slice(i,i+per));
-    } else emit(key, live);
   });
 
-  let guard=0;
-  while(guard++<500){
-    let best=null,bestN=0;
-    SLOTS.forEach(s=>activePairs.forEach((pair,pi)=>{
-      const key=`${pi}|${s}`, m=slotMembers(key).length;
-      if(m>bestN){bestN=m;best=key;}
-    }));
-    if(!best||bestN===0)break;
-    emit(best, slotMembers(best).map(e=>e.ref).slice(0,HEALTHY_TARGET));
-  }
+  // Second pass: students placed on fewer than 2 days — try to join an existing session
+  withReq.forEach(e=>{
+    const byDay  = fitsByStudentPerDay[e.ref];
+    const placed = placedPerDay[e.ref];
+    if(placed.size >= 2) return;
 
-  const orphanGroups=groups.filter(g=>g.students.length<MIN_G && g.tier==='forming');
-  orphanGroups.forEach(og=>{
-    const movable=og.students.filter(s=>(fitsByStudent[s.ref]||[]).length>1);
-    if(movable.length!==og.students.length) return;
-    movable.forEach(s=>{
-      const target=groups.find(g=>g!==og && g.students.length<MAX_G &&
-        fitsByStudent[s.ref].includes(`${ALM_PAIRS.indexOf(g.pairDef)}|${g.startMins}`));
-      if(target){
-        og.students=og.students.filter(x=>x.ref!==s.ref);
-        target.students.push(s);
+    const missingDays = allowedDays.filter(d => !placed.has(d) && byDay[d]?.length);
+    for(const dayIdx of missingDays){
+      if(placed.size >= 2) break;
+      const fits = byDay[dayIdx]||[];
+      // Try joining an existing under-capacity session
+      const hit = fits.find(s=>{
+        const sk = `${dayIdx}|${s}`;
+        return sessionGroups[sk] && sessionGroups[sk].length < MAX_G;
+      });
+      if(hit){
+        const sk = `${dayIdx}|${hit}`;
+        sessionGroups[sk].push(e.ref);
+        placed.add(dayIdx);
+      } else if(fits.length){
+        // Create a new session (possibly solo until more students join)
+        const s  = fits[0];
+        const sk = `${dayIdx}|${s}`;
+        if(!sessionGroups[sk]) sessionGroups[sk] = [];
+        sessionGroups[sk].push(e.ref);
+        placed.add(dayIdx);
       }
+    }
+  });
+
+  // Build group objects — one per session key
+  const groups = [];
+  Object.entries(sessionGroups).forEach(([sk, refs])=>{
+    if(!refs.length) return;
+    const {dayIdx, startMins} = sessionKeyToMins(sk);
+    const seen = new Set();
+    const students = refs
+      .map(r => withReq.find(e=>e.ref===r))
+      .filter(e => e && !seen.has(e.ref) && seen.add(e.ref));
+    if(!students.length) return;
+    const t = classifyTier(students.length);
+    groups.push({
+      dayIdx_A:  dayIdx,
+      dayIdx_B:  dayIdx,
+      dayL_A:    DAYS_PT[dayIdx]||'?',
+      dayL_B:    DAYS_PT[dayIdx]||'?',
+      dayIdx,
+      dayL:      DAYS_PT[dayIdx]||'?',
+      startMins,
+      startTime: minsToT(startMins),
+      endTime:   minsToT(startMins+CLASS_DUR),
+      students,
+      tier:      t.tier,
+      tierColor: t.color,
+      tierLabel: t.label,
+      _sessionKey: sk,
     });
   });
-  for(let i=groups.length-1;i>=0;i--) if(groups[i].students.length===0) groups.splice(i,1);
-  groups.forEach(g=>{const t=classifyTier(g.students.length);g.tier=t.tier;g.tierColor=t.color;g.tierLabel=t.label;});
 
-  const noWindows=withReq.filter(e=>!studentWindows[e.ref]);
-  const noGroup=withReq.filter(e=>studentWindows[e.ref]&&!placed.has(e.ref));
+  // Sinalizados
+  const noWindows   = withReq.filter(e => !studentWindows[e.ref]);
+  const fullyPlaced = new Set(withReq.filter(e => placedPerDay[e.ref].size >= 2).map(e=>e.ref));
+  const noGroup     = withReq.filter(e => studentWindows[e.ref] && !fullyPlaced.has(e.ref));
 
-  function whyNoGroup(e){
-    const w=studentWindows[e.ref];
-    if(!w)return'Sem janelas de disponibilidade válidas';
-    const days=[...new Set(w.map(x=>x.dayIdx))];
-    if(days.length<2)return`Apenas ${days.length} dia(s) disponível — necessita par de dias`;
-    if(!fitsByStudent[e.ref].length)return'Nenhum par de dias compatível com disponibilidade';
-    return'Sem par de dias compatível';
-  }
-
-  const sinalizados=[
-    ...noWindows.map(e=>({e,reason:'invalid-window',why:'Horário sem janelas válidas reconhecidas'})),
-    ...noGroup.map(e=>({e,reason:'no-group',why:whyNoGroup(e)})),
+  const sinalizados = [
+    ...noWindows.map(e=>({e, reason:'invalid-window', why:'Horário sem janelas válidas reconhecidas'})),
+    ...noGroup.map(e=>({e, reason:'no-group', why:`Apenas ${placedPerDay[e.ref].size} sessão/ões encontrada(s) — necessita 2 dias disponíveis`})),
   ];
 
-  const tierCounts={forming:0,viable:0,healthy:0,full:0};
+  const tierCounts = {forming:0,viable:0,healthy:0,full:0};
   groups.forEach(g=>tierCounts[g.tier]++);
 
-  return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length,tierCounts};
+  return {
+    groups, sinalizados,
+    total:        all.length,
+    withRequest:  withReq.length,
+    placed:       fullyPlaced.size,
+    invalidWinCt: noWindows.length,
+    noGroupCt:    noGroup.length,
+    tierCounts,
+  };
 }
 
-/* ── STAGE E · INCREMENTAL PLACEMENT ─────────────────────────
-   Solo queue logic:
-   - Students who fit no existing group AND are alone at their
-     best slot get written with key "SOLO|dayA-dayB|startMins"
-   - On subsequent ACTUALIZAR runs, solo students at the SAME
-     slot are detected and promoted to a real cluster if they
-     reach MIN_G, or kept in solo if still below.
+/* ── planIncremental ──────────────────────────────────────────
+   Session-first incremental placement.
+
+   FIX 1: coversSession no longer cross-contaminates days.
+   FIX 2: sortedDays correctly sorts by fits count (was using
+           numeric comparison on the dayIdx values themselves).
+   FIX 3: soloKey format standardised: "SOLO|dayIdx|startMins".
+   FIX 4: solo promotion handles existing soloRoster entries.
    ─────────────────────────────────────────────────────────── */
 function planIncremental(levelKey, branch){
   const proposedByRef = _proposedByRef;
-  const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
-  const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-  const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
-  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
-  const fitKeys=w=>{
-    const fits=[];
-    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
-      const okA=coversSlot(w,pair.a,s),okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
-      if(okA&&okB)fits.push(`${pi}|${s}`);
-    }));
-    return fits;
-  };
-  const inScope=e=>lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
-  const scope=allE.filter(inScope);
+  const dept = (levelKey.split('|')[0]||'adults').toLowerCase();
+  const STEP = 30;
+  const SLOTS = []; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP) SLOTS.push(t);
+  const allowedDays = dept==='exam' ? [0,1,2,3,4,5] : [0,1,2,3,4];
 
-  // Build snapshot of existing real groups (exclude solo-queue keys)
-  const groups={};
-  scope.forEach(e=>{
-    const key=proposedByRef[e.ref];
-    if(!key || isSoloKey(key)) return;
-    if(!groups[key]){
-      const[pairStr,sStr,ordStr]=key.split('|');
-      const[dA,dB]=(pairStr||'0-0').split('-').map(Number);
-      const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);
-      groups[key]={refs:new Set(),base:`${pairStr}|${sStr}`,ord:+ordStr||0,pi,startMins:+sStr};
-    }
-    groups[key].refs.add(e.ref);
-  });
-
-  // Also collect existing solo-queue students grouped by their slot
-  // so we can promote them if enough have accumulated
-  const soloBySlot={};  // "fitKey" -> Set of refs already in solo at that slot
-  scope.forEach(e=>{
-    const key=proposedByRef[e.ref];
-    if(!key || !isSoloKey(key)) return;
-    // key: "SOLO|dayA-dayB|startMins"
-    const parts=key.split('|');
-    const pair=parts[1]||'0-0';
-    const startMins=+parts[2]||0;
-    const[dA,dB]=pair.split('-').map(Number);
-    const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);
-    if(pi<0) return;
-    const fitKey=`${pi}|${startMins}`;
-    (soloBySlot[fitKey]=soloBySlot[fitKey]||new Set()).add(e.ref);
-  });
-
-  const maxOrdAtBase=base=>Object.values(groups).filter(g=>g.base===base).reduce((m,g)=>Math.max(m,g.ord),-1);
-
-  // Awaiting = no proposed_turma at all (brand new requests)
-  const awaiting=scope.filter(e=>!proposedByRef[e.ref]).map(e=>{
-    const req=rByRef[e.ref];
-    const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const w=raw.map(p=>parseSlot(p)).filter(Boolean);
-    return{ref:e.ref,w,fits:w.length?fitKeys(w):[]};
-  });
-
-  const plan={};
-  let foldedExisting=0, soloPromoted=0, soloQueued=0;
-  const stillPending=[];
-
-  // Pass 1: try to fold into existing real groups
-  awaiting.forEach(a=>{
-    if(!a.fits.length){stillPending.push(a);return;}
-    const hit=Object.entries(groups).find(([key,g])=>
-      g.pi>=0 && a.fits.includes(`${g.pi}|${g.startMins}`) && g.refs.size<MAX_G
+  // FIX: independent day+time check
+  const coversSession = (windows, dayIdx, startMins) =>
+    windows.some(x =>
+      x.dayIdx === dayIdx &&
+      x.fromMins <= startMins + 15 &&
+      x.toMins   >= startMins + CLASS_DUR - 15
     );
-    if(hit){
-      const[key,g]=hit;
-      g.refs.add(a.ref);
-      plan[a.ref]={key,how:'fold'};
-      foldedExisting++;
+
+  const inScope = e => lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
+  const scope   = allE.filter(inScope);
+
+  // Snapshot existing real sessions from placed students
+  // sessionRoster["dayIdx|startMins"] -> Set<ref>
+  const sessionRoster = {};
+  scope.forEach(e=>{
+    const sessions = proposedByRef[e.ref];
+    if(!sessions) return;
+    sessions.forEach(sk=>{
+      if(!isSessionKey(sk)) return;
+      (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(e.ref);
+    });
+  });
+
+  // Solo roster: "dayIdx|startMins" -> Set<ref>
+  const soloRoster = {};
+  scope.forEach(e=>{
+    const sessions = proposedByRef[e.ref];
+    if(!sessions) return;
+    sessions.forEach(sk=>{
+      if(!isSoloKey(sk)) return;
+      // SOLO|dayIdx|startMins
+      const parts  = sk.split('|');
+      const realSk = `${parts[1]}|${parts[2]}`;
+      (soloRoster[realSk] = soloRoster[realSk] || new Set()).add(e.ref);
+    });
+  });
+
+  // Students awaiting placement (no proposed_turma at all)
+  const awaiting = scope.filter(e=>!proposedByRef[e.ref]).map(e=>{
+    const req = rByRef[e.ref];
+    const raw = parseDayPrefs(req.slots||req.day_preferences);
+    const w   = raw.map(p=>parseSlot(p)).filter(Boolean);
+    const fitsByDay = {};
+    allowedDays.forEach(d=>{
+      const fits = SLOTS.filter(s => coversSession(w, d, s));
+      if(fits.length) fitsByDay[d] = fits;
+    });
+    return {ref:e.ref, w, fitsByDay};
+  });
+
+  const plan = {};   // ref -> {sessions:[], how:string}
+  let foldedExisting=0, newSessions=0, soloQueued=0, soloPromoted=0, pending=0;
+  const pendingRefs = [], soloRefs = [];
+
+  awaiting.forEach(a=>{
+    const availDays = Object.keys(a.fitsByDay).map(Number);
+
+    if(availDays.length < 2){
+      // Not enough days available — true pending
+      pending++;
+      pendingRefs.push(a.ref);
+      return;
+    }
+
+    // FIX: sort days by number of available time slots (descending = most flexible first)
+    const sortedDays = availDays.sort((dA, dB) =>
+      (a.fitsByDay[dB]||[]).length - (a.fitsByDay[dA]||[]).length
+    );
+    // Take exactly 2 days
+    const chosenDays = sortedDays.slice(0, 2);
+
+    const sessionKeys = [];
+
+    chosenDays.forEach(dayIdx=>{
+      const fits = a.fitsByDay[dayIdx]||[];
+
+      // 1. Try to fold into an existing under-capacity session on this day
+      const hit = fits.find(s=>{
+        const sk = `${dayIdx}|${s}`;
+        return sessionRoster[sk] && sessionRoster[sk].size < MAX_G;
+      });
+      if(hit){
+        const sk = `${dayIdx}|${hit}`;
+        (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(a.ref);
+        sessionKeys.push(sk);
+        foldedExisting++;
+        return;
+      }
+
+      // 2. Check if solo queue on this day can be promoted (including this student)
+      const soloHit = fits.find(s=>{
+        const sk = `${dayIdx}|${s}`;
+        return (soloRoster[sk]?.size||0) + 1 >= MIN_G;
+      });
+      if(soloHit){
+        const sk = `${dayIdx}|${soloHit}`;
+        // Promote all queued solos for this slot to a real session
+        const soloSet = soloRoster[sk] || new Set();
+        soloSet.forEach(r=>{
+          // Rewrite their solo key → real session key
+          if(!plan[r]) plan[r] = {sessions: [...(proposedByRef[r]||[])], how:'solo-promoted'};
+          plan[r].sessions = plan[r].sessions.map(s=>{
+            if(isSoloKey(s)){
+              const parts = s.split('|');
+              return `${parts[1]}|${parts[2]}` === sk ? sk : s;
+            }
+            return s;
+          });
+          soloPromoted++;
+        });
+        soloRoster[sk] = new Set();  // consumed
+        (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(a.ref);
+        sessionKeys.push(sk);
+        newSessions++;
+        return;
+      }
+
+      // 3. Queue as solo for this day
+      const s       = fits[0];
+      const sk      = `${dayIdx}|${s}`;
+      const soloKey = `${SOLO_PREFIX}|${dayIdx}|${s}`;
+      (soloRoster[sk] = soloRoster[sk] || new Set()).add(a.ref);
+      sessionKeys.push(soloKey);
+      soloQueued++;
+    });
+
+    if(sessionKeys.length >= 2){
+      plan[a.ref] = {
+        sessions: sessionKeys,
+        how: sessionKeys.some(isSoloKey) ? 'solo-queue' : 'placed',
+      };
+      if(sessionKeys.some(isSoloKey)) soloRefs.push(a.ref);
     } else {
-      stillPending.push(a);
+      pending++;
+      pendingRefs.push(a.ref);
     }
   });
 
-  // Pass 2: try to form new clusters from still-pending (≥2 at same slot)
-  let newClusters=0,newClusterStudents=0,guard=0;
-  while(guard++<300){
-    const bySlot={};
-    stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));
-    let best=null,bestArr=[];
-    Object.entries(bySlot).forEach(([k,arr])=>{
-      // Count solo students already at this slot as potential cluster members
-      const soloAtSlot=(soloBySlot[k]?.size||0);
-      const total=arr.length+soloAtSlot;
-      if(total>bestArr.length){best=k;bestArr=arr;}
-    });
-    if(!best||bestArr.length<2)break;
-    const[piStr,sStr]=best.split('|');
-    const pi=+piStr,startMins=+sStr;
-    const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;
-    const key=`${base}|${maxOrdAtBase(base)+1}`;
-    const take=bestArr.slice(0,MAX_G);
-    groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};
-    take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});
-    newClusters++;newClusterStudents+=take.length;
-    const taken=new Set(take.map(a=>a.ref));
-    for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);
-  }
-
-  // Pass 3: solo queue promotion
-  // Check if any solo slot now has enough students (existing solo + new pending) to form a real group
-  stillPending.forEach(a=>{
-    if(!a.fits.length) return;
-    // Find the best solo slot this student could join or seed
-    const bestFit=a.fits.find(fitKey=>{
-      const existing=soloBySlot[fitKey]?.size||0;
-      return existing+1>=MIN_G; // enough combined to promote
-    });
-    if(bestFit){
-      // Promote: build a real cluster key from this fitKey
-      const[piStr,sStr]=bestFit.split('|');
-      const pi=+piStr,startMins=+sStr;
-      const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;
-      const key=`${base}|${maxOrdAtBase(base)+1}`;
-      // Plan this student into the new real cluster
-      plan[a.ref]={key,how:'solo-promoted'};
-      // Also plan existing solo students at this slot into the same key
-      (soloBySlot[bestFit]||new Set()).forEach(soloRef=>{
-        plan[soloRef]={key,how:'solo-promoted'};
+  // Final pass: check existing soloRosters for spontaneous promotion
+  // (e.g. multiple new students all queued at the same slot)
+  Object.entries(soloRoster).forEach(([sk, refs])=>{
+    if(!refs.size) return;
+    if(refs.size >= MIN_G){
+      refs.forEach(r=>{
+        if(plan[r] && plan[r].how === 'solo-promoted') return; // already handled
+        const existing = proposedByRef[r] || (plan[r]?.sessions) || [];
+        const updated  = existing.map(s=>{
+          if(isSoloKey(s)){
+            const parts  = s.split('|');
+            const realSk = `${parts[1]}|${parts[2]}`;
+            return realSk === sk ? sk : s;
+          }
+          return s;
+        });
+        plan[r] = {sessions: updated, how: 'solo-promoted'};
         soloPromoted++;
       });
-      if(!groups[key]) groups[key]={refs:new Set(),base,ord:+key.split('|')[2]||0,pi,startMins};
-      groups[key].refs.add(a.ref);
-      (soloBySlot[bestFit]||new Set()).forEach(r=>groups[key].refs.add(r));
-      soloBySlot[bestFit]=new Set(); // consumed
     }
   });
 
-  // Pass 4: solo queue — students who truly have valid fits but are alone
-  // Write them into solo queue so they appear in the UI
-  const soloQueued_refs=[];
-  stillPending.forEach(a=>{
-    if(plan[a.ref]) return; // already handled above
-    if(!a.fits.length) return; // no valid pair at all → stays as true pending
-    // Pick best solo slot: prefer the fit with most time overlap
-    const bestFit=a.fits[0];
-    const[piStr,sStr]=bestFit.split('|');
-    const pi=+piStr,startMins=+sStr;
-    const pair=activePairs[pi];
-    if(!pair) return;
-    const soloKey=`${SOLO_PREFIX}|${pair.a}-${pair.b}|${startMins}`;
-    plan[a.ref]={key:soloKey,how:'solo-queue'};
-    soloQueued++;
-    soloQueued_refs.push(a.ref);
-  });
-
-  // True pending = no valid fit at all (invalid windows, wrong days, etc.)
-  const truePending=stillPending.filter(a=>!plan[a.ref]);
-
-  return{
+  return {
     plan,
-    counts:{
-      awaiting:awaiting.length,
-      foldedExisting,
-      newClusters,
-      newClusterStudents,
-      soloPromoted,
-      soloQueued,
-      pending:truePending.length,
-    },
-    pendingRefs:truePending.map(a=>a.ref),
-    soloRefs:soloQueued_refs,
+    counts:{ awaiting:awaiting.length, foldedExisting, newSessions, soloQueued, soloPromoted, pending },
+    pendingRefs,
+    soloRefs,
   };
 }
 
 function chunk(arr, n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 
-/* ── applyIncremental ─────────────────────────────────────────
-   Now also writes solo-queue keys for students who have valid
-   fits but are alone. Solo keys are written the same way as
-   real cluster keys — the prefix "SOLO|" distinguishes them.
-   On the next ACTUALIZAR, planIncremental will detect when
-   enough solos accumulate at the same slot and promote them.
+/* ── applyIncremental ───────────────────────────────────────────
+   Writes proposed_turma as JSON array of session keys.
+   ["0|870","4|1020"] = SEG 14:30 + SEX 17:00 (independent times)
    ─────────────────────────────────────────────────────────── */
 async function applyIncremental(){
-  const byBranchKey = {};
-  let tA=0, tF=0, tC=0, tCS=0, tSP=0, tSQ=0, tP=0;
+  const toWrite = {};  // ref -> JSON string
+  let tA=0,tF=0,tNS=0,tSQ=0,tSP=0,tP=0;
+
   for(const levelKey of Object.keys(LEVEL_MAP)){
     for(const branch of BRANCH_ORDER){
       const here = allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
       if(!here.length) continue;
-      // Run if any student has no proposed_turma OR has a solo key (may be promotable)
       const hasAwaiting = here.some(e=>!_proposedByRef[e.ref]);
-      const hasSolo     = here.some(e=>isSoloKey(_proposedByRef[e.ref]));
+      const hasSolo     = here.some(e=>(_proposedByRef[e.ref]||[]).some(isSoloKey));
       if(!hasAwaiting && !hasSolo) continue;
+
       const r = planIncremental(levelKey, branch);
-      if(!r.counts.awaiting && !r.counts.soloQueued && !r.counts.soloPromoted) continue;
-      tA+=r.counts.awaiting; tF+=r.counts.foldedExisting; tC+=r.counts.newClusters;
-      tCS+=r.counts.newClusterStudents; tSP+=r.counts.soloPromoted;
-      tSQ+=r.counts.soloQueued; tP+=r.counts.pending;
-      Object.entries(r.plan).forEach(([ref,{key}])=>{
-        const bk = branch+'§'+key;
-        (byBranchKey[bk] = byBranchKey[bk] || {key, refs:[]}).refs.push(ref);
+      tA+=r.counts.awaiting; tF+=r.counts.foldedExisting;
+      tNS+=r.counts.newSessions; tSQ+=r.counts.soloQueued;
+      tSP+=r.counts.soloPromoted; tP+=r.counts.pending;
+
+      Object.entries(r.plan).forEach(([ref, entry])=>{
+        toWrite[ref] = JSON.stringify(entry.sessions);
       });
     }
   }
-  const entries = Object.values(byBranchKey);
+
   let written = 0;
-  for(const {key, refs} of entries){
-    for(const part of chunk(refs, 80)){
-      const inList = part.map(encodeURIComponent).join(',');
-      const rr = await fetch(`${SB}/rest/v1/timetable_requests?ref=in.(${inList})&academic_year=eq.${AY}`, {
-        method:'PATCH',
-        headers:{...H, 'Content-Type':'application/json', Prefer:'return=minimal'},
-        body: JSON.stringify({ proposed_turma: key }),
-      });
-      if(!rr.ok) throw new Error(`applyIncremental: escrita falhou na chave ${key} (HTTP ${rr.status})`);
-      written += part.length;
+  const refs = Object.keys(toWrite);
+  for(const part of chunk(refs, 80)){
+    for(const ref of part){
+      const rr = await fetch(
+        `${SB}/rest/v1/timetable_requests?ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}`,
+        { method:'PATCH',
+          headers:{...H,'Content-Type':'application/json',Prefer:'return=minimal'},
+          body: JSON.stringify({ proposed_turma: toWrite[ref] }),
+        }
+      );
+      if(!rr.ok) throw new Error(`applyIncremental: write failed for ${ref} (HTTP ${rr.status})`);
+      written++;
     }
   }
+
   return {
-    counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS,
-            soloPromoted:tSP, soloQueued:tSQ, pending:tP},
+    counts:{awaiting:tA, foldedExisting:tF, newSessions:tNS, soloQueued:tSQ, soloPromoted:tSP, pending:tP},
     written,
-    keysWritten: entries.length,
   };
 }
 
 function countAguardarTurma(){
-  const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
-  const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
-  const fitsFor=(dept,w)=>{
-    if(!w||!w.length) return [];
-    const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
-    const fits=[];
-    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
-      const okA=coversSlot(w,pair.a,s), okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
-      if(okA&&okB)fits.push(`${pi}|${s}`);
-    }));
-    return fits;
-  };
   let basket=0, incompleteAddress=0;
-  const byLevel={};
-  const basketRefs=[], incompleteRefs=[];
+  const byLevel={}, basketRefs=[], incompleteRefs=[];
   for(const levelKey of Object.keys(LEVEL_MAP)){
-    const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
     for(const branch of BRANCH_ORDER){
-      const here=allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
+      const here = allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
       if(!here.length) continue;
       if(!here.some(e=>!_proposedByRef[e.ref])) continue;
-      const r=planIncremental(levelKey, branch);
+      const r = planIncremental(levelKey, branch);
       if(!r.pendingRefs.length) continue;
       r.pendingRefs.forEach(ref=>{
-        const req=rByRef[ref]; if(!req) return;
-        const raw=parseDayPrefs(req.slots||req.day_preferences);
-        const w=raw.map(p=>parseSlot(p)).filter(Boolean);
-        const hasFit=fitsFor(dept,w).length>0;
+        const req = rByRef[ref]; if(!req) return;
+        const raw = parseDayPrefs(req.slots||req.day_preferences);
+        const w   = raw.map(p=>parseSlot(p)).filter(Boolean);
+        const days = [...new Set(w.map(x=>x.dayIdx))];
+        const hasFit = days.length >= 2;
         if(!byLevel[levelKey]) byLevel[levelKey]={basket:0,incomplete:0};
         if(hasFit){ basket++; byLevel[levelKey].basket++; basketRefs.push(ref); }
-        else      { incompleteAddress++; byLevel[levelKey].incomplete++; incompleteRefs.push(ref); }
+        else       { incompleteAddress++; byLevel[levelKey].incomplete++; incompleteRefs.push(ref); }
       });
     }
   }
   return { basket, incompleteAddress, byLevel, basketRefs, incompleteRefs };
 }
 
-function buildProposalsCached(levelKey, branch) {
+function buildProposalsCached(levelKey, branch){
   const cacheKey = `${levelKey}│${branch}`;
-  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
+  if(_proposalCache[cacheKey]) return _proposalCache[cacheKey];
   const result = buildProposals(levelKey, branch);
-  if (result && (result.groups.length || result.sinalizados.length)) {
+  if(result && (result.groups.length || result.sinalizados.length)){
     _proposalCache[cacheKey] = result;
   }
   return result;
 }
 
-/* ── AUDIT ────────────────────────────────────────────────── */
+/* ── AUDIT ──────────────────────────────────────────────────── */
 function auditGroupSync(g){
   const log={};
   let passCount=0,warnCount=0,failCount=0;
-  const pair=g.pairDef;
 
   g.students.forEach(e=>{
     const req=rByRef[e.ref];
     if(!req){log[e.ref]={verdict:'fail',reason:'Sem pedido registado'};failCount++;return;}
     const raw=parseDayPrefs(req.slots||req.day_preferences);
-    const slotsA=[],slotsB=[];
-    raw.forEach(p=>{
-      const s=parseSlot(p);if(!s)return;
-      if(s.dayIdx===g.dayIdx_A)slotsA.push(s);
-      if(pair&&pair.a!==pair.b&&s.dayIdx===g.dayIdx_B)slotsB.push(s);
-    });
-    const fitsA=slotsA.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR);
-    const fitsB=pair&&pair.a!==pair.b?slotsB.some(s=>s.fromMins<=g.startMins&&s.toMins>=g.startMins+CLASS_DUR):fitsA;
-    const hasA=slotsA.length>0;
-    const hasB=pair&&pair.a!==pair.b?slotsB.length>0:hasA;
-    let verdict='pass',reason='Par de dias confirmado';
-    if(!hasA&&!hasB){verdict='fail';reason=`Não pediu ${g.dayL_A||g.dayL} nem ${g.dayL_B||g.dayL}`;}
-    else if(!hasA){verdict='fail';reason=`Não pediu ${g.dayL_A||g.dayL}`;}
-    else if(pair&&pair.a!==pair.b&&!hasB){verdict='fail';reason=`Não pediu ${g.dayL_B}`;}
-    else if(!fitsA||!fitsB){
-      verdict='warn';
-      const which=!fitsA?(g.dayL_A||g.dayL):(g.dayL_B||g.dayL);
-      reason=`${which} · ${minsToT(g.startMins)}–${minsToT(g.startMins+CLASS_DUR)} não cabe na janela declarada`;
-    }
+    const slots=raw.map(p=>parseSlot(p)).filter(Boolean);
+    const dayIdx    = g.dayIdx_A ?? g.dayIdx;
+    const startMins = g.startMins;
+    const daySlots  = slots.filter(s=>s.dayIdx===dayIdx);
+    const hasDay    = daySlots.length > 0;
+    const fitsTime  = daySlots.some(s=>s.fromMins<=startMins+15 && s.toMins>=startMins+CLASS_DUR-15);
+    let verdict='pass', reason='Sessão confirmada';
+    if(!hasDay){ verdict='fail'; reason=`Não pediu ${DAYS_PT[dayIdx]||'?'}`; }
+    else if(!fitsTime){ verdict='warn'; reason=`${DAYS_PT[dayIdx]||'?'} ${minsToT(startMins)}–${minsToT(startMins+CLASS_DUR)} não cabe na janela declarada`; }
     log[e.ref]={verdict,reason};
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
   });
 
-  const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
-  const auditStatus=failCount>0?'fail':(warnCount>0||sizeStatus==='warn')?'warn':'pass';
-  if(sizeStatus==='warn'){Object.keys(log).forEach(ref=>{if(log[ref].verdict==='pass')log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;});}
+  const sizeStatus   = g.students.length<ASSIGN_MIN?'warn':'pass';
+  const auditStatus  = failCount>0?'fail':(warnCount>0||sizeStatus==='warn')?'warn':'pass';
+  if(sizeStatus==='warn'){
+    Object.keys(log).forEach(ref=>{
+      if(log[ref].verdict==='pass')
+        log[ref].sizeWarn=`Sessão com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;
+    });
+  }
   const tier=classifyTier(g.students.length);
   return{status:auditStatus,passCount,warnCount:warnCount+(sizeStatus==='warn'?1:0),failCount,log,sizeWarn:sizeStatus==='warn',tier:tier.tier,tierColor:tier.color,tierLabel:tier.label};
 }
 
-/* ── COMMIT ───────────────────────────────────────────────── */
+/* ── COMMIT ─────────────────────────────────────────────────── */
 async function loadNextSeqBase(){
   try{
     const rows=await sbGet('classes',`select=turma_code&academic_year=eq.${AY}&limit=500`);
     const maxByBranch={};
-    rows.forEach(r=>{const m=(r.turma_code||'').match(/^([A-Z]{2,4})-(\d+)[AB]?$/);if(!m)return;const bc=m[1],n=parseInt(m[2],10);if(!maxByBranch[bc]||n>maxByBranch[bc])maxByBranch[bc]=n;});
+    rows.forEach(r=>{
+      const m=(r.turma_code||'').match(/^([A-Z]{2,4})-(\d+)[AB]?$/);
+      if(!m)return;
+      const bc=m[1],n=parseInt(m[2],10);
+      if(!maxByBranch[bc]||n>maxByBranch[bc])maxByBranch[bc]=n;
+    });
     Object.keys(maxByBranch).forEach(bc=>{_nextSeqBase[bc]=maxByBranch[bc]+1;});
   }catch(e){console.warn('loadNextSeqBase failed',e);}
 }
@@ -770,46 +880,93 @@ function generateTurmaCodeSync(branch){
   return`${bc}-${String(n).padStart(2,'0')}`;
 }
 
-async function commitGroup(levelKey,groupIdx){
-  const result=_allResults[levelKey];if(!result)return null;
-  const g=result.groups[groupIdx];if(!g)return null;
-  const meta=LEVEL_MAP[levelKey]||{};
-  const branch=activeLoc==='all'?(normB(g.students[0]?.branch)||'FUNCHAL'):activeLoc;
-  const seqNum=generateTurmaCodeSync(branch);
-  const codeA=`${seqNum}A`,codeB=`${seqNum}B`,groupCode=`${seqNum}`;
-  const ar=(_auditResults[levelKey]||{})[groupIdx]||{};
-  const studentRefs=g.students.map(s=>s.ref);
-  const baseRow={
-    group_code:groupCode,academic_year:AY,branch,
-    lang:((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
-    department:meta.dept||'adults',
-    level_code:(levelKey.split('|')[1]||'').trim(),
-    level_display:meta.label||'',
-    start_time:g.startTime,end_time:g.endTime,duration_min:CLASS_DUR,
-    student_refs:studentRefs,status:'confirmed',locked:true,
+/* FIX: commitGroup now correctly writes one DB row per session.
+   The group object represents a single session (one day).
+   turma_code = seqNum (no A/B suffix needed per session now,
+   but kept as seqNumA for legacy compatibility with existing UI). */
+async function commitGroup(levelKey, groupIdx){
+  const result = _allResults[levelKey]; if(!result) return null;
+  const g      = result.groups[groupIdx]; if(!g) return null;
+  const meta   = LEVEL_MAP[levelKey]||{};
+  const branch = activeLoc==='all'
+    ? (normB(g.students[0]?.branch)||'FUNCHAL')
+    : activeLoc;
+  const seqNum     = generateTurmaCodeSync(branch);
+  const turmaCode  = `${seqNum}A`;   // single session — A suffix
+  const groupCode  = seqNum;
+  const ar         = (_auditResults[levelKey]||{})[groupIdx]||{};
+  const studentRefs= g.students.map(s=>s.ref);
+  const dayIdx     = g.dayIdx_A ?? g.dayIdx;
+  const dayLabel   = DAYS_PT[dayIdx]||'?';
+
+  const row = {
+    turma_code:       turmaCode,
+    group_code:       groupCode,
+    academic_year:    AY,
+    branch,
+    lang:             ((g.students[0]||{}).lang||'EN').toUpperCase().slice(0,2),
+    department:       meta.dept||'adults',
+    level_code:       (levelKey.split('|')[1]||'').trim(),
+    level_display:    meta.label||'',
+    day_of_week:      dayLabel,
+    start_time:       g.startTime,
+    end_time:         g.endTime,
+    duration_min:     CLASS_DUR,
+    hour:             Math.floor(g.startMins/60),
+    student_refs:     studentRefs,
+    status:           'confirmed',
+    locked:           true,
     assignment_source:'decision_panel',
-    audit_log:ar.log||{},audited_at:new Date().toISOString(),
-    pass_count:ar.passCount||g.students.length,warn_count:ar.warnCount||0,fail_count:ar.failCount||0,
+    audit_log:        ar.log||{},
+    audited_at:       new Date().toISOString(),
+    pass_count:       ar.passCount||g.students.length,
+    warn_count:       ar.warnCount||0,
+    fail_count:       ar.failCount||0,
   };
-  const rowA={...baseRow,turma_code:codeA,day_of_week:g.dayL_A||g.dayL,hour:Math.floor(g.startMins/60)};
-  const rows=[rowA];
-  if((g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)){
-    rows.push({...baseRow,turma_code:codeB,day_of_week:g.dayL_B||g.dayL_A,hour:Math.floor(g.startMins/60)});
-  }
-  const r=await fetch(`${SB}/rest/v1/classes`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(rows)});
-  if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  _retiredCodes.add(groupCode);_retiredCodes.add(codeA);_retiredCodes.add(codeB);
-  if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-  _groupCodes[levelKey][groupIdx]={turmaCode:groupCode,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:new Date().toISOString(),status:ar.status||'pass',locked:true};
-  const sealBase={group_code:groupCode,level_code:(levelKey.split('|')[1]||'').trim(),department:meta.dept||'adults',branch,start_time:g.startTime,end_time:g.endTime,student_refs:studentRefs,academic_year:AY};
-  await fetch(`${SB}/rest/v1/certification_seals`,{method:'POST',headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify([
-    {...sealBase,turma_code:codeA,day:g.dayL_A||g.dayL},
-    ...((g.dayIdx_A??g.dayIdx)!==(g.dayIdx_B??g.dayIdx)?[{...sealBase,turma_code:codeB,day:g.dayL_B}]:[]),
-  ])});
+
+  const r = await fetch(
+    `${SB}/rest/v1/classes`,
+    { method:'POST',
+      headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},
+      body: JSON.stringify([row]),
+    }
+  );
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+
+  _retiredCodes.add(groupCode);
+  _retiredCodes.add(turmaCode);
+  if(!_groupCodes[levelKey]) _groupCodes[levelKey]={};
+  _groupCodes[levelKey][groupIdx] = {
+    turmaCode,
+    turmaCodeA: turmaCode,
+    turmaCodeB: turmaCode,
+    sentAt:     new Date().toISOString(),
+    status:     ar.status||'pass',
+    locked:     true,
+  };
+
+  // Certification seal for this session
+  await fetch(`${SB}/rest/v1/certification_seals`,{
+    method:'POST',
+    headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+    body: JSON.stringify([{
+      turma_code:   turmaCode,
+      group_code:   groupCode,
+      level_code:   (levelKey.split('|')[1]||'').trim(),
+      department:   meta.dept||'adults',
+      branch,
+      day:          dayLabel,
+      start_time:   g.startTime,
+      end_time:     g.endTime,
+      student_refs: studentRefs,
+      academic_year:AY,
+    }]),
+  });
+
   return groupCode;
 }
 
-/* ── LOCKS ────────────────────────────────────────────────── */
+/* ── LOCKS ──────────────────────────────────────────────────── */
 async function loadLocks(){
   _lockedRefs={}; _lockMeta={};
   try{
@@ -833,67 +990,43 @@ async function reconstructLockedGroups(){
   }catch(e){ console.warn('reconstructLockedGroups fetch failed',e); return; }
   if(!rows?.length) return;
 
-  const byGroup={};
   rows.forEach(c=>{
-    const gc=c.group_code||c.turma_code;
-    if(!gc) return;
-    if(!byGroup[gc]) byGroup[gc]=[];
-    byGroup[gc].push(c);
-  });
-
-  Object.values(byGroup).forEach(groupRows=>{
-    const first=groupRows[0];
-    const levelKey=`${(first.department||'').toLowerCase()}|${(first.level_code||'').trim()}`;
-    const refs=Array.isArray(first.student_refs)?first.student_refs:[];
+    const levelKey=`${(c.department||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+    const refs=Array.isArray(c.student_refs)?c.student_refs:[];
     const students=refs.map(r=>allE.find(e=>e.ref===r)).filter(Boolean);
     if(!students.length) return;
-
-    const dayRaw=(first.day_of_week||'').toUpperCase().trim();
-    const dayIdx=DAYS_PT.indexOf(dayRaw);
-    if(dayIdx<0) return;
-    const startMins=timeToMins(first.start_time)??8*60;
-
-    const rowB=groupRows.find(r=>r.turma_code!==first.turma_code);
-    const dayRawB=rowB?(rowB.day_of_week||'').toUpperCase().trim():dayRaw;
-    const dayIdxB=rowB?DAYS_PT.indexOf(dayRawB):dayIdx;
-
-    const pairDef=ALM_PAIRS.find(p=>p.a===dayIdx&&p.b===(rowB?dayIdxB:dayIdx))||null;
-
+    const dayRaw=(c.day_of_week||'').toUpperCase().trim();
+    const dayIdx=DAYS_PT.indexOf(dayRaw); if(dayIdx<0) return;
+    const startMins=timeToMins(c.start_time)??8*60;
     const lockedGroup={
-      pairDef,
-      dayIdx_A:dayIdx,dayIdx_B:rowB?dayIdxB:dayIdx,
-      dayL_A:DAYS_PT[dayIdx],dayL_B:rowB?DAYS_PT[dayIdxB]:DAYS_PT[dayIdx],
-      dayIdx,dayL:DAYS_PT[dayIdx],
+      dayIdx_A:  dayIdx,
+      dayIdx_B:  dayIdx,
+      dayL_A:    DAYS_PT[dayIdx],
+      dayL_B:    DAYS_PT[dayIdx],
+      dayIdx,
+      dayL:      DAYS_PT[dayIdx],
       startMins,
-      startTime:minsToT(startMins),
-      endTime:minsToT(startMins+CLASS_DUR),
+      startTime: minsToT(startMins),
+      endTime:   minsToT(startMins+CLASS_DUR),
       students,
-      _locked:true,
-      _lockSource:first.assignment_source||'staff_move',
+      _locked:       true,
+      _lockSource:   c.assignment_source||'staff_move',
+      _sessionKey:   `${dayIdx}|${startMins}`,
     };
-
     if(!_allResults[levelKey]){
       _allResults[levelKey]={groups:[],sinalizados:[],total:students.length,withRequest:students.length,placed:students.length};
     }
     const idx=_allResults[levelKey].groups.length;
     _allResults[levelKey].groups.push(lockedGroup);
-
     if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-    const codeA=groupRows.find(r=>r.turma_code?.match(/A$/i))?.turma_code||first.turma_code;
-    const codeB=groupRows.find(r=>r.turma_code?.match(/B$/i))?.turma_code||null;
-    _groupCodes[levelKey][idx]={
-      turmaCode:first.group_code||first.turma_code,
-      turmaCodeA:codeA,
-      turmaCodeB:codeB||codeA,
-      sentAt:'',status:'pass',locked:true
-    };
-
+    const tc=c.turma_code||c.group_code||`${BC[normB(students[0]?.branch)]||'X'}-??`;
+    _groupCodes[levelKey][idx]={turmaCode:tc,turmaCodeA:tc,turmaCodeB:tc,sentAt:'',status:'pass',locked:true};
     if(!_auditResults[levelKey])_auditResults[levelKey]={};
     _auditResults[levelKey][idx]=auditGroupSync(lockedGroup);
   });
 }
 
-/* ── BOOT AUDIT ───────────────────────────────────────────── */
+/* ── BOOT AUDIT ─────────────────────────────────────────────── */
 function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
 
@@ -914,36 +1047,25 @@ async function runBootAudit(){
     for(const branch of BRANCH_ORDER){
       const result=buildProposals(key, branch);
       if(!result.groups.length && !result.sinalizados.length) continue;
-
       const offset=allGroups.length;
       allGroups.push(...result.groups);
       allSinal.push(...result.sinalizados);
       totalPlaced   += result.placed;
       totalWithReq  += result.withRequest;
       totalAll      += result.total;
-
       if(!_auditResults[key]) _auditResults[key]={};
-      result.groups.forEach((g,i)=>{
-        _auditResults[key][offset+i]=auditGroupSync(g);
-      });
+      result.groups.forEach((g,i)=>{ _auditResults[key][offset+i]=auditGroupSync(g); });
     }
 
     if(allGroups.length||allSinal.length){
-      _allResults[key]={
-        groups:      allGroups,
-        sinalizados: allSinal,
-        total:       totalAll,
-        withRequest: totalWithReq,
-        placed:      totalPlaced,
-      };
+      _allResults[key]={groups:allGroups,sinalizados:allSinal,total:totalAll,withRequest:totalWithReq,placed:totalPlaced};
     }
-
     done++; setBootProgress(40+Math.round(done/total*40));
   }
 
   _proposalCache={};
-
   setBoot('A verificar turmas existentes…');
+
   try{
     const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
     if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
@@ -964,8 +1086,8 @@ async function runBootAudit(){
         const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
         if(overlap>=Math.floor(g.students.length*0.7)){
           if(!_groupCodes[key])_groupCodes[key]={};
-          const codeA=`${gc}A`,codeB=`${gc}B`;
-          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
+          const codeA=`${gc}A`;
+          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeA,sentAt:'',status:'pass'};
         }
       });
     });
@@ -1001,7 +1123,7 @@ async function runBootAudit(){
   return{committed:0,exceptions:_exceptionQueue.length};
 }
 
-/* ── DATA REFRESH ─────────────────────────────────────────── */
+/* ── DATA REFRESH ───────────────────────────────────────────── */
 async function refreshData(){
   try{
     const [enrol,reqs]=await Promise.all([
@@ -1030,7 +1152,7 @@ async function refreshData(){
   }catch(err){setConn(false);console.warn('refreshData error',err);}
 }
 
-/* ── UTILITIES ────────────────────────────────────────────── */
+/* ── UTILITIES ──────────────────────────────────────────────── */
 function levelAuditDot(key){
   const ar=_auditResults[key];if(!ar)return'pending';
   const vals=Object.values(ar);if(!vals.length)return'pending';
@@ -1046,7 +1168,7 @@ function dlCSV(content,filename){
   a.click();
 }
 
-/* ── DOSSIER DATA ─────────────────────────────────────────── */
+/* ── DOSSIER DATA ───────────────────────────────────────────── */
 function parseSlotsForRuler(req){
   if(!req)return[];
   const raw=parseDayPrefs(req.slots||req.day_preferences);
