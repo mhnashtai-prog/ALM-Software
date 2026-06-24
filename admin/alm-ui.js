@@ -845,7 +845,7 @@ function renderLevelContent() {
   const _capturedKey = activeLevelKey, _capturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (activeLevelKey !== _capturedKey) return;
-   paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
+  drawAvailBands('sg-grid-container', withReq, _capturedKey, _capturedResult);
     drawStamps('sg-grid-container', _capturedKey, _capturedResult);
   }));
 }
@@ -1005,7 +1005,7 @@ function ovDrillToFormation(levelKey) {
   const _ovCapturedKey = levelKey, _ovCapturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (_ovActiveLevel !== _ovCapturedKey) return;
-    paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
+     drawAvailBands('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
     drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
   }));
 }
