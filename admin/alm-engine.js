@@ -1096,3 +1096,4 @@ async function dsClearNote(ref){
   const ok=await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(ref)}`,{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({notes:''})}).then(r=>r.ok).catch(()=>false);
   if(ok)document.getElementById('ds-note').value='';
   showToast(ok?'Nota removida':'Erro',ok?'ok':'err');
+}
