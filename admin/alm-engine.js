@@ -1,4 +1,3 @@
-
 /* ═══════════════════════════════════════════════════════════════
    ALM ENGINE  ·  alm-engine.js
    Pure data / algorithm layer. No DOM manipulation here.
@@ -37,10 +36,19 @@ const DAYS_PT   = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAYS_FULL = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
 const CLASS_DUR = 90;
 const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
-const HEALTHY_TARGET=13;        // spread-to-serve aim point (mid healthy band)
-const RIGID_MAX_WINDOWS=2;      // ≤2 declared windows = rigid (one day-pair, one time)
+const HEALTHY_TARGET=13;
+const RIGID_MAX_WINDOWS=2;
 
-/* Four service tiers (non-profit: reach not revenue). Values unchanged; meaning is now colour. */
+/* ── SOLO QUEUE ───────────────────────────────────────────────
+   Students who have valid day preferences that fit no existing
+   group and are alone at their slot are written with a special
+   proposed_turma key: "SOLO|dayA-dayB|startMins"
+   This makes them visible in the UI and promotable once MIN_G
+   students accumulate at the same slot.
+   ─────────────────────────────────────────────────────────── */
+const SOLO_PREFIX = 'SOLO';
+const isSoloKey  = k => k && k.startsWith(SOLO_PREFIX+'|');
+
 function classifyTier(n){
   if(n>=MAX_G)      return {tier:'full',    color:'#C9A84C', label:'CHEIA'};
   if(n>=ASSIGN_MIN) return {tier:'healthy', color:'#3DE8A8', label:'SAUDÁVEL'};
@@ -49,7 +57,7 @@ function classifyTier(n){
 }
 
 const ALM_PAIRS = (function(){
-  const wd = [0,1,2,3,4]; // SEG..SEX — any two different weekdays form a valid pair
+  const wd = [0,1,2,3,4];
   const out = [];
   for(let i=0;i<wd.length;i++)
     for(let j=i+1;j<wd.length;j++)
@@ -126,8 +134,8 @@ let _nextSeqBase={};
 let _lockedRefs={};
 let _lockMeta={};
 let _proposalCache={};
-let READ_PROPOSED = true;       
-let _proposedByRef = {};          // ref -> proposed_turma key, loaded from DB
+let READ_PROPOSED = true;
+let _proposedByRef = {};
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
@@ -198,16 +206,9 @@ function toMins(t){
   return(parts[0]||0)*60+(parts[1]||0);
 }
 
-/* ── PAIR ENGINE v3 · stateless · 4-tier · rigid-anchor + spread-to-serve ──
-   - per-branch signature preserved: buildProposals(levelKey, branch)
-   - NO lock-exclude (certified students participate; engine fills seats around them)
-   - sub-5 clusters surface as 'forming' (blue) groups, not rejects
-   - rigid minorities protected as visible forming cards
-   - spreads flexible majority toward HEALTHY_TARGET (headroom for latecomers)        */
-
 async function loadProposed(){
   _proposedByRef = {};
-  if(!READ_PROPOSED) return;                       // flag off → no fetch, no change
+  if(!READ_PROPOSED) return;
   try{
     const rows = await sbGet('timetable_requests',
       `select=ref,proposed_turma&academic_year=eq.${AY}&proposed_turma=not.is.null`);
@@ -215,6 +216,12 @@ async function loadProposed(){
   }catch(e){ console.warn('loadProposed failed', e); }
 }
 
+/* ── buildFromProposed ───────────────────────────────────────
+   Reads _proposedByRef and reconstructs group objects.
+   Solo-queue entries (SOLO|...) are surfaced as sinalizados,
+   not as regular groups, so they appear in the waiting list
+   but don't pollute the grid with solo stamps.
+   ─────────────────────────────────────────────────────────── */
 function buildFromProposed(levelKey, branch){
   const all = allE.filter(e=>{
     if(lk(e)!==levelKey) return false;
@@ -223,63 +230,85 @@ function buildFromProposed(levelKey, branch){
   });
   const withReq = all.filter(e=>!!rByRef[e.ref]);
   const byBucket = {};
- 
+
   withReq.forEach(e=>{
     const key = _proposedByRef[e.ref];
     if(!key) return;
-    // Scope bucket by branch so different branches never merge groups
     const bk = normB(e.branch)+'§'+key;
     (byBucket[bk] = byBucket[bk] || {key, students:[]}).students.push(e);
   });
- 
+
   if(!Object.keys(byBucket).length) return null;
- 
-  const groups = Object.values(byBucket).map(({key, students})=>{
-    // proposed_turma format: "dayA-dayB|startMins|ordinal"
+
+  const groups = [];
+  const sinalizados = [];
+
+  Object.values(byBucket).forEach(({key, students})=>{
+    // ── Solo queue entries → surface as sinalizados, not groups ──
+    if(isSoloKey(key)){
+      // key format: "SOLO|dayA-dayB|startMins"
+      const parts  = key.split('|');
+      const pair   = parts[1] || '0-0';
+      const [dayA, dayB] = pair.split('-').map(Number);
+      const startMins = +parts[2] || 0;
+      const slotLabel = `${DAYS_PT[dayA]||'?'}+${DAYS_PT[dayB]||'?'} ${minsToT(startMins)}`;
+      students.forEach(e=>{
+        sinalizados.push({
+          e,
+          reason: 'solo-queue',
+          why: `À espera de turma · horário único · ${slotLabel} · necessita ${MIN_G - students.length} aluno(s) adicional(is)`,
+          soloKey: key,
+          soloCount: students.length,
+          slotLabel,
+        });
+      });
+      return;
+    }
+
+    // ── Normal group ──
     const parts = key.split('|');
     const [dayA, dayB] = (parts[0]||'0-0').split('-').map(Number);
     const startMins = +parts[1] || 0;
- 
-    // Safe pairDef lookup — handles same-day (dayA===dayB) correctly
     const pairDef = ALM_PAIRS.find(p=>p.a===dayA && p.b===dayB) ||
                     ALM_PAIRS.find(p=>p.a===dayA) || null;
- 
     const t = classifyTier(students.length);
-    return {
+    groups.push({
       pairDef,
       dayIdx_A: dayA, dayIdx_B: dayB,
       dayL_A: DAYS_PT[dayA]||'?', dayL_B: DAYS_PT[dayB]||'?',
       dayL:   DAYS_PT[dayA]||'?', dayIdx: dayA,
       startMins,
-      startTime:  minsToT(startMins),
-      endTime:    minsToT(startMins+CLASS_DUR),
+      startTime: minsToT(startMins),
+      endTime:   minsToT(startMins+CLASS_DUR),
       students,
       tier: t.tier, tierColor: t.color, tierLabel: t.label,
       _fromProposed: true,
-    };
+    });
   });
- 
-  const placed       = groups.reduce((n,g)=>n+g.students.length, 0);
-  const tierCounts   = {forming:0, viable:0, healthy:0, full:0};
+
+  if(!groups.length && !sinalizados.length) return null;
+
+  const placed     = groups.reduce((n,g)=>n+g.students.length, 0);
+  const soloCount  = sinalizados.filter(s=>s.reason==='solo-queue').length;
+  const tierCounts = {forming:0, viable:0, healthy:0, full:0};
   groups.forEach(g=>tierCounts[g.tier]++);
- 
+
   return {
     groups,
-    sinalizados: [],
+    sinalizados,
     total:        all.length,
     withRequest:  withReq.length,
     placed,
     invalidWinCt: 0,
-    noGroupCt:    withReq.length - placed,
+    noGroupCt:    withReq.length - placed - soloCount,
     tierCounts,
   };
 }
- 
+
 function buildProposals(levelKey,branch){
-   if (READ_PROPOSED) {
+  if (READ_PROPOSED) {
     const fromStore = buildFromProposed(levelKey, branch);
-    if (fromStore) return fromStore;               // stored data exists → read it
-    // else: no stored data for this bucket → fall through to compute (unchanged below)
+    if (fromStore) return fromStore;
   }
   const STEP=30;
   const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
@@ -289,7 +318,6 @@ function buildProposals(levelKey,branch){
     return true;
   });
 
-  // NO lock-exclude: every student with a request participates every sweep.
   const withReq=all.filter(e=>!!rByRef[e.ref]);
 
   const studentWindows={};
@@ -305,7 +333,6 @@ function buildProposals(levelKey,branch){
 
   const SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
 
-  // Which (pair|slot) keys does each student fit? (disjoint-window correct.)
   const fitsByStudent={};
   withReq.forEach(e=>{
     const w=studentWindows[e.ref]; if(!w){fitsByStudent[e.ref]=[];return;}
@@ -320,12 +347,11 @@ function buildProposals(levelKey,branch){
   const placed=new Set(), groups=[];
   const slotMembers=key=>withReq.filter(e=>!placed.has(e.ref)&&fitsByStudent[e.ref].includes(key));
 
- function emit(key,refs){
+  function emit(key,refs){
     const [piStr,sStr]=key.split('|');
     const pi=+piStr,startMins=+sStr,pair=activePairs[pi]; if(!pair)return;
     refs.forEach(r=>placed.add(r));
     let students=refs.map(r=>withReq.find(e=>e.ref===r)).filter(Boolean);
-    // MERGE: fill an existing group at the SAME pair+slot up to MAX_G before creating a new one
     const existing=groups.find(g=>g.pairDef===pair && g.startMins===startMins && g.students.length<MAX_G);
     if(existing){
       const room=MAX_G-existing.students.length;
@@ -335,7 +361,6 @@ function buildProposals(levelKey,branch){
       students=students.slice(room);
       if(!students.length) return;
     }
-    // remaining students → new group(s), each capped at MAX_G
     for(let i=0;i<students.length;i+=MAX_G){
       const chunk=students.slice(i,i+MAX_G);
       const t=classifyTier(chunk.length);
@@ -349,7 +374,6 @@ function buildProposals(levelKey,branch){
     }
   }
 
-  // ── PASS 1 · RIGID ANCHORS (protected, spread if oversized) ──
   const rigid=withReq.filter(e=>(studentWindows[e.ref]||[]).length<=RIGID_MAX_WINDOWS && fitsByStudent[e.ref].length>0);
   const rigidBySlot={};
   rigid.forEach(e=>{ const k=fitsByStudent[e.ref][0]; (rigidBySlot[k]=rigidBySlot[k]||[]).push(e.ref); });
@@ -361,7 +385,6 @@ function buildProposals(levelKey,branch){
     } else emit(key, live);
   });
 
-  // ── PASS 2 · SPREAD-TO-SERVE flexible majority (cap at HEALTHY_TARGET) ──
   let guard=0;
   while(guard++<500){
     let best=null,bestN=0;
@@ -373,11 +396,10 @@ function buildProposals(levelKey,branch){
     emit(best, slotMembers(best).map(e=>e.ref).slice(0,HEALTHY_TARGET));
   }
 
-  // ── PASS 3 · fold flexible orphans into compatible groups with room ──
   const orphanGroups=groups.filter(g=>g.students.length<MIN_G && g.tier==='forming');
   orphanGroups.forEach(og=>{
     const movable=og.students.filter(s=>(fitsByStudent[s.ref]||[]).length>1);
-    if(movable.length!==og.students.length) return; // contains a rigid → keep as blue card
+    if(movable.length!==og.students.length) return;
     movable.forEach(s=>{
       const target=groups.find(g=>g!==og && g.students.length<MAX_G &&
         fitsByStudent[s.ref].includes(`${ALM_PAIRS.indexOf(g.pairDef)}|${g.startMins}`));
@@ -390,7 +412,6 @@ function buildProposals(levelKey,branch){
   for(let i=groups.length-1;i>=0;i--) if(groups[i].students.length===0) groups.splice(i,1);
   groups.forEach(g=>{const t=classifyTier(g.students.length);g.tier=t.tier;g.tierColor=t.color;g.tierLabel=t.label;});
 
-  // Genuine outliers only (no valid windows, or fit zero slots)
   const noWindows=withReq.filter(e=>!studentWindows[e.ref]);
   const noGroup=withReq.filter(e=>studentWindows[e.ref]&&!placed.has(e.ref));
 
@@ -414,56 +435,208 @@ function buildProposals(levelKey,branch){
   return{groups,sinalizados,total:all.length,withRequest:withReq.length,placed:placed.size,invalidWinCt:noWindows.length,noGroupCt:noGroup.length,tierCounts};
 }
 
-/* ════════════════════════════════════════════════════════════════
-   STAGE E · INCREMENTAL PLACEMENT — pure planner (promoted from
-   alm-ordenacao.html, proven identical). Reads engine globals:
-   allE, rByRef, _proposedByRef, ALM_PAIRS, parseDayPrefs, parseSlot,
-   lk, normB, MIN_G, MAX_G, CLASS_DUR. Writes NOTHING.
-   Places AWAITING requests (no proposed_turma) onto the existing
-   snapshot WITHOUT re-sorting placed students.
-   Returns { plan:{ref→{key,how}}, counts, pendingRefs }.
-   ════════════════════════════════════════════════════════════════ */
+/* ── STAGE E · INCREMENTAL PLACEMENT ─────────────────────────
+   Solo queue logic:
+   - Students who fit no existing group AND are alone at their
+     best slot get written with key "SOLO|dayA-dayB|startMins"
+   - On subsequent ACTUALIZAR runs, solo students at the SAME
+     slot are detected and promoted to a real cluster if they
+     reach MIN_G, or kept in solo if still below.
+   ─────────────────────────────────────────────────────────── */
 function planIncremental(levelKey, branch){
   const proposedByRef = _proposedByRef;
   const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
   const activePairs=ALM_PAIRS.filter(p=>!(p.examOnly&&dept!=='exam'));
   const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
   const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
-  const fitKeys=w=>{const fits=[];activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{const okA=coversSlot(w,pair.a,s),okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);if(okA&&okB)fits.push(`${pi}|${s}`);}));return fits;};
+  const fitKeys=w=>{
+    const fits=[];
+    activePairs.forEach((pair,pi)=>SLOTS.forEach(s=>{
+      const okA=coversSlot(w,pair.a,s),okB=pair.a===pair.b?okA:coversSlot(w,pair.b,s);
+      if(okA&&okB)fits.push(`${pi}|${s}`);
+    }));
+    return fits;
+  };
   const inScope=e=>lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
   const scope=allE.filter(inScope);
+
+  // Build snapshot of existing real groups (exclude solo-queue keys)
   const groups={};
-  scope.forEach(e=>{const key=proposedByRef[e.ref];if(!key)return;if(!groups[key]){const[pairStr,sStr,ordStr]=key.split('|');const[dA,dB]=(pairStr||'0-0').split('-').map(Number);const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);groups[key]={refs:new Set(),base:`${pairStr}|${sStr}`,ord:+ordStr||0,pi,startMins:+sStr};}groups[key].refs.add(e.ref);});
+  scope.forEach(e=>{
+    const key=proposedByRef[e.ref];
+    if(!key || isSoloKey(key)) return;
+    if(!groups[key]){
+      const[pairStr,sStr,ordStr]=key.split('|');
+      const[dA,dB]=(pairStr||'0-0').split('-').map(Number);
+      const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);
+      groups[key]={refs:new Set(),base:`${pairStr}|${sStr}`,ord:+ordStr||0,pi,startMins:+sStr};
+    }
+    groups[key].refs.add(e.ref);
+  });
+
+  // Also collect existing solo-queue students grouped by their slot
+  // so we can promote them if enough have accumulated
+  const soloBySlot={};  // "fitKey" -> Set of refs already in solo at that slot
+  scope.forEach(e=>{
+    const key=proposedByRef[e.ref];
+    if(!key || !isSoloKey(key)) return;
+    // key: "SOLO|dayA-dayB|startMins"
+    const parts=key.split('|');
+    const pair=parts[1]||'0-0';
+    const startMins=+parts[2]||0;
+    const[dA,dB]=pair.split('-').map(Number);
+    const pi=activePairs.findIndex(p=>p.a===dA&&p.b===dB);
+    if(pi<0) return;
+    const fitKey=`${pi}|${startMins}`;
+    (soloBySlot[fitKey]=soloBySlot[fitKey]||new Set()).add(e.ref);
+  });
+
   const maxOrdAtBase=base=>Object.values(groups).filter(g=>g.base===base).reduce((m,g)=>Math.max(m,g.ord),-1);
-  const awaiting=scope.filter(e=>!proposedByRef[e.ref]).map(e=>{const req=rByRef[e.ref];const raw=parseDayPrefs(req.slots||req.day_preferences);const w=raw.map(p=>parseSlot(p)).filter(Boolean);return{ref:e.ref,w,fits:w.length?fitKeys(w):[]};});
-  const plan={};let foldedExisting=0;const stillPending=[];
-  awaiting.forEach(a=>{if(!a.fits.length){stillPending.push(a);return;}const hit=Object.entries(groups).find(([key,g])=>g.pi>=0&&a.fits.includes(`${g.pi}|${g.startMins}`)&&g.refs.size<MAX_G);if(hit){const[key,g]=hit;g.refs.add(a.ref);plan[a.ref]={key,how:'fold'};foldedExisting++;}else stillPending.push(a);});
+
+  // Awaiting = no proposed_turma at all (brand new requests)
+  const awaiting=scope.filter(e=>!proposedByRef[e.ref]).map(e=>{
+    const req=rByRef[e.ref];
+    const raw=parseDayPrefs(req.slots||req.day_preferences);
+    const w=raw.map(p=>parseSlot(p)).filter(Boolean);
+    return{ref:e.ref,w,fits:w.length?fitKeys(w):[]};
+  });
+
+  const plan={};
+  let foldedExisting=0, soloPromoted=0, soloQueued=0;
+  const stillPending=[];
+
+  // Pass 1: try to fold into existing real groups
+  awaiting.forEach(a=>{
+    if(!a.fits.length){stillPending.push(a);return;}
+    const hit=Object.entries(groups).find(([key,g])=>
+      g.pi>=0 && a.fits.includes(`${g.pi}|${g.startMins}`) && g.refs.size<MAX_G
+    );
+    if(hit){
+      const[key,g]=hit;
+      g.refs.add(a.ref);
+      plan[a.ref]={key,how:'fold'};
+      foldedExisting++;
+    } else {
+      stillPending.push(a);
+    }
+  });
+
+  // Pass 2: try to form new clusters from still-pending (≥2 at same slot)
   let newClusters=0,newClusterStudents=0,guard=0;
-  while(guard++<300){const bySlot={};stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));let best=null,bestArr=[];Object.entries(bySlot).forEach(([k,arr])=>{if(arr.length>bestArr.length){best=k;bestArr=arr;}});if(!best||bestArr.length<2)break;const[piStr,sStr]=best.split('|');const pi=+piStr,startMins=+sStr;const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;const key=`${base}|${maxOrdAtBase(base)+1}`;const take=bestArr.slice(0,MAX_G);groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});newClusters++;newClusterStudents+=take.length;const taken=new Set(take.map(a=>a.ref));for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);}
-  return{plan,counts:{awaiting:awaiting.length,foldedExisting,newClusters,newClusterStudents,pending:stillPending.length},pendingRefs:stillPending.map(a=>a.ref)};
+  while(guard++<300){
+    const bySlot={};
+    stillPending.forEach(a=>a.fits.forEach(k=>{(bySlot[k]=bySlot[k]||[]).push(a)}));
+    let best=null,bestArr=[];
+    Object.entries(bySlot).forEach(([k,arr])=>{
+      // Count solo students already at this slot as potential cluster members
+      const soloAtSlot=(soloBySlot[k]?.size||0);
+      const total=arr.length+soloAtSlot;
+      if(total>bestArr.length){best=k;bestArr=arr;}
+    });
+    if(!best||bestArr.length<2)break;
+    const[piStr,sStr]=best.split('|');
+    const pi=+piStr,startMins=+sStr;
+    const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;
+    const key=`${base}|${maxOrdAtBase(base)+1}`;
+    const take=bestArr.slice(0,MAX_G);
+    groups[key]={refs:new Set(take.map(a=>a.ref)),base,ord:+key.split('|')[2],pi,startMins};
+    take.forEach(a=>{plan[a.ref]={key,how:'cluster'};});
+    newClusters++;newClusterStudents+=take.length;
+    const taken=new Set(take.map(a=>a.ref));
+    for(let i=stillPending.length-1;i>=0;i--)if(taken.has(stillPending[i].ref))stillPending.splice(i,1);
+  }
+
+  // Pass 3: solo queue promotion
+  // Check if any solo slot now has enough students (existing solo + new pending) to form a real group
+  stillPending.forEach(a=>{
+    if(!a.fits.length) return;
+    // Find the best solo slot this student could join or seed
+    const bestFit=a.fits.find(fitKey=>{
+      const existing=soloBySlot[fitKey]?.size||0;
+      return existing+1>=MIN_G; // enough combined to promote
+    });
+    if(bestFit){
+      // Promote: build a real cluster key from this fitKey
+      const[piStr,sStr]=bestFit.split('|');
+      const pi=+piStr,startMins=+sStr;
+      const base=`${activePairs[pi].a}-${activePairs[pi].b}|${startMins}`;
+      const key=`${base}|${maxOrdAtBase(base)+1}`;
+      // Plan this student into the new real cluster
+      plan[a.ref]={key,how:'solo-promoted'};
+      // Also plan existing solo students at this slot into the same key
+      (soloBySlot[bestFit]||new Set()).forEach(soloRef=>{
+        plan[soloRef]={key,how:'solo-promoted'};
+        soloPromoted++;
+      });
+      if(!groups[key]) groups[key]={refs:new Set(),base,ord:+key.split('|')[2]||0,pi,startMins};
+      groups[key].refs.add(a.ref);
+      (soloBySlot[bestFit]||new Set()).forEach(r=>groups[key].refs.add(r));
+      soloBySlot[bestFit]=new Set(); // consumed
+    }
+  });
+
+  // Pass 4: solo queue — students who truly have valid fits but are alone
+  // Write them into solo queue so they appear in the UI
+  const soloQueued_refs=[];
+  stillPending.forEach(a=>{
+    if(plan[a.ref]) return; // already handled above
+    if(!a.fits.length) return; // no valid pair at all → stays as true pending
+    // Pick best solo slot: prefer the fit with most time overlap
+    const bestFit=a.fits[0];
+    const[piStr,sStr]=bestFit.split('|');
+    const pi=+piStr,startMins=+sStr;
+    const pair=activePairs[pi];
+    if(!pair) return;
+    const soloKey=`${SOLO_PREFIX}|${pair.a}-${pair.b}|${startMins}`;
+    plan[a.ref]={key:soloKey,how:'solo-queue'};
+    soloQueued++;
+    soloQueued_refs.push(a.ref);
+  });
+
+  // True pending = no valid fit at all (invalid windows, wrong days, etc.)
+  const truePending=stillPending.filter(a=>!plan[a.ref]);
+
+  return{
+    plan,
+    counts:{
+      awaiting:awaiting.length,
+      foldedExisting,
+      newClusters,
+      newClusterStudents,
+      soloPromoted,
+      soloQueued,
+      pending:truePending.length,
+    },
+    pendingRefs:truePending.map(a=>a.ref),
+    soloRefs:soloQueued_refs,
+  };
 }
+
 function chunk(arr, n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
-/* ════════════════════════════════════════════════════════════════
-   STAGE E · applyIncremental() — the WRITE arm of one-click sorting.
-   Loops LEVEL_MAP × BRANCH_ORDER, runs planIncremental per bucket,
-   writes proposed_turma for AWAITING placeable refs ONLY, in chunks
-   of 80. Collects by branch+key so identical ordinals in different
-   branches never merge. NEVER clears, NEVER touches placed students,
-   NEVER writes sub-MIN_G pending. Returns aggregate counts.
-   Called only by a deliberate ACTUALIZAR press (see alm-ui.js).
-   ════════════════════════════════════════════════════════════════ */
+
+/* ── applyIncremental ─────────────────────────────────────────
+   Now also writes solo-queue keys for students who have valid
+   fits but are alone. Solo keys are written the same way as
+   real cluster keys — the prefix "SOLO|" distinguishes them.
+   On the next ACTUALIZAR, planIncremental will detect when
+   enough solos accumulate at the same slot and promote them.
+   ─────────────────────────────────────────────────────────── */
 async function applyIncremental(){
-  const byBranchKey = {};                      // "BRANCH§key" -> {key, refs:[]}
-  let tA=0, tF=0, tC=0, tCS=0, tP=0;
+  const byBranchKey = {};
+  let tA=0, tF=0, tC=0, tCS=0, tSP=0, tSQ=0, tP=0;
   for(const levelKey of Object.keys(LEVEL_MAP)){
     for(const branch of BRANCH_ORDER){
       const here = allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
       if(!here.length) continue;
-      if(!here.some(e=>!_proposedByRef[e.ref])) continue;     // no awaiting in this bucket → skip
+      // Run if any student has no proposed_turma OR has a solo key (may be promotable)
+      const hasAwaiting = here.some(e=>!_proposedByRef[e.ref]);
+      const hasSolo     = here.some(e=>isSoloKey(_proposedByRef[e.ref]));
+      if(!hasAwaiting && !hasSolo) continue;
       const r = planIncremental(levelKey, branch);
-      if(!r.counts.awaiting) continue;
+      if(!r.counts.awaiting && !r.counts.soloQueued && !r.counts.soloPromoted) continue;
       tA+=r.counts.awaiting; tF+=r.counts.foldedExisting; tC+=r.counts.newClusters;
-      tCS+=r.counts.newClusterStudents; tP+=r.counts.pending;
+      tCS+=r.counts.newClusterStudents; tSP+=r.counts.soloPromoted;
+      tSQ+=r.counts.soloQueued; tP+=r.counts.pending;
       Object.entries(r.plan).forEach(([ref,{key}])=>{
         const bk = branch+'§'+key;
         (byBranchKey[bk] = byBranchKey[bk] || {key, refs:[]}).refs.push(ref);
@@ -484,19 +657,14 @@ async function applyIncremental(){
       written += part.length;
     }
   }
-return { counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS, pending:tP},
-           written, keysWritten: entries.length };
+  return {
+    counts:{awaiting:tA, foldedExisting:tF, newClusters:tC, newClusterStudents:tCS,
+            soloPromoted:tSP, soloQueued:tSQ, pending:tP},
+    written,
+    keysWritten: entries.length,
+  };
 }
 
-/* ════════════════════════════════════════════════════════════════
-   AGUARDAR TURMA · read-only basket counter. Writes NOTHING.
-   Loops LEVEL_MAP × BRANCH_ORDER, runs planIncremental per bucket,
-   then classifies each still-pending awaiting ref:
-     · basket            = valid windows, no class yet  ("no route yet")
-     · incompleteAddress = no valid fit at all          ("address incomplete")
-   Returns aggregate counts + per-level breakdown + ref lists, so the
-   badge can show a number and a click can route into the dossier list.
-   ════════════════════════════════════════════════════════════════ */
 function countAguardarTurma(){
   const STEP=30, SLOTS=[]; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP)SLOTS.push(t);
   const coversSlot=(w,d,s)=>w.some(x=>x.dayIdx===d&&x.fromMins<=s+15&&x.toMins>=s+CLASS_DUR-15);
@@ -511,14 +679,14 @@ function countAguardarTurma(){
     return fits;
   };
   let basket=0, incompleteAddress=0;
-  const byLevel={};                     // levelKey -> {basket, incomplete}
+  const byLevel={};
   const basketRefs=[], incompleteRefs=[];
   for(const levelKey of Object.keys(LEVEL_MAP)){
     const dept=(levelKey.split('|')[0]||'adults').toLowerCase();
     for(const branch of BRANCH_ORDER){
       const here=allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
       if(!here.length) continue;
-      if(!here.some(e=>!_proposedByRef[e.ref])) continue;   // no awaiting → skip
+      if(!here.some(e=>!_proposedByRef[e.ref])) continue;
       const r=planIncremental(levelKey, branch);
       if(!r.pendingRefs.length) continue;
       r.pendingRefs.forEach(ref=>{
@@ -535,19 +703,15 @@ function countAguardarTurma(){
   return { basket, incompleteAddress, byLevel, basketRefs, incompleteRefs };
 }
 
-/* ── PROPOSAL CACHE (P-02) ───────────────────────────────── */
-function buildProposalsCached(levelKey, branch){
+function buildProposalsCached(levelKey, branch) {
   const cacheKey = `${levelKey}│${branch}`;
-  if(_proposalCache[cacheKey]) return _proposalCache[cacheKey];
+  if (_proposalCache[cacheKey]) return _proposalCache[cacheKey];
   const result = buildProposals(levelKey, branch);
-  // Don't cache empty results from the proposed path — they may
-  // legitimately have data once _proposedByRef is populated
-  if(result && (result.groups.length || result.sinalizados.length)){
+  if (result && (result.groups.length || result.sinalizados.length)) {
     _proposalCache[cacheKey] = result;
   }
   return result;
 }
- 
 
 /* ── AUDIT ────────────────────────────────────────────────── */
 function auditGroupSync(g){
@@ -582,7 +746,7 @@ function auditGroupSync(g){
     if(verdict==='pass')passCount++;else if(verdict==='warn')warnCount++;else failCount++;
   });
 
-const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
+  const sizeStatus=g.students.length<ASSIGN_MIN?'warn':'pass';
   const auditStatus=failCount>0?'fail':(warnCount>0||sizeStatus==='warn')?'warn':'pass';
   if(sizeStatus==='warn'){Object.keys(log).forEach(ref=>{if(log[ref].verdict==='pass')log[ref].sizeWarn=`Grupo com ${g.students.length} alunos — mínimo para abertura é ${ASSIGN_MIN}`;});}
   const tier=classifyTier(g.students.length);
@@ -734,40 +898,38 @@ function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');i
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
 
 async function runBootAudit(){
-  const levelKeys = Object.keys(LEVEL_MAP);
-  const total = levelKeys.length; let done = 0;
- 
+  const levelKeys=Object.keys(LEVEL_MAP);
+  const total=levelKeys.length; let done=0;
+
   await loadNextSeqBase();
-  _proposalCache = {};
-  await loadProposed();           // STAGE D — fills _proposedByRef
- 
+  _proposalCache={};
+  await loadProposed();
+
   setBoot('A agrupar e auditar todos os níveis…');
- 
+
   for(const key of levelKeys){
-    // Accumulate groups from ALL branches before storing
     const allGroups=[], allSinal=[];
     let totalPlaced=0, totalWithReq=0, totalAll=0;
- 
+
     for(const branch of BRANCH_ORDER){
-      // buildProposals respects READ_PROPOSED internally
-      const result = buildProposals(key, branch);
+      const result=buildProposals(key, branch);
       if(!result.groups.length && !result.sinalizados.length) continue;
- 
-      const offset = allGroups.length;
+
+      const offset=allGroups.length;
       allGroups.push(...result.groups);
       allSinal.push(...result.sinalizados);
       totalPlaced   += result.placed;
       totalWithReq  += result.withRequest;
       totalAll      += result.total;
- 
+
       if(!_auditResults[key]) _auditResults[key]={};
       result.groups.forEach((g,i)=>{
-        _auditResults[key][offset+i] = auditGroupSync(g);
+        _auditResults[key][offset+i]=auditGroupSync(g);
       });
     }
- 
-    if(allGroups.length){
-      _allResults[key] = {
+
+    if(allGroups.length||allSinal.length){
+      _allResults[key]={
         groups:      allGroups,
         sinalizados: allSinal,
         total:       totalAll,
@@ -775,80 +937,69 @@ async function runBootAudit(){
         placed:      totalPlaced,
       };
     }
- 
-    done++; setBootProgress(40 + Math.round(done/total*40));
+
+    done++; setBootProgress(40+Math.round(done/total*40));
   }
- 
-  // Clear proposal cache NOW so subsequent per-level calls
-  // (e.g. selectLevel → buildProposals(key,'all')) recompute fresh
-  _proposalCache = {};
- 
+
+  _proposalCache={};
+
   setBoot('A verificar turmas existentes…');
   try{
-    const existing = await sbGet('classes',
-      `select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
-    if(!window._dbPlacedByLevel) window._dbPlacedByLevel={};
+    const existing=await sbGet('classes',`select=turma_code,group_code,level_code,department,student_refs&academic_year=eq.${AY}`);
+    if(!window._dbPlacedByLevel)window._dbPlacedByLevel={};
     existing.forEach(c=>{
-      if(c.turma_code) _retiredCodes.add(c.turma_code);
-      const k = `${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const refs = Array.isArray(c.student_refs)?c.student_refs:[];
-      if(!window._dbPlacedByLevel[k]) window._dbPlacedByLevel[k]=new Set();
-      refs.forEach(r=>window._dbPlacedByLevel[k].add(r));
+      if(c.turma_code)_retiredCodes.add(c.turma_code);
+      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const refs=Array.isArray(c.student_refs)?c.student_refs:[];
+      if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
+      refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
     existing.forEach(c=>{
-      const gc = c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);
-      if(!gc) return;
-      const k = `${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const result = _allResults[k]; if(!result) return;
-      const dbRefs = new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
+      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
+      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+      const result=_allResults[key];if(!result)return;
+      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
       result.groups.forEach((g,i)=>{
-        if((_groupCodes[k]||{})[i]) return;
-        const overlap = g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap >= Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[k]) _groupCodes[k]={};
-          const codeA=`${gc}A`, codeB=`${gc}B`;
-          _groupCodes[k][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
+        if((_groupCodes[key]||{})[i])return;
+        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+        if(overlap>=Math.floor(g.students.length*0.7)){
+          if(!_groupCodes[key])_groupCodes[key]={};
+          const codeA=`${gc}A`,codeB=`${gc}B`;
+          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeB,sentAt:'',status:'pass'};
         }
       });
     });
-  }catch(dbErr){ console.warn('ALM: DB fetch failed', dbErr); }
- 
+  }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
+
   setBootProgress(85);
   await reconstructLockedGroups();
- 
+
   _exceptionQueue=[];
   for(const key of Object.keys(_allResults)){
-    const result = _allResults[key];
+    const result=_allResults[key];
     result.groups.forEach((g,i)=>{
       const ar=(_auditResults[key]||{})[i];
-      if(!ar||ar.status==='pass') return;
-      if((_groupCodes[key]||{})[i]) return;
+      if(!ar||ar.status==='pass')return;
+      if((_groupCodes[key]||{})[i])return;
       _exceptionQueue.push({levelKey:key,groupIdx:i,group:g,auditResult:ar});
     });
   }
- 
+
   setBootProgress(100);
- 
+
   (function reconcileDBvsEngine(){
     const warnings=[];
     Object.keys(window._dbPlacedByLevel||{}).forEach(key=>{
-      const dbCount  = (window._dbPlacedByLevel[key]?.size)||0;
-      const engCount = _allResults[key]?.placed||0;
-      const diff     = Math.abs(dbCount-engCount);
-      if(diff>2){
-        const label=(LEVEL_MAP[key]||{}).label||key;
-        warnings.push(`${label}: DB=${dbCount} / Engine=${engCount}`);
-      }
+      const dbCount=(window._dbPlacedByLevel[key]?.size)||0;
+      const engineCount=_allResults[key]?.placed||0;
+      const diff=Math.abs(dbCount-engineCount);
+      if(diff>2){const label=(LEVEL_MAP[key]||{}).label||key;warnings.push(`${label}: DB=${dbCount} / Engine=${engineCount}`);}
     });
-    if(warnings.length){
-      console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));
-      showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');
-    }
+    if(warnings.length){console.warn('⚠ ALM reconciliation divergence:\n'+warnings.join('\n'));showToast(`⚠ ${warnings.length} nível${warnings.length!==1?'is':''} com divergência DB/engine`,'warn');}
   })();
- 
-  return {committed:0, exceptions:_exceptionQueue.length};
+
+  return{committed:0,exceptions:_exceptionQueue.length};
 }
- 
 
 /* ── DATA REFRESH ─────────────────────────────────────────── */
 async function refreshData(){
@@ -858,10 +1009,10 @@ async function refreshData(){
       sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-  allE=enrol||[];allR=reqs||[];rByRef={};
-   allR.forEach(r=>{rByRef[r.ref]=r;});
-  _proposalCache={};
-    await loadProposed();    // STAGE D                     
+    allE=enrol||[];allR=reqs||[];rByRef={};
+    allR.forEach(r=>{rByRef[r.ref]=r;});
+    _proposalCache={};
+    await loadProposed();
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
@@ -869,7 +1020,7 @@ async function refreshData(){
         _allResults[key]=buildProposals(key,'all');
         _auditResults[key]={};
         _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
-    } else {delete _allResults[key];}
+      } else {delete _allResults[key];}
     }
     await reconstructLockedGroups();
     updateSidebarKPIs();initBranchStrip();renderExcBar();renderTree();
