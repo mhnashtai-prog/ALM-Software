@@ -891,6 +891,30 @@ function ovRenderTree() {
 
 function ovSelectLevel(key) { _ovActiveLevel = key; ovRenderTree(); ovDrillToFormation(key); }
 
+/* Always-available student roster for the OVERVIEW drill — every enrolled
+   student in the level, with status chip + turma, dossier on click.
+   Renders regardless of whether any group/grid exists. */
+function renderOvLevelRoster(levelKey, allStudents){
+  const sorted = [...allStudents].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const turmaByRef = {};
+  (_allResults[levelKey]?.groups||[]).forEach((g,i)=>{
+    const committed = (_groupCodes[levelKey]||{})[i];
+    const label = committed ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA!==committed.turmaCodeB ? `${committed.turmaCodeA}/${committed.turmaCodeB}` : committed.turmaCodeA||committed.turmaCode||`T${i+1}`) : `T${i+1}`;
+    g.students.forEach(e=>{ turmaByRef[e.ref]={label,color:slotCol(g.dayIdx_A??g.dayIdx,g.startMins),cert:!!committed}; });
+  });
+  let stuRows = '';
+  sorted.forEach((e,idx)=>{
+    const a = analysePrefs(e.ref);
+    const slots = a ? a.windows.map(w=>`${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+    const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
+    const stCol = st==='atribuido'?'var(--green)':st==='sem_pedido'?'var(--red)':'var(--amber)';
+    const stTxt = st==='atribuido'?'atribuído':st==='sem_pedido'?'sem pedido':'pendente';
+    const turma = turmaByRef[e.ref];
+    stuRows += `<div class="stu-row" onclick="openDossier('${e.ref}')"><div class="stu-cell" style="font-size:8px;color:var(--t4)">${idx+1}</div><div class="stu-cell" style="font-size:8px;color:var(--t3);font-family:var(--mono)">${(e.ref||'').replace(/\D/g,'')}</div><div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name||'—'}</div><div style="font-size:6.5px;color:var(--t3);margin-top:1px">${slots}</div></div><div class="stu-cell">${turma?`<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44${turma.cert?';background:'+turma.color+'11':''}">${turma.label}${turma.cert?' ✓':''}</span>`:'<span style="font-size:7px;color:var(--t4)">—</span>'}</div><div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${stTxt}</span></div><div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name||'').replace(/'/g,"\\'")}')">📌</span></div></div>`;
+  });
+  return `<div style="margin-top:14px"><div class="sec">Alunos · ${sorted.length}</div><div id="lc-students-ov" style="max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b) transparent"><div class="stu-hdr"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>${stuRows}</div></div>`;
+}
+
 function ovDrillToFormation(levelKey) {
   _ovActiveLevel = levelKey; activeLevelKey = levelKey; activeLoc = _ovActiveLoc;
   const meta = LEVEL_MAP[levelKey] || {};
@@ -917,7 +941,7 @@ function ovDrillToFormation(levelKey) {
 
   let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px"><div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color || 'var(--gold2)'}">${meta.label || levelKey}</div><div style="font-size:8.5px;color:${dc.color || 'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label || ''}</div><button onclick="_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button><div style="display:flex;gap:0"><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--red)">${noReq}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>${_lastResult ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>` : ''}${certCount > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${certCount}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Cert.</div></div>` : ''}${sinal > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--amber)">${sinal}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sinalizados</div></div>` : ''}</div></div>`;
 
-  if (!withReq.length) { html += `<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`; el.innerHTML = html; return; }
+ if (!withReq.length) { html += `<div class="placeholder-main" style="padding-top:30px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`; html += renderOvLevelRoster(levelKey, allStudents); el.innerHTML = html; return; }
 
   const dept = meta.dept || 'adults';
   const pairCounts = ALM_PAIRS.filter(p => !(p.examOnly && dept !== 'exam')).map(p => ({ pair: p, count: countPair(withReq, p) }));
@@ -932,9 +956,9 @@ function ovDrillToFormation(levelKey) {
     activeLevelKey = savedKey;
   }
   if (_lastResult?.sinalizados?.length) html += buildSinalizadosHTML(_lastResult);
-  html += `<div style="margin-top:14px;padding-bottom:20px"><button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">Ver ${allStudents.length} alunos ↗</button></div>`;
+  html += renderOvLevelRoster(levelKey, allStudents);
+  html += `<div style="margin-top:10px;padding-bottom:20px"><button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">Abrir em janela ↗</button></div>`;
   el.innerHTML = html;
-
   buildPermanentGrid('ov-grid-container', withReq);
   const _ovCapturedKey = levelKey, _ovCapturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
