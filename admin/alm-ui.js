@@ -88,6 +88,48 @@ function paintCellHeatmap(containerId, withReq, levelKey, result) {
     });
   });
 }
+/* Availability bands — exact replica of the request form's bands.
+   One solid band per student window, coloured by day (same palette as
+   the request form), time label inside, positioned with timeToBandPos.
+   Read-only (no delete). Only draws when no group has formed. */
+const _DAY_BAND_RGB = ['74,143,245','155,110,202','46,204,138','232,184,75','232,69,90','201,168,76'];
+function drawAvailBands(containerId, withReq, levelKey, result) {
+  const wrap = document.getElementById(`${containerId}-rows-wrap`);
+  if (!wrap) return;
+  wrap.querySelectorAll('.sg-avail').forEach(b => b.remove());
+  if (result?.groups?.length) return;
+  if (!_rowRectCache[containerId]) _primeRowRectCache(containerId);
+
+  withReq.forEach(e => {
+    const a = analysePrefs(e.ref);
+    if (!a) return;
+    a.windows.forEach(w => {
+      const dayL = DAYS_PT[w.dayIdx];
+      const rowEl = document.getElementById(`${containerId}-row-${dayL}`);
+      if (!rowEl) return;
+      const startT = minsToT(w.earliest), endT = minsToT(w.latest);
+      const pos = timeToBandPos(startT, endT, rowEl);
+      if (!pos) return;
+      const cached = _rowRectCache[containerId]?.[dayL];
+      if (!cached) return;
+      const rgb = _DAY_BAND_RGB[w.dayIdx] || '46,204,138';
+      const showLabel = pos.width > 56;
+      const band = document.createElement('div');
+      band.className = 'sg-avail';
+      band.style.cssText = [
+        `left:${cached.left + pos.left}px`,
+        `top:${cached.top + 2}px`,
+        `width:${pos.width}px`,
+        `height:${rowEl.offsetHeight - 4}px`,
+        `background:rgba(${rgb},.22)`,
+        `border:.5px solid rgba(${rgb},.55)`,
+      ].join(';');
+      band.innerHTML = showLabel
+        ? `<span class="sg-avail-lbl" style="color:rgba(${rgb},.95)">${startT}–${endT}</span>` : '';
+      wrap.appendChild(band);
+    });
+  });
+}
 
 function buildPermanentGrid(containerId, withReq) {
   const container = document.getElementById(containerId);
@@ -803,7 +845,7 @@ function renderLevelContent() {
   const _capturedKey = activeLevelKey, _capturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (activeLevelKey !== _capturedKey) return;
-    paintCellHeatmap('sg-grid-container', withReq, _capturedKey, _capturedResult);
+   paintCellHeatmap('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
     drawStamps('sg-grid-container', _capturedKey, _capturedResult);
   }));
 }
