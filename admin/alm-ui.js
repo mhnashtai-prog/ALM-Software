@@ -2291,17 +2291,19 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-let _lastRequestCheck = new Date().toISOString();
-
-async function checkNewRequests(){
-  const newReqs = await sbGet('timetable_requests',
-    `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}&created_at=gt.${_lastRequestCheck}`
-  ).catch(()=>[]);
-  _lastRequestCheck = new Date().toISOString();
-  if(!newReqs.length) return;
-  newReqs.forEach(r=>{ rByRef[r.ref]=r; if(!allR.find(x=>x.ref===r.ref)) allR.push(r); });
-  document.getElementById('badge-pending').textContent = allE.filter(e=>{ const r=rByRef[e.ref]; return r&&normS(r.status)==='pendente'; }).length||'0';
-  showToast(`${newReqs.length} novo${newReqs.length!==1?'s':''} pedido${newReqs.length!==1?'s':''} recebido${newReqs.length!==1?'s':''}`, 'ok');
+async function refreshData(){
+  try{
+    const newReqs = await sbGet('timetable_requests',
+      `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}&created_at=gt.${_lastRequestCheck}`
+    );
+    _lastRequestCheck = new Date().toISOString();
+    if(!newReqs.length){ setConn(true); return; }
+    setConn(true);
+    newReqs.forEach(r=>{ rByRef[r.ref]=r; if(!allR.find(x=>x.ref===r.ref)) allR.push(r); });
+    document.getElementById('badge-pending').textContent = 
+      allE.filter(e=>{ const r=rByRef[e.ref]; return r&&normS(r.status)==='pendente'; }).length||'0';
+    showToast(`${newReqs.length} novo${newReqs.length!==1?'s':''} pedido${newReqs.length!==1?'s':''} recebido${newReqs.length!==1?'s':''}`, 'ok');
+  }catch(err){ setConn(false); console.warn('refreshData error',err); }
 }
 
 boot().then(() => _injectRefreshControls());
