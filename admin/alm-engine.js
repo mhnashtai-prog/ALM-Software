@@ -949,6 +949,14 @@ async function runBootAudit(){
     let totalPlaced=0, totalWithReq=0, totalAll=0;
 
     for(const branch of BRANCH_ORDER){
+      // Skip if no students with requests here
+      const hasStudents = allE.some(e =>
+        lk(e) === key &&
+        normB(e.branch) === branch &&
+        !!rByRef[e.ref]
+      );
+      if(!hasStudents) continue;
+
       const result=buildProposals(key, branch);
       if(!result.groups.length && !result.sinalizados.length) continue;
       const offset=allGroups.length;
