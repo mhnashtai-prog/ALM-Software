@@ -1454,7 +1454,7 @@ function switchCC(panel, el) {
   if (el) el.classList.add('active');
   if (panel === 'audit') { renderAudit(); renderAuditTree(); }
   if (panel === 'decision') renderDecision();
-if (panel === 'overview') { _ovActiveLevel = null; refreshData().then(() => { ovInitBranchStrip(); ovRenderStats(); ovRenderTree(); ovRenderSummary(); }); }
+if (panel === 'overview') { _ovActiveLevel = null; ovInitBranchStrip(); ovRenderStats(); ovRenderTree(); ovRenderSummary(); }
 }
 
 /* ── U-04: Decision ← Formation back ─────────────────────── */
