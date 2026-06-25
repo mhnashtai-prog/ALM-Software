@@ -175,7 +175,7 @@ let READ_PROPOSED = true;
 let _proposedByRef = {};  // ref -> parsed session keys array [sessionKey, sessionKey]
 
 /* ── HELPERS ──────────────────────────────────────────────── */
-const normB=b=>(b||'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
+const normB=b=>(b||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
 const normS=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const lk=e=>`${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`;
 const getLM=e=>LEVEL_MAP[lk(e)]||{dept:(e.family||'adults'),label:(e.level_code||e.level_cefr||'—'),color:'var(--t3)',order:99,maxCap:60};
@@ -218,7 +218,7 @@ function parseSlot(p){
   let dayIdx=normDay(rawDay);if(dayIdx===null)return null;
   const rawStart=p.from||p.session_start||p.start_time||p.time||(p.hour!==undefined?`${p.hour}:00`:null);
   const fromMins=timeToMins(rawStart);if(fromMins===null)return null;
-  const rawEnd=p.to||p.end_time;
+ const rawEnd=p.to||p.end_time||p.session_end;
   const toMins=rawEnd?timeToMins(rawEnd):fromMins+CLASS_DUR;
   return{dayIdx,fromMins,toMins:toMins||fromMins+CLASS_DUR};
 }
@@ -608,8 +608,9 @@ function planIncremental(levelKey, branch){
     // "Best" = existing session with most room, else solo/new
     const sessionKeys = [];
 
-    // Sort days by number of available slots descending (most flexible first)
-    const sortedDays = days.sort((a,b)=>(a.fitsByDay?.[b]||[]).length - (a.fitsByDay?.[a]||[]).length);
+   // Sort days by number of available slots descending (most flexible first)
+    const sortedDays = days.sort((d1,d2)=>(a.fitsByDay?.[d2]||[]).length - (a.fitsByDay?.[d1]||[]).length);
+     
     // Take exactly 2 days
     const chosenDays = sortedDays.slice(0,2);
 
