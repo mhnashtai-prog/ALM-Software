@@ -2291,7 +2291,8 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-async function refreshData(){
+let _lastRequestCheck = new Date(Date.now()-864e5).toISOString();
+async function checkNewRequests(){
   try{
     const newReqs = await sbGet('timetable_requests',
       `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}&created_at=gt.${_lastRequestCheck}`
