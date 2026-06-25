@@ -2258,7 +2258,7 @@ btn.onclick = async () => {
       live.style.background='rgba(61,232,168,.15)'; live.style.borderColor='rgba(61,232,168,.45)'; live.style.color='#3DE8A8';
       live.innerHTML = '● DIRECTO 60s';
       if (_liveTimer) clearInterval(_liveTimer);
-      _liveTimer = setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
+     _liveTimer = setInterval(() => { if (_bootComplete) checkNewRequests(); }, 60000);
       showToast('Modo directo activado · 60s','ok');
     } else {
       live.style.background='rgba(255,255,255,.04)'; live.style.borderColor='rgba(255,255,255,.15)'; live.style.color='rgba(255,255,255,.55)';
@@ -2287,9 +2287,22 @@ const aguardar = document.createElement('button');
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && _liveTimer){ clearInterval(_liveTimer); _liveTimer = null; }
   else if (!document.hidden && _liveMode && !_liveTimer){
-    _liveTimer = setInterval(() => { if (_bootComplete) refreshData(); }, 60000);
+    _liveTimer = setInterval(() => { if (_bootComplete) checkNewRequests(); }, 60000);
   }
 });
+
+let _lastRequestCheck = new Date().toISOString();
+
+async function checkNewRequests(){
+  const newReqs = await sbGet('timetable_requests',
+    `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}&created_at=gt.${_lastRequestCheck}`
+  ).catch(()=>[]);
+  _lastRequestCheck = new Date().toISOString();
+  if(!newReqs.length) return;
+  newReqs.forEach(r=>{ rByRef[r.ref]=r; if(!allR.find(x=>x.ref===r.ref)) allR.push(r); });
+  document.getElementById('badge-pending').textContent = allE.filter(e=>{ const r=rByRef[e.ref]; return r&&normS(r.status)==='pendente'; }).length||'0';
+  showToast(`${newReqs.length} novo${newReqs.length!==1?'s':''} pedido${newReqs.length!==1?'s':''} recebido${newReqs.length!==1?'s':''}`, 'ok');
+}
 
 boot().then(() => _injectRefreshControls());
 
