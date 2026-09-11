@@ -960,8 +960,14 @@ async function runBootAudit(){
       );
       if(!hasStudents) continue;
 
-      const result=buildProposals(key, branch);
-      if(!result.groups.length && !result.sinalizados.length) continue;
+   function buildFromProposedOrEmpty(levelKey, branch){
+   return buildFromProposed(levelKey, branch) || {
+    groups: [], sinalizados: [],
+    total: 0, withRequest: 0, placed: 0,
+    invalidWinCt: 0, noGroupCt: 0,
+    tierCounts: {forming:0,viable:0,healthy:0,full:0},
+  };
+}
       const offset=allGroups.length;
       allGroups.push(...result.groups);
       allSinal.push(...result.sinalizados);
@@ -1054,7 +1060,14 @@ async function refreshData(){
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
       if(withReq.length>=MIN_G){
-        _allResults[key]=buildProposals(key,'all');
+    function buildFromProposedOrEmpty(levelKey, branch){
+    return buildFromProposed(levelKey, branch) || {
+    groups: [], sinalizados: [],
+    total: 0, withRequest: 0, placed: 0,
+    invalidWinCt: 0, noGroupCt: 0,
+    tierCounts: {forming:0,viable:0,healthy:0,full:0},
+   };
+    }
         _auditResults[key]={};
         _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
       } else {delete _allResults[key];}
