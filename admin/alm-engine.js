@@ -44,18 +44,13 @@ const CLASS_DUR = 90;
 const MIN_G=5, MAX_G=17, ASSIGN_MIN=8;
 const HEALTHY_TARGET=13;
 const RIGID_MAX_WINDOWS=2;
-const SOLO_PREFIX = 'SOLO';
-
-/* ── SESSION KEY HELPERS ──────────────────────────────────────
-   A session key is "dayIdx|startMins" e.g. "0|870" = SEG 14:30
-   proposed_turma stores JSON array of exactly 2 session keys,
-   one per weekly session, with independent times.
-   Legacy pair keys ("dayA-dayB|startMins|ordinal") are detected
-   and transparently converted on read so old data still works.
+/* ── SESSION IDENTITY: TICKET NUMBERS ──────────────────────────
+   Every level+branch+day+time cell gets ONE permanent number,
+   minted once (see resolveTicket below) and never reassigned.
+   proposed_turma stores a JSON array of ticket numbers, e.g.
+   [3,4]. No placeholder/solo state — a ticket with 1 student
+   is just a small 'forming' group, not a special case.
    ─────────────────────────────────────────────────────────── */
-const isSoloKey    = k => k && typeof k === 'string' && k.startsWith(SOLO_PREFIX+'|');
-const isSessionKey = k => k && typeof k === 'string' && /^\d+\|\d+$/.test(k);
-const isLegacyKey  = k => k && typeof k === 'string' && /^\d+-\d+\|\d+/.test(k);
 
 function parseProposedTurma(raw){
   // Returns array of 0, 1 or 2 session-key strings
@@ -67,21 +62,6 @@ function parseProposedTurma(raw){
   } catch {}
   // Single string — legacy pair key or solo key
   return [raw];
-}
-
-function sessionKeyToMins(k){
-  // "dayIdx|startMins" → {dayIdx, startMins}
-  const [d,s] = k.split('|').map(Number);
-  return {dayIdx:d, startMins:s};
-}
-
-function legacyKeyToSessions(k){
-  // "dayA-dayB|startMins|ordinal" → ["dayA|startMins","dayB|startMins"]
-  const parts = k.split('|');
-  const [dA,dB] = (parts[0]||'0-0').split('-').map(Number);
-  const startMins = +parts[1]||0;
-  if(dA===dB) return [`${dA}|${startMins}`];
-  return [`${dA}|${startMins}`, `${dB}|${startMins}`];
 }
 
 function classifyTier(n){
