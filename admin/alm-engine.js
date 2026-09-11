@@ -152,7 +152,11 @@ let _lockedRefs={};
 let _lockMeta={};
 let _proposalCache={};
 let READ_PROPOSED = true;
-let _proposedByRef = {};  // ref -> parsed session keys array [sessionKey, sessionKey]
+let _proposedByRef = {};  // ref -> array of ticket numbers, e.g. [3,4]
+let _ticketRegistry = {};       // ticket -> {dayIdx, startMins, levelKey, branch}
+let _ticketByCell   = {};       // "levelKey§branch§dayIdx§startMins" -> ticket
+let _nextTicketBase = {};       // "levelKey§branch" -> next free ticket number
+let _pendingTicketWrites = [];  // rows queued for the next flushTicketRegistry()
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 const normB=b=>(b||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[\s\-]+/g,'_').replace(/_+/g,'_').trim();
@@ -223,9 +227,62 @@ function toMins(t){
   return(parts[0]||0)*60+(parts[1]||0);
 }
 
+/* ── SLOT REGISTRY (ticket numbers) ────────────────────────────
+   Requires a Supabase table:
+     slot_registry(academic_year, level_key, branch, day_idx,
+                    start_mins, slot_number)
+     unique(academic_year, level_key, branch, day_idx, start_mins)
+   Resets each academic_year — numbering only needs to hold for
+   one Sep–Jun cycle.
+   ─────────────────────────────────────────────────────────── */
+async function loadTicketRegistry(){
+  _ticketRegistry = {}; _ticketByCell = {}; _nextTicketBase = {}; _pendingTicketWrites = [];
+  try{
+    const rows = await sbGet('slot_registry',
+      `select=level_key,branch,day_idx,start_mins,slot_number&academic_year=eq.${AY}`);
+    rows.forEach(r=>{
+      _ticketRegistry[r.slot_number] = {dayIdx:r.day_idx, startMins:r.start_mins, levelKey:r.level_key, branch:r.branch};
+      _ticketByCell[`${r.level_key}§${r.branch}§${r.day_idx}§${r.start_mins}`] = r.slot_number;
+      const base = `${r.level_key}§${r.branch}`;
+      if(!_nextTicketBase[base] || r.slot_number >= _nextTicketBase[base]) _nextTicketBase[base] = r.slot_number + 1;
+    });
+  }catch(e){ console.warn('loadTicketRegistry failed', e); }
+}
+
+function resolveTicket(levelKey, branch, dayIdx, startMins){
+  const cellKey = `${levelKey}§${branch}§${dayIdx}§${startMins}`;
+  if(_ticketByCell[cellKey] != null) return _ticketByCell[cellKey];
+
+  const base = `${levelKey}§${branch}`;
+  if(_nextTicketBase[base] === undefined) _nextTicketBase[base] = 1;
+  const ticket = _nextTicketBase[base]++;
+
+  _ticketRegistry[ticket] = {dayIdx, startMins, levelKey, branch};
+  _ticketByCell[cellKey] = ticket;
+  _pendingTicketWrites.push({
+    academic_year: AY, level_key: levelKey, branch,
+    day_idx: dayIdx, start_mins: startMins, slot_number: ticket,
+  });
+  return ticket;
+}
+
+async function flushTicketRegistry(){
+  if(!_pendingTicketWrites.length) return;
+  const batch = _pendingTicketWrites.splice(0, _pendingTicketWrites.length);
+  const r = await fetch(`${SB}/rest/v1/slot_registry`, {
+    method:'POST',
+    headers:{...H,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify(batch),
+  });
+  if(!r.ok) throw new Error(`flushTicketRegistry: HTTP ${r.status}`);
+}
+
 /* ── LOAD PROPOSED ────────────────────────────────────────────
    _proposedByRef[ref] = array of session keys, e.g. ["0|870","4|1020"]
    Handles legacy pair keys transparently.
+   ─────────────────────────────────────────────────────────── */
+/* ── LOAD PROPOSED ────────────────────────────────────────────
+   _proposedByRef[ref] = array of ticket numbers, e.g. [3,4]
    ─────────────────────────────────────────────────────────── */
 async function loadProposed(){
   _proposedByRef = {};
@@ -235,14 +292,10 @@ async function loadProposed(){
       `select=ref,proposed_turma&academic_year=eq.${AY}&proposed_turma=not.is.null`);
     rows.forEach(r=>{
       if(!r.proposed_turma) return;
-      const raw = parseProposedTurma(r.proposed_turma);
-      // Convert legacy pair keys to session keys
-      const sessions = [];
-      raw.forEach(k=>{
-        if(isLegacyKey(k)) sessions.push(...legacyKeyToSessions(k));
-        else if(isSessionKey(k) || isSoloKey(k)) sessions.push(k);
-      });
-      if(sessions.length) _proposedByRef[r.ref] = sessions;
+      const tickets = parseProposedTurma(r.proposed_turma)
+        .map(Number)
+        .filter(n=>Number.isFinite(n) && n>0);
+      if(tickets.length) _proposedByRef[r.ref] = tickets;
     });
   }catch(e){ console.warn('loadProposed failed', e); }
 }
@@ -254,6 +307,11 @@ async function loadProposed(){
    pair of days — we reconstruct it by matching students who
    share both sessions.
    ─────────────────────────────────────────────────────────── */
+/* ── buildFromProposed ────────────────────────────────────────
+   Buckets students by ticket number. A ticket's meaning (which
+   day + time it represents) comes from _ticketRegistry. No solo/
+   placeholder bucket — a group of 1 is just tier:'forming'.
+   ─────────────────────────────────────────────────────────── */
 function buildFromProposed(levelKey, branch){
   const all = allE.filter(e=>{
     if(lk(e)!==levelKey) return false;
@@ -262,46 +320,35 @@ function buildFromProposed(levelKey, branch){
   });
   const withReq = all.filter(e=>!!rByRef[e.ref]);
 
-  // Bucket students by each individual session key
-  // sessionBuckets["dayIdx|startMins"] = [enrolment, ...]
- const sessionBuckets = {};
-const soloStudents   = [];
-const placed         = new Set();
-const awaitingCalc   = [];
+  const sessionBuckets = {}; // "branch§ticket" -> {ticket, cell, students:[]}
+  const awaitingCalc = [];
 
   withReq.forEach(e=>{
-  const sessions = _proposedByRef[e.ref];
-  if(!sessions || !sessions.length){
-    awaitingCalc.push(e);
-    return;
-  }
-  const soloKeys   = sessions.filter(isSoloKey);
-  const normalKeys = sessions.filter(isSessionKey);
-
-  soloKeys.forEach(soloKey=>soloStudents.push({e, soloKey}));
-  normalKeys.forEach(sk=>{
-    const bk = normB(e.branch)+'§'+sk;
-    (sessionBuckets[bk] = sessionBuckets[bk] || {sk, students:[]}).students.push(e);
-  });
-  if(soloKeys.length || normalKeys.length) placed.add(e.ref);
+    const tickets = _proposedByRef[e.ref];
+    if(!tickets || !tickets.length){
+      awaitingCalc.push(e);
+      return;
+    }
+    tickets.forEach(ticket=>{
+      const cell = _ticketRegistry[ticket];
+      if(!cell) return; // unknown ticket (stale data) — skip safely
+      const bk = normB(e.branch)+'§'+ticket;
+      (sessionBuckets[bk] = sessionBuckets[bk] || {ticket, cell, students:[]}).students.push(e);
+    });
   });
 
-if(!Object.keys(sessionBuckets).length && !soloStudents.length && !awaitingCalc.length) return null;
+  if(!Object.keys(sessionBuckets).length && !awaitingCalc.length) return null;
 
-  // Build group objects from session buckets
-  // Each unique session = one group object for the grid
   const groups = [];
-  Object.values(sessionBuckets).forEach(({sk, students})=>{
-    const {dayIdx, startMins} = sessionKeyToMins(sk);
-    // Deduplicate students (a student appears in each of their sessions)
+  Object.values(sessionBuckets).forEach(({ticket, cell, students})=>{
+    const {dayIdx, startMins} = cell;
     const seen = new Set();
     const uniq = students.filter(e=>{ if(seen.has(e.ref)) return false; seen.add(e.ref); return true; });
     const t = classifyTier(uniq.length);
-    // Find a compatible pairDef for display purposes only
     const pairDef = ALM_PAIRS.find(p=>p.a===dayIdx) || null;
     groups.push({
       pairDef,
-      dayIdx_A: dayIdx, dayIdx_B: dayIdx,  // single session — same day both sides
+      dayIdx_A: dayIdx, dayIdx_B: dayIdx,
       dayL_A: DAYS_PT[dayIdx]||'?', dayL_B: DAYS_PT[dayIdx]||'?',
       dayL: DAYS_PT[dayIdx]||'?', dayIdx,
       startMins,
@@ -310,38 +357,24 @@ if(!Object.keys(sessionBuckets).length && !soloStudents.length && !awaitingCalc.
       students:  uniq,
       tier: t.tier, tierColor: t.color, tierLabel: t.label,
       _fromProposed: true,
-      _sessionKey: sk,
+      _sessionKey: ticket,
+      slotNumber: ticket,
     });
   });
 
-  // Solo sinalizados
-  const sinalizados = [];
-  soloStudents.forEach(({e, soloKey})=>{
-    const parts = soloKey.split('|');
-    const dayIdx = +parts[1]||0;
-    const startMins = +parts[2]||0;
-    sinalizados.push({
-      e,
-      reason: 'solo-queue',
-      why: `À espera de turma · ${DAYS_PT[dayIdx]||'?'} ${minsToT(startMins)} · aguarda mais alunos`,
-      soloKey,
-    });
-  });
-
-  // Count unique students placed, not sessions
   const uniquePlaced = new Set();
   groups.forEach(g => g.students.forEach(s => uniquePlaced.add(s.ref)));
   const tierCounts={forming:0,viable:0,healthy:0,full:0};
   groups.forEach(g=>tierCounts[g.tier]++);
-  
+
   return {
     groups,
-    sinalizados,
+    sinalizados: [],
     total:        all.length,
     withRequest:  withReq.length,
     placed:       uniquePlaced.size,
     invalidWinCt: 0,
-   noGroupCt:    withReq.length - uniquePlaced.size,
+    noGroupCt:    withReq.length - uniquePlaced.size,
     tierCounts,
   };
 }
@@ -531,12 +564,10 @@ function buildProposals(levelKey, branch){
 }
 
 /* ── planIncremental ──────────────────────────────────────────
-   Session-first incremental placement.
-   For each awaiting student, independently assigns:
-     - Session A: best available slot on their preferred day A
-     - Session B: best available slot on their preferred day B
-   Writes proposed_turma as JSON array: ["dayA|startMins","dayB|startMins"]
-   Students alone at a slot get a SOLO key for that session.
+   Ticket-based incremental placement. For each awaiting student,
+   independently resolves a ticket for each of their 2 best days
+   via resolveTicket()/slot_registry. A ticket is minted once and
+   never re-issued — no placeholder state to migrate later.
    ─────────────────────────────────────────────────────────── */
 function planIncremental(levelKey, branch){
   const proposedByRef = _proposedByRef;
@@ -551,29 +582,13 @@ function planIncremental(levelKey, branch){
   const inScope = e => lk(e)===levelKey && (branch==='all'||normB(e.branch)===branch) && !!rByRef[e.ref];
   const scope   = allE.filter(inScope);
 
-  // Build snapshot of existing sessions from placed students
-  // sessionRoster["dayIdx|startMins"] -> Set of refs
+  // sessionRoster[ticket] -> Set of refs already holding that ticket
   const sessionRoster = {};
   scope.forEach(e=>{
-    const sessions = proposedByRef[e.ref];
-    if(!sessions) return;
-    sessions.forEach(sk=>{
-      if(!isSessionKey(sk)) return;
-      (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(e.ref);
-    });
-  });
-
-  // Solo roster: dayIdx|startMins -> Set of refs currently in solo
-  const soloRoster = {};
-  scope.forEach(e=>{
-    const sessions = proposedByRef[e.ref];
-    if(!sessions) return;
-    sessions.forEach(sk=>{
-      if(!isSoloKey(sk)) return;
-      // SOLO|dayIdx|startMins
-      const parts = sk.split('|');
-      const realSk = `${parts[1]}|${parts[2]}`;
-      (soloRoster[realSk] = soloRoster[realSk] || new Set()).add(e.ref);
+    const tickets = proposedByRef[e.ref];
+    if(!tickets) return;
+    tickets.forEach(t=>{
+      (sessionRoster[t] = sessionRoster[t] || new Set()).add(e.ref);
     });
   });
 
@@ -582,7 +597,6 @@ function planIncremental(levelKey, branch){
     const req = rByRef[e.ref];
     const raw = parseDayPrefs(req.slots||req.day_preferences);
     const w   = raw.map(p=>parseSlot(p)).filter(Boolean);
-    // fitsByDay: dayIdx -> [startMins that fit]
     const fitsByDay = {};
     allowedDays.forEach(d=>{
       const fits = SLOTS.filter(s=>coversSession(w, d, s));
@@ -592,85 +606,47 @@ function planIncremental(levelKey, branch){
   });
 
   const plan = {};
-  let foldedExisting=0, newSessions=0, soloQueued=0, soloPromoted=0, pending=0;
-  const pendingRefs = [], soloRefs = [];
+  let foldedExisting=0, newSessions=0, pending=0;
+  const pendingRefs = [];
 
   awaiting.forEach(a=>{
     const days = Object.keys(a.fitsByDay).map(Number);
     if(days.length < 2){
-      // Can't form 2 sessions — true pending
       pending++;
       pendingRefs.push(a.ref);
       return;
     }
 
-    // For each of the 2 most-available days, find the best session
-    // "Best" = existing session with most room, else solo/new
-    const sessionKeys = [];
-
-   // Sort days by number of available slots descending (most flexible first)
     const sortedDays = days.sort((d1,d2)=>(a.fitsByDay?.[d2]||[]).length - (a.fitsByDay?.[d1]||[]).length);
-     
-    // Take exactly 2 days
     const chosenDays = sortedDays.slice(0,2);
 
-    let canPlace = true;
+    const tickets = [];
     chosenDays.forEach(dayIdx=>{
       const fits = a.fitsByDay[dayIdx] || [];
 
-      // Try to fold into existing session
-      const hit = fits.find(s=>{
-        const sk = `${dayIdx}|${s}`;
-        return sessionRoster[sk] && sessionRoster[sk].size < MAX_G;
+      // Prefer a time that already has a ticket with room
+      let startMins = fits.find(s=>{
+        const existingTicket = _ticketByCell[`${levelKey}§${branch}§${dayIdx}§${s}`];
+        return existingTicket != null && (sessionRoster[existingTicket]?.size||0) < MAX_G;
       });
+      if(startMins === undefined) startMins = fits[0]; // no room anywhere — open a fresh ticket
 
-      if(hit){
-        const sk = `${dayIdx}|${hit}`;
-        (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(a.ref);
-        sessionKeys.push(sk);
-        foldedExisting++;
-        return;
-      }
-
-      // Check if solo promotion is possible (existing solos + this student >= MIN_G)
-      const soloHit = fits.find(s=>{
-        const sk = `${dayIdx}|${s}`;
-        return (soloRoster[sk]?.size||0) + 1 >= MIN_G;
-      });
-
-      if(soloHit){
-        const sk = `${dayIdx}|${soloHit}`;
-        // Promote all solos at this slot to a real session
-        (soloRoster[sk]||new Set()).forEach(r=>{
-          // Update their plan to real session key
-          plan[r] = plan[r] || {};
-          plan[r][dayIdx] = sk;
-          soloPromoted++;
-        });
-        (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(a.ref);
-        soloRoster[sk] = new Set(); // consumed
-        sessionKeys.push(sk);
-        newSessions++;
-        return;
-      }
-
-      // No existing session fits — queue as solo for this day
-      const s = fits[0];
-      const sk = `${dayIdx}|${s}`;
-      const soloKey = `${SOLO_PREFIX}|${dayIdx}|${s}`;
-      (soloRoster[sk] = soloRoster[sk] || new Set()).add(a.ref);
-      sessionKeys.push(soloKey);
-      soloQueued++;
+      const wasExisting = _ticketByCell[`${levelKey}§${branch}§${dayIdx}§${startMins}`] != null;
+      const ticket = resolveTicket(levelKey, branch, dayIdx, startMins);
+      (sessionRoster[ticket] = sessionRoster[ticket] || new Set()).add(a.ref);
+      tickets.push(ticket);
+      if(wasExisting) foldedExisting++; else newSessions++;
     });
 
-    if(sessionKeys.length >= 2){
-      plan[a.ref] = { sessions: sessionKeys, how: sessionKeys.some(isSoloKey) ? 'solo-queue' : 'placed' };
-      if(sessionKeys.some(isSoloKey)) soloRefs.push(a.ref);
-    } else {
-      pending++;
-      pendingRefs.push(a.ref);
-    }
+    plan[a.ref] = { sessions: tickets, how: 'placed' };
   });
+
+  return {
+    plan,
+    counts:{ awaiting:awaiting.length, foldedExisting, newSessions, pending },
+    pendingRefs,
+  };
+}
 
   // Handle solo promotions: students already in solo who need their key updated
   Object.entries(soloRoster).forEach(([sk, refs])=>{
@@ -709,31 +685,31 @@ function planIncremental(levelKey, branch){
 function chunk(arr, n){ const out=[]; for(let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 
 /* ── applyIncremental ─────────────────────────────────────────
-   Writes proposed_turma as JSON array of session keys.
-   ["0|870","4|1020"] = SEG 14:30 + SEX 17:00 (independent times)
+   Writes proposed_turma as a JSON array of ticket numbers, e.g.
+   [3,4]. Tickets come from resolveTicket()/slot_registry.
    ─────────────────────────────────────────────────────────── */
 async function applyIncremental(){
-  const toWrite = {};  // ref -> JSON string of session array
-  let tA=0,tF=0,tNS=0,tSQ=0,tSP=0,tP=0;
+  const toWrite = {};  // ref -> JSON string of ticket array
+  let tA=0,tF=0,tNS=0,tP=0;
 
   for(const levelKey of Object.keys(LEVEL_MAP)){
     for(const branch of BRANCH_ORDER){
       const here = allE.filter(e=>lk(e)===levelKey && normB(e.branch)===branch && !!rByRef[e.ref]);
       if(!here.length) continue;
       const hasAwaiting = here.some(e=>!_proposedByRef[e.ref]);
-      const hasSolo     = here.some(e=>(_proposedByRef[e.ref]||[]).some(isSoloKey));
-      if(!hasAwaiting && !hasSolo) continue;
+      if(!hasAwaiting) continue;
 
       const r = planIncremental(levelKey, branch);
       tA+=r.counts.awaiting; tF+=r.counts.foldedExisting;
-      tNS+=r.counts.newSessions; tSQ+=r.counts.soloQueued;
-      tSP+=r.counts.soloPromoted; tP+=r.counts.pending;
+      tNS+=r.counts.newSessions; tP+=r.counts.pending;
 
       Object.entries(r.plan).forEach(([ref, entry])=>{
         toWrite[ref] = JSON.stringify(entry.sessions);
       });
     }
   }
+
+  await flushTicketRegistry();
 
   let written = 0;
   const refs = Object.keys(toWrite);
@@ -752,11 +728,10 @@ async function applyIncremental(){
   }
 
   return {
-    counts:{awaiting:tA, foldedExisting:tF, newSessions:tNS, soloQueued:tSQ, soloPromoted:tSP, pending:tP},
+    counts:{awaiting:tA, foldedExisting:tF, newSessions:tNS, pending:tP},
     written,
   };
 }
-
 function countAguardarTurma(){
   let basket=0, incompleteAddress=0;
   const byLevel={}, basketRefs=[], incompleteRefs=[];
@@ -941,6 +916,7 @@ async function runBootAudit(){
 
   await loadNextSeqBase();
   _proposalCache={};
+  await loadTicketRegistry();
   await loadProposed();
 
   setBoot('A agrupar e auditar todos os níveis…');
@@ -1048,6 +1024,7 @@ async function refreshData(){
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r;});
     _proposalCache={};
+    await loadTicketRegistry();
     await loadProposed();
     await applyIncremental();
     await loadProposed();
