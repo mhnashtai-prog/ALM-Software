@@ -1322,18 +1322,17 @@ async function qaAssign(e, turmaCode){
   );
   if(hasConflict){showToast(`Conflito: ${t.code} já tem aula neste período`,'err');return;}
   const prev={id:c.teacher_id,code:c.teacher_code};
-  const groupCode=c.group_code||turmaCode;
-  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=QA_TEACHER;x.teacher_code=t.code;x.teacher_name=t.name;});
+  CLASSES.filter(x=>x.turma_code===turmaCode).forEach(x=>{x.teacher_id=QA_TEACHER;x.teacher_code=t.code;x.teacher_name=t.name;});
   drawBands();renderTeacherList();updateKPIs();renderDashboard();
   try{
-    await patchTurma(groupCode,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code});
+    await patchSingleTurma(turmaCode,{teacher_id:t.id,teacher_name:t.name,teacher_code:t.code});
     pushUndo(turmaCode,prev.id,prev.code,t.id,t.code);
-    showToast(`${groupCode} (A+B) → ${t.code} ✓`,'ok');
+    showToast(`${turmaCode} → ${t.code} ✓`,'ok');
   }catch{
-    CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=prev.id;x.teacher_code=prev.code;x.teacher_name=null;});
+    CLASSES.filter(x=>x.turma_code===turmaCode).forEach(x=>{x.teacher_id=prev.id;x.teacher_code=prev.code;x.teacher_name=null;});
     drawBands();showToast('Erro ao guardar','err');
   }
-}
+   }
 
 /* ════════════════════════════════════════════════
    TOOLTIP
@@ -1443,8 +1442,8 @@ function openPopup(e, turmaCode){
   const hasPair=CLASSES.filter(x=>x.group_code===gc).length>1;
   const toggleEl=document.getElementById('pop-share-toggle');
   toggleEl.style.display=hasPair?'block':'none';
-  POP_MODE='mesmo';POP_SEL_B=null;
-  setPopMode('mesmo');
+  POP_SEL_B=null;
+  setPopMode(hasPair?'partilhado':'mesmo');
 
   posPopup(e);
   document.getElementById('popup').classList.add('open');
@@ -1547,14 +1546,13 @@ async function popConfirm(){
 async function popRemove(){
   const c=CLASSES.find(x=>x.turma_code===POP_TURMA);if(!c)return;
   const prev={id:c.teacher_id,code:c.teacher_code};
-  const groupCode=c.group_code||POP_TURMA;
-  CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=null;x.teacher_code=null;x.teacher_name=null;});
+  CLASSES.filter(x=>x.turma_code===POP_TURMA).forEach(x=>{x.teacher_id=null;x.teacher_code=null;x.teacher_name=null;});
   try{
-    await patchTurma(groupCode,{teacher_id:null,teacher_name:null,teacher_code:null});
+    await patchSingleTurma(POP_TURMA,{teacher_id:null,teacher_name:null,teacher_code:null});
     pushUndo(POP_TURMA,prev.id,prev.code,null,null);
-    showToast('Professor removido (A+B)','info');
+    showToast(`${POP_TURMA} — professor removido`,'info');
   }catch{
-    CLASSES.filter(x=>x.group_code===groupCode).forEach(x=>{x.teacher_id=prev.id;x.teacher_code=prev.code;});
+    CLASSES.filter(x=>x.turma_code===POP_TURMA).forEach(x=>{x.teacher_id=prev.id;x.teacher_code=prev.code;});
     showToast('Erro ao remover','err');
   }
   closePopup();renderAll();renderDashboard();
