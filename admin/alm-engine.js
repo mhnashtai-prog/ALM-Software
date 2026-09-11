@@ -278,10 +278,6 @@ async function flushTicketRegistry(){
 }
 
 /* ── LOAD PROPOSED ────────────────────────────────────────────
-   _proposedByRef[ref] = array of session keys, e.g. ["0|870","4|1020"]
-   Handles legacy pair keys transparently.
-   ─────────────────────────────────────────────────────────── */
-/* ── LOAD PROPOSED ────────────────────────────────────────────
    _proposedByRef[ref] = array of ticket numbers, e.g. [3,4]
    ─────────────────────────────────────────────────────────── */
 async function loadProposed(){
@@ -300,13 +296,6 @@ async function loadProposed(){
   }catch(e){ console.warn('loadProposed failed', e); }
 }
 
-/* ── buildFromProposed ────────────────────────────────────────
-   Session-first: each student has up to 2 independent session
-   keys. Groups are reconstructed per session (one day at a time).
-   For the grid display we still need a "group" object with a
-   pair of days — we reconstruct it by matching students who
-   share both sessions.
-   ─────────────────────────────────────────────────────────── */
 /* ── buildFromProposed ────────────────────────────────────────
    Buckets students by ticket number. A ticket's meaning (which
    day + time it represents) comes from _ticketRegistry. No solo/
@@ -645,40 +634,6 @@ function planIncremental(levelKey, branch){
     plan,
     counts:{ awaiting:awaiting.length, foldedExisting, newSessions, pending },
     pendingRefs,
-  };
-}
-
-  // Handle solo promotions: students already in solo who need their key updated
-  Object.entries(soloRoster).forEach(([sk, refs])=>{
-    if(!refs.size) return; // consumed by promotion above
-    // These are EXISTING solo students — check if now promotable
-    // (This handles the case where multiple new arrivals push the count over MIN_G)
-    if(refs.size >= MIN_G){
-      refs.forEach(r=>{
-        if(!plan[r]){
-          // Find which session this solo belongs to and update
-          const sessions = proposedByRef[r];
-          if(!sessions) return;
-          const updated = sessions.map(s=>{
-            if(isSoloKey(s)){
-              const parts = s.split('|');
-              const realSk = `${parts[1]}|${parts[2]}`;
-              return realSk === sk ? sk : s; // promote this day's solo to real
-            }
-            return s;
-          });
-          plan[r] = { sessions: updated, how: 'solo-promoted' };
-          soloPromoted++;
-        }
-      });
-    }
-  });
-
-  return {
-    plan,
-    counts:{ awaiting:awaiting.length, foldedExisting, newSessions, soloQueued, soloPromoted, pending },
-    pendingRefs,
-    soloRefs,
   };
 }
 
