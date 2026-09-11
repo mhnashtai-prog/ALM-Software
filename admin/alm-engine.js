@@ -305,7 +305,6 @@ const awaitingCalc   = [];
   });
   if(soloKeys.length || normalKeys.length) placed.add(e.ref);
   });
-  });
 
 if(!Object.keys(sessionBuckets).length && !soloStudents.length && !awaitingCalc.length) return null;
 
