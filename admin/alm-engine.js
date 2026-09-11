@@ -368,10 +368,30 @@ function buildFromProposed(levelKey, branch){
   };
 }
 
+/* ── buildFromProposedOrEmpty ────────────────────────────────
+   Read-only wrapper around buildFromProposed(). Never falls
+   through to the heavy greedy algorithm — used by boot and by
+   refreshData() so a page load / data refresh NEVER triggers a
+   full recompute. If nothing is stored yet for a level/branch,
+   returns an empty-but-valid result shape instead of null.
+   ─────────────────────────────────────────────────────────── */
+function buildFromProposedOrEmpty(levelKey, branch){
+  return buildFromProposed(levelKey, branch) || {
+    groups: [], sinalizados: [],
+    total: 0, withRequest: 0, placed: 0,
+    invalidWinCt: 0, noGroupCt: 0,
+    tierCounts: {forming:0,viable:0,healthy:0,full:0},
+  };
+}
+
 /* ── buildProposals ───────────────────────────────────────────
    Session-first compute path (used when no stored data exists).
    Each student gets two independent session placements — one per
    available day. Sessions are scored independently per day.
+   NOTE: This is the "compute from scratch" path. It is only ever
+   called explicitly (e.g. by applyIncremental's underlying logic
+   or a future "compute this level" UI action) — never from boot
+   or refreshData, which both use buildFromProposedOrEmpty above.
    ─────────────────────────────────────────────────────────── */
 function buildProposals(levelKey, branch){
   if(READ_PROPOSED){
@@ -960,14 +980,9 @@ async function runBootAudit(){
       );
       if(!hasStudents) continue;
 
-   function buildFromProposedOrEmpty(levelKey, branch){
-   return buildFromProposed(levelKey, branch) || {
-    groups: [], sinalizados: [],
-    total: 0, withRequest: 0, placed: 0,
-    invalidWinCt: 0, noGroupCt: 0,
-    tierCounts: {forming:0,viable:0,healthy:0,full:0},
-  };
-}
+      // Read-only reconstruction from stored proposed_turma — never
+      // a full greedy recompute on boot.
+      const result = buildFromProposedOrEmpty(key, branch);
       const offset=allGroups.length;
       allGroups.push(...result.groups);
       allSinal.push(...result.sinalizados);
@@ -1060,17 +1075,13 @@ async function refreshData(){
     for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
       if(withReq.length>=MIN_G){
-    function buildFromProposedOrEmpty(levelKey, branch){
-    return buildFromProposed(levelKey, branch) || {
-    groups: [], sinalizados: [],
-    total: 0, withRequest: 0, placed: 0,
-    invalidWinCt: 0, noGroupCt: 0,
-    tierCounts: {forming:0,viable:0,healthy:0,full:0},
-   };
-    }
+        // Read-only reconstruction — never a full recompute on refresh.
+        _allResults[key]=buildFromProposedOrEmpty(key,'all');
         _auditResults[key]={};
         _allResults[key].groups.forEach((g,i)=>{if(!(_groupCodes[key]||{})[i])_auditResults[key][i]=auditGroupSync(g);});
-      } else {delete _allResults[key];}
+      } else {
+        delete _allResults[key];
+      }
     }
     await reconstructLockedGroups();
     updateSidebarKPIs();initBranchStrip();renderExcBar();renderTree();
