@@ -353,6 +353,8 @@ function buildFromProposed(levelKey, branch){
   // Count unique students placed, not sessions
   const uniquePlaced = new Set();
   groups.forEach(g => g.students.forEach(s => uniquePlaced.add(s.ref)));
+  const tierCounts={forming:0,viable:0,healthy:0,full:0};
+  groups.forEach(g=>tierCounts[g.tier]++);
   
   return {
     groups,
