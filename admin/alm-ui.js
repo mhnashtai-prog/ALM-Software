@@ -14,6 +14,7 @@
    U-07  Wax seal hover — rotation removed, shadow reduced
    D-01  Historial tab + pane removed (turma_students columns don't exist)
    D-02  grade_final → grade (correct column name)
+   S-01  Solo/waiting stamps (drawSoloStamps) properly scoped and wired
 ═══════════════════════════════════════════════════════════════ */
 
 const debounce = (fn, ms) => {
@@ -97,10 +98,13 @@ function drawAvailBands(containerId, withReq, levelKey, result) {
   const wrap = document.getElementById(`${containerId}-rows-wrap`);
   if (!wrap) return;
   wrap.querySelectorAll('.sg-avail').forEach(b => b.remove());
-  if (result?.groups?.length) return;
+    const placedRefs = new Set();
+  (result?.groups || []).forEach(g => g.students.forEach(s => placedRefs.add(s.ref)));
+  const unplaced = withReq.filter(e => !placedRefs.has(e.ref));
+  if (!unplaced.length) return;
   if (!_rowRectCache[containerId]) _primeRowRectCache(containerId);
 
-  withReq.forEach(e => {
+    unplaced.forEach(e => {
     const a = analysePrefs(e.ref);
     if (!a) return;
     a.windows.forEach(w => {
@@ -336,7 +340,7 @@ function drawStamps(containerId, levelKey, result) {
       band.addEventListener('mouseenter', ev => {
         _ttTimer = setTimeout(() => _showStampTooltip(ev, band, wrap, g, i, levelKey), 120);
       });
-      band.addEventListener('mouseleave', () => {
+    band.addEventListener('mouseleave', () => {
         clearTimeout(_ttTimer);
         _hideStampTooltip();
       });
@@ -344,6 +348,49 @@ function drawStamps(containerId, levelKey, result) {
       band.addEventListener('click', ev => { ev.stopPropagation(); openGroupModal(levelKey, i); });
       wrap.appendChild(band);
     });
+  });
+}
+
+/* ── SOLO / WAITING STAMPS ────────────────────────────────── */
+function drawSoloStamps(containerId, levelKey, result) {
+  const wrap = document.getElementById(`${containerId}-rows-wrap`);
+  if (!wrap) return;
+  wrap.querySelectorAll('.sg-solo-stamp').forEach(s => s.remove());
+  const solos = (result?.sinalizados || []).filter(s => s.reason === 'solo-queue' && s.soloKey);
+  if (!solos.length) return;
+  if (!_rowRectCache[containerId]) _primeRowRectCache(containerId);
+
+  const bySlot = {};
+  solos.forEach(s => { (bySlot[s.soloKey] = bySlot[s.soloKey] || []).push(s); });
+
+  Object.entries(bySlot).forEach(([soloKey, group]) => {
+    const parts = soloKey.split('|');
+    const dayIdx = +parts[1] || 0, startMins = +parts[2] || 0;
+    const dayL = DAYS_PT[dayIdx]; if (!dayL) return;
+    const rowEl = document.getElementById(`${containerId}-row-${dayL}`);
+    if (!rowEl) return;
+    const startT = minsToT(startMins), endT = minsToT(startMins + CLASS_DUR);
+    const pos = timeToBandPos(startT, endT, rowEl);
+    if (!pos) return;
+    const cached = _rowRectCache[containerId]?.[dayL];
+    if (!cached) return;
+    const col = '#E8A020', n = group.length, showText = pos.width > 60;
+
+    const band = document.createElement('div');
+    band.className = 'sg-solo-stamp';
+    band.style.cssText = [
+      `left:${cached.left + pos.left}px`, `top:${cached.top + 2}px`,
+      `width:${pos.width}px`, `height:${rowEl.offsetHeight - 4}px`,
+      `background:rgba(232,160,32,.10)`, `border:1.5px dashed ${col}99`,
+      `display:flex`, `align-items:center`, `justify-content:center`, `gap:4px`,
+      `position:absolute`, `cursor:pointer`, `border-radius:3px`,
+    ].join(';');
+    band.innerHTML = showText
+      ? `<span style="font-size:8px;font-weight:700;color:${col}">⏳ ${n}</span><span style="font-size:6.5px;color:${col};opacity:.8">aguarda</span>`
+      : `<span style="font-size:8px;font-weight:700;color:${col}">⏳${n}</span>`;
+    band.title = group.map(s => `${s.e.name || s.e.ref} · ${s.why}`).join('\n');
+    band.addEventListener('click', ev => { ev.stopPropagation(); openDossier(group[0].e.ref); });
+    wrap.appendChild(band);
   });
 }
 
@@ -757,6 +804,7 @@ function refreshUIAfterCertify(levelKey) {
       _rowRectCache['ov-grid-container'] = {};
       requestAnimationFrame(() => requestAnimationFrame(() => {
         drawStamps('sg-grid-container', levelKey, _allResults[levelKey]);
+        drawSoloStamps('sg-grid-container', levelKey, _allResults[levelKey]);
       }));
     }
   }
@@ -847,6 +895,7 @@ function renderLevelContent() {
     if (activeLevelKey !== _capturedKey) return;
   drawAvailBands('sg-grid-container', withReq, _capturedKey, _capturedResult);
     drawStamps('sg-grid-container', _capturedKey, _capturedResult);
+    drawSoloStamps('sg-grid-container', _capturedKey, _capturedResult);
   }));
 }
 
@@ -1007,6 +1056,7 @@ function ovDrillToFormation(levelKey) {
     if (_ovActiveLevel !== _ovCapturedKey) return;
      drawAvailBands('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
     drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
+    drawSoloStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
   }));
 }
 
@@ -1887,7 +1937,7 @@ function _showMudarStep1(ref, enrol, codeA, codeB, currentGroupKey, currentGroup
   const g = currentGroupKey ? _allResults[currentGroupKey]?.groups[currentGroupIdx] : null;
   const slotA = g ? `${g.dayL_A || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
   const slotB = g ? `${g.dayL_B || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
-  document.getElementById('mt-columns').innerHTML = `<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA || '—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB || '—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div>`;
+  document.getElementById('mt-columns').innerHTML = `<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA || '—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB || '—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div></div>`;
   document.getElementById('mt-overlay').classList.add('open');
   document.getElementById('mt-success').className = 'mt-success';
   document.getElementById('mt-confirm-btn').disabled = true;
