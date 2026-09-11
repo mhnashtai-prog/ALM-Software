@@ -284,31 +284,30 @@ function buildFromProposed(levelKey, branch){
 
   // Bucket students by each individual session key
   // sessionBuckets["dayIdx|startMins"] = [enrolment, ...]
-  const sessionBuckets = {};
-  const soloStudents   = [];
-  const placed         = new Set();
+ const sessionBuckets = {};
+const soloStudents   = [];
+const placed         = new Set();
+const awaitingCalc   = [];
 
   withReq.forEach(e=>{
-    const sessions = _proposedByRef[e.ref];
-    if(!sessions || !sessions.length) return;
+  const sessions = _proposedByRef[e.ref];
+  if(!sessions || !sessions.length){
+    awaitingCalc.push(e);
+    return;
+  }
+  const soloKeys   = sessions.filter(isSoloKey);
+  const normalKeys = sessions.filter(isSessionKey);
 
-    // Solo queue
-    if(sessions.length === 1 && isSoloKey(sessions[0])){
-      soloStudents.push({e, soloKey: sessions[0]});
-      placed.add(e.ref);
-      return;
-    }
-
-    // Normal sessions
-    sessions.forEach(sk=>{
-      if(!isSessionKey(sk)) return;
-      const bk = normB(e.branch)+'§'+sk;
-      (sessionBuckets[bk] = sessionBuckets[bk] || {sk, students:[]}).students.push(e);
-      placed.add(e.ref);
-    });
+  soloKeys.forEach(soloKey=>soloStudents.push({e, soloKey}));
+  normalKeys.forEach(sk=>{
+    const bk = normB(e.branch)+'§'+sk;
+    (sessionBuckets[bk] = sessionBuckets[bk] || {sk, students:[]}).students.push(e);
+  });
+  if(soloKeys.length || normalKeys.length) placed.add(e.ref);
+  });
   });
 
-  if(!Object.keys(sessionBuckets).length && !soloStudents.length) return null;
+if(!Object.keys(sessionBuckets).length && !soloStudents.length && !awaitingCalc.length) return null;
 
   // Build group objects from session buckets
   // Each unique session = one group object for the grid
@@ -1070,6 +1069,8 @@ async function refreshData(){
     allE=enrol||[];allR=reqs||[];rByRef={};
     allR.forEach(r=>{rByRef[r.ref]=r;});
     _proposalCache={};
+    await loadProposed();
+    await applyIncremental();
     await loadProposed();
     document.getElementById('pill-total').textContent=`${allE.length} al`;
     for(const key of Object.keys(LEVEL_MAP)){
