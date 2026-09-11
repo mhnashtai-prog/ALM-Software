@@ -984,9 +984,9 @@ async function refreshData(){
     await applyIncremental();
     await loadProposed();
     document.getElementById('pill-total').textContent=`${allE.length} al`;
-    for(const key of Object.keys(LEVEL_MAP)){
+       for(const key of Object.keys(LEVEL_MAP)){
       const withReq=allE.filter(e=>lk(e)===key&&!!rByRef[e.ref]);
-      if(withReq.length>=MIN_G){
+      if(withReq.length>0){
         // Read-only reconstruction — never a full recompute on refresh.
         _allResults[key]=buildFromProposedOrEmpty(key,'all');
         _auditResults[key]={};
