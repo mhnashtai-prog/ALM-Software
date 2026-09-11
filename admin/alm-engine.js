@@ -660,20 +660,11 @@ function planIncremental(levelKey, branch){
 
       if(soloHit){
         const sk = `${dayIdx}|${soloHit}`;
-        const staleSoloKey = `${SOLO_PREFIX}|${dayIdx}|${soloHit}`;
         // Promote all solos at this slot to a real session
         (soloRoster[sk]||new Set()).forEach(r=>{
-          if(!plan[r]){
-            // no other pending change for this student yet — rebuild from their stored sessions
-            const existing = _proposedByRef[r] || [];
-            plan[r] = {
-              sessions: existing.map(s => s === staleSoloKey ? sk : s),
-              how: 'solo-promoted',
-            };
-          } else {
-            plan[r].sessions = (plan[r].sessions || []).map(s => s === staleSoloKey ? sk : s);
-            plan[r].how = 'solo-promoted';
-          }
+          // Update their plan to real session key
+          plan[r] = plan[r] || {};
+          plan[r][dayIdx] = sk;
           soloPromoted++;
         });
         (sessionRoster[sk] = sessionRoster[sk] || new Set()).add(a.ref);
@@ -682,6 +673,7 @@ function planIncremental(levelKey, branch){
         newSessions++;
         return;
       }
+
       // No existing session fits — queue as solo for this day
       const s = fits[0];
       const sk = `${dayIdx}|${s}`;
