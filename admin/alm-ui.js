@@ -21,6 +21,17 @@ const debounce = (fn, ms) => {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 };
 
+/* ═══════════════════════════════════════════════════════════════
+   ALM UI  ·  alm-ui.js
+   All rendering, DOM manipulation, navigation, modals.
+   Depends on: alm-engine.js (must load first)
+═══════════════════════════════════════════════════════════════ */
+
+const debounce = (fn, ms) => {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+};
+
 /* ── FOUR-TIER SERVICE COLOURS (Stage 2) ──────────────────────
    blue forming · amber viable · green healthy · gold full.
    The SEAL carries the tier; the time-band keeps its slotCol rainbow
@@ -39,7 +50,6 @@ function tierSeal(g, ar){
   const lbl = g.tierLabel || (typeof classifyTier==='function' ? classifyTier(g.students.length).label : '');
   return {...c, tier:t, label:lbl};
 }
-
 /* ── ROW-RECT CACHE (P-01) ────────────────────────────────── */
 let _rowRectCache = {};
 
