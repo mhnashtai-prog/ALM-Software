@@ -26,6 +26,31 @@ const debounce = (fn, ms) => {
    The SEAL carries the tier; the time-band keeps its slotCol rainbow
    so adjacent groups stay visually distinct. 'fail' (red) is a real
    data error and overrides the size tier.                          */
+/* ── WHAT A GROUP'S COLOUR MEANS ─────────────────────────────
+   It used to mean nothing. slotCol() returned one of sixteen greys
+   picked by (day × hour), so adjacent groups were distinguishable
+   from each other and from nothing else — a proposed turma and a
+   certified one were both grey, and which grey was an accident of
+   what time they met.
+
+   Colour now carries the only distinction that matters on this
+   screen: PROPOSED or CERTIFIED. Two solids, no opacity games.
+   Slate is deliberately cool — it is the one hue on a warm-stone
+   page that cannot be mistaken for the paper, so a proposal reads
+   as provisional without reading as an error. Sage is arrival.
+
+   slotCol() is kept for the availability bands underneath, where
+   telling two overlapping cohorts apart IS the job. */
+const ST_PROPOSED = '#5F7A90';   /* slate — provisional */
+const ST_CERTIFIED = '#4E6B50';  /* sage deep — written to classes */
+const ST_FAIL = '#B8402A';
+const ST_WARN = '#8A8A82';
+function statusCol(isCert, isFail, isWarn){
+  if (isFail) return ST_FAIL;
+  if (isWarn) return ST_WARN;
+  return isCert ? ST_CERTIFIED : ST_PROPOSED;
+}
+
 /* Four tiers on ONE hue, stepped by depth. The old set was four
    unrelated hues — blue, marigold, mint, gold — so the seal's colour
    read as a category rather than as a position on a scale, and the
@@ -285,26 +310,33 @@ function drawStamps(containerId, levelKey, result) {
     const ar = (_auditResults[levelKey] || {})[i];
     const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
     const _ts = tierSeal(g, ar);
-    const col = isFail ? '#B8402A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
+    const col = statusCol(isCert, isFail, isWarn);
     const sealInk = _ts.ink;   // seal carries the four-tier service colour
-    const bandBg = isFail ? 'rgba(184,64,42,.25)' : isWarn ? 'rgba(138,138,130,.22)' : isCert ? col + '28' : col + '35';
-    const borderCol = isFail ? '#B8402A99' : isCert ? col : col + 'CC';
-    const inkCol = isFail ? '#B8402A' : col;
+    /* A certified band is filled; a proposal is a wash with a solid
+       left edge. Same hue family, different commitment. */
+    const bandBg = isCert ? col + 'E6' : col + '24';
+    const borderCol = col;
+    const inkCol = isCert ? '#FFFFFF' : col;
     const n = g.students.length;
 
   function makeSeal(glyph, fillCol, inkC) {
       const glyphEl = glyph.length === 1
         ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace">${glyph}</text>`
         : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
+      /* The disc is filled. It was a 15%-opacity wash inside three
+         concentric hairlines, which at 32px is four near-invisible
+         greys stacked on a grey band — the seal was legible as a
+         shape and illegible as a colour. One solid disc, one ring,
+         one white glyph. */
       return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="15" stroke="${fillCol}99" stroke-width="2"/>
-        <circle cx="16" cy="16" r="12" stroke="${fillCol}" stroke-width=".8" opacity=".6"/>
-        <circle cx="16" cy="16" r="9" stroke="${fillCol}" stroke-width=".8" stroke-dasharray="2 2" opacity=".5"/>
-        <circle cx="16" cy="16" r="8" fill="${fillCol}" opacity=".15"/>${glyphEl}
+        <circle cx="16" cy="16" r="14.2" fill="${fillCol}"/>
+        <circle cx="16" cy="16" r="14.2" stroke="rgba(255,255,255,.55)" stroke-width="1.4"/>
+        <circle cx="16" cy="16" r="10.5" stroke="rgba(255,255,255,.40)" stroke-width=".9" stroke-dasharray="2.4 2.4"/>
+        ${glyphEl}
       </svg>`;
     }
 
-    const sealSVG = makeSeal(String(i + 1), sealInk, sealInk);
+    const sealSVG = makeSeal(String(i + 1), sealInk, '#FFFFFF');
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
 
@@ -368,7 +400,7 @@ function buildPairMatrix(pairCounts) {
     const ar = (_auditResults[activeLevelKey] || {})[i];
     const isCert = !!committed, isWarn = !isCert && ar?.status === 'warn';
     const _ts = tierSeal(g, ar);
-    const col = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+    const col = statusCol(isCert, false, isWarn);
     const lbl = isCert ? 'alocados' : _ts.label.toLowerCase();
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const sessions = isSameDay
@@ -407,7 +439,7 @@ function buildGroupCard(g, i) {
       ? `${committed.turmaCodeA}/${committed.turmaCodeB}`
       : committed.turmaCodeA || committed.turmaCode || `T${i + 1}`)
     : `T${i + 1}`;
-const col = isFail ? '#B8402A' : isWarn ? '#8A8A82' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+const col = statusCol(isCert, isFail, isWarn);
   const inkCol = isFail ? '#B8402A' : isWarn ? '#8A8A82' : col;
   const sealBg = isCert ? col + '22' : isFail ? 'rgba(184,64,42,.13)' : isWarn ? 'rgba(138,138,130,.13)' : col + '11';
   const borderCol = isCert ? col + 'CC' : isFail ? '#B8402A99' : isWarn ? '#8A8A8299' : col + '66';
@@ -416,20 +448,20 @@ const col = isFail ? '#B8402A' : isWarn ? '#8A8A82' : slotCol(g.dayIdx_A ?? g.da
   const cardCls = `gcard-compact${isCert ? ' certified' : isExc ? ' exception' : ''}`;
   const sealGlyph = isFail ? '✕' : String(i + 1);
   const dash = isCert ? 'none' : '2 2', outerStroke = isCert ? col : col + '99';
+  const sealCol = tierSeal(g, ar).ink;
   const glyphEl = sealGlyph.length === 1
-    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkCol}" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
-    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkCol}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
+    ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="#FFFFFF" font-family="'IBM Plex Mono',monospace">${sealGlyph}</text>`
+    : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="#FFFFFF" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${sealGlyph}</text>`;
   const sealSVG = `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
-    <circle cx="16" cy="16" r="15" stroke="${outerStroke}" stroke-width="${isCert ? 2 : 1.5}"/>
-    <circle cx="16" cy="16" r="12" stroke="${col}" stroke-width=".8" opacity=".6"/>
-    <circle cx="16" cy="16" r="9" stroke="${col}" stroke-width=".8" stroke-dasharray="${dash}" opacity=".5"/>
+    <circle cx="16" cy="16" r="14.2" fill="${sealCol}"/>
+    <circle cx="16" cy="16" r="14.2" stroke="rgba(255,255,255,.55)" stroke-width="1.4"/>
+    <circle cx="16" cy="16" r="10.5" stroke="rgba(255,255,255,.40)" stroke-width=".9" stroke-dasharray="${dash}"/>
     ${isCert
-      ? `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".9"/><path d="M10 16L14 20.5L22 11" stroke="#07060E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
-      : `<circle cx="16" cy="16" r="8" fill="${col}" opacity=".15"/>${glyphEl}`}
+      ? `<path d="M10.4 16L14.2 20.2L21.6 11.4" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
+      : glyphEl}
   </svg>`;
 const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
   const _ts = tierSeal(g, ar);
- const sealCol = _ts.ink;
   return `<div class="${cardCls}" style="border-left-color:${col}" onclick="openGroupModal('${activeLevelKey}',${i})" id="gcard-${i}">
    <div class="gc-seal" style="background:${sealBg};border:1px solid ${borderCol}">${sealSVG}</div>
     <div style="flex:1;min-width:0">
@@ -480,6 +512,136 @@ function _verdictMark(v){
   if (v === 'pass') return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4E6B50" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l5 5L20 6"/></svg>';
   if (v === 'warn') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A8A82" stroke-width="3.2" stroke-linecap="round"><path d="M12 4v11M12 19.5v.5"/></svg>';
   return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B8402A" stroke-width="3.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   THE ROSTER SHEET
+   Every count on this screen is derived from a list of actual
+   students, but until now only a few of those lists could be
+   reached. "72 inscritos", "45 sem pedido", "4 cert." were
+   terminal: the number was the end of the road, and the only way
+   to find out WHICH 45 was to go somewhere else and filter.
+
+   openRoster() takes the same predicate the number was counted
+   with and shows what it counted. One function, because the fix
+   for "this number is not clickable" should not be twelve
+   bespoke panels that drift apart.
+   ══════════════════════════════════════════════════════════════ */
+
+function _rosterRow(e){
+  const av = avCol(e.name || e.ref);
+  const a  = analysePrefs(e.ref);
+  const slots = a ? a.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : 'sem disponibilidade';
+  const t = _findTurmaFor(e.ref);
+  const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
+  const stTxt = st === 'atribuido' ? 'atribuído' : st === 'sem_pedido' ? 'sem pedido' : 'pendente';
+  return `<div class="isheet-row" onclick="_closeSheet('rost-ov');setTimeout(()=>openDossier('${e.ref}'),180)">
+    <div class="isheet-av" style="background:${av.bg};color:${av.t}">${avInit(e.name || e.ref)}</div>
+    <div style="flex:1;min-width:0">
+      <div class="isheet-name">${e.name || '—'}</div>
+      <div class="isheet-meta">${e.ref} · ${BRANCH_LABELS[normB(e.branch)] || '—'} · ${slots}</div>
+    </div>
+    ${t ? `<span class="isheet-tag${t.certified ? ' on' : ''}" style="flex-shrink:0">${t.code}</span>`
+        : `<span class="isheet-tag" style="flex-shrink:0;opacity:.6">${stTxt}</span>`}
+  </div>`;
+}
+
+function openRoster(title, kicker, students, tags){
+  const host = _sheetHost('rost-ov'); if (!host) return;
+  const list = (students || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const rows = list.length
+    ? list.map(_rosterRow).join('')
+    : '<div class="isheet-empty">Nenhum aluno nesta contagem.</div>';
+  host.innerHTML = `<div class="isheet">
+    <button class="isheet-close" onclick="_closeSheet('rost-ov')" aria-label="Fechar">✕</button>
+    <div class="isheet-head">
+      <div class="isheet-eyebrow"><span class="isheet-bar"></span>
+        <span class="isheet-kicker">${kicker}</span></div>
+      <div class="isheet-title">${title}</div>
+      <div class="isheet-sub">${list.length} aluno${list.length !== 1 ? 's' : ''}</div>
+      ${tags ? `<div class="isheet-tags">${tags}</div>` : ''}
+    </div>
+    <div class="isheet-body">${rows}</div>
+    <div class="isheet-foot">
+      <button class="isheet-btn sage" onclick="exportRoster()">Exportar CSV</button>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ap-faint)">clique num aluno para o dossier</span>
+    </div>
+  </div>`;
+  host.classList.add('open');
+  _lastRoster = { title, list };
+}
+let _lastRoster = null;
+
+function exportRoster(){
+  if (!_lastRoster) return;
+  const rows = [`ALM · ${_lastRoster.title}`, '', 'Nome,Ref,Filial,Nível,Estado,Turma'];
+  _lastRoster.list.forEach(e => {
+    const t = _findTurmaFor(e.ref);
+    const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem pedido';
+    rows.push(`"${e.name || ''}","${e.ref}","${BRANCH_LABELS[normB(e.branch)] || ''}","${(LEVEL_MAP[lk(e)] || {}).label || ''}","${st}","${t ? t.code : ''}"`);
+  });
+  dlCSV(rows.join('\n'), `ALM-${_lastRoster.title.replace(/[^\w]+/g, '-')}.csv`);
+  showToast('CSV exportado', 'ok');
+}
+
+/* The counted sets, named. Each one is the predicate the matching
+   number on screen was produced by — so the list can never disagree
+   with the figure above it. */
+function _levelSet(levelKey, kind){
+  const scope = (activeLoc === 'all' ? allE : allE.filter(e => normB(e.branch) === activeLoc));
+  const all = levelKey ? scope.filter(e => lk(e) === levelKey) : scope;
+  const res = _allResults[levelKey];
+  const inGroup = new Set();
+  const inCert  = new Set();
+  (res?.groups || []).forEach((g, i) => {
+    const c = (_groupCodes[levelKey] || {})[i];
+    g.students.forEach(s => { inGroup.add(s.ref); if (c) inCert.add(s.ref); });
+  });
+  switch (kind) {
+    case 'com':    return all.filter(e => !!rByRef[e.ref]);
+    case 'sem':    return all.filter(e => !rByRef[e.ref]);
+    case 'turma':  return all.filter(e => inGroup.has(e.ref));
+    case 'cert':   return all.filter(e => inCert.has(e.ref));
+    case 'sinal':  return (res?.sinalizados || []).map(s => s.e).filter(Boolean);
+    default:       return all;
+  }
+}
+
+const _ROSTER_LBL = { all:'Inscritos', com:'Com pedido', sem:'Sem pedido',
+  turma:'Em turma', cert:'Certificados', sinal:'Sinalizados' };
+
+function rosterLevel(levelKey, kind){
+  const meta = LEVEL_MAP[levelKey] || {};
+  openRoster(_ROSTER_LBL[kind] || 'Alunos',
+    `${meta.label || levelKey} · ${activeLang || ''} · ${BRANCH_LABELS[activeLoc] || 'Todas as filiais'}`,
+    _levelSet(levelKey, kind));
+}
+
+/* The sidebar totals count the whole branch, not one level. */
+function rosterGlobal(kind){
+  openRoster(_ROSTER_LBL[kind] || 'Alunos',
+    `${activeLang || ''} · ${BRANCH_LABELS[activeLoc] || 'Todas as filiais'}`,
+    _levelSet(null, kind));
+}
+function rosterGlobalOv(kind){
+  const scope = _ovActiveLoc === 'all' ? allE : allE.filter(e => normB(e.branch) === _ovActiveLoc);
+  const set = kind === 'com' ? scope.filter(e => !!rByRef[e.ref])
+            : kind === 'sem' ? scope.filter(e => !rByRef[e.ref]) : scope;
+  openRoster(_ROSTER_LBL[kind] || 'Alunos',
+    `${activeLang || ''} · ${BRANCH_LABELS[_ovActiveLoc] || 'Todas as filiais'}`, set);
+}
+
+/* A group's own headcount — the "5/17" on a stamp, the "35" on a
+   card. This is the one the question was actually about. */
+function rosterGroup(levelKey, i){
+  const g = _allResults[levelKey]?.groups[i]; if (!g) return;
+  const c = (_groupCodes[levelKey] || {})[i];
+  const meta = LEVEL_MAP[levelKey] || {};
+  const code = c ? (c.turmaCodeA || c.turmaCode || `T${i + 1}`) : `T${i + 1}`;
+  const pair = g.pairDef ? ((g.dayIdx_A === g.dayIdx_B) ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
+  openRoster(code, `${meta.label || levelKey} · ${pair} · ${g.startTime}–${g.endTime}`,
+    g.students, `<span class="isheet-tag${c ? ' on' : ''}">${c ? 'Certificada' : 'Proposta'}</span>`);
 }
 
 function openGroupModal(levelKey, i) {
@@ -821,7 +983,24 @@ function renderLevelContent() {
   const certCount = Object.values(_groupCodes[activeLevelKey] || {}).length;
   const excCount = _exceptionQueue.filter(e => e.levelKey === activeLevelKey).length;
 
-  document.getElementById('level-hdr').innerHTML = `<div class="lh-name" style="color:${meta.color}">${meta.label}</div><div class="lh-dept" style="color:${dc.color}">${dc.label || ''}</div><div class="lh-stats"><div class="lh-stat"><div class="lh-v" style="color:var(--gold2)">${allStudents.length}</div><div class="lh-l">Inscritos</div></div><div class="lh-stat"><div class="lh-v" style="color:var(--green)">${withReq.length}</div><div class="lh-l">Com pedido</div></div><div class="lh-stat"><div class="lh-v" style="color:var(--red)">${noReq}</div><div class="lh-l">Sem pedido</div></div>${_lastResult ? `<div class="lh-stat"><div class="lh-v" style="color:var(--teal)">${placed}</div><div class="lh-l">Em turma</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length ? Math.round(placed / withReq.length * 100) : 0}%;background:var(--teal)"></div></div></div>` : ''}${certCount > 0 ? `<div class="lh-stat"><div class="lh-v" style="color:var(--green)">${certCount}</div><div class="lh-l">Cert.</div></div>` : ''}${excCount > 0 ? `<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${excCount}</div><div class="lh-l">Excepções</div></div>` : ''}${sinal > 0 ? `<div class="lh-stat"><div class="lh-v" style="color:var(--amber)">${sinal}</div><div class="lh-l">Sinalizados</div></div>` : ''}<div class="lh-stat"><div class="lh-v" style="color:${capPct > 80 ? 'var(--amber)' : 'var(--t2)'}">${capPct}%</div><div class="lh-l">Capacidade</div><div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div></div></div>`;
+  const _lhs = (v, l, kind, col, bar) =>
+    `<div class="lh-stat"${kind ? ` onclick="rosterLevel('${activeLevelKey}','${kind}')" style="cursor:pointer" title="Ver os ${v} alunos"` : ''}>` +
+    `<div class="lh-v" style="color:${col}">${v}</div><div class="lh-l">${l}</div>${bar || ''}</div>`;
+  document.getElementById('level-hdr').innerHTML =
+    `<div class="lh-name" style="color:${meta.color}">${meta.label}</div>` +
+    `<div class="lh-dept" style="color:${dc.color}">${dc.label || ''}</div>` +
+    `<div class="lh-stats">` +
+    _lhs(allStudents.length, 'Inscritos', 'all', 'var(--ap-ink)') +
+    _lhs(withReq.length, 'Com pedido', 'com', 'var(--sage-deep)') +
+    _lhs(noReq, 'Sem pedido', 'sem', 'var(--ap-sub)') +
+    (_lastResult ? _lhs(placed, 'Em turma', 'turma', '#5F7A90',
+      `<div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length ? Math.round(placed / withReq.length * 100) : 0}%;background:#5F7A90"></div></div>`) : '') +
+    (certCount > 0 ? _lhs(certCount, 'Cert.', 'cert', 'var(--sage-deep)') : '') +
+    (excCount > 0 ? _lhs(excCount, 'Excepções', '', 'var(--ap-sub)') : '') +
+    (sinal > 0 ? _lhs(sinal, 'Sinalizados', 'sinal', 'var(--ap-sub)') : '') +
+    _lhs(capPct + '%', 'Capacidade', '', 'var(--ap-sub)',
+      `<div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${capPct}%;background:${meta.color}"></div></div>`) +
+    `</div>`;
 
   if (!withReq.length) {
     area.innerHTML = `<div class="placeholder-main" style="padding-top:40px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`;
@@ -1014,7 +1193,22 @@ function ovDrillToFormation(levelKey) {
   const sinal = _lastResult ? _lastResult.sinalizados.length : 0;
   const certCount = Object.keys(_groupCodes[levelKey] || {}).length;
 
-  let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px"><div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color || 'var(--gold2)'}">${meta.label || levelKey}</div><div style="font-size:8.5px;color:${dc.color || 'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label || ''}</div><button onclick="_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button><div style="display:flex;gap:0"><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--gold2)">${allStudents.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Inscritos</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${withReq.length}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Com pedido</div></div><div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--red)">${noReq}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sem pedido</div></div>${_lastResult ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--teal)">${placed}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Em turma</div></div>` : ''}${certCount > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--green)">${certCount}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Cert.</div></div>` : ''}${sinal > 0 ? `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)"><div style="font-size:20px;font-weight:700;color:var(--amber)">${sinal}</div><div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Sinalizados</div></div>` : ''}</div></div>`;
+  const _ovs = (v, l, kind, col) =>
+    `<div style="display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--b)${kind ? ';cursor:pointer' : ''}"${kind ? ` onclick="rosterLevel('${levelKey}','${kind}')" title="Ver os ${v} alunos"` : ''}>` +
+    `<div style="font-size:20px;font-weight:700;color:${col}">${v}</div>` +
+    `<div style="font-size:6.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">${l}</div></div>`;
+  let html = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 12px;border-bottom:1px solid var(--b2);margin-bottom:14px">` +
+    `<div style="font-family:var(--display);font-size:28px;letter-spacing:5px;color:${meta.color || 'var(--ap-ink)'}">${meta.label || levelKey}</div>` +
+    `<div style="font-size:8.5px;color:${dc.color || 'var(--t2)'};letter-spacing:.1em;align-self:flex-end;padding-bottom:3px">${dc.label || ''}</div>` +
+    `<button onclick="_ovActiveLevel=null;ovRenderStats();ovRenderTree();ovRenderSummary();" style="margin-left:auto;font-size:7px;font-weight:700;padding:3px 10px;border:1px solid var(--b2);color:var(--t3);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em">← Visão geral</button>` +
+    `<div style="display:flex;gap:0">` +
+    _ovs(allStudents.length, 'Inscritos', 'all', 'var(--ap-ink)') +
+    _ovs(withReq.length, 'Com pedido', 'com', 'var(--sage-deep)') +
+    _ovs(noReq, 'Sem pedido', 'sem', 'var(--ap-sub)') +
+    (_lastResult ? _ovs(placed, 'Em turma', 'turma', '#5F7A90') : '') +
+    (certCount > 0 ? _ovs(certCount, 'Cert.', 'cert', 'var(--sage-deep)') : '') +
+    (sinal > 0 ? _ovs(sinal, 'Sinalizados', 'sinal', 'var(--ap-sub)') : '') +
+    `</div></div>`;
 
  if (!withReq.length) { html += `<div class="placeholder-main" style="padding-top:30px"><div style="font-size:22px;opacity:.2">📭</div><div style="font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);opacity:.55;margin-top:8px">Nenhum pedido submetido</div></div>`; html += renderOvLevelRoster(levelKey, allStudents); el.innerHTML = html; return; }
 
@@ -1081,12 +1275,12 @@ Object.keys(byLevel).forEach(key => {
     const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
    const ledgerStyle = `font-size:7px;font-weight:700;padding:2px 6px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
     let icons = '';
-    icons += `<span title="Pares formados" style="${ledgerStyle}background:rgba(138,138,142,.1);border-color:rgba(138,138,142,.4);color:#8A8A8E" onclick="event.stopPropagation();ovDrillToFormation('${key}')">${formedCount}</span>`;
-    icons += `<span title="Validados · selo" style="${ledgerStyle}background:var(--gold4);border-color:rgba(111,143,113,.45);color:#4E6B50" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${validatedCount}</span>`;
-    if (sinalizadosCount > 0) icons += `<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();drillToSinalizados('${key}')">⚠ ${sinalizadosCount}</span>`;
+    icons += `<span title="Pares formados" style="${ledgerStyle}background:rgba(138,138,142,.1);border-color:rgba(138,138,142,.4);color:#8A8A8E" onclick="event.stopPropagation();rosterLevel('${key}','turma')">${formedCount}</span>`;
+    icons += `<span title="Validados · selo" style="${ledgerStyle}background:var(--gold4);border-color:rgba(111,143,113,.45);color:#4E6B50" onclick="event.stopPropagation();rosterLevel('${key}','cert')">✓ ${validatedCount}</span>`;
+    if (sinalizadosCount > 0) icons += `<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();rosterLevel('${key}','sinal')">⚠ ${sinalizadosCount}</span>`;
     if (excCount > 0) icons += `<span title="Ver excepções" style="${iconStyle}background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();jumpToException('${key}',0)">! ${excCount}</span>`;
     icons += `<span title="Formation" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();ovDrillToFormation('${key}')">→</span>`;
-    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')"><div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div><div class="barchart-row-track" style="max-width:31%">${placed > 0 ? `<div class="barchart-segment" style="width:${pPlaced}%;background:var(--sage-deep)">${placed >= 6 ? placed : ''}</div>` : ''}${waiting > 0 ? `<div class="barchart-segment" style="width:${pWait}%;background:#9DB79E">${waiting}</div>` : ''}${noReq > 0 ? `<div class="barchart-segment" style="width:${pNoReq}%;background:#B9B7AD">${noReq >= 6 ? noReq : ''}</div>` : ''}${pEmpty > 0 ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(0,0,0,.04)"></div>` : ''}</div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div></div>`;
+    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')"><div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div><div class="barchart-row-track" style="max-width:31%">${placed > 0 ? `<div class="barchart-segment" title="Ver os ${placed} alunos em turma" onclick="event.stopPropagation();rosterLevel('${key}','turma')" style="cursor:pointer;width:${pPlaced}%;background:var(--sage-deep)">${placed >= 6 ? placed : ''}</div>` : ''}${waiting > 0 ? `<div class="barchart-segment" title="Ver os ${waiting} alunos à espera" onclick="event.stopPropagation();rosterLevel('${key}','com')" style="cursor:pointer;width:${pWait}%;background:#9DB79E">${waiting}</div>` : ''}${noReq > 0 ? `<div class="barchart-segment" title="Ver os ${noReq} alunos sem pedido" onclick="event.stopPropagation();rosterLevel('${key}','sem')" style="cursor:pointer;width:${pNoReq}%;background:#B9B7AD">${noReq >= 6 ? noReq : ''}</div>` : ''}${pEmpty > 0 ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(0,0,0,.04)"></div>` : ''}</div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div></div>`;
   });
   rowsHTML += `</div>`;
   const ticks = [0, 25, 50, 75, 100].map(p => `<div class="barchart-axis-tick">${Math.round(p / 100 * maxTotal)}</div>`).join('');
@@ -1561,6 +1755,9 @@ async function openDossier(ref) {
   const lvl    = ALM_DISP[rawC] || rawC || '—';
   const branch = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g, ' ');
   const av     = avCol(enrol?.name || ref);
+  /* One band tint per department. Muted enough to sit on paper,
+     separated enough to be told apart at a glance. */
+  const DEPT_BAND = { kids:'#6E8CA8', kids_juv:'#6F8F71', adults:'#8C7F6A', exam:'#7E7391' };
   const turma  = _findTurmaFor(ref);
   const st     = req ? normS(req.status) : 'sem_pedido';
   const stTxt  = st === 'atribuido' ? 'Atribuído' : st === 'sem_pedido' ? 'Sem pedido' : 'Pendente';
@@ -1626,15 +1823,20 @@ async function openDossier(ref) {
         <span class="isheet-bar"></span>
         <span class="isheet-kicker">${DEPT_CFG[dept]?.label || 'Geral'} · ${lvl} · ${branch}</span>
       </div>
-      <div style="display:flex;align-items:flex-start;gap:16px">
-        <div class="isheet-av" style="width:46px;height:46px;font-size:14px;margin-top:6px;background:${av.bg};color:${av.t}">${avInit(enrol?.name || ref)}</div>
-        <div style="flex:1;min-width:0">
-          <div class="isheet-title" style="font-size:clamp(24px,4vw,34px)">${(enrol?.name || ref)}</div>
+      <!-- The ID band. A photo well and a name on a coloured strip,
+           the way a candidate card carries them — the department
+           tints the band, so which cohort a student belongs to is
+           legible before a single word is read. -->
+      <div class="id-band" style="--band:${DEPT_BAND[dept] || DEPT_BAND.adults}">
+        <div class="id-photo" style="background:${av.bg};color:${av.t}">${avInit(enrol?.name || ref)}</div>
+        <div class="id-who">
+          <div class="id-name">${enrol?.name || ref}</div>
+          <div class="id-ref">${ref}</div>
         </div>
+        <div class="id-lvl">${lvl}</div>
       </div>
       <div class="isheet-tags">
-        <span class="isheet-tag">${ref}</span>
-        <span class="isheet-tag">${normLang(enrol?.lang)}</span>
+        <span class="isheet-tag">${LANG_LABELS[normLang(enrol?.lang)] || normLang(enrol?.lang)}</span>
         <span class="isheet-tag${st === 'atribuido' ? ' on' : ''}">${stTxt}${turma ? ' · ' + turma.code : ''}</span>
       </div>
     </div>
