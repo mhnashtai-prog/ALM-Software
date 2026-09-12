@@ -41,7 +41,19 @@ const debounce = (fn, ms) => {
 
    slotCol() is kept for the availability bands underneath, where
    telling two overlapping cohorts apart IS the job. */
-const ST_PROPOSED = '#5F7A90';   /* slate — provisional */
+/* ── WHY THIS IS NO LONGER SLATE ─────────────────────────────
+   Slate worked for exactly one reason: it was the only cool thing
+   on a warm page, so a proposal could not be mistaken for the
+   surface under it. Cooling the grid to the rack's stone spends
+   that reason — a slate stamp on a stone-blue field is the same
+   hue family as the field, which is precisely the failure the
+   marigold seal had against warm stone.
+
+   So the separation runs the other way now: cool surface, warm
+   marks. Clay is the warm counterpart to sage at the same
+   lightness, so proposed and certified still read as two steps of
+   one system rather than as two unrelated colours. */
+const ST_PROPOSED = '#9A7B62';   /* clay — provisional */
 const ST_CERTIFIED = '#4E6B50';  /* sage deep — written to classes */
 const ST_FAIL = '#B8402A';
 const ST_WARN = '#8A8A82';
@@ -57,8 +69,8 @@ function statusCol(isCert, isFail, isWarn){
    marigold seal in particular sat on warm stone with no hue distance
    from it at all. Sage light to sage deep says "further along". */
 const TIER_COLORS = {
-  forming: {ink:'#9A9A92', band:'rgba(154,154,146,.16)', border:'#9A9A92'},
-  viable:  {ink:'#9DB79E', band:'rgba(157,183,158,.20)', border:'#9DB79E'},
+  forming: {ink:'#B49B85', band:'rgba(180,155,133,.18)', border:'#B49B85'},
+  viable:  {ink:'#9A7B62', band:'rgba(154,123,98,.20)',  border:'#9A7B62'},
   healthy: {ink:'#6F8F71', band:'rgba(111,143,113,.20)', border:'#6F8F71'},
   full:    {ink:'#4E6B50', band:'rgba(78,107,80,.22)',   border:'#4E6B50'},
 };
@@ -588,8 +600,21 @@ function exportRoster(){
 /* The counted sets, named. Each one is the predicate the matching
    number on screen was produced by — so the list can never disagree
    with the figure above it. */
+/* WHICH BRANCH IS "THE" BRANCH DEPENDS ON WHICH PANEL YOU ARE IN.
+   Overview keeps its own filter in _ovActiveLoc and Formation keeps
+   activeLoc, and the two are only synced when ovDrillToFormation()
+   runs. The bar-chart ledger chips live on the Overview summary,
+   which is reachable without ever drilling — so reading activeLoc
+   there would scope the roster to whatever branch Formation happened
+   to be left on, and the list would quietly disagree with the number
+   that opened it. */
+function _rosterLoc(){
+  const ov = document.getElementById('panel-overview');
+  return ov && ov.classList.contains('active') ? _ovActiveLoc : activeLoc;
+}
 function _levelSet(levelKey, kind){
-  const scope = (activeLoc === 'all' ? allE : allE.filter(e => normB(e.branch) === activeLoc));
+  const loc = _rosterLoc();
+  const scope = (loc === 'all' ? allE : allE.filter(e => normB(e.branch) === loc));
   const all = levelKey ? scope.filter(e => lk(e) === levelKey) : scope;
   const res = _allResults[levelKey];
   const inGroup = new Set();
@@ -614,7 +639,7 @@ const _ROSTER_LBL = { all:'Inscritos', com:'Com pedido', sem:'Sem pedido',
 function rosterLevel(levelKey, kind){
   const meta = LEVEL_MAP[levelKey] || {};
   openRoster(_ROSTER_LBL[kind] || 'Alunos',
-    `${meta.label || levelKey} · ${activeLang || ''} · ${BRANCH_LABELS[activeLoc] || 'Todas as filiais'}`,
+    `${meta.label || levelKey} · ${activeLang || ''} · ${BRANCH_LABELS[_rosterLoc()] || 'Todas as filiais'}`,
     _levelSet(levelKey, kind));
 }
 
@@ -993,8 +1018,8 @@ function renderLevelContent() {
     _lhs(allStudents.length, 'Inscritos', 'all', 'var(--ap-ink)') +
     _lhs(withReq.length, 'Com pedido', 'com', 'var(--sage-deep)') +
     _lhs(noReq, 'Sem pedido', 'sem', 'var(--ap-sub)') +
-    (_lastResult ? _lhs(placed, 'Em turma', 'turma', '#5F7A90',
-      `<div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length ? Math.round(placed / withReq.length * 100) : 0}%;background:#5F7A90"></div></div>`) : '') +
+    (_lastResult ? _lhs(placed, 'Em turma', 'turma', '#9A7B62',
+      `<div class="lh-cap-bar"><div class="lh-cap-fill" style="width:${withReq.length ? Math.round(placed / withReq.length * 100) : 0}%;background:#9A7B62"></div></div>`) : '') +
     (certCount > 0 ? _lhs(certCount, 'Cert.', 'cert', 'var(--sage-deep)') : '') +
     (excCount > 0 ? _lhs(excCount, 'Excepções', '', 'var(--ap-sub)') : '') +
     (sinal > 0 ? _lhs(sinal, 'Sinalizados', 'sinal', 'var(--ap-sub)') : '') +
@@ -1205,7 +1230,7 @@ function ovDrillToFormation(levelKey) {
     _ovs(allStudents.length, 'Inscritos', 'all', 'var(--ap-ink)') +
     _ovs(withReq.length, 'Com pedido', 'com', 'var(--sage-deep)') +
     _ovs(noReq, 'Sem pedido', 'sem', 'var(--ap-sub)') +
-    (_lastResult ? _ovs(placed, 'Em turma', 'turma', '#5F7A90') : '') +
+    (_lastResult ? _ovs(placed, 'Em turma', 'turma', '#9A7B62') : '') +
     (certCount > 0 ? _ovs(certCount, 'Cert.', 'cert', 'var(--sage-deep)') : '') +
     (sinal > 0 ? _ovs(sinal, 'Sinalizados', 'sinal', 'var(--ap-sub)') : '') +
     `</div></div>`;
