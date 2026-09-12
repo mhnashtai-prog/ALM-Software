@@ -174,7 +174,7 @@ function avCol(name){
 function avInit(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 
 function slotCol(dayIdx,startMins){
-  const palette=['#ABCBA0','#C7A2A2','#50732A','#9B7B4A','#6B5B8A','#7A9EC8','#C8A44A','#4A7C6F','#8A6B4A','#5A8A6B','#A07A5A','#6A4A8A','#8A7A4A','#4A6B8A','#7A4A6B','#5A7A4A'];
+  const palette=['#6E6E73','#8E8E93','#7A7A80','#9A9A9E','#636366','#AEAEB2','#75757B','#86868C','#5E5E63','#A3A3A8','#6B6B70','#95959A','#727278','#8A8A90','#666669','#9E9EA3'];
   const hour=Math.floor((startMins||0)/60);
   return palette[((dayIdx||0)*13+hour)%palette.length];
 }
