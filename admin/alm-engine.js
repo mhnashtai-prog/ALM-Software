@@ -130,6 +130,25 @@ const BRANCH_ORDER=['FUNCHAL','CAMARA_LOBOS','SANTA_CRUZ','MACHICO','RIBEIRA_BRA
 const ALM_DISP={'PI1':'PI 1','PI2':'PI 2','PI3':'PI 3','PI4':'PI 4','PJ1':'PJ 1','PJ2':'PJ 2','PJ3':'PJ 3','1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5','Portugues':'Português','6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
 
 /* ── STATE ────────────────────────────────────────────────── */
+/* ── THE MASTER ROSTER, AND THE SCOPED VIEW OF IT ─────────────
+   allE used to BE the roster. It is now a view: the language-scoped
+   slice of ALL_ENROLMENTS. Everything downstream — locStu(),
+   buildProposals(), the trees, the KPIs, the audit — already reads
+   allE and therefore needs no edit at all; they simply stop being
+   able to see students in other languages.
+
+   This is deliberately a scope and not a filter. A turma has one
+   language (classes.lang is written on certify), but lk() keys a
+   group on family|level_code with no language in it, so with every
+   language visible at once buildProposals() was free to put an EN
+   and an FR student at the same level into the same proposed class.
+   That is why there is no "Todas" button: it would re-open exactly
+   the hole this closes. */
+let ALL_ENROLMENTS=[];
+let activeLang=null;                 /* null only before first paint */
+const LANG_LABELS={EN:'Inglês',PT:'Português',FR:'Francês',DE:'Alemão',ES:'Espanhol',IT:'Italiano'};
+const normLang=l=>(l||'').trim().toUpperCase().slice(0,2)||'--';
+
 let allE=[],allR=[],rByRef={};
 let activeLoc='FUNCHAL',activeLevelKey=null;
 let openDepts={kids:true,kids_juv:false,adults:false,exam:true};
@@ -164,6 +183,63 @@ const normS=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g
 const lk=e=>`${(e.family||'').toLowerCase()}|${(e.level_code||e.level_cefr||'').trim()}`;
 const getLM=e=>LEVEL_MAP[lk(e)]||{dept:(e.family||'adults'),label:(e.level_code||e.level_cefr||'—'),color:'var(--t3)',order:99,maxCap:60};
 const locStu=()=>activeLoc==='all'?allE:allE.filter(e=>normB(e.branch)===activeLoc);
+
+/* Everything derived from the roster is language-dependent, so a
+   language change invalidates all of it. _groupCodes is the one
+   thing that survives: those are certified classes already written
+   to the database, and a certified EN class does not stop existing
+   because the operator is looking at FR. */
+function applyLangScope(){
+  allE = ALL_ENROLMENTS.filter(e=>normLang(e.lang)===activeLang);
+  _proposalCache={}; _allResults={}; _auditResults={};
+  _lastResult=null; activeLevelKey=null; _exceptionQueue=[];
+}
+
+function langCounts(){
+  const c={};
+  ALL_ENROLMENTS.forEach(e=>{const l=normLang(e.lang);c[l]=(c[l]||0)+1;});
+  return c;
+}
+
+/* Which languages exist is a fact about the data, so the control is
+   drawn from it rather than hard-coded. Largest cohort wins the
+   default — on a roster that is overwhelmingly one language, opening
+   on anything else would look like an empty app. */
+function renderLangScope(){
+  const seg=document.getElementById('lang-seg'); if(!seg) return;
+  const counts=langCounts();
+  const langs=Object.keys(counts).filter(l=>l!=='--').sort((a,b)=>counts[b]-counts[a]);
+  if(!langs.length) return;
+  if(!activeLang||!counts[activeLang]){ activeLang=langs[0]; applyLangScope(); }
+  seg.innerHTML=langs.map(l=>
+    `<button class="lang-btn${l===activeLang?' active':''}" type="button" data-lang="${l}"
+      title="${LANG_LABELS[l]||l}">${l}<span class="lang-n">${counts[l]}</span></button>`).join('');
+  seg.querySelectorAll('.lang-btn').forEach(b=>
+    b.addEventListener('click',()=>setLang(b.dataset.lang)));
+}
+
+/* A language change is a reload of everything except the certified
+   classes, so it runs the same boot audit rather than trying to
+   patch the panels in place. */
+async function setLang(lang){
+  if(lang===activeLang) return;
+  activeLang=lang;
+  applyLangScope();
+  renderLangScope();
+  if(typeof loadProposed==='function'){ try{ await loadProposed(); }catch(err){} }
+  if(typeof runBootAudit==='function'){ try{ await runBootAudit(); }catch(err){} }
+  if(typeof updateSidebarKPIs==='function') updateSidebarKPIs();
+  if(typeof initBranchStrip==='function') initBranchStrip();
+  if(typeof renderTree==='function') renderTree();
+  if(typeof renderAuditTree==='function') renderAuditTree();
+  if(typeof renderLevelContent==='function') renderLevelContent();
+  if(typeof switchCC==='function')
+    switchCC('overview',document.getElementById('tab-overview'));
+  const el=document.getElementById('pill-total');
+  if(el) el.textContent=`${allE.length} al`;
+  if(typeof showToast==='function')
+    showToast(`Idioma: ${LANG_LABELS[lang]||lang} · ${allE.length} alunos`,'ok');
+}
 const minsToT=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 
 function avCol(name){
@@ -404,6 +480,11 @@ function buildProposals(levelKey, branch){
   const all  = allE.filter(e=>{
     if(lk(e)!==levelKey) return false;
     if(branch!=='all' && normB(e.branch)!==branch) return false;
+    /* allE is already language-scoped, so this never fires in normal
+       operation. It is here because a mixed-language turma is the one
+       failure mode of this function that is invisible once written —
+       the group looks perfectly valid and only the teacher finds out. */
+    if(activeLang && normLang(e.lang)!==activeLang) return false;
     return true;
   });
   const withReq = all.filter(e=>!!rByRef[e.ref]);
@@ -1010,7 +1091,8 @@ async function refreshData(){
       sbGet('timetable_requests',`select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-    allE=enrol||[];allR=reqs||[];rByRef={};
+    ALL_ENROLMENTS=enrol||[];allR=reqs||[];rByRef={};
+    applyLangScope();renderLangScope();
     allR.forEach(r=>{rByRef[r.ref]=r;});
     _proposalCache={};
     await loadTicketRegistry();
