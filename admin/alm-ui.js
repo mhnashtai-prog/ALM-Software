@@ -26,14 +26,19 @@ const debounce = (fn, ms) => {
    The SEAL carries the tier; the time-band keeps its slotCol rainbow
    so adjacent groups stay visually distinct. 'fail' (red) is a real
    data error and overrides the size tier.                          */
+/* Four tiers on ONE hue, stepped by depth. The old set was four
+   unrelated hues — blue, marigold, mint, gold — so the seal's colour
+   read as a category rather than as a position on a scale, and the
+   marigold seal in particular sat on warm stone with no hue distance
+   from it at all. Sage light to sage deep says "further along". */
 const TIER_COLORS = {
-  forming: {ink:'#4A8FF5', band:'rgba(74,143,245,.20)',  border:'#4A8FF5'},
-  viable:  {ink:'#E8A020', band:'rgba(232,160,32,.20)',  border:'#E8A020'},
-  healthy: {ink:'#3DE8A8', band:'rgba(61,232,168,.18)',  border:'#3DE8A8'},
-  full:    {ink:'#C9A84C', band:'rgba(201,168,76,.22)',  border:'#C9A84C'},
+  forming: {ink:'#9A9A92', band:'rgba(154,154,146,.16)', border:'#9A9A92'},
+  viable:  {ink:'#9DB79E', band:'rgba(157,183,158,.20)', border:'#9DB79E'},
+  healthy: {ink:'#6F8F71', band:'rgba(111,143,113,.20)', border:'#6F8F71'},
+  full:    {ink:'#4E6B50', band:'rgba(78,107,80,.22)',   border:'#4E6B50'},
 };
 function tierSeal(g, ar){
-  if(ar && ar.status==='fail') return {ink:'#E8455A', band:'rgba(232,69,90,.25)', border:'#E8455A99', tier:'fail', label:'FALHA'};
+  if(ar && ar.status==='fail') return {ink:'#B8402A', band:'rgba(184,64,42,.18)', border:'#B8402A99', tier:'fail', label:'FALHA'};
   const t = g.tier || (typeof classifyTier==='function' ? classifyTier(g.students.length).tier : 'healthy');
   const c = TIER_COLORS[t] || TIER_COLORS.healthy;
   const lbl = g.tierLabel || (typeof classifyTier==='function' ? classifyTier(g.students.length).label : '');
@@ -280,11 +285,11 @@ function drawStamps(containerId, levelKey, result) {
     const ar = (_auditResults[levelKey] || {})[i];
     const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
     const _ts = tierSeal(g, ar);
-    const col = isFail ? '#E8455A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
+    const col = isFail ? '#B8402A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
     const sealInk = _ts.ink;   // seal carries the four-tier service colour
-    const bandBg = isFail ? 'rgba(232,69,90,.25)' : isWarn ? 'rgba(232,160,32,.22)' : isCert ? col + '28' : col + '35';
-    const borderCol = isFail ? '#E8455A99' : isCert ? col : col + 'CC';
-    const inkCol = isFail ? '#FFB0B8' : col;
+    const bandBg = isFail ? 'rgba(184,64,42,.25)' : isWarn ? 'rgba(138,138,130,.22)' : isCert ? col + '28' : col + '35';
+    const borderCol = isFail ? '#B8402A99' : isCert ? col : col + 'CC';
+    const inkCol = isFail ? '#B8402A' : col;
     const n = g.students.length;
 
   function makeSeal(glyph, fillCol, inkC) {
@@ -402,10 +407,10 @@ function buildGroupCard(g, i) {
       ? `${committed.turmaCodeA}/${committed.turmaCodeB}`
       : committed.turmaCodeA || committed.turmaCode || `T${i + 1}`)
     : `T${i + 1}`;
-const col = isFail ? '#E8455A' : isWarn ? '#E8A020' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
-  const inkCol = isFail ? '#FFB0B8' : isWarn ? '#FFD080' : col;
-  const sealBg = isCert ? col + '22' : isFail ? 'rgba(232,69,90,.13)' : isWarn ? 'rgba(232,160,32,.13)' : col + '11';
-  const borderCol = isCert ? col + 'CC' : isFail ? '#E8455A99' : isWarn ? '#E8A02099' : col + '66';
+const col = isFail ? '#B8402A' : isWarn ? '#8A8A82' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
+  const inkCol = isFail ? '#B8402A' : isWarn ? '#8A8A82' : col;
+  const sealBg = isCert ? col + '22' : isFail ? 'rgba(184,64,42,.13)' : isWarn ? 'rgba(138,138,130,.13)' : col + '11';
+  const borderCol = isCert ? col + 'CC' : isFail ? '#B8402A99' : isWarn ? '#8A8A8299' : col + '66';
   const startT = minsToT(g.startMins), endT = minsToT(g.startMins + CLASS_DUR);
   const blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde', blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde';
   const cardCls = `gcard-compact${isCert ? ' certified' : isExc ? ' exception' : ''}`;
@@ -446,97 +451,125 @@ const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_
 }
 
 /* ── GROUP MODAL ──────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   THE GROUP SHEET
+   What this replaces drew a dark charcoal banner with a dept
+   gradient behind it, a wax seal, and a strip of four coloured
+   stat blocks — the last near-black surface in a product that is
+   otherwise entirely warm paper, and the reason the modal looked
+   like it belonged to an older build than the screen behind it.
+
+   The card is now the phrase-bank card: cream, one sage rule
+   across the top, a mono eyebrow, the turma code set as an actual
+   headline rather than as bold text, and nothing else. Colour is
+   spent in exactly two places — the top rule and the verdict marks
+   — so those two things are what the eye finds.
+   ══════════════════════════════════════════════════════════════ */
+
+function _sheetHost(id){
+  const el = document.getElementById(id);
+  if (!el) return null;
+  el.onclick = ev => { if (ev.target === el) _closeSheet(id); };
+  return el;
+}
+function _closeSheet(id){
+  const el = document.getElementById(id);
+  if (el){ el.classList.remove('open'); el.innerHTML = ''; }
+}
+function _verdictMark(v){
+  if (v === 'pass') return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4E6B50" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l5 5L20 6"/></svg>';
+  if (v === 'warn') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A8A82" stroke-width="3.2" stroke-linecap="round"><path d="M12 4v11M12 19.5v.5"/></svg>';
+  return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B8402A" stroke-width="3.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+}
+
 function openGroupModal(levelKey, i) {
   const result = _allResults[levelKey]; if (!result) return;
   const g = result.groups[i]; if (!g) return;
   const ar = (_auditResults[levelKey] || {})[i];
   const committed = (_groupCodes[levelKey] || {})[i];
   const meta = LEVEL_MAP[levelKey] || {};
-  const isCert = !!committed, isWarn = !isCert && ar?.status === 'warn', isFail = !isCert && ar?.status === 'fail';
- const _ts = tierSeal(g, ar);
-    const col = isFail ? '#E8455A' : slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins); // band keeps rainbow
-    const sealInk = _ts.ink;  // seal + ring carry the four-tier service colour
-  const dept = meta.dept || 'adults';
-  const sheet = document.getElementById('gm-sheet');
-  sheet.classList.remove('gm-exit');
-  document.getElementById('gm-overlay').classList.add('open');
-  document.getElementById('gm-banner').style.background = DEPT_GRADS[dept] || DEPT_GRADS.adults;
-  const seal = document.getElementById('gm-seal');
-  seal.style.background = col + (isCert ? '33' : '18');
-  seal.innerHTML = isCert
-    ? `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><circle cx="14" cy="14" r="7" stroke="rgba(7,6,14,.18)" stroke-width="1" stroke-dasharray="2 2"/><path d="M8 14L12.5 19.5L20 9" fill="none" stroke="#07060E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-    : `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="11" stroke="rgba(7,6,14,.22)" stroke-width="1.5"/><text x="14" y="19" text-anchor="middle" font-size="14" font-weight="700" fill="#07060E" font-family="var(--mono)">${i + 1}</text></svg>`;
-  const pairLabel = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
-  const certCode = isCert
+  const isCert = !!committed;
+  const ts = tierSeal(g, ar);
+
+  const code = isCert
     ? (committed.turmaCodeA && committed.turmaCodeB && committed.turmaCodeA !== committed.turmaCodeB
-      ? `${committed.turmaCodeA} / ${committed.turmaCodeB}`
-      : committed.turmaCodeA || committed.turmaCode || '—')
-    : null;
-  document.getElementById('gm-title').textContent = `TURMA ${i + 1}`;
-  document.getElementById('gm-sub-text').textContent = `${pairLabel} · ${g.startTime}–${g.endTime} · ${meta.label || ''} · ${BRANCH_LABELS[activeLoc] || 'Todas filiais'}`;
-  const blockLbl = g.startMins < 720 ? 'Manhã' : 'Tarde', blockCls = g.startMins < 720 ? 'bk-manha' : 'bk-tarde';
-  document.getElementById('gm-pills').innerHTML =
-    `<span class="gc-block-tag ${blockCls}">${blockLbl}</span>` +
-    (isCert ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--green-b);color:var(--green);background:var(--green-a)">CERTIFIED · ${certCode}</span>` : '') +
-    (isWarn ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">⚠ ${ar.warnCount} aviso${ar.warnCount !== 1 ? 's' : ''}</span>` : '');
-  document.getElementById('gm-strip').innerHTML =
-    `<div class="gm-stat"><div class="gm-stat-v" style="color:${col}">${g.students.length}</div><div class="gm-stat-l">alunos</div></div>` +
-    `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--green)">${ar?.passCount ?? g.students.length}</div><div class="gm-stat-l">ok</div></div>` +
-    (ar?.warnCount ? `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--amber)">${ar.warnCount}</div><div class="gm-stat-l">avisos</div></div>` : '') +
-    (ar?.failCount ? `<div class="gm-stat"><div class="gm-stat-v" style="color:var(--red)">${ar.failCount}</div><div class="gm-stat-l">falhas</div></div>` : '') +
-    (isCert ? `<div class="gm-stat" style="margin-left:auto"><div class="gm-stat-v" style="color:var(--gold2);font-size:12px">${certCode}</div><div class="gm-stat-l">código</div></div>` : '');
+        ? `${committed.turmaCodeA} / ${committed.turmaCodeB}`
+        : committed.turmaCodeA || committed.turmaCode || `T${i + 1}`)
+    : `T${i + 1}`;
+  const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+  const pair = g.pairDef
+    ? (isSameDay ? (g.dayL_A || g.dayL) : `${g.dayL_A} + ${g.dayL_B}`)
+    : (g.dayL || '—');
+  const startT = minsToT(g.startMins), endT = minsToT(g.startMins + CLASS_DUR);
+  const passC = ar?.passCount ?? g.students.length;
+  const warnC = ar?.warnCount ?? 0;
+  const failC = ar?.failCount ?? 0;
 
-  let sessionInfo = '';
-  if (g.pairDef && g.dayIdx_A !== g.dayIdx_B) {
-    sessionInfo = `<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <div style="font-size:8px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;color:${col};background:${col}0D">
-        <span style="opacity:.6">A</span> ${g.dayL_A} ${g.startTime}–${g.endTime}
-        ${isCert ? `<span style="margin-left:6px;opacity:.7">${committed.turmaCodeA || ''}</span>` : ''}
+  const rows = [...g.students]
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(e => {
+      const av = avCol(e.name || e.ref);
+      const verdict = ar?.log?.[e.ref]?.verdict || 'pass';
+      const reason = ar?.log?.[e.ref]?.reason || '';
+      const a2 = analysePrefs(e.ref);
+      const slots = a2 ? a2.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
+      return `<div class="isheet-row" onclick="_closeSheet('grp-ov');setTimeout(()=>openDossier('${e.ref}'),200)">
+        <div class="isheet-av" style="background:${av.bg};color:${av.t}">${avInit(e.name || e.ref)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="isheet-name">${e.name || '—'}</div>
+          <div class="isheet-meta">${e.ref} · ${slots}</div>
+          ${reason && verdict !== 'pass' ? `<div class="isheet-meta" style="color:#8A8A82;font-style:italic">${reason}</div>` : ''}
+        </div>
+        <span style="flex-shrink:0;display:flex;align-items:center">${_verdictMark(verdict)}</span>
+      </div>`;
+    }).join('');
+
+  const sessions = isSameDay
+    ? `<div class="isheet-fld"><div class="isheet-fk">Sessão única</div><div class="isheet-fv">${g.dayL_A || g.dayL} · ${startT}–${endT}</div></div>`
+    : `<div class="isheet-g2">
+        <div class="isheet-fld"><div class="isheet-fk">Sessão A${isCert && committed.turmaCodeA ? ' · ' + committed.turmaCodeA : ''}</div><div class="isheet-fv">${g.dayL_A} · ${startT}–${endT}</div></div>
+        <div class="isheet-fld"><div class="isheet-fk">Sessão B${isCert && committed.turmaCodeB ? ' · ' + committed.turmaCodeB : ''}</div><div class="isheet-fv">${g.dayL_B} · ${startT}–${endT}</div></div>
+      </div>`;
+
+  const host = _sheetHost('grp-ov'); if (!host) return;
+  host.innerHTML = `
+  <div class="isheet">
+    <button class="isheet-close" onclick="_closeSheet('grp-ov')" aria-label="Fechar">✕</button>
+    <div class="isheet-head">
+      <div class="isheet-eyebrow">
+        <span class="isheet-bar" style="background:${ts.ink}"></span>
+        <span class="isheet-kicker">${meta.label || levelKey} · ${activeLang || ''} · ${BRANCH_LABELS[normB(g.students[0]?.branch)] || '—'}</span>
       </div>
-      <div style="font-size:8px;font-weight:700;padding:3px 10px;border:1px solid ${col}44;color:${col};background:${col}0D;opacity:.85">
-        <span style="opacity:.6">B</span> ${g.dayL_B} ${g.startTime}–${g.endTime}
-        ${isCert ? `<span style="margin-left:6px;opacity:.7">${committed.turmaCodeB || ''}</span>` : ''}
+      <div class="isheet-title">${code}</div>
+      <div class="isheet-sub">${pair} · ${startT}–${endT}</div>
+      <div class="isheet-tags">
+        <span class="isheet-tag">${g.startMins < 720 ? 'Manhã' : 'Tarde'}</span>
+        <span class="isheet-tag${isCert ? ' on' : ''}">${ts.label || ''}</span>
+        ${isCert ? '<span class="isheet-tag on">Certificada</span>' : ''}
       </div>
-    </div>`;
-  }
-
-  const auditPills = ar
-    ? `<span class="gm-ap pass">✓ ${ar.passCount} ok</span>` +
-    (ar.warnCount ? `<span class="gm-ap warn">⚠ ${ar.warnCount} aviso${ar.warnCount !== 1 ? 's' : ''}</span>` : '') +
-    (ar.failCount ? `<span class="gm-ap fail">✕ ${ar.failCount} falha${ar.failCount !== 1 ? 's' : ''}</span>` : '') +
-    `<span style="font-size:6.5px;color:var(--t4);margin-left:auto;align-self:center">auditoria automática</span>`
-    : '';
-
-  const stuRows = [...g.students].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(e => {
-    const av = avCol(e.name || e.ref);
-    const verdict = ar?.log?.[e.ref]?.verdict || 'pass';
-    const reason = ar?.log?.[e.ref]?.reason || '';
-    const a2 = analysePrefs(e.ref);
-    const slots = a2 ? a2.windows.map(w => `${DAYS_PT[w.dayIdx]} ${minsToT(w.earliest)}`).join(' · ') : '—';
-    return `<div class="gm-stu" onclick="closeGroupModal();setTimeout(()=>openDossier('${e.ref}'),240)">
-      <div class="gm-av" style="background:${av.bg};color:${av.t};border-color:${av.t}55">${avInit(e.name || e.ref)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;color:var(--text-d)">${e.name || '—'}</div>
-        <div style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600;margin-top:2px">${e.ref} · <span style="color:var(--sub-d);font-weight:400">${slots}</span></div>
-        ${reason && verdict !== 'pass' ? `<div style="font-size:6.5px;color:var(--amber-d);margin-top:1px">${reason}</div>` : ''}
-      </div>
-      <span class="gm-verd ${verdict}">${verdict === 'pass' ? '✓' : verdict === 'warn' ? '⚠' : '✕'}</span>
-      <span style="font-size:9px;color:var(--sub-d)">↗</span>
-    </div>`;
-  }).join('');
-
-  document.getElementById('gm-body').innerHTML = sessionInfo + `<div class="gm-audit">${auditPills}</div>` + stuRows;
-  document.getElementById('gm-foot').innerHTML =
-    `<button class="gm-btn gm-btn-csv" onclick="exportGroup('${levelKey}',${i})">↓ CSV</button>` +
-    `<button class="gm-btn gm-btn-ghost" onclick="closeGroupModal();setTimeout(()=>openDossier('${g.students[0]?.ref}'),240)">Primeiro dossier ↗</button>` +
-    `<div style="margin-left:auto;font-size:7px;color:var(--sub-d)">${g.students.length} aluno${g.students.length !== 1 ? 's' : ''}</div>`;
+    </div>
+    <div class="isheet-strip">
+      <div class="isheet-stat"><div class="isheet-stat-v">${g.students.length}<span style="font-size:14px;color:var(--ap-faint)">/${MAX_G}</span></div><div class="isheet-stat-l">Alunos</div></div>
+      <div class="isheet-stat"><div class="isheet-stat-v" style="color:#4E6B50">${passC}</div><div class="isheet-stat-l">Sem reparos</div></div>
+      ${warnC ? `<div class="isheet-stat"><div class="isheet-stat-v" style="color:#8A8A82">${warnC}</div><div class="isheet-stat-l">Avisos</div></div>` : ''}
+      ${failC ? `<div class="isheet-stat"><div class="isheet-stat-v" style="color:#B8402A">${failC}</div><div class="isheet-stat-l">Falhas</div></div>` : ''}
+    </div>
+    <div class="isheet-body">
+      <div class="isheet-sec">Sessões</div>
+      ${sessions}
+      <div class="isheet-sec">Alunos · ${g.students.length}</div>
+      ${rows}
+    </div>
+    <div class="isheet-foot">
+      <button class="isheet-btn sage" onclick="exportGroup('${levelKey}',${i})">Exportar CSV</button>
+      <button class="isheet-btn" onclick="_closeSheet('grp-ov');setTimeout(()=>openDossier('${g.students[0]?.ref}'),200)">Primeiro dossier</button>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ap-faint)">auditoria automática</span>
+    </div>
+  </div>`;
+  host.classList.add('open');
 }
 
-function closeGroupModal() {
-  const s = document.getElementById('gm-sheet'); if (!s) return;
-  s.classList.add('gm-exit');
-  setTimeout(() => { document.getElementById('gm-overlay')?.classList.remove('open'); s.classList.remove('gm-exit'); }, 220);
-}
+function closeGroupModal() { _closeSheet('grp-ov'); }
 
 function exportGroup(levelKey, idx) {
   const result = _allResults[levelKey]; if (!result?.groups[idx]) return;
@@ -553,7 +586,7 @@ function exportGroup(levelKey, idx) {
 /* ── SINALIZADOS ──────────────────────────────────────────── */
 function buildSinalizadosHTML(result) {
   const { sinalizados, sameDayCt, invalidWinCt, noGroupCt } = result;
-  let html = `<div class="sinal-block"><div class="sinal-hdr" onclick="toggleSinal()"><div style="flex:1"><div class="sinal-title">⚠ Sinalizados · não alocados</div><div style="font-size:7px;color:rgba(232,69,90,.5);margin-top:2px">${sameDayCt ? sameDayCt + ' mesmo dia · ' : ''}${invalidWinCt ? invalidWinCt + ' inválido · ' : ''}${noGroupCt ? noGroupCt + ' sem grupo' : ''}</div></div><div class="sinal-count">${sinalizados.length}</div><div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div></div><div class="sinal-body" id="sinal-body">`;
+  let html = `<div class="sinal-block"><div class="sinal-hdr" onclick="toggleSinal()"><div style="flex:1"><div class="sinal-title">⚠ Sinalizados · não alocados</div><div style="font-size:7px;color:rgba(184,64,42,.5);margin-top:2px">${sameDayCt ? sameDayCt + ' mesmo dia · ' : ''}${invalidWinCt ? invalidWinCt + ' inválido · ' : ''}${noGroupCt ? noGroupCt + ' sem grupo' : ''}</div></div><div class="sinal-count">${sinalizados.length}</div><div style="font-size:8px;color:var(--red-b);transition:transform .18s" id="sinal-arr">▼</div></div><div class="sinal-body" id="sinal-body">`;
   [{ k: 'same-day', lbl: 'Mesmo dia', cls: 'sr-sd', tag: 'SD' }, { k: 'invalid-window', lbl: 'Horário inválido', cls: 'sr-iv', tag: 'IV' }, { k: 'no-group', lbl: 'Sem grupo', cls: 'sr-ng', tag: 'NG' }].forEach(({ k, lbl, cls, tag }) => {
     const sub = sinalizados.filter(s => s.reason === k); if (!sub.length) return;
     html += `<div class="sinal-sub">${lbl}</div>`;
@@ -637,7 +670,7 @@ function batchConfirm() {
     const col = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
     return `<tr style="border-bottom:.5px solid rgba(255,255,255,.06)"><td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color || 'var(--gold2)'}">${meta.label || exc.levelKey}</td><td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td><td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td><td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td></tr>`;
   }).join('');
-  overlay.innerHTML = `<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(232,160,32,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
+  overlay.innerHTML = `<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(138,138,130,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
   document.body.appendChild(overlay);
 }
 
@@ -800,7 +833,7 @@ function renderLevelContent() {
   let html = '';
   const certCount2 = Object.keys(_groupCodes[activeLevelKey] || {}).length;
   const propCount = (_lastResult?.groups?.length || 0) - certCount2;
-  html += `<div class="school-grid-wrap" style="margin-bottom:14px"><div class="school-grid-head"><span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>${certCount2 > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount2} ✓ cert</span>` : ''}${propCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(74,143,245,.4);color:#4A8FF5;background:rgba(74,143,245,.1)">${propCount} proposta${propCount !== 1 ? 's' : ''}</span>` : ''}</div><div class="school-grid-outer"><div id="sg-grid-container" style="min-width:540px"></div></div></div>`;
+  html += `<div class="school-grid-wrap" style="margin-bottom:14px"><div class="school-grid-head"><span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>${certCount2 > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(111,143,113,.4);color:#4E6B50;background:rgba(111,143,113,.1)">${certCount2} ✓ cert</span>` : ''}${propCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(138,138,142,.4);color:#8A8A8E;background:rgba(138,138,142,.1)">${propCount} proposta${propCount !== 1 ? 's' : ''}</span>` : ''}</div><div class="school-grid-outer"><div id="sg-grid-container" style="min-width:540px"></div></div></div>`;
   html += buildPairMatrix(pairCounts);
   if (_lastResult?.groups?.length) {
     html += `<div class="sec">Turmas Propostas · ${_lastResult.groups.length} grupo${_lastResult.groups.length !== 1 ? 's' : ''}${certCount > 0 ? `<span style="font-size:6px;font-weight:700;color:var(--green);padding:1px 4px;border:1px solid var(--green-b);background:var(--green-a)">✓${certCount}</span>` : ''}${excCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid var(--amber-b);color:var(--amber);background:var(--amber-a)">${excCount} ⚠ exc</span>` : ''}</div>`;
@@ -874,7 +907,7 @@ function sbSearchClear() {
 }
 
 /* ── OVERVIEW ─────────────────────────────────────────────── */
-const BRANCH_COLORS = { FUNCHAL: '#4A8FF5', CAMARA_LOBOS: '#1DB87A', SANTA_CRUZ: '#E8A020', MACHICO: '#E8455A', RIBEIRA_BRAVA: '#9B5ECA', CALHETA: '#28C8B0' };
+const BRANCH_COLORS = { FUNCHAL: '#8A8A8E', CAMARA_LOBOS: '#4E6B50', SANTA_CRUZ: '#8A8A82', MACHICO: '#B8402A', RIBEIRA_BRAVA: '#8A8A8E', CALHETA: '#6F8F71' };
 
 /* Branch-filtered view of a result — groups whose students match the active branch.
    'all' returns everything. Does NOT mutate _allResults. */
@@ -987,7 +1020,7 @@ function ovDrillToFormation(levelKey) {
 
   const dept = meta.dept || 'adults';
   const pairCounts = ALM_PAIRS.filter(p => !(p.examOnly && dept !== 'exam')).map(p => ({ pair: p, count: countPair(withReq, p) }));
-  html += `<div class="school-grid-wrap" style="margin-bottom:14px"><div class="school-grid-head"><span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>${certCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(29,184,122,.4);color:#1DB87A;background:rgba(29,184,122,.1)">${certCount} ✓ cert</span>` : ''}</div><div class="school-grid-outer"><div id="ov-grid-container" style="min-width:540px"></div></div></div>`;
+  html += `<div class="school-grid-wrap" style="margin-bottom:14px"><div class="school-grid-head"><span class="school-grid-title">Disponibilidade + Turmas · ${withReq.length} al com pedido</span>${certCount > 0 ? `<span style="font-size:7px;font-weight:700;padding:2px 8px;border:1px solid rgba(111,143,113,.4);color:#4E6B50;background:rgba(111,143,113,.1)">${certCount} ✓ cert</span>` : ''}</div><div class="school-grid-outer"><div id="ov-grid-container" style="min-width:540px"></div></div></div>`;
   html += buildPairMatrix(pairCounts);
   if (_lastResult?.groups?.length) {
     const lvCert = Object.keys(_groupCodes[levelKey] || {}).length;
@@ -1028,7 +1061,7 @@ Object.keys(byLevel).forEach(key => {
   });
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order); if (!rows.length) return '';
   const maxTotal = Math.max(...rows.map(r => r.total), 1);
-  const legend = `<div class="barchart-legend"><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:#D9B36C"></div>Com pedido · aguarda</div><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:#C08A3E"></div>Sem pedido</div></div>`;
+  const legend = `<div class="barchart-legend"><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:var(--green)"></div>Em turma</div><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:#9DB79E"></div>Com pedido · aguarda</div><div class="barchart-legend-item"><div class="barchart-legend-dot" style="background:#B9B7AD"></div>Sem pedido</div></div>`;
   let rowsHTML = `<div class="barchart-rows">`;
   rows.forEach(row => {
     const { key, label, total, withReq, placed, noReq } = row;
@@ -1048,12 +1081,12 @@ Object.keys(byLevel).forEach(key => {
     const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
    const ledgerStyle = `font-size:7px;font-weight:700;padding:2px 6px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
     let icons = '';
-    icons += `<span title="Pares formados" style="${ledgerStyle}background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.4);color:#4A8FF5" onclick="event.stopPropagation();ovDrillToFormation('${key}')">${formedCount}</span>`;
-    icons += `<span title="Validados · selo" style="${ledgerStyle}background:var(--gold4);border-color:rgba(201,168,76,.45);color:#C9A84C" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${validatedCount}</span>`;
+    icons += `<span title="Pares formados" style="${ledgerStyle}background:rgba(138,138,142,.1);border-color:rgba(138,138,142,.4);color:#8A8A8E" onclick="event.stopPropagation();ovDrillToFormation('${key}')">${formedCount}</span>`;
+    icons += `<span title="Validados · selo" style="${ledgerStyle}background:var(--gold4);border-color:rgba(111,143,113,.45);color:#4E6B50" onclick="event.stopPropagation();drillToGroups('${key}')">✓ ${validatedCount}</span>`;
     if (sinalizadosCount > 0) icons += `<span title="Ver sinalizados" style="${iconStyle}background:var(--amber-a);border-color:var(--amber-b);color:var(--amber)" onclick="event.stopPropagation();drillToSinalizados('${key}')">⚠ ${sinalizadosCount}</span>`;
     if (excCount > 0) icons += `<span title="Ver excepções" style="${iconStyle}background:var(--red-a);border-color:var(--red-b);color:var(--red)" onclick="event.stopPropagation();jumpToException('${key}',0)">! ${excCount}</span>`;
     icons += `<span title="Formation" style="${iconStyle}background:transparent;border-color:var(--b2);color:var(--t3)" onclick="event.stopPropagation();ovDrillToFormation('${key}')">→</span>`;
-    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')"><div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div><div class="barchart-row-track" style="max-width:31%">${placed > 0 ? `<div class="barchart-segment" style="width:${pPlaced}%;background:var(--green)">${placed >= 6 ? placed : ''}</div>` : ''}${waiting > 0 ? `<div class="barchart-segment" style="width:${pWait}%;background:#D9B36C">${waiting}</div>` : ''}${noReq > 0 ? `<div class="barchart-segment" style="width:${pNoReq}%;background:#C08A3E">${noReq >= 6 ? noReq : ''}</div>` : ''}${pEmpty > 0 ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(0,0,0,.04)"></div>` : ''}</div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div></div>`;
+    rowsHTML += `<div class="barchart-row" onclick="ovDrillToFormation('${key}')"><div class="barchart-row-label" style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><div style="width:7px;height:7px;border-radius:50%;background:${healthBg};flex-shrink:0"></div>${label}</div><div class="barchart-row-track" style="max-width:31%">${placed > 0 ? `<div class="barchart-segment" style="width:${pPlaced}%;background:var(--sage-deep)">${placed >= 6 ? placed : ''}</div>` : ''}${waiting > 0 ? `<div class="barchart-segment" style="width:${pWait}%;background:#9DB79E">${waiting}</div>` : ''}${noReq > 0 ? `<div class="barchart-segment" style="width:${pNoReq}%;background:#B9B7AD">${noReq >= 6 ? noReq : ''}</div>` : ''}${pEmpty > 0 ? `<div class="barchart-segment" style="width:${pEmpty}%;background:rgba(0,0,0,.04)"></div>` : ''}</div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:8px"><span style="font-size:8px;font-weight:700;color:var(--t3);font-family:var(--mono);min-width:22px;text-align:right">${total}</span><span style="font-size:7px;color:var(--t4);font-family:var(--mono);min-width:28px">${placedPct}%</span>${icons}</div></div>`;
   });
   rowsHTML += `</div>`;
   const ticks = [0, 25, 50, 75, 100].map(p => `<div class="barchart-axis-tick">${Math.round(p / 100 * maxTotal)}</div>`).join('');
@@ -1097,7 +1130,7 @@ function ovOpenStudentModal(levelKey) {
     const st = rByRef[e.ref] ? normS(rByRef[e.ref].status) : 'sem_pedido';
     const stCol = st === 'atribuido' ? 'var(--green)' : st === 'sem_pedido' ? 'var(--red)' : 'var(--amber)';
     const turma = turmaByRef[e.ref];
-    return `<div class="stu-row" onclick="document.getElementById('ov-stu-modal').remove();openDossier('${e.ref}')"><div class="stu-cell" style="font-size:9px;color:var(--t2)">${idx + 1}</div><div class="stu-cell" style="font-size:9px;color:#E8C97A;font-family:var(--mono);font-weight:600">${(e.ref || '').replace(/\D/g, '')}</div><div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name || '—'}</div></div><div class="stu-cell">${turma ? `<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44">${turma.label}${turma.cert ? ' ✓' : ''}</span>` : '<span style="font-size:7px;color:var(--t4)">—</span>'}</div><div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${st === 'atribuido' ? 'atribuído' : st === 'sem_pedido' ? 'sem pedido' : 'pendente'}</span></div><div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name || '').replace(/'/g, "\\'")}')">📌</span></div></div>`;
+    return `<div class="stu-row" onclick="document.getElementById('ov-stu-modal').remove();openDossier('${e.ref}')"><div class="stu-cell" style="font-size:9px;color:var(--t2)">${idx + 1}</div><div class="stu-cell" style="font-size:9px;color:#4E6B50;font-family:var(--mono);font-weight:600">${(e.ref || '').replace(/\D/g, '')}</div><div class="stu-cell"><div style="font-size:9px;color:var(--t)">${e.name || '—'}</div></div><div class="stu-cell">${turma ? `<span style="font-size:7.5px;font-weight:700;color:${turma.color};padding:1px 7px;border:1px solid ${turma.color}44">${turma.label}${turma.cert ? ' ✓' : ''}</span>` : '<span style="font-size:7px;color:var(--t4)">—</span>'}</div><div class="stu-cell"><span style="font-size:7px;font-weight:700;color:${stCol};padding:1px 6px;border:1px solid ${stCol}55">${st === 'atribuido' ? 'atribuído' : st === 'sem_pedido' ? 'sem pedido' : 'pendente'}</span></div><div class="stu-cell"><span class="pin-btn" onclick="event.stopPropagation();pinStudent('${e.ref}','${(e.name || '').replace(/'/g, "\\'")}')">📌</span></div></div>`;
   }).join('');
   const existing = document.getElementById('ov-stu-modal'); if (existing) existing.remove();
   const overlay = document.createElement('div');
@@ -1416,7 +1449,7 @@ async function decCertifySession(levelKey, groupIdx, suffix, btn) {
   const meta = LEVEL_MAP[levelKey] || {};
   const ar = (_auditResults[levelKey] || {})[groupIdx] || {};
   const dayL = suffix === 'A' ? (g.dayL_A || g.dayL) : (g.dayL_B || g.dayL_A || g.dayL);
-  const confirmed = await almConfirm({ title: 'CERTIFICAR SESSÃO', accent: 'var(--green)', okBg: 'rgba(29,184,122,.9)', okLabel: '✓ Certificar', lines: [`${meta.label || levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`, `${g.students.length} alunos`] });
+  const confirmed = await almConfirm({ title: 'CERTIFICAR SESSÃO', accent: 'var(--green)', okBg: 'rgba(111,143,113,.9)', okLabel: '✓ Certificar', lines: [`${meta.label || levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`, `${g.students.length} alunos`] });
   if (!confirmed) return;
   btn.disabled = true; btn.textContent = '⏳ A certificar…';
   try {
@@ -1433,7 +1466,7 @@ async function decCertifySession(levelKey, groupIdx, suffix, btn) {
     _groupCodes[levelKey][groupIdx] = { ...existing, turmaCode: groupCode, [`turmaCode${suffix}`]: sessionCode, sentAt: new Date().toISOString(), status: ar.status || 'pass', locked: true };
     const card = document.getElementById(`dec-card-${groupIdx}-${suffix}`);
     if (card) {
-      card.style.borderLeftColor = 'var(--green)'; card.style.background = 'rgba(29,184,122,.04)';
+      card.style.borderLeftColor = 'var(--green)'; card.style.background = 'rgba(111,143,113,.04)';
       btn.textContent = `✓ ${sessionCode}`;
       btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
     }
@@ -1474,207 +1507,36 @@ function decBackToFormation() {
   }
 }
 
-/* ── DOSSIER UI ───────────────────────────────────────────── */
-const DS_FLAGS = { EN: '🇬🇧', PT: '🇵🇹', FR: '🇫🇷', ES: '🇪🇸', DE: '🇩🇪' };
-const DEPT_LABELS_D = { kids: 'INFANTIL', kids_juv: 'JUVENIL', adults: 'GERAL', exam: 'EXAMES' };
-function dsRow(k, v, c) { return `<div class="ds-row"><div class="ds-rk">${k}</div><div class="ds-rv ${c || ''}">${v}</div></div>`; }
-function dsSec(id, icon, title, meta, content, openByDefault) {
-  return `<div class="ds-section" id="${id}">
-    <div class="ds-section-hdr${openByDefault ? ' open' : ''}">
-      <div class="ds-section-title"><span class="ds-section-icon">${icon}</span>${title}</div>
-      <div class="ds-section-r"><span class="ds-section-meta">${meta}</span><span class="ds-section-chv">›</span></div>
-    </div>
-    <div class="ds-section-body"${openByDefault ? '' : ' style="display:none"'}>${content}</div>
-  </div>`;
-}
+/* The .ds-* row/section builders that used to live here went with
+   the dark dossier they were written for. The sheet builds its own
+   fields (.isheet-fld) and the old helpers had no other callers. */
 
 /* ── NEW DOSSIER ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   THE STUDENT SHEET
+   Same card as the group sheet, same reasons. The version this
+   replaces built a 620px dark panel with about 180 lines of inline
+   styling in it — every colour written as a literal, which is why
+   it survived seven theme passes without changing at all.
+
+   Colours live in the stylesheet now (.isheet-*). What is left
+   here is structure and data.
+   ══════════════════════════════════════════════════════════════ */
+
 async function openDossier(ref) {
-  _dsTTLoaded = false; _dsData = {};
+  const host = _sheetHost('stu-ov'); if (!host) return;
 
-  /* ── overlay ── */
-  document.getElementById('alm-dossier-ov')?.remove();
-  const ov = document.createElement('div');
-  ov.id = 'alm-dossier-ov';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:24px';
-  ov.onclick = e => { if (e.target === ov) closeDossier(); };
-  document.body.appendChild(ov);
+  host.innerHTML = `<div class="isheet"><div class="isheet-head">
+    <div class="isheet-eyebrow"><span class="isheet-bar"></span>
+    <span class="isheet-kicker">A carregar</span></div>
+    <div class="isheet-title">${ref}</div></div></div>`;
+  host.classList.add('open');
 
-  /* ── close on Escape ── */
-  const _esc = e => { if (e.key === 'Escape') { closeDossier(); document.removeEventListener('keydown', _esc); } };
-  document.addEventListener('keydown', _esc);
+  const esc = e => { if (e.key === 'Escape') { closeDossier(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
 
-  /* ── dept colour map ── */
-  const DEPT_HEX = { kids: '#4A8FF5', kids_juv: '#28C8B0', adults: '#C9A84C', exam: '#9B5ECA' };
-  const DEPT_BG  = { kids: '#0D2248', kids_juv: '#062A20', adults: '#201408', exam: '#200D20' };
-  const DEPT_LBL = { kids: 'Infantil', kids_juv: 'Juvenil', adults: 'Geral', exam: 'Exames' };
-
-  /* ── avatar colour ── */
-  function avColor(name) {
-    let h = 0; for (let i = 0; i < (name || '?').length; i++) h = (h * 31 + (name || '?').charCodeAt(i)) & 0xffffffff;
-    const p = [['#2A1A44','#C080F0'],['#1A2A44','#7AABEE'],['#0D3020','#3DE8A8'],['#2A1A10','#D4944A'],
-               ['#2A1010','#E07878'],['#10203A','#5A9EC8'],['#181828','#9898D8'],['#18281A','#80B850']];
-    const [bg, t] = p[Math.abs(h) % p.length];
-    return { bg, t };
-  }
-  function avInit(n) { return (n || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
-
-  /* ── turma lookup from engine state ── */
-function findTurma(ref) {
-  const reqData = rByRef[ref];
-  for (const [key, result] of Object.entries(_allResults)) {
-    for (let i = 0; i < (result.groups || []).length; i++) {
-      const g = result.groups[i];
-      if (g.students.find(s => s.ref === ref)) {
-          const c = (_groupCodes[key] || {})[i];
-          const code = c ? (c.turmaCodeA && c.turmaCodeB && c.turmaCodeA !== c.turmaCodeB
-            ? `${c.turmaCodeA}/${c.turmaCodeB}` : c.turmaCodeA || c.turmaCode || `T${i+1}`) : `T${i+1}`;
-          const pair = g.pairDef ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`) : (g.dayL || '—');
-          return { code, pair, startTime: g.startTime, endTime: g.endTime, certified: !!c, meta: LEVEL_MAP[key] || {} };
-        }
-      }
-    }
-    return null;
-  }
-
-  /* ── availability ruler ── */
-  function renderAvailGrid(req) {
-    const slots = parseSlotsForRuler(req);
-    const TOTAL = (20 - 8) * 60;
-    function pct(m) { return ((Math.max(m, 480) - 480) / TOTAL * 100).toFixed(2); }
-    function wPct(f, t) { return ((Math.min(t, 1200) - Math.max(f, 480)) / TOTAL * 100).toFixed(2); }
-    const byDay = {};
-    slots.forEach(s => { if (!byDay[s.dayIdx]) byDay[s.dayIdx] = []; byDay[s.dayIdx].push(s); });
-    const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
-    const COLS = [8,10,12,14,16,18,20];
-    const hourHdr = `<div style="display:flex;margin-left:34px;margin-bottom:3px">${COLS.map(h=>`<div style="flex:1;font-size:10px;color:rgba(255,255,255,.3);font-family:var(--mono)">${h}h</div>`).join('')}</div>`;
-    const rows = DAYS.map((d, di) => {
-      const ws = byDay[di] || [];
-      const hasData = ws.length > 0;
-      const col = hasData ? '#C9A84C' : 'rgba(255,255,255,.18)';
-      const bands = ws.map(s => {
-        const f = Math.max(s.fromMins, 480), t2 = Math.min(s.toMins, 1200);
-        if (f >= t2) return '';
-        return `<div style="position:absolute;left:${pct(f)}%;width:${wPct(f,t2)}%;top:3px;bottom:3px;background:#C9A84C;border-radius:3px;display:flex;align-items:center;padding:0 5px;overflow:hidden"><span style="font-size:10px;color:#07060E;white-space:nowrap;font-weight:600;font-family:var(--mono)">${s.startLabel}–${s.endLabel}</span></div>`;
-      }).join('');
-      const gridLines = COLS.map(h => `<div style="position:absolute;left:${((h-8)/12*100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)"></div>`).join('');
-      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-        <div style="width:28px;text-align:right;font-size:11px;font-weight:500;color:${col};font-family:var(--mono);flex-shrink:0">${d}</div>
-       <div style="flex:1 1 auto;position:relative;height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">${gridLines}${bands}</div>
-      </div>`;
-    }).join('');
-    return hourHdr + rows;
-  }
-
-  /* ── shell ── */
-  ov.innerHTML = `
-  <div id="alm-ds-card" style="width:min(620px,96vw);height:88dvh;max-height:88dvh;background:#0E0C1C;border-radius:18px;border:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow:hidden;animation:shUp .28s cubic-bezier(.32,.72,0,1);position:relative">
-
-    <!-- CLOSE -->
-    <button id="ds-close-btn" style="position:absolute;top:14px;right:14px;z-index:10;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.4);border:.5px solid rgba(255,255,255,.15);cursor:pointer;color:rgba(255,255,255,.7);font-size:13px;display:flex;align-items:center;justify-content:center">✕</button>
-
-    <!-- HERO -->
-    <div id="ds-hero" style="padding:20px 20px 14px;flex-shrink:0;background:rgba(255,255,255,.04);border-bottom:.5px solid rgba(255,255,255,.08)">
-      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
-        <div id="ds-av" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;border:2px solid rgba(255,255,255,.15);font-family:var(--mono)">?</div>
-        <div style="flex:1;min-width:0;padding-top:4px">
-          <div id="ds-name" style="font-size:18px;font-weight:600;color:#fff;line-height:1.2;margin-bottom:4px">A carregar…</div>
-          <div id="ds-ref-line" style="font-size:11px;color:rgba(255,255,255,.4);font-family:var(--mono);letter-spacing:.04em">—</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;margin-top:4px">
-          <button id="ds-wa-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="WhatsApp">📲</button>
-          <button id="ds-em-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="Email">✉️</button>
-          <button id="ds-hor-btn" style="width:32px;height:32px;border-radius:8px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);cursor:pointer;color:rgba(255,255,255,.7);font-size:15px;transition:background .15s" title="Enviar horário">📅</button>
-        </div>
-      </div>
-      <div id="ds-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
-      <div id="ds-stat-strip" style="display:flex;border-top:.5px solid rgba(255,255,255,.07)">
-        <div class="dss"><div class="dssv" id="ds-s-yrs">—</div><div class="dssl">Anos ALM</div></div>
-        <div class="dss"><div class="dssv" id="ds-s-abs">—</div><div class="dssl">Faltas</div></div>
-        <div class="dss"><div class="dssv" id="ds-s-grade">—</div><div class="dssl">Nota final</div></div>
-        <div class="dss"><div class="dssv" id="ds-s-turma" style="font-size:13px;font-family:var(--mono);color:#C9A84C">—</div><div class="dssl">Turma</div></div>
-      </div>
-    </div>
-
-    <!-- TABS — Historial removed (D-01) -->
-    <div style="display:flex;background:rgba(255,255,255,.03);border-bottom:.5px solid rgba(255,255,255,.08);padding:0 16px;flex-shrink:0">
-      <div class="dstab active" id="dstab-identity" onclick="dsTab('identity',this)">📋 Identidade</div>
-      <div class="dstab" id="dstab-timetable" onclick="dsTab('timetable',this)">🗓 Horário</div>
-      <div class="dstab" id="dstab-notes" onclick="dsTab('notes',this)">🚩 Notas</div>
-    </div>
-
-    <!-- BODY -->
-    <div id="ds-body" style="flex:1 1 auto;height:22px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent">
-      <div style="padding:60px;text-align:center;color:rgba(255,255,255,.3);font-size:12px">A carregar…</div>
-    </div>
-
-    <!-- ACTION BAR -->
-    <div id="ds-action-bar" style="display:flex;gap:6px;padding:10px 16px;border-top:.5px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);flex-wrap:wrap;flex-shrink:0">
-      <button id="ds-btn-wa" class="dsabtn primary">📲 WhatsApp</button>
-<button id="ds-btn-ee" class="dsabtn">👨‍👩‍👧 Contactar EE</button>
-<button id="ds-btn-send" class="dsabtn">📅 Enviar horário</button>
-<button id="ds-btn-move" class="dsabtn">⇄ Mudar turma</button>
-<button id="ds-btn-ficha" class="dsabtn">📋 Ficha ↗</button>
-<button class="dsabtn" style="margin-left:auto" onclick="window.print()">🖨️ Imprimir</button>
-    </div>
-  </div>
-
-  <style>
-    .dss{flex:1;padding:10px 0;text-align:center;border-right:.5px solid rgba(255,255,255,.07)}
-    .dss:last-child{border-right:none}
-    .dssv{font-size:20px;font-weight:700;color:#fff;line-height:1;font-family:var(--mono)}
-    .dssl{font-size:10px;color:rgba(255,255,255,.35);margin-top:3px;letter-spacing:.06em;text-transform:uppercase}
-    .dstab{padding:10px 14px;font-size:12px;font-weight:600;color:rgba(255,255,255,.4);cursor:pointer;border-bottom:2px solid transparent;transition:all .13s;font-family:var(--mono);letter-spacing:.04em;white-space:nowrap}
-    .dstab:hover{color:rgba(255,255,255,.7)}
-    .dstab.active{color:#C9A84C;border-bottom-color:#C9A84C}
-    .dspane{display:none;padding:16px 20px 20px}
-    .dspane.active{display:block}
-    .ds-sec{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.28);display:flex;align-items:center;gap:8px;margin:14px 0 8px}
-    .ds-sec::after{content:'';flex:1;height:.5px;background:rgba(255,255,255,.08)}
-    .ds-g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .ds-fld{background:rgba(255,255,255,.04);border-radius:8px;padding:9px 12px;border:.5px solid rgba(255,255,255,.06)}
-    .ds-fk{font-size:10px;color:rgba(255,255,255,.35);margin-bottom:3px;letter-spacing:.06em}
-    .ds-fv{font-size:13px;color:rgba(255,255,255,.85);font-weight:600}
-    .ds-fv.mono{font-family:var(--mono);font-size:12px}
-    .ds-fv.teal{color:#28C8B0}
-    .ds-fv.amber{color:#C9A84C}
-    .ds-fv.red{color:#E8455A}
-    .ds-crow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06)}
-    .ds-crow:last-child{border-bottom:none}
-    .ds-cico{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-    .ds-hrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06)}
-    .ds-hrow:last-child{border-bottom:none}
-    .ds-hbadge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:.5px solid;flex-shrink:0}
-    .hb-pass{background:rgba(29,184,122,.12);border-color:rgba(29,184,122,.35);color:#3DE8A8}
-    .hb-fail{background:rgba(232,69,90,.12);border-color:rgba(232,69,90,.35);color:#E8455A}
-    .hb-prog{background:rgba(74,143,245,.12);border-color:rgba(74,143,245,.35);color:#7AABEE}
-    .ds-flag{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);cursor:pointer;font-size:12px;transition:all .13s}
-    .ds-flag:hover{border-color:rgba(255,255,255,.2)}
-    .ds-flag.on{background:rgba(232,69,90,.12);border-color:rgba(232,69,90,.4);color:#E8455A}
-    .dsabtn{padding:7px 14px;border-radius:8px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:rgba(255,255,255,.75);cursor:pointer;font-size:12px;font-weight:600;font-family:var(--mono);transition:all .13s;letter-spacing:.04em}
-    .dsabtn:hover{background:rgba(255,255,255,.1);color:#fff}
-    .dsabtn.primary{background:rgba(29,184,122,.2);border-color:rgba(29,184,122,.5);color:#3DE8A8}
-    .dsabtn.primary:hover{background:rgba(29,184,122,.3)}
-    .ds-note{width:100%;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;font-size:13px;color:rgba(255,255,255,.85);resize:vertical;min-height:80px;outline:none;font-family:var(--sans,system-ui);line-height:1.6;margin-top:6px;transition:border-color .13s}
-    .ds-note:focus{border-color:rgba(201,168,76,.4)}
-    .ds-note::placeholder{color:rgba(255,255,255,.2)}
-  </style>`;
-
-  document.getElementById('ds-close-btn').onclick = closeDossier;
-
-  /* ── tab switcher ── */
-  window.dsTab = (id, btn) => {
-    ov.querySelectorAll('.dspane').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ov.querySelectorAll('.dstab').forEach(b => b.classList.remove('active'));
-    const pane = ov.querySelector('#dspane-' + id);
-    if (pane) { pane.classList.add('active'); pane.style.display = 'block'; }
-    btn.classList.add('active');
-  };
-
-  /* ── fetch data — no turma_students (crash-proof) ── */
   let enrol = null, req = null, hst = [];
   try {
-     console.log('DOSSIER REF:', ref, encodeURIComponent(ref));
     const [enrols, reqs, hist] = await Promise.all([
       sbGet('enrolments', `ref=eq.${encodeURIComponent(ref)}&select=ref,name,date_of_birth,age,gender,phone,email,branch,lang,family,level_code,level_cefr,academic_year,returning_student,guardian_name,guardian_phone,guardian_email,school,school_year,notes&limit=1`),
       sbGet('timetable_requests', `ref=eq.${encodeURIComponent(ref)}&academic_year=eq.${AY}&select=ref,status,sessions_per_week,slots,day_preferences,assigned_turma,notes&limit=1`),
@@ -1683,266 +1545,368 @@ function findTurma(ref) {
     enrol = enrols[0] || null;
     req   = reqs[0]   || rByRef[ref] || null;
     hst   = hist || [];
-    _dsData = { enrol, req, hst };
-} catch(err) {
-    const bodyEl = ov.querySelector('#ds-body') || document.getElementById('ds-body');
-    if (bodyEl) bodyEl.innerHTML = `<div style="padding:40px;text-align:center;color:#E8455A;font-size:12px">Erro: ${err.message}</div>`;
-    return;  // ← add this
+  } catch (err) {
+    host.innerHTML = `<div class="isheet"><div class="isheet-head">
+      <div class="isheet-eyebrow"><span class="isheet-bar" style="background:#B8402A"></span>
+      <span class="isheet-kicker">Erro</span></div>
+      <div class="isheet-title">Sem ligação</div>
+      <div class="isheet-sub">${err.message}</div></div>
+      <div class="isheet-foot"><button class="isheet-btn" onclick="closeDossier()">Fechar</button></div></div>`;
+    return;
   }
 
-  /* ── populate hero ── */
-  const dept     = (enrol?.family || 'adults').toLowerCase();
-  const accentHex = DEPT_HEX[dept] || '#C9A84C';
-  const rawCode  = (enrol?.level_code || enrol?.level_cefr || '').trim();
-  const lvlDisp  = ALM_DISP[rawCode] || rawCode || '—';
-  const branch   = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g,' ');
+  const dept   = (enrol?.family || 'adults').toLowerCase();
+  const meta   = LEVEL_MAP[lk(enrol || {})] || {};
+  const rawC   = (enrol?.level_code || enrol?.level_cefr || '').trim();
+  const lvl    = ALM_DISP[rawC] || rawC || '—';
+  const branch = BRANCH_LABELS[normB(enrol?.branch)] || (enrol?.branch || '—').replace(/_/g, ' ');
+  const av     = avCol(enrol?.name || ref);
+  const turma  = _findTurmaFor(ref);
+  const st     = req ? normS(req.status) : 'sem_pedido';
+  const stTxt  = st === 'atribuido' ? 'Atribuído' : st === 'sem_pedido' ? 'Sem pedido' : 'Pendente';
 
-  /* hero accent stripe */
-  const _card = document.getElementById('alm-ds-card');
-  if (_card) _card.style.borderTop = `3px solid ${accentHex}`;
+  const fld = (k, v, mono) => v
+    ? `<div class="isheet-fld"><div class="isheet-fk">${k}</div><div class="isheet-fv"${mono ? ' style="font-family:var(--mono);font-size:12px"' : ''}>${v}</div></div>` : '';
+  const dob = enrol?.date_of_birth
+    ? new Date(enrol.date_of_birth).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
 
-  /* avatar */
-  const avEl = ov.querySelector('#ds-av');
-  const ac = avColor(enrol?.name || ref);
-  avEl.style.background = ac.bg; avEl.style.color = ac.t;
-  avEl.style.borderColor = ac.t + '55';
-  avEl.textContent = avInit(enrol?.name || ref);
-
-  ov.querySelector('#ds-name').textContent = enrol?.name || ref;
-  ov.querySelector('#ds-ref-line').textContent = `${ref}  ·  ${AY}  ·  ${DEPT_LBL[dept] || 'Geral'}`;
-
-  /* pills */
-  const turmaInfo = findTurma(ref);
-  const st = req ? normS(req.status) : 'sem_pedido';
-  const stCls = st === 'atribuido' ? 'color:#3DE8A8;border-color:rgba(29,184,122,.4);background:rgba(29,184,122,.1)' : st === 'sem_pedido' ? 'color:#E8455A;border-color:rgba(232,69,90,.4);background:rgba(232,69,90,.1)' : 'color:#E8C060;border-color:rgba(232,160,32,.4);background:rgba(232,160,32,.1)';
-  const stTxt = st === 'atribuido' ? (turmaInfo ? `Atribuído · ${turmaInfo.code}` : 'Atribuído') : st === 'sem_pedido' ? 'Sem pedido' : 'Pendente';
-  const pillStyle = 'font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;border:.5px solid;font-family:var(--mono);letter-spacing:.04em';
-  ov.querySelector('#ds-pills').innerHTML = [
-    `<span style="${pillStyle};background:${accentHex}18;border-color:${accentHex}44;color:${accentHex}">${DEPT_LBL[dept] || 'Geral'} · ${lvlDisp}</span>`,
-    `<span style="${pillStyle};background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.3);color:#7AABEE">${branch}</span>`,
-    enrol?.lang ? `<span style="${pillStyle};background:rgba(155,94,202,.1);border-color:rgba(155,94,202,.3);color:#C080F0">${enrol.lang}</span>` : '',
-    `<span style="${pillStyle};${stCls}">${stTxt}</span>`,
-  ].filter(Boolean).join('');
-
-  /* stat strip — D-02: use grade (not grade_final) */
-  ov.querySelector('#ds-s-yrs').textContent   = hst.length || '—';
-  ov.querySelector('#ds-s-abs').textContent   = hst[0]?.absences ?? '—';
-  ov.querySelector('#ds-s-grade').textContent = hst[0]?.grade != null ? hst[0].grade : '—';
-  ov.querySelector('#ds-s-turma').textContent = turmaInfo ? turmaInfo.code : '—';
-
-  /* ── build tab panes ── */
-  const fld = (k, v, cls = '') => v ? `<div class="ds-fld"><div class="ds-fk">${k}</div><div class="ds-fv ${cls}">${v}</div></div>` : '';
-  const dob = enrol?.date_of_birth ? new Date(enrol.date_of_birth).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
-
-  /* IDENTITY */
-  const identityHTML = `
-  <div class="ds-sec">Ficha de inscrição</div>
-  <div class="ds-g2">
-    ${fld('Nome completo', enrol?.name)}
-    ${fld('Referência', enrol?.ref, 'mono')}
-    ${dob ? fld('Data de nascimento', dob + (enrol?.age ? ' · ' + enrol.age + ' anos' : '')) : ''}
-    ${fld('Género', enrol?.gender)}
-    ${fld('Língua', enrol?.lang)}
-    ${fld('Ano lectivo', enrol?.academic_year)}
-    ${fld('Escola', enrol?.school)}
-    ${fld('Ano escolar', enrol?.school_year)}
-    ${fld('Aluno regressante', enrol?.returning_student ? 'Sim' : enrol?.returning_student === false ? 'Não' : null)}
-    ${fld('Data de inscrição', enrol?.enrolment_date ? new Date(enrol.enrolment_date).toLocaleDateString('pt-PT') : null)}
-  </div>
-  <div class="ds-sec" style="margin-top:14px">Contactos do aluno</div>
-  <div class="ds-g2">
-    ${fld('Telefone', enrol?.phone, 'teal')}
-    ${fld('Email', enrol?.email, 'teal')}
-  </div>
-  <div class="ds-sec" style="margin-top:14px">Encarregado de educação</div>
-  ${enrol?.guardian_name ? `<div class="ds-crow"><div class="ds-cico">👤</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Nome</div><div style="font-size:13px;color:rgba(255,255,255,.85)">${enrol.guardian_name}</div></div></div>` : ''}
-  ${enrol?.guardian_phone ? `<div class="ds-crow"><div class="ds-cico">📞</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Telefone</div><div style="font-size:13px;color:#7AABEE"><a href="tel:${enrol.guardian_phone}" style="color:inherit;text-decoration:none">${enrol.guardian_phone}</a></div></div></div>` : ''}
-  ${enrol?.guardian_email ? `<div class="ds-crow"><div class="ds-cico">✉️</div><div><div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:1px">Email</div><div style="font-size:13px;color:#7AABEE"><a href="mailto:${enrol.guardian_email}" style="color:inherit;text-decoration:none">${enrol.guardian_email}</a></div></div></div>` : ''}
-  ${!enrol?.guardian_name && !enrol?.guardian_phone && !enrol?.guardian_email ? '<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem dados de EE registados</div>' : ''}
-  <div class="ds-sec" style="margin-top:14px">Turma atribuída</div>
-  ${turmaInfo ? `
-  <div style="background:rgba(201,168,76,.06);border-radius:10px;border:.5px solid rgba(201,168,76,.3);padding:12px 14px;display:flex;align-items:center;gap:12px">
-    <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:#C9A84C;flex-shrink:0;min-width:80px">${turmaInfo.code}</div>
-    <div style="flex:1">
-      <div style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600">${turmaInfo.pair} · ${turmaInfo.startTime}–${turmaInfo.endTime}</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${turmaInfo.meta.label || ''}</div>
+  const identity = `
+    <div class="isheet-sec">Inscrição</div>
+    <div class="isheet-g2">
+      ${fld('Referência', enrol?.ref, true)}
+      ${fld('Ano lectivo', enrol?.academic_year, true)}
+      ${dob ? fld('Nascimento', dob + (enrol?.age ? ` · ${enrol.age} anos` : '')) : ''}
+      ${fld('Género', enrol?.gender)}
+      ${fld('Idioma', LANG_LABELS[normLang(enrol?.lang)] || enrol?.lang)}
+      ${fld('Filial', branch)}
+      ${fld('Escola', enrol?.school)}
+      ${fld('Ano escolar', enrol?.school_year)}
+      ${fld('Regressante', enrol?.returning_student === true ? 'Sim' : enrol?.returning_student === false ? 'Não' : null)}
     </div>
-    ${turmaInfo.certified ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:.5px solid rgba(29,184,122,.4);color:#3DE8A8;background:rgba(29,184,122,.1)">✓ Cert.</span>` : ''}
-  </div>` : `<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem turma atribuída</div>`}
-`;
-
-  /* TIMETABLE */
-  const ttHTML = `
-    <div class="ds-sec">Disponibilidade pedida</div>
-    ${req ? renderAvailGrid(req) : `<div style="font-size:12px;color:rgba(255,255,255,.3);padding:8px 0">Sem pedido registado</div>`}
-    ${turmaInfo ? `
-    <div class="ds-sec" style="margin-top:14px">Sessões atribuídas</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <div style="flex:1;min-width:120px;background:rgba(201,168,76,.08);border:.5px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 12px">
-        <div style="font-size:10px;color:#C9A84C;font-weight:700;margin-bottom:3px;font-family:var(--mono)">${turmaInfo.code.split('/')[0] || turmaInfo.code}A</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600">${turmaInfo.pair.split('+')[0]?.trim() || turmaInfo.pair}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:1px">${turmaInfo.startTime}–${turmaInfo.endTime}</div>
-      </div>
-      ${turmaInfo.pair.includes('+') ? `
-      <div style="flex:1;min-width:120px;background:rgba(201,168,76,.05);border:.5px solid rgba(201,168,76,.2);border-radius:8px;padding:10px 12px">
-        <div style="font-size:10px;color:#C9A84C;font-weight:700;margin-bottom:3px;font-family:var(--mono)">${turmaInfo.code.split('/')[1] || turmaInfo.code}B</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600">${turmaInfo.pair.split('+')[1]?.trim() || turmaInfo.pair}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:1px">${turmaInfo.startTime}–${turmaInfo.endTime}</div>
-      </div>` : ''}
-    </div>` : ''}
-    ${req?.sessions_per_week ? `<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.35)">${req.sessions_per_week} sessão/sem pedida · estado: <span style="color:${st==='atribuido'?'#3DE8A8':st==='sem_pedido'?'#E8455A':'#E8C060'}">${st}</span></div>` : ''}
-  `;
-
-  /* NOTES */
-  const flagDefs = [
-    { key: 'comportamento', icon: '⚠️', label: 'Comportamento' },
-    { key: 'pagamento',     icon: '💳', label: 'Pagamento' },
-    { key: 'desempenho',    icon: '📉', label: 'Desempenho' },
-    { key: 'faltas',        icon: '📅', label: 'Excesso faltas' },
-    { key: 'especial',      icon: '♿', label: 'Nec. especial' },
-  ];
-  const notesHTML = `
-    <div class="ds-sec">Alertas activos</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${flagDefs.map(f => `<div class="ds-flag" onclick="this.classList.toggle('on')">${f.icon} ${f.label}</div>`).join('')}
+    <div class="isheet-sec">Contactos</div>
+    <div class="isheet-g2">
+      ${fld('Telefone', enrol?.phone, true)}
+      ${fld('Email', enrol?.email)}
     </div>
-    <div class="ds-sec" style="margin-top:14px">Nota interna</div>
-    <textarea class="ds-note" id="ds-note-ta" placeholder="Nota visível para toda a equipa ALM…">${enrol?.notes || ''}</textarea>
-    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:8px">
-      <span id="ds-note-saved" style="font-size:11px;color:#3DE8A8;opacity:0;transition:opacity .3s;font-family:var(--mono)">✓ guardado</span>
-      <button class="dsabtn" style="background:rgba(29,184,122,.15);border-color:rgba(29,184,122,.4);color:#3DE8A8" onclick="dsSaveNote('${ref}')">Guardar nota</button>
+    <div class="isheet-sec">Encarregado de educação</div>
+    ${enrol?.guardian_name || enrol?.guardian_phone || enrol?.guardian_email ? `
+    <div class="isheet-g2">
+      ${fld('Nome', enrol?.guardian_name)}
+      ${fld('Telefone', enrol?.guardian_phone, true)}
+      ${fld('Email', enrol?.guardian_email)}
+    </div>` : '<div class="isheet-empty">Sem dados de EE registados</div>'}`;
+
+  const timetable = `
+    <div class="isheet-sec">Disponibilidade pedida</div>
+    ${req ? _availRuler(req) : '<div class="isheet-empty">Sem pedido registado</div>'}
+    <div class="isheet-sec">Turma</div>
+    ${turma ? `
+      <div class="isheet-fld" style="display:flex;align-items:center;gap:14px">
+        <div class="isheet-code">${turma.code}</div>
+        <div style="flex:1">
+          <div class="isheet-fv">${turma.pair} · ${turma.startTime}–${turma.endTime}</div>
+          <div class="isheet-meta">${turma.meta.label || ''}${turma.certified ? ' · certificada' : ' · proposta'}</div>
+        </div>
+      </div>` : '<div class="isheet-empty">Sem turma atribuída</div>'}
+    ${req?.sessions_per_week ? `<div class="isheet-meta" style="margin-top:10px">${req.sessions_per_week} sessão/semana pedida</div>` : ''}`;
+
+  const notes = `
+    <div class="isheet-sec">Nota interna</div>
+    <textarea class="isheet-note" id="stu-note" placeholder="Visível para toda a equipa ALM…">${enrol?.notes || ''}</textarea>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:10px">
+      <span id="stu-note-ok" style="font-family:var(--mono);font-size:10px;color:#4E6B50;opacity:0;transition:opacity .3s">guardado</span>
+      <button class="isheet-btn sage" onclick="dsSaveNote('${ref}')">Guardar</button>
     </div>`;
 
-  /* inject panes — no Historial pane (D-01) */
-    ov.querySelector('#ds-body').innerHTML = `
-    <div class="dspane active" id="dspane-identity">${identityHTML}</div>
-    <div class="dspane" id="dspane-timetable">${ttHTML}</div>
-    <div class="dspane" id="dspane-notes">${notesHTML}</div>
-  `;
+  host.innerHTML = `
+  <div class="isheet">
+    <button class="isheet-close" onclick="closeDossier()" aria-label="Fechar">✕</button>
+    <div class="isheet-head">
+      <div class="isheet-eyebrow">
+        <span class="isheet-bar"></span>
+        <span class="isheet-kicker">${DEPT_CFG[dept]?.label || 'Geral'} · ${lvl} · ${branch}</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div class="isheet-av" style="width:46px;height:46px;font-size:14px;margin-top:6px;background:${av.bg};color:${av.t}">${avInit(enrol?.name || ref)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="isheet-title" style="font-size:clamp(24px,4vw,34px)">${(enrol?.name || ref)}</div>
+        </div>
+      </div>
+      <div class="isheet-tags">
+        <span class="isheet-tag">${ref}</span>
+        <span class="isheet-tag">${normLang(enrol?.lang)}</span>
+        <span class="isheet-tag${st === 'atribuido' ? ' on' : ''}">${stTxt}${turma ? ' · ' + turma.code : ''}</span>
+      </div>
+    </div>
+    <div class="isheet-strip">
+      <div class="isheet-stat"><div class="isheet-stat-v">${hst.length || '—'}</div><div class="isheet-stat-l">Anos ALM</div></div>
+      <div class="isheet-stat"><div class="isheet-stat-v">${hst[0]?.absences ?? '—'}</div><div class="isheet-stat-l">Faltas</div></div>
+      <div class="isheet-stat"><div class="isheet-stat-v">${hst[0]?.grade ?? '—'}</div><div class="isheet-stat-l">Nota final</div></div>
+    </div>
+    <div class="isheet-tabs">
+      <button class="isheet-tab active" data-pane="identity">Identidade</button>
+      <button class="isheet-tab" data-pane="timetable">Horário</button>
+      <button class="isheet-tab" data-pane="notes">Notas</button>
+    </div>
+    <div class="isheet-body">
+      <div class="isheet-pane active" id="pane-identity">${identity}</div>
+      <div class="isheet-pane" id="pane-timetable">${timetable}</div>
+      <div class="isheet-pane" id="pane-notes">${notes}</div>
+    </div>
+    <div class="isheet-foot">
+      <button class="isheet-btn primary" id="stu-move">Mudar turma</button>
+      <button class="isheet-btn" id="stu-wa">WhatsApp</button>
+      <button class="isheet-btn" id="stu-ficha">Ficha completa</button>
+    </div>
+  </div>`;
 
-  /* action buttons */
+  host.querySelectorAll('.isheet-tab').forEach(b => b.addEventListener('click', () => {
+    host.querySelectorAll('.isheet-tab').forEach(x => x.classList.remove('active'));
+    host.querySelectorAll('.isheet-pane').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    host.querySelector('#pane-' + b.dataset.pane)?.classList.add('active');
+  }));
+
   const phone = (enrol?.phone || '').replace(/\D/g, '');
-  ov.querySelector('#ds-btn-wa').onclick = () => phone ? window.open(`https://wa.me/${phone}`) : showToast('Sem número', 'warn');
-  ov.querySelector('#ds-btn-ee').onclick = () => enrol?.guardian_phone ? window.open(`tel:${enrol.guardian_phone}`) : showToast('Sem telefone do EE', 'warn');
-  ov.querySelector('#ds-btn-send').onclick = () => showToast('Horário enviado ✓', 'ok');
-  ov.querySelector('#ds-btn-move').onclick = () => { closeDossier(); setTimeout(() => openMudarTurma(ref), 240); };
- ov.querySelector('#ds-btn-ficha').onclick = () => window.open(`/admin/alm-edit-enrollment.html?ref=${encodeURIComponent(ref)}`, '_blank');
-  ov.querySelector('#ds-wa-btn').onclick = ov.querySelector('#ds-btn-wa').onclick;
-  ov.querySelector('#ds-em-btn').onclick = () => enrol?.email ? window.open(`mailto:${enrol.email}`) : showToast('Sem email', 'warn');
-  ov.querySelector('#ds-hor-btn').onclick = ov.querySelector('#ds-btn-send').onclick;
+  host.querySelector('#stu-wa').onclick = () => phone ? window.open(`https://wa.me/${phone}`) : showToast('Sem número', 'warn');
+  host.querySelector('#stu-ficha').onclick = () => window.open(`/admin/alm-edit-enrollment.html?ref=${encodeURIComponent(ref)}`, '_blank');
+  host.querySelector('#stu-move').onclick = () => { closeDossier(); setTimeout(() => openMudarTurma(ref), 200); };
 
-  /* save note */
   window.dsSaveNote = async (r) => {
-    const txt = document.getElementById('ds-note-ta')?.value;
+    const txt = document.getElementById('stu-note')?.value;
     if (txt == null) return;
-    const ok = await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(r)}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: txt }) }).then(x => x.ok).catch(() => false);
-    const el = document.getElementById('ds-note-saved');
-    if (el) { el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0', 2200); }
-    showToast(ok ? 'Nota guardada ✓' : 'Erro ao guardar', ok ? 'ok' : 'err');
+    const ok = await fetch(`${SB}/rest/v1/enrolments?ref=eq.${encodeURIComponent(r)}`, {
+      method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: txt }) }).then(x => x.ok).catch(() => false);
+    const el = document.getElementById('stu-note-ok');
+    if (el && ok) { el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0', 2200); }
+    if (!ok) showToast('Erro ao guardar', 'err');
   };
 }
 
-function closeDossier() {
-  const ov = document.getElementById('alm-dossier-ov');
-  if (ov) {
-    ov.style.opacity = '0';
-    ov.style.transition = 'opacity .2s';
-    setTimeout(() => ov.remove(), 200);
+/* Lifted out of openDossier's closure, because Mudar Turma needs the
+   same lookup and was duplicating it. */
+function _findTurmaFor(ref) {
+  for (const [key, result] of Object.entries(_allResults)) {
+    for (let i = 0; i < (result.groups || []).length; i++) {
+      const g = result.groups[i];
+      if (g.students.find(s => s.ref === ref)) {
+        const c = (_groupCodes[key] || {})[i];
+        const code = c
+          ? (c.turmaCodeA && c.turmaCodeB && c.turmaCodeA !== c.turmaCodeB
+              ? `${c.turmaCodeA}/${c.turmaCodeB}` : c.turmaCodeA || c.turmaCode || `T${i + 1}`)
+          : `T${i + 1}`;
+        const pair = g.pairDef
+          ? (g.dayIdx_A === g.dayIdx_B ? g.dayL_A : `${g.dayL_A} + ${g.dayL_B}`)
+          : (g.dayL || '—');
+        return { code, pair, startTime: g.startTime, endTime: g.endTime,
+                 certified: !!c, levelKey: key, groupIdx: i, meta: LEVEL_MAP[key] || {} };
+      }
+    }
   }
-  // Also hide the legacy overlay shell if open
-  const legacy = document.getElementById('ds-overlay');
-  if (legacy) legacy.classList.remove('open');
+  return null;
+}
+
+/* The availability ruler, retinted. It was drawn in caramel on a
+   dark panel; on paper the band is sage and the grid lines are the
+   page's own hairline. */
+function _availRuler(req) {
+  const slots = parseSlotsForRuler(req);
+  const TOTAL = (20 - 8) * 60;
+  const pct  = m => ((Math.max(m, 480) - 480) / TOTAL * 100).toFixed(2);
+  const wPct = (f, t) => ((Math.min(t, 1200) - Math.max(f, 480)) / TOTAL * 100).toFixed(2);
+  const byDay = {};
+  slots.forEach(s => { (byDay[s.dayIdx] = byDay[s.dayIdx] || []).push(s); });
+  const COLS = [8, 10, 12, 14, 16, 18, 20];
+  const hdr = `<div style="display:flex;margin-left:34px;margin-bottom:4px">${COLS.map(h =>
+    `<div style="flex:1;font-family:var(--mono);font-size:9px;color:var(--ap-faint)">${h}h</div>`).join('')}</div>`;
+  const rows = DAYS_PT.map((d, di) => {
+    const ws = byDay[di] || [];
+    const lines = COLS.map(h => `<div style="position:absolute;left:${((h - 8) / 12 * 100).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(0,0,0,.05)"></div>`).join('');
+    const bands = ws.map(s => {
+      const f = Math.max(s.fromMins, 480), t = Math.min(s.toMins, 1200);
+      if (f >= t) return '';
+      return `<div style="position:absolute;left:${pct(f)}%;width:${wPct(f, t)}%;top:3px;bottom:3px;background:var(--sage);border-radius:4px;display:flex;align-items:center;padding:0 6px;overflow:hidden"><span style="font-family:var(--mono);font-size:9px;font-weight:600;color:#fff;white-space:nowrap">${s.startLabel}–${s.endLabel}</span></div>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+      <div style="width:26px;text-align:right;font-family:var(--mono);font-size:10px;font-weight:600;color:${ws.length ? 'var(--ap-ink)' : 'var(--ap-faint)'};flex-shrink:0">${d}</div>
+      <div style="flex:1;position:relative;height:22px;background:rgba(0,0,0,.035);border-radius:5px;overflow:hidden">${lines}${bands}</div>
+    </div>`;
+  }).join('');
+  return hdr + rows;
+}
+
+function closeDossier() {
+  _closeSheet('stu-ov');
+  document.getElementById('alm-dossier-ov')?.remove();
+  document.getElementById('ds-overlay')?.classList.remove('open');
 }
 
 /* ── MUDAR TURMA ──────────────────────────────────────────── */
 let _mtRef = null, _mtSelectedCode = null, _mtSelectedGroupIdx = null, _mtSelectedLevelKey = null;
 let _mtChangeSuffix = null, _mtCurrentSuffixA = null, _mtCurrentSuffixB = null;
 
+/* ── WHY THIS LOOKED BROKEN ──────────────────────────────────
+   It was not broken, it was gated. The old first act of this
+   function was:
+
+     if (!currentCommitted) { showToast('Sem turma certificada…'); return; }
+
+   — so unless the student's group had already been written to the
+   database, pressing "Mudar turma" dismissed itself with a toast
+   that scrolled past in three seconds. On a roster where almost
+   nothing is certified yet that is every student, and the button
+   reads as dead.
+
+   The gate was also wrong on the merits. Moving a student between
+   two PROPOSED groups is the cheap, reversible case — nothing is
+   written to classes, the change lives in _allResults until someone
+   certifies. It is the one time moving people is free. The gate
+   permitted only the expensive case and blocked the free one.
+
+   So: proposed groups are movable, certified groups are movable,
+   and the only genuine precondition is that the student is in a
+   group at all. What differs between the two is what gets written
+   on confirm, which confirmMudarTurma() already handles.        */
 function openMudarTurma(ref, changeSuffix) {
-  _mtRef = ref; _mtSelectedCode = null; _mtSelectedGroupIdx = null; _mtSelectedLevelKey = null; _mtChangeSuffix = changeSuffix || null;
+  _mtRef = ref; _mtSelectedCode = null; _mtSelectedGroupIdx = null;
+  _mtSelectedLevelKey = null; _mtChangeSuffix = changeSuffix || null;
+
   const enrol = allE.find(e => e.ref === ref);
   if (!enrol) { showToast('Aluno não encontrado', 'err'); return; }
-  let currentGroupKey = null, currentGroupIdx = null, currentCommitted = null;
-  for (const [key, result] of Object.entries(_allResults)) {
-    result.groups.forEach((g, i) => { if (g.students.find(s => s.ref === ref)) { currentGroupKey = key; currentGroupIdx = i; currentCommitted = (_groupCodes[key] || {})[i] || null; } });
+
+  const cur = _findTurmaFor(ref);
+  if (!cur) {
+    showToast('Aluno ainda sem grupo — nada para mudar', 'warn');
+    return;
   }
-if (!currentCommitted) { 
-  showToast('Sem turma certificada — certifique primeiro no Decision Centre', 'warn'); 
-  return; 
-}
-  _mtCurrentSuffixA = currentCommitted?.turmaCodeA || null; _mtCurrentSuffixB = currentCommitted?.turmaCodeB || null;
-  if (!changeSuffix) { _showMudarStep1(ref, enrol, _mtCurrentSuffixA, _mtCurrentSuffixB, currentGroupKey, currentGroupIdx); return; }
-  _showMudarStep2(ref, enrol, changeSuffix, currentGroupKey, currentGroupIdx, currentCommitted);
+  const committed = (_groupCodes[cur.levelKey] || {})[cur.groupIdx] || null;
+  _mtCurrentSuffixA = committed?.turmaCodeA || null;
+  _mtCurrentSuffixB = committed?.turmaCodeB || null;
+
+  const g = _allResults[cur.levelKey].groups[cur.groupIdx];
+  const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+
+  /* A single-session group has no A/B choice to make, so skip it.
+     Asking would be a step whose answer is already known. */
+  if (!changeSuffix && isSameDay) { _mtRenderStep2(ref, enrol, 'A', cur, committed); return; }
+  if (!changeSuffix) { _mtRenderStep1(ref, enrol, cur, committed, g); return; }
+  _mtRenderStep2(ref, enrol, changeSuffix, cur, committed);
 }
 
-function _showMudarStep1(ref, enrol, codeA, codeB, currentGroupKey, currentGroupIdx) {
-  const meta = getLM(enrol), dept = meta.dept || 'adults';
-  const col = avCol(enrol.name || ref);
-  document.getElementById('mt-banner').style.background = DEPT_GRADS[dept] || DEPT_GRADS.adults;
-  document.getElementById('mt-banner-tag').textContent = '⇄ mudar turma';
-  const av = document.getElementById('mt-av'); av.style.cssText = `background:${col.bg};color:${col.t};border-color:${col.t}44`; av.textContent = avInit(enrol.name || ref);
-  document.getElementById('mt-name').textContent = enrol.name || ref;
-  document.getElementById('mt-sub').textContent = `${ref} · ${BRANCH_LABELS[normB(enrol.branch)] || enrol.branch || '—'} · ${enrol.lang || 'EN'}`;
-  document.getElementById('mt-badges').innerHTML = `<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label || '—'}</span>` + (codeA ? `<span class="mt-badge" style="background:rgba(74,143,245,.1);border-color:rgba(74,143,245,.3);color:#7AABEE">A · ${codeA}</span>` : '') + (codeB ? `<span class="mt-badge" style="background:rgba(155,94,202,.1);border-color:rgba(155,94,202,.3);color:#C080F0">B · ${codeB}</span>` : '');
-  const g = currentGroupKey ? _allResults[currentGroupKey]?.groups[currentGroupIdx] : null;
-  const slotA = g ? `${g.dayL_A || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
-  const slotB = g ? `${g.dayL_B || g.dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : '—';
-  document.getElementById('mt-columns').innerHTML = `<div style="padding:20px 18px;display:flex;flex-direction:column;gap:10px;width:100%"><div style="font-size:7px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--label-d);margin-bottom:4px">O que pretende mudar?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div onclick="openMudarTurma('${ref}','A')" style="background:rgba(74,143,245,.08);border:1px solid rgba(74,143,245,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(74,143,245,.18)'" onmouseout="this.style.background='rgba(74,143,245,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7AABEE;margin-bottom:5px">Sessão A</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotA}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeA || '—'}</div><div style="font-size:7px;color:rgba(74,143,245,.7);margin-top:8px">Manter B · mudar A →</div></div><div onclick="openMudarTurma('${ref}','B')" style="background:rgba(155,94,202,.08);border:1px solid rgba(155,94,202,.35);padding:14px;cursor:pointer;border-radius:8px;transition:all .15s" onmouseover="this.style.background='rgba(155,94,202,.18)'" onmouseout="this.style.background='rgba(155,94,202,.08)'"><div style="font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C080F0;margin-bottom:5px">Sessão B</div><div style="font-size:10px;font-weight:700;color:#fff;margin-bottom:3px">${slotB}</div><div style="font-size:8px;color:rgba(255,255,255,.4)">${codeB || '—'}</div><div style="font-size:7px;color:rgba(155,94,202,.7);margin-top:8px">Manter A · mudar B →</div></div></div></div>`;
-  document.getElementById('mt-overlay').classList.add('open');
-  document.getElementById('mt-success').className = 'mt-success';
-  document.getElementById('mt-confirm-btn').disabled = true;
-  document.getElementById('mt-confirm-btn').textContent = 'Escolha uma opção acima';
+function _mtHead(ref, enrol, kicker, title, tags) {
+  const av = avCol(enrol.name || ref);
+  return `<button class="isheet-close" onclick="closeMudarTurma()" aria-label="Fechar">✕</button>
+    <div class="isheet-head">
+      <div class="isheet-eyebrow"><span class="isheet-bar"></span>
+        <span class="isheet-kicker">${kicker}</span></div>
+      <div style="display:flex;align-items:flex-start;gap:14px">
+        <div class="isheet-av" style="width:40px;height:40px;font-size:12px;margin-top:4px;background:${av.bg};color:${av.t}">${avInit(enrol.name || ref)}</div>
+        <div style="flex:1;min-width:0"><div class="isheet-title" style="font-size:clamp(22px,3.6vw,30px)">${title}</div></div>
+      </div>
+      <div class="isheet-tags">${tags}</div>
+    </div>`;
 }
 
-function _showMudarStep2(ref, enrol, suffix, currentGroupKey, currentGroupIdx, currentCommitted) {
-  const meta = getLM(enrol), dept = meta.dept || 'adults';
-  const col = avCol(enrol.name || ref);
-  document.getElementById('mt-banner').style.background = DEPT_GRADS[dept] || DEPT_GRADS.adults;
-  document.getElementById('mt-banner-tag').textContent = suffix === 'A' ? '⇄ mudar sessão A' : '⇄ mudar sessão B';
-  const av = document.getElementById('mt-av'); av.style.cssText = `background:${col.bg};color:${col.t};border-color:${col.t}44`; av.textContent = avInit(enrol.name || ref);
-  document.getElementById('mt-name').textContent = enrol.name || ref;
-  document.getElementById('mt-sub').textContent = `${ref} · ${BRANCH_LABELS[normB(enrol.branch)] || enrol.branch || '—'} · ${enrol.lang || 'EN'}`;
-  const codeA = currentCommitted?.turmaCodeA || null, codeB = currentCommitted?.turmaCodeB || null;
-  const keepCode = suffix === 'A' ? codeB : codeA;
-  const keepLabel = suffix === 'A' ? 'Mantém B' : 'Mantém A';
-  document.getElementById('mt-badges').innerHTML = `<span class="mt-badge" style="background:rgba(200,164,74,.1);border-color:rgba(200,164,74,.3);color:var(--gold2)">${meta.label || '—'}</span>` + (keepCode ? `<span class="mt-badge" style="background:rgba(29,184,122,.1);border-color:rgba(29,184,122,.3);color:var(--green)">✓ ${keepLabel} · ${keepCode}</span>` : '') + `<span class="mt-badge" style="background:transparent;border-color:rgba(255,255,255,.1);color:var(--t3);cursor:pointer" onclick="openMudarTurma('${ref}')">← voltar</span>`;
+function _mtRenderStep1(ref, enrol, cur, committed, g) {
+  const host = _sheetHost('stu-ov'); if (!host) return;
+  const meta = getLM(enrol);
+  const tA = `${g.dayL_A || g.dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
+  const tB = `${g.dayL_B || g.dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
+  host.innerHTML = `<div class="isheet">
+    ${_mtHead(ref, enrol, 'Mudar turma', enrol.name || ref,
+      `<span class="isheet-tag">${meta.label || '—'}</span><span class="isheet-tag">${cur.code}</span>` +
+      `<span class="isheet-tag${committed ? ' on' : ''}">${committed ? 'Certificada' : 'Proposta'}</span>`)}
+    <div class="isheet-body">
+      <div class="isheet-sec">Que sessão pretende mudar?</div>
+      <div class="isheet-opt" onclick="openMudarTurma('${ref}','A')">
+        <div class="isheet-code">A</div>
+        <div style="flex:1"><div class="isheet-fv">${tA}</div>
+          <div class="isheet-meta">${_mtCurrentSuffixA || 'proposta'} · a sessão B mantém-se</div></div>
+      </div>
+      <div class="isheet-opt" onclick="openMudarTurma('${ref}','B')">
+        <div class="isheet-code">B</div>
+        <div style="flex:1"><div class="isheet-fv">${tB}</div>
+          <div class="isheet-meta">${_mtCurrentSuffixB || 'proposta'} · a sessão A mantém-se</div></div>
+      </div>
+    </div>
+    <div class="isheet-foot">
+      <button class="isheet-btn" onclick="closeMudarTurma()">Cancelar</button>
+      <button class="isheet-btn" style="margin-left:auto" onclick="closeMudarTurma();setTimeout(()=>openDossier('${ref}'),200)">Voltar ao dossier</button>
+    </div>
+  </div>`;
+  host.classList.add('open');
+}
+
+function _mtRenderStep2(ref, enrol, suffix, cur, committed) {
+  const host = _sheetHost('stu-ov'); if (!host) return;
+  const meta = getLM(enrol);
   const levelKey = lk(enrol);
-  let optHtml = '', optCount = 0;
   const result = _allResults[levelKey];
-  if (!result?.groups?.length) { optHtml = `<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem turmas disponíveis para este nível.</div>`; }
-  else {
-    result.groups.forEach((g, i) => {
-      const isCurrent = (currentGroupKey === levelKey && currentGroupIdx === i);
-      const committed = (_groupCodes[levelKey] || {})[i]; if (!committed) return;
-      let displayCode, displayDay, isCurrentSession;
-      if (suffix === 'A') { displayCode = committed?.turmaCodeA || `T${i + 1}A`; displayDay = g.dayL_A || g.dayL; isCurrentSession = isCurrent && (displayCode === codeA); }
-      else { displayCode = committed?.turmaCodeB || `T${i + 1}B`; displayDay = g.dayL_B || g.dayL; isCurrentSession = isCurrent && (displayCode === codeB); }
-      if (isCurrentSession) return;
-      const slotCol2 = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
-      const n = g.students.length, full = n >= MAX_G, capPct = Math.round(n / MAX_G * 100);
-      const fillCol = capPct >= 90 ? 'var(--red)' : capPct >= 70 ? 'var(--amber)' : slotCol2;
-      optCount++;
-      optHtml += `<div class="mt-option${full ? ' mt-full' : ''}" onclick="mtSelectOption(this,'${levelKey}',${i},'${displayCode}','${suffix}',${full})" id="mt-opt-${i}-${suffix}"><div class="mt-radio"></div><div class="mt-opt-code" style="color:${slotCol2}">${displayCode}</div><div class="mt-opt-info"><div class="mt-opt-days">${displayDay}</div><div class="mt-opt-meta">${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)} · ${n} al</div>${full ? `<div class="mt-opt-warn" style="border-color:rgba(232,69,90,.4);background:rgba(232,69,90,.1);color:var(--red)">✕ turma cheia</div>` : ''}</div><div class="mt-opt-right"><div class="mt-opt-n">${n}<span style="font-size:7px;font-weight:400;color:var(--t4)">/${MAX_G}</span></div><div class="mt-opt-bar"><div class="mt-opt-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div></div>`;
-    });
-  }
-  if (!optCount && !optHtml) optHtml = `<div style="padding:30px;text-align:center;font-size:9px;color:var(--t3);letter-spacing:.1em">Sem sessões ${suffix === 'A' ? 'A' : 'B'} disponíveis.</div>`;
-  const g = currentGroupKey ? _allResults[currentGroupKey]?.groups[currentGroupIdx] : null;
-  const curSlot = g ? `${suffix === 'A' ? (g.dayL_A || g.dayL) : (g.dayL_B || g.dayL)} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}` : 'Sem turma';
-  document.getElementById('mt-columns').innerHTML = `<div class="mt-col-left"><div class="mt-col-hdr">${suffix === 'A' ? 'Sessão A actual' : 'Sessão B actual'}</div><div class="mt-current-card"><div class="mt-current-code" style="font-size:20px">${suffix === 'A' ? codeA || '—' : codeB || '—'}</div><div class="mt-current-sub">${curSlot}</div>${keepCode ? `<div style="margin-top:10px;padding-top:10px;border-top:.5px solid rgba(255,255,255,.07)"><div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(29,184,122,.6);margin-bottom:3px">✓ Mantém</div><div style="font-size:9px;color:var(--green)">${keepCode}</div></div>` : ''}</div><div class="mt-hint" style="margin-top:10px">${suffix === 'A' ? 'Seleccione uma nova sessão A. A sessão B é mantida.' : 'Seleccione uma nova sessão B. A sessão A é mantida.'}</div></div><div class="mt-col-right" id="mt-options-list"><div class="mt-col-hdr">Sessão ${suffix} disponível</div>${optHtml}</div>`;
-  document.getElementById('mt-overlay').classList.add('open');
-  document.getElementById('mt-success').className = 'mt-success';
-  const btn = document.getElementById('mt-confirm-btn'); btn.disabled = true; btn.textContent = 'Escolha uma sessão acima';
+  const curCode = suffix === 'A' ? (_mtCurrentSuffixA || cur.code) : (_mtCurrentSuffixB || cur.code);
+  const keepCode = suffix === 'A' ? _mtCurrentSuffixB : _mtCurrentSuffixA;
+
+  let opts = '', n = 0;
+  (result?.groups || []).forEach((g, i) => {
+    if (i === cur.groupIdx) return;                       /* where they already are */
+    const c = (_groupCodes[levelKey] || {})[i];
+    const same = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+    const code = suffix === 'A'
+      ? (c?.turmaCodeA || `T${i + 1}A`)
+      : (same ? (c?.turmaCodeA || `T${i + 1}A`) : (c?.turmaCodeB || `T${i + 1}B`));
+    const dayL = suffix === 'A' ? (g.dayL_A || g.dayL) : (same ? (g.dayL_A || g.dayL) : g.dayL_B);
+    const size = g.students.length, full = size >= MAX_G;
+    const pctN = Math.round(size / MAX_G * 100);
+    n++;
+    opts += `<div class="isheet-opt${full ? ' full' : ''}" id="mt-opt-${i}"
+        onclick="mtSelectOption(this,'${levelKey}',${i},'${code}','${suffix}',${full})">
+      <div class="isheet-radio"></div>
+      <div class="isheet-code">${code}</div>
+      <div style="flex:1;min-width:0">
+        <div class="isheet-fv">${dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}</div>
+        <div class="isheet-meta">${c ? 'certificada' : 'proposta'}${full ? ' · cheia' : ''}</div>
+      </div>
+      <div style="flex-shrink:0;text-align:right">
+        <div style="font-family:var(--ap-font);font-size:14px;font-weight:700;color:var(--ap-ink)">${size}<span style="font-size:10px;color:var(--ap-faint)">/${MAX_G}</span></div>
+        <div style="width:34px;height:3px;border-radius:2px;background:rgba(0,0,0,.08);margin-top:4px;overflow:hidden">
+          <div style="width:${pctN}%;height:100%;background:${full ? '#B8402A' : 'var(--sage)'}"></div></div>
+      </div>
+    </div>`;
+  });
+  if (!n) opts = '<div class="isheet-empty">Sem outra turma neste nível para onde mover.</div>';
+
+  host.innerHTML = `<div class="isheet">
+    ${_mtHead(ref, enrol, `Mudar sessão ${suffix}`, enrol.name || ref,
+      `<span class="isheet-tag">${meta.label || '—'}</span>` +
+      `<span class="isheet-tag">Actual · ${curCode}</span>` +
+      (keepCode ? `<span class="isheet-tag on">Mantém · ${keepCode}</span>` : ''))}
+    <div class="isheet-body">
+      <div class="isheet-sec">Mover para</div>
+      ${opts}
+    </div>
+    <div class="isheet-foot">
+      <button class="isheet-btn" onclick="closeMudarTurma()">Cancelar</button>
+      <button class="isheet-btn primary" id="mt-confirm-btn" disabled onclick="confirmMudarTurma()">Escolha uma turma</button>
+    </div>
+  </div>`;
+  host.classList.add('open');
 }
 
 function mtSelectOption(el, levelKey, groupIdx, code, suffix, full) {
   if (full) { showToast('Turma cheia — não é possível mover', 'warn'); return; }
-  document.querySelectorAll('#mt-options-list .mt-option').forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('#stu-ov .isheet-opt').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
   _mtSelectedLevelKey = levelKey; _mtSelectedGroupIdx = groupIdx; _mtSelectedCode = code;
   if (suffix) _mtChangeSuffix = suffix;
   const btn = document.getElementById('mt-confirm-btn');
-  const suffixLabel = _mtChangeSuffix === 'A' ? 'sessão A' : _mtChangeSuffix === 'B' ? 'sessão B' : 'par';
-  btn.disabled = false; btn.textContent = `✓ MOVER ${suffixLabel.toUpperCase()} PARA ${code}`;
+  if (btn) { btn.disabled = false; btn.textContent = `Mover para ${code}`; }
+}
+
+function closeMudarTurma() {
+  _closeSheet('stu-ov');
+  document.getElementById('mt-overlay')?.classList.remove('open');
+  _mtRef = null; _mtSelectedCode = null; _mtSelectedGroupIdx = null; _mtSelectedLevelKey = null;
+  _mtChangeSuffix = null; _mtCurrentSuffixA = null; _mtCurrentSuffixB = null;
 }
 
 async function confirmMudarTurma() {
@@ -1960,6 +1924,10 @@ async function confirmMudarTurma() {
   let assignedCode = targetTurmaCode;
   if (suffix === 'A') { const keepB = _mtCurrentSuffixB; assignedCode = keepB ? `${targetTurmaCode}/${keepB}` : targetTurmaCode; }
   else if (suffix === 'B') { const keepA = _mtCurrentSuffixA; assignedCode = keepA ? `${keepA}/${targetTurmaCode}` : targetTurmaCode; }
+  /* A proposed group has no classes row to patch, so the roster
+     writes below are skipped and only the request is updated —
+     the move lives in _allResults until someone certifies. */
+  const isCertifiedMove = !!targetCommitted;
   const payload = { assigned_turma: assignedCode, status: 'atribuido' };
   const existing = rByRef[_mtRef];
   let ok = false;
@@ -1971,6 +1939,7 @@ async function confirmMudarTurma() {
     if (!rByRef[_mtRef]) { rByRef[_mtRef] = { ref: _mtRef, academic_year: AY }; allR.push(rByRef[_mtRef]); }
     rByRef[_mtRef].assigned_turma = assignedCode; rByRef[_mtRef].status = 'atribuido';
     try {
+      if (!isCertifiedMove) throw { skip: true };
       const tRows = await sbGet('classes', `select=student_refs&turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${AY}&limit=1`);
       const tRefs = new Set(Array.isArray(tRows[0]?.student_refs) ? tRows[0].student_refs : []); tRefs.add(_mtRef);
       const rT = await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(targetTurmaCode)}&academic_year=eq.${AY}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: [...tRefs], locked: true, assignment_source: 'staff_move', locked_at: new Date().toISOString() }) });
@@ -1981,7 +1950,9 @@ async function confirmMudarTurma() {
         await fetch(`${SB}/rest/v1/classes?turma_code=eq.${encodeURIComponent(sourceTurmaCode)}&academic_year=eq.${AY}`, { method: 'PATCH', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ student_refs: sRefs }) });
       }
       await loadLocks();
-    } catch (lockErr) { console.warn('roster move failed', lockErr); showToast('Aviso: falha parcial na base de dados', 'warn'); }
+    } catch (lockErr) {
+      if (!lockErr?.skip) { console.warn('roster move failed', lockErr); showToast('Aviso: falha parcial na base de dados', 'warn'); }
+    }
     if (enrol) {
       for (const [key, result] of Object.entries(_allResults)) { result.groups.forEach(g => { const idx = g.students.findIndex(s => s.ref === _mtRef); if (idx >= 0) g.students.splice(idx, 1); }); }
       const tg = _allResults[_mtSelectedLevelKey]?.groups[_mtSelectedGroupIdx];
@@ -1989,11 +1960,11 @@ async function confirmMudarTurma() {
     }
     const enrolName = (allE.find(e => e.ref === _mtRef)?.name || _mtRef).split(' ')[0];
     const suffixLabel = suffix === 'A' ? 'Sessão A' : suffix === 'B' ? 'Sessão B' : 'Par';
-    document.getElementById('mt-success-title').textContent = 'MUDANÇA OK';
-    document.getElementById('mt-success-sub').textContent = `${enrolName} · ${suffixLabel} → ${targetTurmaCode} · guardado ✓`;
-    document.getElementById('mt-success').className = 'mt-success show';
-    showToast(`${enrolName} → ${targetTurmaCode} ✓`, 'ok');
-    setTimeout(() => closeMudarTurma(), 1600);
+    /* The full-bleed success curtain is gone with the old modal. A
+       toast says the same thing without holding the screen for 1.6s
+       to say it, and the sheet closes immediately. */
+    showToast(`${enrolName} · ${suffixLabel} → ${targetTurmaCode}`, 'ok');
+    closeMudarTurma();
     if (activeLevelKey === _mtSelectedLevelKey) renderLevelContent();
   } else {
     showToast('Erro ao guardar — ver consola', 'err'); btn.disabled = false;
@@ -2016,7 +1987,7 @@ function almConfirm(opts) {
     const ov = document.createElement('div');
     ov.id = 'alm-confirm-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.62);backdrop-filter:blur(20px) saturate(160%);display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML = `<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)"><div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent || 'var(--gold2)'}">${o.title || 'CONFIRMAR'}</div>${o.lines ? o.lines.map(l => `<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join('') : ''}</div><div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end"><button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel || 'Cancelar'}</button><button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg || 'rgba(201,168,76,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel || 'Confirmar'}</button></div></div>`;
+    ov.innerHTML = `<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)"><div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent || 'var(--gold2)'}">${o.title || 'CONFIRMAR'}</div>${o.lines ? o.lines.map(l => `<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join('') : ''}</div><div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end"><button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel || 'Cancelar'}</button><button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg || 'rgba(111,143,113,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel || 'Confirmar'}</button></div></div>`;
     document.body.appendChild(ov);
     const done = v => { ov.remove(); resolve(v); };
     ov.querySelector('#alm-confirm-ok').onclick = () => done(true);
@@ -2038,7 +2009,7 @@ function openAbacusModal() {
   const ov = document.createElement('div'); ov.id = 'abacus-modal-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.72);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
-  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(232,69,90,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:12px;display:block"></iframe></div>`;
+  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(184,64,42,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:12px;display:block"></iframe></div>`;
   document.body.appendChild(ov);
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', esc); } });
 }
@@ -2067,7 +2038,10 @@ async function boot() {
       sbGet('timetable_requests', `select=ref,branch,family,level_code,level_cefr,slots,day_preferences,status&academic_year=eq.${AY}`),
     ]);
     setConn(true);
-    allE = enrol || []; allR = reqs || []; rByRef = {}; allR.forEach(r => { rByRef[r.ref] = r; }); _proposalCache = {};
+    /* master first, then scope — see the note by ALL_ENROLMENTS */
+    ALL_ENROLMENTS = enrol || []; allR = reqs || []; rByRef = {};
+    allR.forEach(r => { rByRef[r.ref] = r; });
+    applyLangScope(); renderLangScope();
     document.getElementById('boot-count').textContent = allE.length;
     document.getElementById('pill-total').textContent = `${allE.length} al`;
     setBootProgress(35);
@@ -2113,9 +2087,9 @@ function updateAguardarBadge(){
     else dot.style.display = 'none';
   }
   if (r.totalStudents > 0){
-    btn.style.borderColor = 'rgba(232,160,32,.45)';          // amber — in-progress, not error
-    btn.style.color = '#E8A020';
-    btn.style.background = 'rgba(232,160,32,.1)';
+    btn.style.borderColor = 'rgba(138,138,130,.45)';          // amber — in-progress, not error
+    btn.style.color = '#8A8A82';
+    btn.style.background = 'rgba(138,138,130,.1)';
   } else {
     btn.style.borderColor = 'rgba(255,255,255,.15)';
     btn.style.color = 'rgba(255,255,255,.55)';
@@ -2134,15 +2108,15 @@ function updateRefreshBadge(){
   const cnt = document.getElementById('alm-refresh-count');
   const awaiting = allE.filter(e => rByRef[e.ref] && !_proposedByRef[e.ref] && LEVEL_MAP[lk(e)]).length;
   if (awaiting > 0){
-    btn.style.borderColor = 'rgba(232,69,90,.45)';
-    btn.style.color = '#E8455A';
-    btn.style.background = 'rgba(232,69,90,.1)';
+    btn.style.borderColor = 'rgba(184,64,42,.45)';
+    btn.style.color = '#B8402A';
+    btn.style.background = 'rgba(184,64,42,.1)';
     if (lbl) lbl.textContent = '↻ ACTUALIZAR';
     if (cnt){ cnt.textContent = awaiting > 99 ? '99+' : awaiting; cnt.style.display = 'inline-flex'; }
   } else {
-    btn.style.borderColor = 'rgba(29,184,122,.45)';
-    btn.style.color = '#3DE8A8';
-    btn.style.background = 'rgba(29,184,122,.1)';
+    btn.style.borderColor = 'rgba(111,143,113,.45)';
+    btn.style.color = '#4E6B50';
+    btn.style.background = 'rgba(111,143,113,.1)';
     if (lbl) lbl.textContent = '✓ ACTUALIZADO';
     if (cnt) cnt.style.display = 'none';
   }
@@ -2183,9 +2157,9 @@ function _openAguardarList(){
     return `<div class="stu-row" style="cursor:pointer" onclick="document.getElementById('alm-aguardar-ov').remove();ovDrillToFormation('${c.key}')">
       <div class="stu-cell" style="min-width:0"><div style="font-size:10px;font-weight:700;color:${c.color}">${c.label}</div><div style="font-size:7px;color:var(--t3)">${c.slot}${_ovActiveLoc==='all'?' · '+(BRANCH_LABELS[c.branch]||c.branch):''}</div></div>
       <div class="stu-cell" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
-        <div style="width:54px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#E8A020"></div></div>
-        <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:#E8C060">${c.n}<span style="opacity:.4">/${MIN_G}</span></span>
-        <span style="font-size:7px;font-weight:700;color:#E8A020;padding:1px 6px;border:1px solid rgba(232,160,32,.4);background:rgba(232,160,32,.1);white-space:nowrap">faltam ${c.need}</span>
+        <div style="width:54px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#8A8A82"></div></div>
+        <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:#4E6B50">${c.n}<span style="opacity:.4">/${MIN_G}</span></span>
+        <span style="font-size:7px;font-weight:700;color:#8A8A82;padding:1px 6px;border:1px solid rgba(138,138,130,.4);background:rgba(138,138,130,.1);white-space:nowrap">faltam ${c.need}</span>
       </div>
     </div>`;
   };
@@ -2196,7 +2170,7 @@ function _openAguardarList(){
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
   ov.innerHTML = `<div style="width:min(560px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
-      <div style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:#E8A020">POR COMPLETAR</div>
+      <div style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:#8A8A82">POR COMPLETAR</div>
       <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${r.totalStudents} alunos · ${r.totalClusters} grupo${r.totalClusters!==1?'s':''} < ${MIN_G} · ${scope}</div>
       <button onclick="document.getElementById('alm-aguardar-ov').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
     </div>
@@ -2221,9 +2195,9 @@ function _injectRefreshControls(){
   const btn = document.createElement('button');
   btn.id = 'alm-refresh-btn'; btn.type = 'button';
   btn.title = 'Recarregar dados da base de dados';
-  btn.style.cssText = 'display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(201,168,76,.4);background:rgba(201,168,76,.1);color:#C9A84C;font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
+  btn.style.cssText = 'display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(111,143,113,.4);background:rgba(111,143,113,.1);color:#4E6B50;font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
  btn.innerHTML = '<span id="alm-refresh-lbl">↻ ACTUALIZAR</span>'
-    + '<span id="alm-refresh-count" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;margin-left:5px;padding:0 5px;border-radius:999px;background:rgba(232,69,90,.9);color:#fff;font-size:8px;font-weight:700">0</span>';
+    + '<span id="alm-refresh-count" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;margin-left:5px;padding:0 5px;border-radius:999px;background:rgba(184,64,42,.9);color:#fff;font-size:8px;font-weight:700">0</span>';
   btn.onmouseover = () => { btn.style.filter = 'brightness(1.15)'; };
   btn.onmouseout  = () => { btn.style.filter = ''; };
 btn.onclick = async () => {
@@ -2255,7 +2229,7 @@ btn.onclick = async () => {
   live.onclick = () => {
     _liveMode = !_liveMode;
     if (_liveMode){
-      live.style.background='rgba(61,232,168,.15)'; live.style.borderColor='rgba(61,232,168,.45)'; live.style.color='#3DE8A8';
+      live.style.background='rgba(61,232,168,.15)'; live.style.borderColor='rgba(61,232,168,.45)'; live.style.color='#4E6B50';
       live.innerHTML = '● DIRECTO 60s';
       if (_liveTimer) clearInterval(_liveTimer);
      _liveTimer = setInterval(() => { if (_bootComplete) checkNewRequests(); }, 60000);
@@ -2273,8 +2247,8 @@ const aguardar = document.createElement('button');
   aguardar.title = 'Alunos à espera de turma · clique para ver';
   aguardar.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
   aguardar.innerHTML = 'SEM TURMA'
-    + '<span id="alm-aguardar-inc" title="Rever disponibilidade" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:rgba(232,160,32,.15);border:.5px solid rgba(232,160,32,.4);color:#E8A020;font-size:8px;font-weight:700"></span>'
-    + '<span id="alm-aguardar-dot" style="display:none;position:absolute;top:-6px;right:-6px;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:#E8455A;color:#fff;font-size:9px;font-weight:700;box-shadow:0 2px 8px rgba(232,69,90,.5)"></span>';
+    + '<span id="alm-aguardar-inc" title="Rever disponibilidade" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:rgba(138,138,130,.15);border:.5px solid rgba(138,138,130,.4);color:#8A8A82;font-size:8px;font-weight:700"></span>'
+    + '<span id="alm-aguardar-dot" style="display:none;position:absolute;top:-6px;right:-6px;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:#B8402A;color:#fff;font-size:9px;font-weight:700;box-shadow:0 2px 8px rgba(184,64,42,.5)"></span>';
   aguardar.onclick = () => _openAguardarList();
 
   wrap.appendChild(btn); wrap.appendChild(live); wrap.appendChild(aguardar);
