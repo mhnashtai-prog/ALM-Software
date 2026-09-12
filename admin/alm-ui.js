@@ -1022,9 +1022,9 @@ Object.keys(byLevel).forEach(key => {
     const result = _allResults[key];
     if (!result) { byLevel[key].placed = 0; return; }
     if (_ovActiveLoc === 'all') { byLevel[key].placed = result.placed || 0; return; }
-    let p = 0;
-    (result.groups || []).forEach(g => g.students.forEach(s => { if (normB(s.branch) === _ovActiveLoc) p++; }));
-    byLevel[key].placed = p;
+      const seen = new Set();
+    (result.groups || []).forEach(g => g.students.forEach(s => { if (normB(s.branch) === _ovActiveLoc) seen.add(s.ref); }));
+    byLevel[key].placed = seen.size;
   });
   const rows = Object.values(byLevel).sort((a, b) => a.order - b.order); if (!rows.length) return '';
   const maxTotal = Math.max(...rows.map(r => r.total), 1);
