@@ -829,7 +829,6 @@ async function reconstructLockedGroups(){
   }catch(e){ console.warn('reconstructLockedGroups fetch failed',e); return; }
   if(!rows?.length) return;
 
-  // Each row is now an independent session
   rows.forEach(c=>{
     const levelKey=`${(c.department||'').toLowerCase()}|${(c.level_code||'').trim()}`;
     const refs=Array.isArray(c.student_refs)?c.student_refs:[];
@@ -838,6 +837,43 @@ async function reconstructLockedGroups(){
     const dayRaw=(c.day_of_week||'').toUpperCase().trim();
     const dayIdx=DAYS_PT.indexOf(dayRaw); if(dayIdx<0) return;
     const startMins=timeToMins(c.start_time)??8*60;
+    const tc=c.turma_code||c.group_code||`${BC[normB(students[0]?.branch)]||'X'}-??`;
+
+    // ── Match against an already-built proposed group for this exact
+    //    session (same day+time, overlapping roster) instead of pushing
+    //    a duplicate. Locking a ticket should stamp a code on the group
+    //    that already exists for it, not create a second copy.
+    const existingResult = _allResults[levelKey];
+    let matchedIdx = -1;
+    if (existingResult?.groups?.length) {
+      const refSet = new Set(refs);
+      matchedIdx = existingResult.groups.findIndex(g => {
+        const gDay = g.dayIdx_A ?? g.dayIdx;
+        if (gDay !== dayIdx || g.startMins !== startMins) return false;
+        const overlap = g.students.filter(s => refSet.has(s.ref)).length;
+        return overlap >= Math.max(1, Math.floor(g.students.length * 0.5));
+      });
+    }
+
+    if (matchedIdx >= 0) {
+      if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
+      const existingCode = _groupCodes[levelKey][matchedIdx] || {};
+      _groupCodes[levelKey][matchedIdx] = {
+        ...existingCode,
+        turmaCode: existingCode.turmaCode || tc,
+        turmaCodeA: existingCode.turmaCodeA || tc,
+        turmaCodeB: existingCode.turmaCodeB || tc,
+        sentAt: existingCode.sentAt || '',
+        status: existingCode.status || 'pass',
+        locked: true,
+      };
+      if(!_auditResults[levelKey])_auditResults[levelKey]={};
+      if(!_auditResults[levelKey][matchedIdx]) _auditResults[levelKey][matchedIdx]=auditGroupSync(existingResult.groups[matchedIdx]);
+      return; // skip — no duplicate group
+    }
+
+    // No matching proposed group (e.g. a manual/legacy class not backed
+    // by a ticket) — represent it as its own group, as before.
     const pairDef=ALM_PAIRS.find(p=>p.a===dayIdx)||null;
     const lockedGroup={
       pairDef,
@@ -854,13 +890,11 @@ async function reconstructLockedGroups(){
     const idx=_allResults[levelKey].groups.length;
     _allResults[levelKey].groups.push(lockedGroup);
     if(!_groupCodes[levelKey])_groupCodes[levelKey]={};
-    const tc=c.turma_code||c.group_code||`${BC[normB(students[0]?.branch)]||'X'}-??`;
     _groupCodes[levelKey][idx]={turmaCode:tc,turmaCodeA:tc,turmaCodeB:tc,sentAt:'',status:'pass',locked:true};
     if(!_auditResults[levelKey])_auditResults[levelKey]={};
     _auditResults[levelKey][idx]=auditGroupSync(lockedGroup);
   });
 }
-
 /* ── BOOT AUDIT ───────────────────────────────────────────── */
 function setBootProgress(pct){const f=document.getElementById('boot-bar-fill');if(f)f.style.width=pct+'%';}
 function setBoot(msg){const s=document.getElementById('boot-sub');if(s)s.textContent=msg;}
