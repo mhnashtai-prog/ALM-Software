@@ -792,135 +792,64 @@ html,body{background:var(--ap-bg)}
 .tb-pill-ext{color:rgba(0,0,0,.35);border-color:var(--ap-line)}
 .tb-pill-ext:hover{color:var(--ap-ink);border-color:rgba(0,0,0,.2)}
 .tb-right{border-left-color:var(--ap-line)}
-  /* ══════════════════════════════════════════════════════════════
-   APPLE NEUTRAL FLAT PASS — v2 (tighter cells, full-width fill)
-   Append this AFTER the v1 "APPLE NEUTRAL FLAT PASS" block,
-  still before the closing style tag. Later rules win.
+ /* ══════════════════════════════════════════════════════════════
+   TILE-FAMILY PASS — flat fill + radius, no emboss
+   Replaces v1–v5 of "APPLE NEUTRAL FLAT PASS" above. Append after
+   them (or delete v1–v5 entirely and put this in their place).
    ══════════════════════════════════════════════════════════════ */
 
 :root{
-  --ap-cell:#E7E4DA;     /* visibly grey cell fill (~15% grey, not near-white) */
-  --ap-cell-hi:#FAF9F4;  /* soft highlight edge */
-  --ap-cell-lo:#D6D2C5;  /* soft shadow edge */
+  /* Page background this grid sits on. Needs to be LIGHTER than
+     --ap-cell below, by a similar step to --screen → --tile-bg
+     (~2.5–3 L*), or the cells have nothing to separate from and
+     will look flat/washed rather than "sitting on" the page. */
+  --ap-page:#F3F1ED;      /* == shell's --screen */
+  --ap-cell:#E8E1D6;      /* == shell's --tile-bg */
+  --ap-cell-press:#DAD1C2;/* == shell's --tile-bg-press, for :active/highlighted */
+  --ap-cell-ink:#1C1A18;  /* == shell's --tile-ink */
 }
 
-/* ── Thin-line neumorphic cells, minimal gap ──────────────── */
-.gcell,.sg-cell{
-  background:var(--ap-cell)!important;
-  border-radius:7px!important;
-  box-shadow:1px 1px 2px var(--ap-cell-lo),-1px -1px 2px var(--ap-cell-hi)!important;
-}
-.gcell.gap-cell,.sg-cell.gap-cell{
-  background:var(--ap-bg)!important;
-  box-shadow:inset 1px 1px 2px var(--ap-cell-lo),
-             inset -1px -1px 2px var(--ap-cell-hi)!important;
-}
-.grid-row,.sg-row{gap:2px!important}
-
-/* ── Stretch the timetable grid to fill the panel width
-   instead of stopping at the JS-set inline min-width:540px ── */
-#sg-grid-container,#ov-grid-container{width:100%!important;min-width:0!important}
-.school-grid-outer{overflow-x:visible!important}
-
-/* ── Stretch the "Estado por nível" bars to fill the row
-   instead of stopping at the JS-set inline max-width:31% ── */
-.barchart-row-track{max-width:none!important}
-.barchart-wrap{width:100%}
-
-  /* ══════════════════════════════════════════════════════════════
-   APPLE NEUTRAL FLAT PASS — v3 (raised cells, hairline gap)
-   Append this AFTER v1 and v2, still before the closing style tag.
-   ══════════════════════════════════════════════════════════════ */
-
-:root{
-  --ap-cell:#EDEAE2;      /* card face — close to page bg, shadow sells the lift */
-  --ap-cell-hi:#FFFFFF;   /* highlight edge, top-left */
-  --ap-cell-lo:#C9C5B8;   /* shadow edge, bottom-right — stronger than v2 */
+html, body{ background:var(--ap-page) !important; }
+.left-panel{ background:var(--ap-page) !important; }
+.school-grid-wrap{
+  background:var(--ap-page) !important;
+  border:none !important;
+  box-shadow:none !important;
 }
 
 .gcell,.sg-cell{
-  background:var(--ap-cell)!important;
-  border-radius:10px!important;
-  /* raised: light highlight top-left, dark shadow bottom-right, no inset */
-  box-shadow:
-    3px 3px 6px var(--ap-cell-lo),
-    -2px -2px 5px var(--ap-cell-hi)
-    !important;
+  background:var(--ap-cell) !important;
+  border:none !important;
+  box-shadow:none !important;         /* the shell permits NO shadow on tiles */
+  border-radius:6px !important;        /* == shell's --r-chip, scaled slightly for a bigger cell */
+  transition:background .12s, transform .1s cubic-bezier(.2,.8,.2,1);
 }
 
-/* keep the lunch-gap column visually recessed (inset), for contrast
-   against the raised regular cells */
+/* the one shadow this whole system allows anywhere, if the grid
+   genuinely needs to read as a card sitting ABOVE the page rather
+   than a tile flush with it — use sparingly, on the wrapper only,
+   never on individual cells */
+.school-grid-wrap.as-card{
+  box-shadow:0 1px 3px rgba(0,0,0,.10);
+}
+
+/* lunch-gap / inactive column: one step DEEPER than the cell,
+   same logic as the shell's --slot-bg reading as a hollow */
 .gcell.gap-cell,.sg-cell.gap-cell{
-  background:var(--ap-bg)!important;
-  box-shadow:
-    inset 2px 2px 4px var(--ap-cell-lo),
-    inset -1px -1px 3px var(--ap-cell-hi)
-    !important;
+  background:var(--ap-page) !important;
+  box-shadow:none !important;
 }
 
-.grid-row,.sg-row{gap:1px!important}
-
-  /* ══════════════════════════════════════════════════════════════
-   APPLE NEUTRAL FLAT PASS — v4 (debossed cells, darker rim)
-   Append this AFTER v1, v2 and v3, still before the closing
-   style tag. Later rules win, so this flips the raised v3
-   cells into a pressed-in look with a defined edge.
-   ══════════════════════════════════════════════════════════════ */
-
-:root{
-  --ap-cell:#EBE8E0;      /* card face */
-  --ap-cell-hi:#FFFFFF;   /* highlight — now sits bottom-right, inside */
-  --ap-cell-lo:#C4C0B2;   /* shadow — now sits top-left, inside */
-  --ap-cell-rim:#B4AFA0;  /* darker rim so the pressed edge reads clearly */
+/* pressed / filled / highlighted state: swap fill, don't add a shadow */
+.gcell:active,.sg-cell:active,
+.sg-cell.pair-hi{
+  background:var(--ap-cell-press) !important;
+  transform:scale(.98);
 }
 
-.gcell,.sg-cell{
-  background:var(--ap-cell)!important;
-  border-radius:9px!important;
-  border:1px solid var(--ap-cell-rim)!important;
-  /* debossed: dark inset top-left, light inset bottom-right */
-  box-shadow:
-    inset 2px 2px 4px var(--ap-cell-lo),
-    inset -2px -2px 4px var(--ap-cell-hi)
-    !important;
-}
+.grid-row,.sg-row{ gap:3px !important; }
 
-/* lunch-gap column: flat, no shadow, just the rim — so it reads as
-   "closed/inactive" next to the pressed real cells */
-.gcell.gap-cell,.sg-cell.gap-cell{
-  background:var(--ap-bg)!important;
-  border:1px solid var(--ap-cell-rim)!important;
-  box-shadow:none!important;
-}
-
-  /* ══════════════════════════════════════════════════════════════
-   APPLE NEUTRAL FLAT PASS — v5 (no rim, blended debossed shadow)
-   Append this AFTER v1–v4, still before the closing style tag.
-   Removes the hard rim from v4 — the edge should come entirely
-   from the shadow gradient, not a drawn border.
-   ══════════════════════════════════════════════════════════════ */
-
-:root{
-  --ap-cell:#EBE8E0;
-  --ap-cell-hi:#FFFFFF;
-  --ap-cell-lo:#C9C5B7;
-}
-
-.gcell,.sg-cell{
-  background:var(--ap-cell)!important;
-  border:none!important;
-  border-radius:12px!important;
-  box-shadow:
-    inset 3px 3px 6px var(--ap-cell-lo),
-    inset -3px -3px 6px var(--ap-cell-hi)
-    !important;
-}
-
-.gcell.gap-cell,.sg-cell.gap-cell{
-  background:var(--ap-bg)!important;
-  border:none!important;
-  box-shadow:none!important;
-}
+.day-lbl-short,.sg-day-short{ color:var(--ap-cell-ink) !important; }
   
 </style>
 </head>
