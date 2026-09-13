@@ -1,3 +1,70 @@
+/* ══════════════════════════════════════════════════════════════════
+   THE GRID — now the shared one
+   buildPermanentGrid(), timeToBandPos() and drawStamps() were ~150
+   lines here, and the last surviving copy of the geometry that put a
+   14:00 lesson at 11:36 in the assign page: the same walk-the-row,
+   accumulate (width + GAP) routine, with the same 3px constant that
+   nothing in the stylesheet knew it had to honour.
+
+   Two layers on one grid, because this page needs both: the turma
+   stamps on top, and underneath the student availability windows they
+   were formed from. The bands are evidence, not subject — behind,
+   tinted, inert.
+   ══════════════════════════════════════════════════════════════════ */
+function drawGrid(containerId, withReq, levelKey, result){
+  const host = document.getElementById(containerId);
+  if(!host || typeof ALMGrid === 'undefined') return;
+
+  /* UNDER · one band per requested window. Kept even when groups have
+     formed: seeing the availability a turma was cut from is how you
+     judge whether it was cut well. */
+  const under = [];
+  (withReq || []).forEach(e => {
+    const a = analysePrefs(e.ref); if(!a) return;
+    a.windows.forEach(w => {
+      const day = DAYS_PT[w.dayIdx]; if(!day) return;
+      under.push({ day, start: minsToT(w.earliest), end: minsToT(w.latest) });
+    });
+  });
+
+  /* OVER · the stamps. A pair shares a tone through group_code, the
+     same rule the portal and the assign grid use. */
+  const items = [];
+  (result?.groups || []).forEach((g, i) => {
+    const committed = (_groupCodes[levelKey] || {})[i];
+    const ar = (_auditResults[levelKey] || {})[i];
+    const isCert = !!committed;
+    const same = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+    const days = same ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
+    const code = isCert
+      ? (committed.turmaCodeA || committed.turmaCode || `T${i+1}`)
+      : `T${i+1}`;
+    days.forEach((dayL, di) => {
+      if(!dayL) return;
+      items.push({
+        day: dayL,
+        start: g.startTime || minsToT(g.startMins),
+        end:   g.endTime   || minsToT(g.startMins + CLASS_DUR),
+        title: isCert ? (di === 0 ? code : (committed.turmaCodeB || code)) : code,
+        sub:   `${g.students.length}/${MAX_G}${ar?.status==='warn' ? ' · aviso' : ar?.status==='fail' ? ' · falha' : ''}`,
+        badge: isCert ? '✓' : String(i+1),
+        state: isCert ? 'done' : 'open',
+        tone:  committed?.turmaCode || g.group_code || `T${i+1}`,
+        idx: i,
+      });
+    });
+  });
+
+  ALMGrid.render(host, {
+    under, items,
+    onItem: it => openGroupModal(levelKey, it.idx),
+    legend: [['#2E4A3A','preenchido = certificada'],
+             ['rgba(74,106,86,.28)','esbatido = proposta'],
+             ['rgba(94,119,108,.30)','disponibilidade pedida']],
+    hint: 'clique numa turma para ver os alunos',
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ALM UI  ·  alm-ui.js
    All rendering, DOM manipulation, navigation, modals.
@@ -169,112 +236,10 @@ function paintCellHeatmap(containerId, withReq, levelKey, result) {
    the request form), time label inside, positioned with timeToBandPos.
    Read-only (no delete). Only draws when no group has formed. */
 const _DAY_BAND_RGB = ['142,142,147','120,120,124','99,99,102','172,172,176','86,86,90','160,160,164'];
-function drawAvailBands(containerId, withReq, levelKey, result) {
-  const wrap = document.getElementById(`${containerId}-rows-wrap`);
-  if (!wrap) return;
-  wrap.querySelectorAll('.sg-avail').forEach(b => b.remove());
-  if (result?.groups?.length) return;
-  if (!_rowRectCache[containerId]) _primeRowRectCache(containerId);
 
-  withReq.forEach(e => {
-    const a = analysePrefs(e.ref);
-    if (!a) return;
-    a.windows.forEach(w => {
-      const dayL = DAYS_PT[w.dayIdx];
-      const rowEl = document.getElementById(`${containerId}-row-${dayL}`);
-      if (!rowEl) return;
-      const startT = minsToT(w.earliest), endT = minsToT(w.latest);
-      const pos = timeToBandPos(startT, endT, rowEl);
-      if (!pos) return;
-      const cached = _rowRectCache[containerId]?.[dayL];
-      if (!cached) return;
-      const rgb = _DAY_BAND_RGB[w.dayIdx] || '142,142,147';
-      const showLabel = pos.width > 56;
-      const band = document.createElement('div');
-      band.className = 'sg-avail';
-      band.style.cssText = [
-        `left:${cached.left + pos.left}px`,
-        `top:${cached.top + 2}px`,
-        `width:${pos.width}px`,
-        `height:${rowEl.offsetHeight - 4}px`,
-        `background:rgba(${rgb},.22)`,
-        `border:.5px solid rgba(${rgb},.55)`,
-      ].join(';');
-      band.innerHTML = showLabel
-        ? `<span class="sg-avail-lbl" style="color:rgba(${rgb},.95)">${startT}–${endT}</span>` : '';
-      wrap.appendChild(band);
-    });
-  });
-}
 
-function buildPermanentGrid(containerId, withReq) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  const today = new Date().getDay();
-  const dayToday = [null, 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][today] || null;
-  let dayColHTML = '<div class="day-spacer"></div>';
-  DAYS_PT.forEach(d => {
-    const isToday = d === dayToday, isSat = d === 'SÁB';
-    dayColHTML += `<div class="day-lbl${isToday ? ' today' : isSat ? ' sat' : ''}"><span class="day-lbl-short">${d}</span><span class="day-lbl-full">${DAYS_FULL[d] || d}</span></div>`;
-  });
-  let timeHdrHTML = '<div class="time-hdr">';
-  ALL_HRS.forEach(h => {
-    if (h === null) timeHdrHTML += `<div class="time-gap-col"><span class="time-gap-lbl">almoço</span></div>`;
-    else timeHdrHTML += `<div class="time-lbl">${h}h</div>`;
-  });
-  timeHdrHTML += '</div>';
-  let rowsHTML = '';
-  DAYS_PT.forEach(day => {
-    let cells = '';
-    ALL_HRS.forEach(h => {
-      if (h === null) cells += `<div class="gcell gap-cell"></div>`;
-      else cells += `<div class="gcell" data-day="${day}" data-h="${h}"></div>`;
-    });
-    rowsHTML += `<div class="grid-row" id="${containerId}-row-${day}" data-day="${day}">${cells}</div>`;
-  });
-  container.innerHTML = `<div class="day-col-wrap"><div class="day-lbl-col">${dayColHTML}</div><div class="scroll-cols">${timeHdrHTML}<div id="${containerId}-rows-wrap" style="position:relative">${rowsHTML}</div></div></div>`;
-}
-
-function timeToBandPos(startTime, endTime, rowEl) {
-  const cells = Array.from(rowEl.querySelectorAll('.gcell'));
-  const GAP = 3; let x = 0;
-  const sm = toMins(startTime), em = toMins(endTime);
-  if (sm === null || em === null) return null;
-  let left = null, right = null;
-  for (let i = 0; i < ALL_HRS.length; i++) {
-    const h = ALL_HRS[i], cell = cells[i];
-    if (!cell) continue;
-    const w = cell.offsetWidth;
-    if (h === null) { x += w + GAP; continue; }
-    const hStart = h * 60, hEnd = (h + 1) * 60;
-    if (sm < hEnd && em > hStart) {
-      const overlapStart = Math.max(sm, hStart), overlapEnd = Math.min(em, hEnd);
-      if (left === null) left = x + ((overlapStart - hStart) / 60) * w;
-      right = x + ((overlapEnd - hStart) / 60) * w;
-    }
-    x += w + GAP;
-  }
-  if (left === null) return null;
-  return { left: Math.round(left), width: Math.max(38, Math.round(right - left)) };
-}
 
 /* ── P-01: prime rect cache ───────────────────────────────── */
-function _primeRowRectCache(containerId) {
-  _rowRectCache[containerId] = {};
-  const wrap = document.getElementById(`${containerId}-rows-wrap`);
-  if (!wrap) return;
-  const wrapRect = wrap.getBoundingClientRect();
-  DAYS_PT.forEach(day => {
-    const rowEl = document.getElementById(`${containerId}-row-${day}`);
-    if (!rowEl) return;
-    const r = rowEl.getBoundingClientRect();
-    _rowRectCache[containerId][day] = {
-      top: r.top - wrapRect.top,
-      left: r.left - wrapRect.left,
-      height: r.height,
-    };
-  });
-}
 
 /* ── U-01: stamp tooltip helpers ──────────────────────────── */
 let _ttEl = null;
@@ -283,7 +248,7 @@ function _getOrCreateTooltip(wrap) {
   if (_ttEl && wrap.contains(_ttEl)) return _ttEl;
   const div = document.createElement('div');
   div.className = 'stamp-tooltip';
-  div.style.cssText = 'display:none;position:absolute;z-index:50;background:var(--bg-d);border:.5px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;width:200px;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.6);font-family:var(--mono)';
+  div.style.cssText = 'display:none;position:absolute;z-index:50;background:var(--bg-d);border:.5px solid rgba(255,255,255,.12);border-radius:6px;padding:10px 12px;width:200px;pointer-events:none;font-family:var(--mono)';
   wrap.appendChild(div);
   _ttEl = div;
   return div;
@@ -312,8 +277,8 @@ function _showStampTooltip(e, band, wrap, g, i, levelKey) {
     <div class="stamp-tooltip-slot" style="font-size:8px;color:rgba(255,255,255,.45);margin-bottom:6px">${pairLabel} · ${g.startTime}–${g.endTime}</div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:${topIssue ? '6px' : '0'}">
       <span style="font-size:9px;font-weight:700;color:${col}">${g.students.length}<span style="font-size:7px;opacity:.5">/${MAX_G}</span></span>
-      <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
-        <div style="width:${Math.round(g.students.length / MAX_G * 100)}%;height:100%;background:${col};border-radius:2px"></div>
+      <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden">
+        <div style="width:${Math.round(g.students.length / MAX_G * 100)}%;height:100%;background:${col};border-radius:6px"></div>
       </div>
     </div>
     <div class="stamp-tooltip-pills">
@@ -343,105 +308,6 @@ function _hideStampTooltip() {
 }
 
 /* ── DRAW STAMPS ──────────────────────────────────────────── */
-function drawStamps(containerId, levelKey, result) {
-  const wrap = document.getElementById(`${containerId}-rows-wrap`);
-  if (!wrap) return;
-  wrap.querySelectorAll('.sg-stamp').forEach(s => s.remove());
-  if (!result?.groups?.length) return;
-
-  if (!_rowRectCache[containerId]) _primeRowRectCache(containerId);
-
-  result.groups.forEach((g, i) => {
-    const committed = (_groupCodes[levelKey] || {})[i];
-    const ar = (_auditResults[levelKey] || {})[i];
-  const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
-    /* pairTone() tinted a stamp by WHICH DAY-PAIR it belongs to, which
-       is the same idea slotCol() carried and the same objection
-       applies: it makes colour describe the timetable rather than the
-       state. On a sage field it also fails outright — every SAGE_TONE
-       is a sage, so a proposed stamp and a certified one were two
-       shades of the field they sat in. pairTone() is left defined and
-       unused; identity-by-day belongs in the availability bands
-       underneath, where telling cohorts apart is the actual job. */
-    const col = isFail ? ST_FAIL : isWarn ? ST_WARN
-              : isCert ? ST_CERTIFIED_GRID : ST_PROPOSED_GRID;
-    const sealInk = col;
-    /* Filled once it is certified; a wash with a solid edge while it is
-       still a proposal. On a light field the alpha reads, so depth of
-       fill can carry commitment again and hue carries the state. */
-    const bandBg = isCert ? col + 'E6' : col + '26';
-    const borderCol = col;
-    const inkCol = isCert ? '#FFFFFF' : col;
-    const n = g.students.length;
-
-  function makeSeal(glyph, fillCol, inkC) {
-      const glyphEl = glyph.length === 1
-        ? `<text x="16" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace">${glyph}</text>`
-        : `<text x="16" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="${inkC}" font-family="'IBM Plex Mono',monospace" letter-spacing="0.5">${glyph}</text>`;
-      /* The disc is filled. It was a 15%-opacity wash inside three
-         concentric hairlines, which at 32px is four near-invisible
-         greys stacked on a grey band — the seal was legible as a
-         shape and illegible as a colour. One solid disc, one ring,
-         one white glyph. */
-      return `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="14.2" fill="${fillCol}"/>
-        <circle cx="16" cy="16" r="14.2" stroke="rgba(255,255,255,.55)" stroke-width="1.4"/>
-        <circle cx="16" cy="16" r="10.5" stroke="rgba(255,255,255,.40)" stroke-width=".9" stroke-dasharray="2.4 2.4"/>
-        ${glyphEl}
-      </svg>`;
-    }
-
-    /* The two light steps of the ladder need a dark glyph; the two dark
-       steps need white. Taken from the seal's own fill, not assumed. */
-    const sealSVG = makeSeal(String(i + 1), sealInk,
-      (sealInk === '#B49B85') ? '#2B2129' : '#FFFFFF');
-    const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
-    const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
-
-    dayRows.forEach((dayL, di) => {
-      const rowEl = document.getElementById(`${containerId}-row-${dayL}`);
-      if (!rowEl) return;
-      const pos = timeToBandPos(g.startTime, g.endTime, rowEl);
-      if (!pos) return;
-      const showText = pos.width > 72, showCount = pos.width > 50;
-      const cached = _rowRectCache[containerId]?.[dayL];
-      if (!cached) return;
-      const bandLeft = cached.left + pos.left;
-      const bandTop = cached.top;
-      const opacity = di === 1 ? '0.82' : '1';
-      const stampCode = di === 0
-        ? (isSameDay
-          ? (isCert ? (committed.turmaCodeA || committed.turmaCode || `T${i + 1}A`) : `T${i + 1}A`)
-          : (isCert ? (committed.turmaCodeA || `T${i + 1}A`) : `T${i + 1}A`))
-        : (isCert ? (committed.turmaCodeB || `T${i + 1}B`) : `T${i + 1}B`);
-      const warnRing = isWarn ? `outline:1.5px solid ${ST_WARN};outline-offset:1px;` : '';
-      const band = document.createElement('div');
-      band.className = 'sg-stamp';
-      band.style.cssText = [
-        `left:${bandLeft}px`, `top:${bandTop + 2}px`, `width:${pos.width}px`,
-        `height:${rowEl.offsetHeight - 4}px`, `background:${bandBg}`,
-        `border-left:3px solid ${borderCol}`, `border-top:.5px solid ${borderCol}`,
-        `border-right:.5px solid ${col}22`, `border-bottom:.5px solid ${col}22`,
-          warnRing,
-        `opacity:${opacity}`,
-      ].join(';');
-      band.innerHTML = `<div class="sg-stamp-seal">${sealSVG}</div>${showText ? `<span class="sg-stamp-code" style="color:${inkCol}">${stampCode}</span>` : ''}${showCount ? `<span class="sg-stamp-count" style="color:${inkCol}">${n}<span style="opacity:.4">/${MAX_G}</span></span>` : ''}`;
-
-      // U-01: stamp hover tooltip
-      let _ttTimer;
-      band.addEventListener('mouseenter', ev => {
-        _ttTimer = setTimeout(() => _showStampTooltip(ev, band, wrap, g, i, levelKey), 120);
-      });
-      band.addEventListener('mouseleave', () => {
-        clearTimeout(_ttTimer);
-        _hideStampTooltip();
-      });
-
-      band.addEventListener('click', ev => { ev.stopPropagation(); openGroupModal(levelKey, i); });
-      wrap.appendChild(band);
-    });
-  });
-}
 
 /* ── PAIR MATRIX ──────────────────────────────────────────── */
 function countPair(students, pair) {
@@ -894,7 +760,7 @@ function batchConfirm() {
   const existing = document.getElementById('bc-overlay'); if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.id = 'bc-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.65);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   const rows = warns.map(exc => {
     const meta = LEVEL_MAP[exc.levelKey] || {}, g = exc.group;
@@ -904,7 +770,7 @@ function batchConfirm() {
     const col = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
     return `<tr style="border-bottom:.5px solid rgba(255,255,255,.06)"><td style="padding:7px 10px;font-size:9px;font-weight:600;color:${meta.color || 'var(--gold2)'}">${meta.label || exc.levelKey}</td><td style="padding:7px 10px;font-size:9px;color:${col}">${session}</td><td style="padding:7px 10px;font-size:9px;font-weight:700;color:var(--t);text-align:center">${g.students.length}</td><td style="padding:7px 10px;font-size:8px;color:var(--amber);font-style:italic">⚠ ${reasonText}</td></tr>`;
   }).join('');
-  overlay.innerHTML = `<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:18px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(138,138,130,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
+  overlay.innerHTML = `<div style="width:min(680px,96vw);max-height:80dvh;background:var(--bg-d);border-radius:14px;border:.5px solid rgba(255,255,255,.10);display:flex;flex-direction:column;overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px;flex-shrink:0"><div style="flex:1"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:var(--amber)">CERTIFICAR AVISOS</div><div style="font-size:8px;color:rgba(255,255,255,.38);margin-top:3px;letter-spacing:.1em">${warns.length} grupos · escrita na base de dados</div></div><button onclick="document.getElementById('bc-overlay').remove()" style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;flex:1;padding:8px 0"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)"><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Nível</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Sessão</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center">Al</th><th style="padding:6px 10px;font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:left">Aviso</th></tr></thead><tbody>${rows}</tbody></table></div><div style="padding:12px 20px;border-top:.5px solid rgba(255,255,255,.08);display:flex;gap:10px;flex-shrink:0"><button onclick="document.getElementById('bc-overlay').remove()" style="height:40px;padding:0 20px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">Cancelar</button><button id="bc-confirm-btn" onclick="batchConfirmExecute()" style="flex:1;height:40px;background:rgba(138,138,130,.85);border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.1em;transition:all .2s">✓ CERTIFICAR ${warns.length} GRUPOS</button></div></div>`;
   document.body.appendChild(overlay);
 }
 
@@ -1023,7 +889,9 @@ function refreshUIAfterCertify(levelKey) {
       _rowRectCache['sg-grid-container'] = {};
       _rowRectCache['ov-grid-container'] = {};
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        drawStamps('sg-grid-container', levelKey, _allResults[levelKey]);
+        drawGrid('sg-grid-container',
+          locStu().filter(e => lk(e) === levelKey && !!rByRef[e.ref]),
+          levelKey, _allResults[levelKey]);
       }));
     }
   }
@@ -1125,12 +993,11 @@ function renderLevelContent() {
 
   area.innerHTML = html;
 
-  buildPermanentGrid('sg-grid-container', withReq);
+
   const _capturedKey = activeLevelKey, _capturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (activeLevelKey !== _capturedKey) return;
-  drawAvailBands('sg-grid-container', withReq, _capturedKey, _capturedResult);
-    drawStamps('sg-grid-container', _capturedKey, _capturedResult);
+  drawGrid('sg-grid-container', withReq, _capturedKey, _capturedResult);
   }));
 }
 
@@ -1300,12 +1167,11 @@ function ovDrillToFormation(levelKey) {
   html += renderOvLevelRoster(levelKey, allStudents);
   html += `<div style="margin-top:10px;padding-bottom:20px"><button onclick="ovOpenStudentModal('${levelKey}')" style="font-size:8px;font-weight:700;padding:5px 16px;border:1px solid var(--b2);color:var(--t2);background:transparent;font-family:var(--mono);cursor:pointer;letter-spacing:.06em;transition:all .12s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold2)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--t2)'">Abrir em janela ↗</button></div>`;
   el.innerHTML = html;
-  buildPermanentGrid('ov-grid-container', withReq);
+
   const _ovCapturedKey = levelKey, _ovCapturedResult = _lastResult;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (_ovActiveLevel !== _ovCapturedKey) return;
-     drawAvailBands('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
-    drawStamps('ov-grid-container', _ovCapturedKey, _ovCapturedResult);
+     drawGrid('ov-grid-container', withReq, _ovCapturedKey, _ovCapturedResult);
   }));
 }
 
@@ -1344,8 +1210,8 @@ Object.keys(byLevel).forEach(key => {
     const isClean = certCount > 0 && excCount === 0 && sinalizadosCount === 0 && noReq === 0;
     const isWarn = excCount > 0 || sinalizadosCount > 0 || (withReq > 0 && placed === 0 && (_allResults[key]?.groups?.length || 0) > 0);
     const healthBg = isClean ? 'var(--green)' : isWarn ? 'var(--amber)' : 'var(--red)';
-    const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
-   const ledgerStyle = `font-size:7px;font-weight:700;padding:2px 6px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:2px;`;
+    const iconStyle = `font-size:7px;font-weight:700;padding:2px 7px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:6px;`;
+   const ledgerStyle = `font-size:7px;font-weight:700;padding:2px 6px;border:1px solid;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:var(--mono);border-radius:6px;`;
     let icons = '';
     icons += `<span title="Pares formados" style="${ledgerStyle}background:rgba(138,138,142,.1);border-color:rgba(138,138,142,.4);color:#8A8A8E" onclick="event.stopPropagation();rosterLevel('${key}','turma')">${formedCount}</span>`;
     icons += `<span title="Validados · selo" style="${ledgerStyle}background:var(--gold4);border-color:rgba(111,143,113,.45);color:#4E6B50" onclick="event.stopPropagation();rosterLevel('${key}','cert')">✓ ${validatedCount}</span>`;
@@ -1401,7 +1267,7 @@ function ovOpenStudentModal(levelKey) {
   const existing = document.getElementById('ov-stu-modal'); if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.id = 'ov-stu-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:1400;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `<div style="width:min(720px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)"><div style="font-family:var(--display);font-size:22px;letter-spacing:4px;color:${meta.color || 'var(--gold2)'}"> ${meta.label || levelKey}</div><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${sorted.length} alunos</div><button onclick="document.getElementById('ov-stu-modal').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button></div><div style="overflow-y:auto;padding:10px 20px 24px"><div style="display:grid;grid-template-columns:36px 100px 1fr 110px 90px 40px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:6px 0 9px;border-bottom:1px solid var(--b2)"><span>#</span><span>Ref</span><span>Nome</span><span>Turma</span><span>Status</span><span></span></div>${rows}</div></div>`;
   document.body.appendChild(overlay);
@@ -1542,7 +1408,7 @@ function renderAuditGroupCards(students, q) {
     const pairB = (g.dayIdx_A ?? g.dayIdx) !== (g.dayIdx_B ?? g.dayIdx) ? (g.dayL_B || '—') : null;
     const timeStr = `${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
     const slotC2 = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
-    const weekStrip = `<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}11;border-radius:2px"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairA}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>${pairB ? `<div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}0D;border-radius:2px;opacity:.85"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairB}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>` : ``}</div>`;
+    const weekStrip = `<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}11;border-radius:6px"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairA}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>${pairB ? `<div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid ${slotC2}44;background:${slotC2}0D;border-radius:6px;opacity:.85"><span style="font-size:8px;font-weight:700;color:${slotC2}">${pairB}</span><span style="font-size:7px;color:${slotC2};opacity:.7">${timeStr}</span></div>` : ``}</div>`;
     return `<div class="au-gc ${auditCls}" onclick="openGroupModal('${levelKey}',${groupIdx})"><div class="au-gc-head"><div class="au-gc-code" style="color:${col}">${codeDisplay}</div><div class="au-gc-slot">${pairLabel} · ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}</div><div class="au-gc-meta" style="color:${meta.color || 'var(--t3)'}">${meta.label || '—'} · ${BRANCH_LABELS[normB(g.students[0]?.branch)] || '—'}</div></div><div class="au-gc-body"><div class="au-gc-stats"><div class="au-gc-n" style="color:${col}">${n}</div><div style="font-size:6.5px;color:var(--t3);align-self:flex-end;padding-bottom:3px">/${MAX_G}</div><div class="au-gc-cap"><div class="au-gc-cap-fill" style="width:${capPct}%;background:${fillCol}"></div></div></div><div class="au-gc-audit">${passC > 0 ? `<span class="au-gc-pill pass">✓ ${passC}</span>` : ''}${warnC > 0 ? `<span class="au-gc-pill warn">⚠ ${warnC}</span>` : ''}${failC > 0 ? `<span class="au-gc-pill fail">✕ ${failC}</span>` : ''}</div><div class="au-gc-avs">${avs}${extra}</div>${weekStrip}</div></div>`;
   }).join('')}</div>`;
 }
@@ -2000,11 +1866,11 @@ function _availRuler(req) {
     const bands = ws.map(s => {
       const f = Math.max(s.fromMins, 480), t = Math.min(s.toMins, 1200);
       if (f >= t) return '';
-      return `<div style="position:absolute;left:${pct(f)}%;width:${wPct(f, t)}%;top:3px;bottom:3px;background:var(--sage);border-radius:4px;display:flex;align-items:center;padding:0 6px;overflow:hidden"><span style="font-family:var(--mono);font-size:9px;font-weight:600;color:#fff;white-space:nowrap">${s.startLabel}–${s.endLabel}</span></div>`;
+      return `<div style="position:absolute;left:${pct(f)}%;width:${wPct(f, t)}%;top:3px;bottom:3px;background:var(--sage);border-radius:6px;display:flex;align-items:center;padding:0 6px;overflow:hidden"><span style="font-family:var(--mono);font-size:9px;font-weight:600;color:#fff;white-space:nowrap">${s.startLabel}–${s.endLabel}</span></div>`;
     }).join('');
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
       <div style="width:26px;text-align:right;font-family:var(--mono);font-size:10px;font-weight:600;color:${ws.length ? 'var(--ap-ink)' : 'var(--ap-faint)'};flex-shrink:0">${d}</div>
-      <div style="flex:1;position:relative;height:22px;background:rgba(0,0,0,.035);border-radius:5px;overflow:hidden">${lines}${bands}</div>
+      <div style="flex:1;position:relative;height:22px;background:rgba(0,0,0,.035);border-radius:6px;overflow:hidden">${lines}${bands}</div>
     </div>`;
   }).join('');
   return hdr + rows;
@@ -2142,7 +2008,7 @@ function _mtRenderStep2(ref, enrol, suffix, cur, committed) {
       </div>
       <div style="flex-shrink:0;text-align:right">
         <div style="font-family:var(--ap-font);font-size:14px;font-weight:700;color:var(--ap-ink)">${size}<span style="font-size:10px;color:var(--ap-faint)">/${MAX_G}</span></div>
-        <div style="width:34px;height:3px;border-radius:2px;background:rgba(0,0,0,.08);margin-top:4px;overflow:hidden">
+        <div style="width:34px;height:3px;border-radius:6px;background:rgba(0,0,0,.08);margin-top:4px;overflow:hidden">
           <div style="width:${pctN}%;height:100%;background:${full ? '#B8402A' : 'var(--sage)'}"></div></div>
       </div>
     </div>`;
@@ -2260,8 +2126,8 @@ function almConfirm(opts) {
     document.getElementById('alm-confirm-overlay')?.remove();
     const ov = document.createElement('div');
     ov.id = 'alm-confirm-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.62);backdrop-filter:blur(20px) saturate(160%);display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML = `<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:16px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)"><div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent || 'var(--gold2)'}">${o.title || 'CONFIRMAR'}</div>${o.lines ? o.lines.map(l => `<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join('') : ''}</div><div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end"><button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel || 'Cancelar'}</button><button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg || 'rgba(111,143,113,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel || 'Confirmar'}</button></div></div>`;
+    ov.style.cssText = 'position:fixed;inset:0;z-index:3000;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML = `<div style="width:min(380px,94vw);background:var(--bg-d);border-radius:14px;border:.5px solid rgba(255,255,255,.10);overflow:hidden;animation:shUp .24s cubic-bezier(.32,.72,0,1)"><div style="padding:18px 20px 14px;border-bottom:.5px solid rgba(255,255,255,.07)"><div style="font-family:var(--display);font-size:18px;letter-spacing:3px;color:${o.accent || 'var(--gold2)'}">${o.title || 'CONFIRMAR'}</div>${o.lines ? o.lines.map(l => `<div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:5px;font-family:var(--mono);letter-spacing:.03em">${l}</div>`).join('') : ''}</div><div style="padding:12px 20px;display:flex;gap:10px;justify-content:flex-end"><button id="alm-confirm-cancel" style="height:38px;padding:0 18px;background:transparent;border:.5px solid rgba(255,255,255,.12);border-radius:10px;color:var(--t3);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.cancelLabel || 'Cancelar'}</button><button id="alm-confirm-ok" style="height:38px;padding:0 22px;background:${o.okBg || 'rgba(111,143,113,.92)'};border:none;border-radius:10px;color:#09080F;font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;letter-spacing:.08em">${o.okLabel || 'Confirmar'}</button></div></div>`;
     document.body.appendChild(ov);
     const done = v => { ov.remove(); resolve(v); };
     ov.querySelector('#alm-confirm-ok').onclick = () => done(true);
@@ -2281,9 +2147,9 @@ function showToast(msg, type = 'ok') { const t = document.getElementById('toast'
 function openAbacusModal() {
   const ex = document.getElementById('abacus-modal-ov'); if (ex) { ex.remove(); return; }
   const ov = document.createElement('div'); ov.id = 'abacus-modal-ov';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.72);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
-  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(184,64,42,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:12px;display:block"></iframe></div>`;
+  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(184,64,42,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:14px;display:block"></iframe></div>`;
   document.body.appendChild(ov);
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', esc); } });
 }
@@ -2431,7 +2297,7 @@ function _openAguardarList(){
     return `<div class="stu-row" style="cursor:pointer" onclick="document.getElementById('alm-aguardar-ov').remove();ovDrillToFormation('${c.key}')">
       <div class="stu-cell" style="min-width:0"><div style="font-size:10px;font-weight:700;color:${c.color}">${c.label}</div><div style="font-size:7px;color:var(--t3)">${c.slot}${_ovActiveLoc==='all'?' · '+(BRANCH_LABELS[c.branch]||c.branch):''}</div></div>
       <div class="stu-cell" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
-        <div style="width:54px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#8A8A82"></div></div>
+        <div style="width:54px;height:5px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#8A8A82"></div></div>
         <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:#4E6B50">${c.n}<span style="opacity:.4">/${MIN_G}</span></span>
         <span style="font-size:7px;font-weight:700;color:#8A8A82;padding:1px 6px;border:1px solid rgba(138,138,130,.4);background:rgba(138,138,130,.1);white-space:nowrap">faltam ${c.need}</span>
       </div>
@@ -2440,7 +2306,7 @@ function _openAguardarList(){
   document.getElementById('alm-aguardar-ov')?.remove();
   const ov = document.createElement('div');
   ov.id = 'alm-aguardar-ov';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
   ov.innerHTML = `<div style="width:min(560px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
@@ -2522,7 +2388,7 @@ const aguardar = document.createElement('button');
   aguardar.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
   aguardar.innerHTML = 'SEM TURMA'
     + '<span id="alm-aguardar-inc" title="Rever disponibilidade" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:rgba(138,138,130,.15);border:.5px solid rgba(138,138,130,.4);color:#8A8A82;font-size:8px;font-weight:700"></span>'
-    + '<span id="alm-aguardar-dot" style="display:none;position:absolute;top:-6px;right:-6px;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:#B8402A;color:#fff;font-size:9px;font-weight:700;box-shadow:0 2px 8px rgba(184,64,42,.5)"></span>';
+    + '<span id="alm-aguardar-dot" style="display:none;position:absolute;top:-6px;right:-6px;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 5px;border-radius:999px;background:#B8402A;color:#fff;font-size:9px;font-weight:700"></span>';
   aguardar.onclick = () => _openAguardarList();
 
   wrap.appendChild(btn); wrap.appendChild(live); wrap.appendChild(aguardar);
