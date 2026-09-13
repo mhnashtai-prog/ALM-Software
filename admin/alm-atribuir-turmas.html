@@ -141,6 +141,11 @@
   --well:#E7E8E4;      /* a repeating cell in a grid      */
   --rule:rgba(0,0,0,.07);
   --rule-2:rgba(0,0,0,.13);
+  /* Handed to alm-grid.js. */
+  --almg-paper:#FFFFFF; --almg-rule:#E4E2DB; --almg-rule-2:#CFCCC2;
+  --almg-head:#F2F1EC; --almg-head-on:#DCE3DE;
+  --almg-ink:#14140F; --almg-sub:#7A7A72; --almg-faint:#A8A69C;
+  --almg-done:#5E776C; --almg-open:#9A7B62;
   --sans:'Geist',system-ui,-apple-system,sans-serif;
   --mono:'Geist Mono',ui-monospace,monospace;
   --display:'Anton',Impact,sans-serif;
@@ -226,56 +231,6 @@ input,select,textarea{font:inherit;color:inherit}
   overflow:hidden;flex-shrink:0}
 .load i{display:block;height:100%;border-radius:6px;background:var(--sage)}
 .load.warn i{background:var(--clay)}.load.over i{background:var(--alert)}
-
-/* ══ THE WEEK GRID ══ */
-.gridwrap{background:var(--field);border-radius:14px;padding:14px 12px 16px;overflow-x:auto}
-.ghead{display:flex;gap:3px;margin-bottom:5px;padding-left:58px}
-.gh{flex:1;min-width:78px;text-align:center;font-family:var(--mono);font-size:10px;
-  font-weight:600;color:rgba(var(--grid-shade),.52)}
-.gh.gap{flex:0 0 26px;min-width:26px}
-/* The row is the positioning context for the bands. A class is NOT a
-   cell — it is a span of time laid over the cells, from its start
-   minute to its end minute. A 14:00–15:30 session covers the whole
-   14h well and half the 15h well, and it has to be drawn that way or
-   the grid stops describing the timetable and starts describing the
-   hour a class happens to begin in. */
-.grow{display:flex;gap:3px;margin-bottom:3px;position:relative}
-.gday{width:55px;flex-shrink:0;display:flex;flex-direction:column;
-  align-items:flex-end;justify-content:center;padding-right:9px}
-.gday-s{font-size:13px;font-weight:600;color:#1B2226;letter-spacing:.04em}
-.gday-f{font-family:var(--mono);font-size:8px;color:rgba(var(--grid-shade),.5);margin-top:2px}
-.gcell{flex:1;min-width:78px;height:var(--row-h);border-radius:10px;background:var(--field);
-  position:relative;}
-.gcell.gap{flex:0 0 26px;min-width:26px;background:transparent}
-.gcell.gap::after{content:'12–14';position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%) rotate(-90deg);font-family:var(--mono);font-size:7px;
-  font-weight:600;color:rgba(var(--grid-shade),.30);white-space:nowrap}
-
-/* A class. Clay = nobody teaching it yet; sage = assigned and written. */
-/* Clay while nobody is teaching it, sage once assigned and
-   written. Sage appears on an assigned slot and nowhere else. */
-.klass{position:absolute;top:0;height:var(--row-h);border-radius:10px;
-  cursor:pointer;padding:6px 9px;overflow:hidden;
-  display:flex;flex-direction:column;justify-content:center;gap:1px;
-  background:var(--clay);color:#fff;
-  transition:opacity .12s}
-.klass:hover{opacity:.88}
-.klass.has{background:var(--sage-slot);color:#fff}
-.klass.dim{opacity:.28}
-/* While the panel is open, the session being assigned and its pair
-   partner are both ringed, so the operator can see on the grid what
-   the panel is about to change. */
-.klass.hot{outline:1.5px solid var(--ink);outline-offset:2px;z-index:3}
-.klass.sib{outline:1.5px dashed rgba(20,20,15,.5);outline-offset:2px;z-index:3}
-.k-time{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.70)}
-.k-code{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.03em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.k-t{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.84);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.k-n{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.70)}
-.k-av{position:absolute;top:5px;right:6px;width:17px;height:17px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-family:var(--mono);
-  font-size:7px;font-weight:700;background:rgba(255,255,255,.92);color:var(--sage-slot)}
 
 /* ══ CARDS ══ */
 .card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;}
@@ -473,6 +428,7 @@ body.rail-open .main{padding-right:min(436px,94vw)}
 <div class="sh-ov" id="sh-assign"></div>
 <div class="sh-ov" id="sh-roster"></div>
 <div class="toast" id="toast"></div>
+<script src="alm-grid.js"></script>
 <script>
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
@@ -712,87 +668,54 @@ function renderSide(){
   }
 }
 
-let _bandT;
 function renderMain(){
   const host=document.getElementById('main');
-  if(PANEL==='grelha'){
-    host.innerHTML = gridHTML();
-    requestAnimationFrame(()=>requestAnimationFrame(drawBands));
-    return;
-  }
+  if(PANEL==='grelha'){ host.innerHTML = gridHTML(); return; }
   if(PANEL==='porAtribuir') return host.innerHTML = openHTML();
   if(PANEL==='profs')       return host.innerHTML = teachersHTML();
   if(PANEL==='conflitos')   return host.innerHTML = conflictHTML();
 }
 
+/* ── THE GRID ────────────────────────────────────────────────────
+   Was gridHTML() + bandPos() + drawBands(), ~90 lines, and carrying a
+   real bug: bandPos measured x from the first .gcell but drawBands
+   appended the band to .grow, whose box starts at the frozen day
+   column. Every band was therefore 58px too far left — 53 minutes —
+   which is why a 14:00 lesson drew at 11:36.
+
+   The module positions an item INSIDE its first cell, so the offset
+   cannot exist. */
 function gridHTML(){
-  const head = '<div class="ghead">'+HOURS.map(x=>x===null?'<div class="gh gap"></div>':`<div class="gh">${x}h</div>`).join('')+'</div>';
-  const rows = DAYS.map(day=>{
-    const cells = HOURS.map(x=>x===null?'<div class="gcell gap"></div>':'<div class="gcell"></div>').join('');
-    return `<div class="grow" data-day="${day}"><div class="gday"><span class="gday-s">${day}</span>
-      <span class="gday-f">${DAY_FULL[day]}</span></div>${cells}</div>`;
-  }).join('');
+  requestAnimationFrame(drawGrid);
   return `<div class="sec">Grelha semanal${SEL_LEVEL?' · '+esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL):''}</div>
-    <div class="gridwrap" id="gridwrap">${head}${rows}</div>
-    <div style="display:flex;gap:16px;margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--sub)">
-      <span><b style="color:var(--sage-slot)">&#9632;</b> com professor</span>
-      <span><b style="color:var(--clay)">&#9632;</b> por atribuir</span>
-      <span style="margin-left:auto">clique numa sessão para atribuir</span>
-    </div>`;
+    <div id="agrid"></div>`;
 }
 
-/* WHERE A SESSION SITS, IN PIXELS.
-   Walks the row's own wells accumulating (width + gap) and converts
-   the session's start and end MINUTES into offsets inside them. The
-   lunch column is walked like any other so a span that crosses it
-   still lands correctly on the far side. A class shorter than one
-   well is drawn short; one that runs 110 minutes is drawn long. */
-const GRID_GAP = 3;
-function bandPos(cls, rowEl){
-  const wells = [...rowEl.querySelectorAll('.gcell')];
-  const s = startOf(cls), e = endOf(cls);
-  let x = 0, left = null, right = null;
-  HOURS.forEach((hr,i)=>{
-    const w = wells[i]; if(!w) return;
-    const cw = w.offsetWidth;
-    if(hr===null){ x += cw + GRID_GAP; return; }
-    const a = hr*60, b = a+60;
-    if(s < b && e > a){
-      const os = Math.max(s,a), oe = Math.min(e,b);
-      if(left===null) left = x + ((os-a)/60)*cw;
-      right = x + ((oe-a)/60)*cw;
-    }
-    x += cw + GRID_GAP;
-  });
-  if(left===null) return null;
-  return {left:Math.round(left), width:Math.max(64, Math.round(right-left))};
-}
-
-/* Drawn after layout, because the widths are only known once the flex
-   row has resolved. Re-run on resize for the same reason. */
-function drawBands(){
-  const wrap = document.getElementById('gridwrap'); if(!wrap) return;
-  wrap.querySelectorAll('.klass').forEach(b=>b.remove());
+function drawGrid(){
+  const host = document.getElementById('agrid'); if(!host) return;
   const focus = MODE==='teacher' ? SEL_TEACHER : null;
-  const open = popState ? popState.code : null;
-  const sibs = popState ? popState.sibs.map(s=>s.turma_code) : [];
-  visible().forEach(c=>{
-    const row = wrap.querySelector(`.grow[data-day="${c.day_of_week}"]`); if(!row) return;
-    const pos = bandPos(c, row); if(!pos) return;
-    const t = c.teacher_id ? TEACHERS.find(x=>x.id===c.teacher_id) : null;
-    const el = document.createElement('div');
-    el.className = 'klass' + (t?' has':'') + (focus && c.teacher_id!==focus?' dim':'')
-      + (c.turma_code===open?' hot':'') + (open && c.turma_code!==open && sibs.includes(c.turma_code)?' sib':'');
-    el.style.left = pos.left + 'px';
-    el.style.width = pos.width + 'px';
-    el.dataset.open = c.turma_code;
-    el.title = `${c.turma_code} · ${(c.start_time||'').slice(0,5)}–${(c.end_time||'').slice(0,5)} · ${levelOf(c)}`;
-    el.innerHTML =
-      (t?`<span class="k-av" title="${esc(t.name)}">${avInit(t.name)}</span>`:'') +
-      `<span class="k-code">${esc(c.turma_code)}</span>` +
-      `<span class="k-t">${t?esc(t.name):'sem professor'}</span>` +
-      `<span class="k-time">${(c.start_time||'').slice(0,5)}–${(c.end_time||'').slice(0,5)} · ${c.student_refs.length}/${MAX_G}</span>`;
-    row.appendChild(el);
+  const open  = popState ? popState.code : null;
+  const sibs  = popState ? popState.sibs.map(s=>s.turma_code) : [];
+  ALMGrid.render(host, {
+    items: visible().map(c=>{
+      const t = c.teacher_id ? TEACHERS.find(x=>x.id===c.teacher_id) : null;
+      return {
+        day:c.day_of_week, start:(c.start_time||'').slice(0,5), end:(c.end_time||'').slice(0,5),
+        title:c.turma_code,
+        sub:`${t?t.name:'sem professor'} · ${c.student_refs.length}/${MAX_G}`,
+        badge: t ? avInit(t.name) : '',
+        state: t ? 'done' : 'open',
+        tone: c.group_code,
+        dim: focus && c.teacher_id!==focus,
+        hot: c.turma_code===open,
+        sib: open && c.turma_code!==open && sibs.includes(c.turma_code),
+        code:c.turma_code,
+      };
+    }),
+    onItem: it => openAssign(it.code),
+    legend: [['#2E4A3A','preenchido = com professor'],
+             ['rgba(74,106,86,.28)','esbatido = por atribuir']],
+    hint: 'clique numa sessão para atribuir',
   });
 }
 
@@ -874,7 +797,7 @@ function conflictHTML(){
 function closeSheet(id){
   const el=document.getElementById(id); el.classList.remove('on'); el.innerHTML='';
   if(id==='sh-assign'){ popState=null; document.body.classList.remove('rail-open');
-    if(PANEL==='grelha') drawBands(); }
+    if(PANEL==='grelha') drawGrid(); }
 }
 function hostFor(id){const el=document.getElementById(id);
   el.onclick=e=>{if(e.target===el)closeSheet(id);};return el;}
@@ -1023,7 +946,7 @@ function paintAssign(){
   document.body.classList.add('rail-open');
   /* Re-lay the grid under the narrowed column, then ring the session
      under assignment and its pair partner. */
-  if(PANEL==='grelha') requestAnimationFrame(()=>requestAnimationFrame(drawBands));
+  if(PANEL==='grelha') requestAnimationFrame(drawGrid);
 
   host.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
     popState.mode=b.dataset.mode; popState.pick={};
@@ -1209,7 +1132,7 @@ document.addEventListener('keydown',e=>{
     const el=document.getElementById(id);
     if(el.classList.contains('on')){closeSheet(id);return true;} }); }
 });
-window.addEventListener('resize',()=>{clearTimeout(_bandT);_bandT=setTimeout(()=>{if(PANEL==='grelha')drawBands();},160);});
+
 boot();
 </script>
 </body>
