@@ -40,15 +40,67 @@ const DAYS = [
    or 13h column to land in. */
 const HOURS = [8, 9, 10, 11, null, 14, 15, 16, 17, 18, 19, 20];
 
-const SLOT = 30;            /* minutes per column */
+/* ONE COLUMN IS ONE HOUR.
+   An earlier draft split each hour in two so a 90-minute lesson was a
+   whole number of columns. It made the arithmetic tidy and the grid
+   worse: twice the rules, half the width each, and a cell that no
+   longer meant anything a teacher thinks in. An hour is the unit of a
+   timetable, so an hour is the cell.
+
+   A lesson is still placed to the minute — it is positioned by
+   fraction inside the hour columns it covers, which is exact. What
+   the hour column costs is nothing, because the table is gapless:
+   there is no spacing to accumulate, which was the only reason the
+   half-hour trick existed. */
+const HOUR = 60;
 const toMins = t => {
   if (!t) return null;
   const [h, m] = String(t).split(':').map(Number);
   if (isNaN(h)) return null;
-  return h * 60 + (isNaN(m) ? 0 : m);
+  return h * HOUR + (isNaN(m) ? 0 : m);
 };
+
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+/* ── IDENTITY BY PAIR, STATE BY FILL ────────────────────────────────
+   01A and 01B share a tone; 02A and 02B take the next one. The tone
+   is keyed on the group code, so the two halves of a pair always
+   match and a turma keeps its colour all year.
+
+   THE CONSEQUENCE, STATED PLAINLY
+   Hue can only carry one thing. If it now says WHICH turma, it can no
+   longer say WHETHER the register is marked — that is the same trap
+   slotCol() and pairTone() fell into, where colour described the
+   timetable and the state had nowhere to live.
+
+   So state moves to fill:
+     · marked   → solid tone, its own text colour
+     · unmarked → the same tone at 14%, with a 3px solid edge and ink
+                  text. Same hue, visibly not finished.
+   Two channels, two facts, neither competing.
+
+   WHY ONLY FOUR TONES
+   Sage is a narrow band. Measured, six steps sit 14–19 apart when
+   ~30 is needed to tell two blocks apart; four spread by lightness
+   sit 51 apart. The two light steps fall below 4.5:1 against white,
+   so they carry ink text instead — chosen per tone, not assumed. */
+const TONES = [
+  { fill:'#2E4A3A', ink:'#FFFFFF' },
+  { fill:'#4A6A56', ink:'#FFFFFF' },
+  { fill:'#6A8878', ink:'#14140F' },
+  { fill:'#93AB99', ink:'#14140F' },
+];
+function toneFor(key){
+  const k = String(key || '');
+  let h = 0;
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) & 0x7fffffff;
+  return TONES[h % TONES.length];
+}
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
 
 /* ── THE STYLESHEET LIVES HERE TOO ──────────────────────────────────
    Injected once. If the grid's appearance were left to each page, the
@@ -58,7 +110,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g,
 const CSS = `
 .almg{border:1px solid var(--almg-rule-2,#CFCCC2);border-radius:10px;
   overflow:auto;background:var(--almg-paper,#fff);-webkit-overflow-scrolling:touch}
-.almg table{border-collapse:separate;border-spacing:0;width:100%;min-width:880px}
+.almg table{border-collapse:separate;border-spacing:0;width:100%;min-width:960px}
 .almg th,.almg td{padding:0;border-right:1px solid var(--almg-rule,#E4E2DB);
   border-bottom:1px solid var(--almg-rule,#E4E2DB)}
 .almg thead th{position:sticky;top:0;z-index:20;height:30px;
@@ -77,7 +129,11 @@ const CSS = `
   color:var(--almg-ink,#14140F);display:block}
 .almg-d2{font-family:var(--mono,ui-monospace,monospace);font-size:8px;
   color:var(--almg-faint,#A8A69C);display:block;margin-top:1px}
-.almg tbody td{height:52px;position:relative;background:var(--almg-paper,#fff)}
+/* Rectangular: ~86px wide against 52px tall is about 5:3, the
+   proportion an hour column wants. */
+.almg tbody td{height:52px;min-width:86px;position:relative;
+  background:var(--almg-paper,#fff)}
+.almg thead th[data-h]{min-width:86px}
 .almg td.almg-hb{border-right:1px solid var(--almg-rule-2,#CFCCC2)}
 .almg td.almg-lunch{background:#FAFAF7;width:22px;min-width:22px}
 .almg-lunch-l{font-family:var(--mono,ui-monospace,monospace);font-size:7px;
@@ -97,12 +153,16 @@ const CSS = `
 .almg-item.sib{outline:1.5px dashed rgba(20,20,15,.5);outline-offset:1px;z-index:7}
 .almg-t{font-family:var(--mono,ui-monospace,monospace);font-size:10px;font-weight:700;
   letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Inherits the item's own ink, because a light tone carries dark text
+   and a dark one carries white. Hard-coding white here would have made
+   the two pale steps unreadable. */
 .almg-s{font-family:var(--mono,ui-monospace,monospace);font-size:8.5px;
-  color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .almg-badge{position:absolute;top:5px;right:6px;width:17px;height:17px;border-radius:999px;
   display:flex;align-items:center;justify-content:center;
   font-family:var(--mono,ui-monospace,monospace);font-size:7px;font-weight:700;
-  background:rgba(255,255,255,.92);color:var(--almg-done,#5E776C)}
+  background:currentColor;color:inherit}
+.almg-item.done .almg-badge{background:rgba(255,255,255,.92);color:var(--almg-done,#5E776C)}
 .almg-legend{display:flex;gap:16px;align-items:center;margin-top:9px;
   font-family:var(--mono,ui-monospace,monospace);font-size:9px;color:var(--almg-sub,#7A7A72)}
 .almg-sw{width:9px;height:9px;border-radius:6px;display:inline-block;
@@ -119,13 +179,6 @@ function injectCSS() {
   cssDone = true;
 }
 
-/* Every half-hour slot start, in minutes, in column order. The lunch
-   column contributes no slots — it is walked but never occupied. */
-function slotStarts(hours) {
-  const out = [];
-  hours.forEach(h => { if (h !== null) { out.push(h * 60); out.push(h * 60 + SLOT); } });
-  return out;
-}
 
 /* ══════════════════════════════════════════════════════════════════
    render(el, opts)
@@ -146,15 +199,13 @@ function render(el, opts) {
   const hours  = o.hours || HOURS;
   const days   = o.days  || DAYS;
   const items  = o.items || [];
-  const starts = slotStarts(hours);
 
-  const head = days.length ? '' : '';
   let html = '<div class="almg"><table><thead><tr>'
     + '<th class="almg-day">Dia</th>';
   hours.forEach(h => {
     html += h === null
       ? '<th class="almg-lunch"></th>'
-      : `<th colspan="2" data-h="${h}">${h}h</th>`;
+      : `<th data-h="${h}">${h}h</th>`;
   });
   html += '</tr></thead><tbody>';
 
@@ -171,8 +222,7 @@ function render(el, opts) {
         return;
       }
       const free = o.onEmpty ? ' almg-free' : '';
-      html += `<td class="${free}" data-h="${h}" data-m="${h * 60}"></td>`;
-      html += `<td class="almg-hb${free}" data-h="${h}" data-m="${h * 60 + SLOT}"></td>`;
+      html += `<td class="almg-hb${free}" data-h="${h}" data-m="${h * 60}"></td>`;
     });
     html += '</tr>';
   });
@@ -202,28 +252,51 @@ function render(el, opts) {
       const s = toMins(it.start), e = toMins(it.end);
       if (s == null || e == null || e <= s) return;
 
+      /* Which hour columns does it touch, and where inside them does
+         it start and stop. No gap term: the table is gapless, so the
+         columns are contiguous and the sum is the span. */
+      const hrs = hours.filter(x => x !== null);
       let i0 = -1, i1 = -1;
-      starts.forEach((m, i) => {
-        if (s < m + SLOT && e > m) { if (i0 < 0) i0 = i; i1 = i; }
+      hrs.forEach((h, i) => {
+        const a = h * HOUR, b = a + HOUR;
+        if (s < b && e > a) { if (i0 < 0) i0 = i; i1 = i; }
       });
       if (i0 < 0) return;
 
       const host = cells[i0];
       if (!host) return;
-      const cw = host.offsetWidth;
-      /* Offset inside the first column, and the tail inside the last —
-         both as a fraction of a 30-minute slot. */
-      const lead  = ((s - starts[i0]) / SLOT) * cw;
+      const w0    = host.offsetWidth;
+      const last  = cells[i1] || host;
+      const lead  = ((s - hrs[i0] * HOUR) / HOUR) * w0;
       const full  = cells.slice(i0, i1 + 1).reduce((t, c) => t + c.offsetWidth, 0);
-      const trail = ((starts[i1] + SLOT - Math.min(e, starts[i1] + SLOT)) / SLOT)
-                    * (cells[i1] ? cells[i1].offsetWidth : cw);
+      const tail  = hrs[i1] * HOUR + HOUR;
+      const trail = ((tail - Math.min(e, tail)) / HOUR) * last.offsetWidth;
 
       const node = document.createElement('div');
       node.className = 'almg-item'
-        + (it.state === 'done' ? ' done' : '')
+        + (it.state === 'done' ? ' done' : ' open')
         + (it.dim ? ' dim' : '') + (it.hot ? ' hot' : '') + (it.sib ? ' sib' : '');
-      node.style.left  = Math.round(lead) + 1 + 'px';
-      node.style.width = Math.max(52, Math.round(full - lead - trail) - 3) + 'px';
+
+      /* it.tone is a pair key (group code). Omit it and the item falls
+         back to the stylesheet's done/open colours, which is what a
+         page with no pairs wants. */
+      if (it.tone) {
+        const t = toneFor(it.tone);
+        if (it.state === 'done') {
+          node.style.background = t.fill;
+          node.style.color = t.ink;
+        } else {
+          node.style.background = hexA(t.fill, .14);
+          node.style.color = '#14140F';
+          node.style.borderLeft = '3px solid ' + t.fill;
+        }
+      }
+      /* Positioned inside its first cell, never inside the row — the
+         row box starts at the frozen day column, and measuring from
+         the cells while positioning against the row is what put a
+         14:00 lesson at 11:36 in the assign grid. */
+      node.style.left  = Math.round(lead) + 'px';
+      node.style.width = Math.max(46, Math.round(full - lead - trail) - 2) + 'px';
       node.title = it.title + (it.sub ? ' · ' + it.sub : '');
       node.innerHTML =
         (it.badge ? `<span class="almg-badge">${esc(it.badge)}</span>` : '') +
@@ -277,6 +350,6 @@ function CSS_ESC(v) {
   return String(v).replace(/["\\]/g, '\\$&');
 }
 
-global.ALMGrid = { render, DAYS, HOURS, toMins, SLOT };
+global.ALMGrid = { render, DAYS, HOURS, toMins, HOUR, toneFor, TONES };
 
 })(window);
