@@ -3,11 +3,18 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ALM · Atribuir turmas</title>
+<title>ALM · Professor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet"/>
-<style>
+<style>/* ── CHROME COMPACT, CONTENT GENEROUS ────────────────────────────
+   The topbar, the identity strip and the panel padding were together
+   taking about 200px off the top of every screen before a single
+   student appeared. They are furniture; the students are the work.
+   Everything above the content lost roughly a third of its height,
+   and the student rows gained the space.
+   ──────────────────────────────────────────────────────────────── */
+
 /* ══════════════════════════════════════════════════════════════════════
    WHY THE COLLOCATIONS MODAL LOOKS CRISP
    Read from skills/grammar-rules/collocations.html. The surprise is
@@ -59,39 +66,55 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ══════════════════════════════════════════════════════════════════════
-   ALM · ATRIBUIR TURMAS
-   Putting a teacher in front of a class.
+   ALM · PORTAL DO PROFESSOR
+   One page for one teacher for one year.
 
-   THE DEFECT THIS REWRITE EXISTS TO CLOSE
-   ───────────────────────────────────────
-   The previous page reported success on writes it had not verified.
-   PostgREST answers a PATCH whose filter matches nothing with 200 and
-   an empty array — a perfectly successful request that changed no row.
-   Both write helpers checked `r.ok`, discarded the returned rows, and
-   the caller printed "Guardado ✓". The screen updated optimistically,
-   so an assignment that never reached the database looked identical to
-   one that did, until a reload wiped it.
+   WHAT THIS REPLACES, AND WHY IT IS A REWRITE RATHER THAN A REPAINT
+   ─────────────────────────────────────────────────────────────────
+   The previous portal was a dark gold-on-black console whose central
+   record — which lesson am I marking? — was identified by an integer
+   counted from the start of the year. That integer is not an identity.
+   It is derived from the school calendar, so the moment a holiday is
+   added every stored number points at a different date, and the header
+   and the body of the modal could disagree about which day was open
+   without anything appearing to be wrong.
 
-   Here every write asserts on the rows that came back. Zero rows is an
-   error, the optimistic change is rolled back, and the message names
-   the filter that matched nothing. A write either happened or it says
-   it didn't.
+   Here the DATE IS THE RECORD. lesson_number is computed for display
+   and written alongside for human reference, never read back as a key.
+   Everything — attendance, summaries, marks — is addressed by
+   (turma_code, student_ref, date).
 
    THE SURFACE
-   Warm stone page, one cool stone instrument (the week grid), and two
-   solid state colours: SAGE means a teacher is assigned and written,
-   CLAY means the slot is still open. Nothing else carries hue, so the
-   unassigned classes are the only thing on screen that stands out —
-   which is the whole job of this page.
+   Warm stone page, one cool stone instrument (the timetable), sage for
+   arrival and clay for provisional. Depth means "has a lesson", never
+   "is good". Numbers are doors: any count opens the list it counted.
    ══════════════════════════════════════════════════════════════════════ */
 
 *{box-sizing:border-box;margin:0;padding:0}
+
 :root{
-  --page:#F2F1EC; --card:#FBFAF7; --field:#DFE3E3;
-  --shade:56,50,38; --grid-shade:40,50,54;
-  --ink:#14140F; --ink-2:#3A3A36; --sub:#7A7A72; --faint:#A8A69C;
+  /* ── SURFACES ── */
+  --page:#F2F1EC;          /* warm stone — the page */
+  --card:#FBFAF7;          /* raised paper — panels */
+  --field:#DFE3E3;         /* cool stone — the timetable, and only it */
+  --shade:56,50,38;        /* warm dark — cards, page furniture */
+  --grid-shade:40,50,54;   /* cool dark — the grid */
+
+  /* ── INK ── */
+  --ink:#14140F;
+  --ink-2:#3A3A36;
+  --sub:#7A7A72;
+  --faint:#A8A69C;
   --line:rgba(0,0,0,.07);
-  --sage:#6F8F71; --sage-deep:#4E6B50; --sage-a:rgba(111,143,113,.12); --sage-b:rgba(111,143,113,.34);
+
+  /* ── STATE ──
+     Two solids, one meaning each. Sage is settled: marked, submitted,
+     present. Clay is provisional: unmarked, pending, in progress.
+     Nothing else carries hue. */
+  --sage:#6F8F71;
+  --sage-deep:#4E6B50;
+  --sage-a:rgba(111,143,113,.12);
+  --sage-b:rgba(111,143,113,.34);
   /* ── THE SAGE INSTRUMENT ─────────────────────────────────────────
      The grid was cool stone with sage marks on it. It is now a sage
      field, which is a better-looking object and a completely different
@@ -130,9 +153,21 @@
   --sand:#E5D1B8;
   --stone-warm:#D2CEC2;
 
-  --clay:#9A7B62; --clay-a:rgba(154,123,98,.12); --clay-b:rgba(154,123,98,.32);
-  --alert:#B8402A; --alert-a:rgba(184,64,42,.10);
-  --d-kids:#6E8CA8; --d-juv:#6F8F71; --d-adults:#8C7F6A; --d-exam:#7E7391;
+  --clay:#9A7B62;
+  --clay-a:rgba(154,123,98,.12);
+  --clay-b:rgba(154,123,98,.32);
+  --alert:#B8402A;
+  --alert-a:rgba(184,64,42,.10);
+  --warn:#8A8A82;
+
+  /* ── DEPARTMENT TINTS ──
+     Used on the ID band only, where the job is recognition rather than
+     status. Muted enough to sit on paper. */
+  --d-kids:#6E8CA8;
+  --d-juv:#6F8F71;
+  --d-adults:#8C7F6A;
+  --d-exam:#7E7391;
+
 
   /* Flat surfaces. Four steps, each one flat, no shadow between them.
      The separation is value alone, which is all a flat system has. */
@@ -141,7 +176,8 @@
   --well:#E7E8E4;      /* a repeating cell in a grid      */
   --rule:rgba(0,0,0,.07);
   --rule-2:rgba(0,0,0,.13);
-  /* Handed to alm-grid.js. */
+  /* Handed to alm-grid.js. The grid draws itself; the page only says
+     what colour its own paper and its own states are. */
   --almg-paper:#FFFFFF; --almg-rule:#E4E2DB; --almg-rule-2:#CFCCC2;
   --almg-head:#F2F1EC; --almg-head-on:#DCE3DE;
   --almg-ink:#14140F; --almg-sub:#7A7A72; --almg-faint:#A8A69C;
@@ -149,990 +185,2038 @@
   --sans:'Geist',system-ui,-apple-system,sans-serif;
   --mono:'Geist Mono',ui-monospace,monospace;
   --display:'Anton',Impact,sans-serif;
-  --row-h:46px;   /* rectangular. 46 tall against a ~78 minimum width
-                     gives roughly 5:3 — the proportion an hour column
-                     wants. The 64px square read as a button grid. */
+  --row-h:58px;
 }
+
 html,body{height:100%;background:var(--page);color:var(--ink-2);
   font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
 body{display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;border:none;background:none;cursor:pointer;color:inherit}
 input,select,textarea{font:inherit;color:inherit}
 *{scrollbar-width:thin;scrollbar-color:rgba(var(--shade),.16) transparent}
+
 @keyframes sheetIn{from{opacity:0;transform:scale(.95) translateY(20px)}to{opacity:1;transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* ══ TOPBAR ══ */
-.topbar{flex-shrink:0;height:52px;display:flex;align-items:center;
+.topbar{flex-shrink:0;height:44px;display:flex;align-items:center;gap:0;
   background:var(--card);border-bottom:1px solid var(--line);z-index:200}
-.tb-brand{display:flex;align-items:center;gap:9px;padding:0 18px;height:100%;
-  border-right:1px solid var(--line);flex-shrink:0}
-.tb-alm{font-size:16px;font-weight:800;letter-spacing:7px;color:var(--ink)}
+.tb-brand{display:flex;align-items:baseline;gap:8px;padding:0 14px;height:100%;
+  border-right:1px solid var(--line);flex-shrink:0;align-items:center}
+.tb-alm{font-family:var(--sans);font-size:16px;font-weight:800;letter-spacing:7px;color:var(--ink)}
 .tb-yr{font-family:var(--mono);font-size:9px;color:var(--faint);letter-spacing:.1em}
 .tb-nav{display:flex;align-items:center;gap:3px;padding:0 14px;flex:1;overflow-x:auto;scrollbar-width:none}
 .tb-nav::-webkit-scrollbar{display:none}
-.nav-btn{font-size:12px;font-weight:600;padding:6px 15px;border-radius:999px;
-  color:var(--sub);white-space:nowrap;transition:all .14s}
+.nav-btn{font-family:var(--sans);font-size:12px;font-weight:600;padding:5px 13px;
+  border-radius:999px;color:var(--sub);white-space:nowrap;transition:all .14s}
 .nav-btn:hover{color:var(--ink);background:rgba(var(--shade),.05)}
 .nav-btn.active{background:var(--ink);color:#fff}
-.nav-btn .nb-n{font-family:var(--mono);font-size:9px;margin-left:6px;opacity:.55}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 16px;
-  height:100%;border-left:1px solid var(--line);flex-shrink:0}
+.nav-btn .nb-n{font-family:var(--mono);font-size:9px;font-weight:500;
+  margin-left:6px;opacity:.55}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;
+  padding:0 16px;height:100%;border-left:1px solid var(--line);flex-shrink:0}
 .tb-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);animation:pulse 2.4s infinite}
 .tb-dot.warn{background:var(--clay)}.tb-dot.err{background:var(--alert);animation:none}
 .tb-msg{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--faint)}
-.tb-btn{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
-  padding:5px 11px;border-radius:999px;background:rgba(var(--shade),.06);color:var(--sub);transition:all .13s}
-.tb-btn:hover{background:rgba(var(--shade),.12);color:var(--ink)}
-.tb-btn:disabled{opacity:.32;cursor:not-allowed}
+.tb-clock{font-family:var(--mono);font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.tb-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;color:var(--sub);transition:all .14s;position:relative}
+.tb-icon:hover{background:rgba(var(--shade),.07);color:var(--ink)}
+.tb-icon .bdg{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;
+  border-radius:999px;background:var(--alert);color:#fff;font-family:var(--mono);
+  font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 4px}
+.tb-icon.has .bdg{display:flex}
 
-/* ══ HEADLINE BAR ══ */
-/* No banner. A rule under the title and nothing else. */
-.head{flex-shrink:0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding:14px 18px 12px;border-bottom:1px solid var(--rule)}
-.head-n{font-family:var(--display);font-size:30px;letter-spacing:4px;
-  text-transform:uppercase;color:var(--banner);line-height:1}
-.head-sub{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em}
-.kpis{margin-left:auto;display:flex}
-.kpi{display:flex;flex-direction:column;align-items:center;padding:0 16px;
-  border-left:1px solid var(--line);cursor:pointer;transition:opacity .13s}
-.kpi:hover{opacity:.65}
-.kpi-v{font-size:25px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--ink)}
-.kpi-l{font-family:var(--mono);font-size:8px;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--faint);margin-top:3px}
+/* ══ TEACHER PICKER ══ */
+.picker{display:none;align-items:center;gap:12px;padding:10px 18px;
+  background:var(--card);border-bottom:1px solid var(--line);flex-shrink:0}
+.picker.on{display:flex}
+.picker-lbl{font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.picker select{padding:8px 14px;border-radius:10px;border:1px solid var(--line);
+  background:var(--page);font-size:13px;min-width:280px;outline:none;cursor:pointer}
 
-/* ══ LAYOUT ══ */
-.body{flex:1;display:flex;min-height:0;overflow:hidden}
-.side{width:264px;flex-shrink:0;border-right:1px solid var(--line);
-  display:flex;flex-direction:column;overflow:hidden;background:var(--page)}
-.side-strip{display:flex;flex-wrap:wrap;gap:4px;padding:10px;border-bottom:1px solid var(--line)}
-.side-list{flex:1;overflow-y:auto;padding:8px}
-.main{flex:1;overflow-y:auto;padding:14px 16px 40px;min-width:0}
-.pill{font-family:var(--mono);font-size:10px;font-weight:600;padding:5px 12px;
-  border-radius:999px;border:1px solid var(--line);color:var(--sub);
-  background:var(--card);transition:all .13s;white-space:nowrap}
-.pill:hover{border-color:var(--sage-b);color:var(--ink)}
-.pill.on{background:var(--ink);border-color:var(--ink);color:#fff}
-
-/* ══ SIDE ROWS ══ */
-.srow{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:10px;
-  margin-bottom:3px;cursor:pointer;transition:background .12s}
-.srow:hover{background:rgba(var(--shade),.05)}
-.srow.on{background:var(--card);}
-.srow-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;
-  align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700}
-.srow-n{font-size:13px;font-weight:500;color:var(--ink-2);flex:1;min-width:0;
+/* ══ ID BAND ══════════════════════════════════════════════════════════
+   The teacher's own card. Photo well, name, credentials, and the two
+   numbers that describe the year. The tint is the department they
+   mostly teach, so the band identifies before it is read. */
+.idband{flex-shrink:0;margin:12px 14px 0;border-radius:14px;position:relative;
+  overflow:hidden;display:flex;align-items:stretch;background:var(--band,#8C7F6A);}
+.idband::after{content:'';position:absolute;inset:0;pointer-events:none;
+  display:none}
+.idb-photo{position:relative;z-index:1;width:52px;flex-shrink:0;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.12);border-right:1px solid rgba(255,255,255,.20)}
+.idb-photo img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.idb-photo-ph{display:flex;flex-direction:column;align-items:center;gap:6px;
+  color:rgba(255,255,255,.62);font-family:var(--mono);font-size:8px;
+  letter-spacing:.12em;text-transform:uppercase}
+.idb-photo:hover .idb-photo-ph{color:#fff}
+.idb-who{position:relative;z-index:1;flex:1;min-width:0;display:flex;
+  flex-direction:column;justify-content:center;padding:8px 14px;gap:4px}
+.idb-name{font-family:var(--display);font-size:clamp(17px,2vw,21px);
+  letter-spacing:4px;line-height:1;text-transform:uppercase;color:#fff;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.srow.on .srow-n{font-weight:600;color:var(--ink)}
-.srow-m{font-family:var(--mono);font-size:10px;color:var(--faint);flex-shrink:0}
-.load{width:40px;height:4px;border-radius:6px;background:rgba(var(--shade),.10);
-  overflow:hidden;flex-shrink:0}
-.load i{display:block;height:100%;border-radius:6px;background:var(--sage)}
-.load.warn i{background:var(--clay)}.load.over i{background:var(--alert)}
+.idb-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.idb-tag{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:2px 7px;border-radius:6px;
+  background:rgba(255,255,255,.20);color:#fff}
+.idb-stat{position:relative;z-index:1;flex-shrink:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:0 16px;gap:1px;cursor:pointer;
+  border-left:1px solid rgba(255,255,255,.18);transition:background .14s}
+.idb-stat:hover{background:rgba(255,255,255,.10)}
+.idb-stat-v{font-family:var(--display);font-size:19px;letter-spacing:1px;line-height:1;color:#fff}
+.idb-stat-l{font-family:var(--mono);font-size:7px;letter-spacing:.12em;
+  text-transform:uppercase;color:rgba(255,255,255,.78)}
 
-/* ══ CARDS ══ */
-.card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;}
-.card-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.card-code{font-family:var(--display);font-size:21px;letter-spacing:2px;line-height:1;color:var(--banner)}
-.meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
-.sec{font-size:13px;font-weight:600;color:var(--ink);display:flex;
-  align-items:center;gap:10px;margin:0 0 10px}
+/* ══ PANELS ══ */
+.panels{flex:1;position:relative;overflow:hidden;min-height:0}
+.panel{position:absolute;inset:0;display:none;overflow-y:auto;padding:10px 12px 20px}
+.panel.on{display:block;animation:fadeIn .2s}
+
+.strip{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+.strip-lbl{font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.sec{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink);
+  display:flex;align-items:center;gap:10px;margin:0 0 10px}
 .sec::after{content:'';flex:1;height:1px;background:var(--line)}
-.tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;padding:4px 10px;border-radius:6px;
-  background:rgba(var(--shade),.06);color:var(--sub)}
-.tag.on{background:var(--sage-a);color:var(--sage-deep)}
-.tag.pend{background:var(--clay-a);color:var(--clay)}
-.tag.bad{background:var(--alert-a);color:var(--alert)}
 
-/* ══ SHEETS ══ */
-/* THE PANEL DOES NOT COVER THE GRID.
-   A centred modal put the assignment UI on top of the one thing the
-   operator needs while assigning — the slot, its neighbours, and who
-   is already in the surrounding hours. It is a right-hand rail now,
-   and the scrim is gone entirely: there is nothing to dim, because
-   the grid behind it is still the point. The roster keeps the
-   centred treatment, since that one really is a detour. */
-.sh-ov{position:fixed;top:0;right:0;bottom:0;z-index:1500;display:none;
-  width:min(420px,92vw);background:transparent}
-.sh-ov.on{display:block}
-.sh-ov#sh-roster{inset:0;width:auto;display:none;align-items:center;
-  justify-content:center;padding:26px;background:rgba(43,33,41,.42);}
-.sh-ov#sh-roster.on{display:flex}
-.sh-ov#sh-roster .sh{width:min(560px,92vw);max-height:88dvh;border-radius:6px;
-  animation:sheetIn .26s cubic-bezier(.2,.9,.3,1)}
-/* The rail's own card fills the rail. */
-/* The rail meets the page on one hairline. That is the whole
-   separation — no shadow falling across the grid. */
-.sh-ov:not(#sh-roster) .sh{width:100%;height:100%;max-height:none;border-radius:0;
-  border:none;border-left:1px solid var(--rule-2);
-  animation:railIn .24s cubic-bezier(.4,0,.2,1)}
-@keyframes railIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
-/* The main column gets out of the way rather than being covered. */
-body.rail-open .main{padding-right:min(436px,94vw)}
-.sh{position:relative;width:min(620px,95vw);max-height:90dvh;display:flex;
+/* ══ TODAY CHIPS ══ */
+.today-chip{display:flex;align-items:center;gap:9px;padding:8px 13px;border-radius:10px;
+  background:var(--card);cursor:pointer;
+  transition:border-color .12s;border-left:3px solid var(--clay)}
+.today-chip:hover{border-color:var(--rule-2)}
+.today-chip.done{border-left-color:var(--sage-deep)}
+.today-chip.now{border-color:var(--sage-slot)}
+.tc-time{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink)}
+.tc-meta{font-family:var(--mono);font-size:9px;color:var(--faint)}
+.tc-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;
+  padding:2px 7px;border-radius:6px;background:var(--sage-a);color:var(--sage-deep)}
+.tc-badge.now{background:var(--sage-deep);color:#fff}
+.tc-badge.pend{background:var(--clay-a);color:var(--clay)}
+
+/* ══ LIST CARDS ══ */
+.lcard{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;transition:border-color .14s}
+.lcard:hover{border-color:var(--rule-2)}
+.lc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lc-code{font-family:var(--display);font-size:22px;letter-spacing:2px;
+  line-height:1;color:var(--ink)}
+.lc-meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.lc-n{margin-left:auto;font-family:var(--sans);font-size:22px;font-weight:700;
+  letter-spacing:-.02em;color:var(--ink);cursor:pointer}
+.lc-n small{font-size:11px;color:var(--faint);font-weight:500}
+
+/* ══ REGISTER (pauta) ══════════════════════════════════════════════════
+   A year of attendance for one class. Deliberately a plain white table
+   with hairlines — it is the one surface here meant to be printed, and
+   a printed register should look like a register. */
+.reg{overflow:auto;max-height:calc(100vh - 340px);border-radius:10px;
+  background:#fff;}
+.reg table{border-collapse:separate;border-spacing:0;font-family:var(--mono);font-size:10px}
+.reg th,.reg td{border-right:1px solid #EDEDE9;border-bottom:1px solid #F3F3F0;padding:4px 3px}
+.reg thead th{position:sticky;top:0;z-index:6;background:#F6F6F3;font-weight:700;
+  font-size:9px;color:var(--sub);text-align:center;white-space:nowrap}
+.reg .stick-a{position:sticky;left:0;z-index:7;background:#F6F6F3;min-width:70px}
+.reg .stick-b{position:sticky;left:70px;z-index:7;background:#F6F6F3;min-width:180px;
+  text-align:left;border-right:2px solid #DEDEDA}
+.reg tbody .stick-a,.reg tbody .stick-b{z-index:5;background:inherit}
+.reg thead .stick-a,.reg thead .stick-b{z-index:8}
+.reg tbody tr:nth-child(odd){background:#fff}
+.reg tbody tr:nth-child(even){background:#FAFAF8}
+.reg tbody tr:hover{background:var(--sage-a)}
+.reg .mk{display:block;text-align:center;font-size:10px;font-weight:700;line-height:1.3}
+.reg .m-p{color:var(--sage-deep)}
+.reg .m-a{color:var(--alert)}
+.reg .m-l{color:var(--clay)}
+.reg .m-o{color:#D8D8D2}
+.reg .today-col{background:var(--sage-a)!important}
+.reg .tot{border-left:2px solid #DEDEDA;font-weight:700;text-align:center}
+.reg tfoot td{position:sticky;bottom:0;background:#F6F6F3;border-top:2px solid #DEDEDA;
+  font-weight:700;text-align:center;font-size:9px}
+.reg-name{font-family:var(--sans);font-size:11px;font-weight:500;color:var(--ink);cursor:pointer}
+.reg-name:hover{text-decoration:underline}
+.reg-legend{display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:9px;color:var(--sub)}
+
+/* ══ SHEETS ══════════════════════════════════════════════════════════
+   The INTUITY card: cream, one sage rule, mono eyebrow, a headline
+   that is a headline. Used for every modal on this page so there is
+   one modal language rather than four. */
+.sh-ov{position:fixed;inset:0;z-index:1500;display:none;align-items:center;
+  justify-content:center;padding:26px;background:rgba(16,16,12,.62)}
+.sh-ov.on{display:flex}
+.sh{position:relative;width:min(680px,95vw);max-height:90dvh;display:flex;
   flex-direction:column;overflow:hidden;background:#FAF8F5;border-radius:6px;animation:sheetIn .26s cubic-bezier(.2,.9,.3,1)}
+.sh.wide{width:min(1080px,97vw)}
 
-/* Masthead on sand, body on paper. */
-/* No masthead. */
-.sh-head{flex-shrink:0;padding:30px 32px 18px;border-bottom:1px solid var(--rule)}
-.sh-strip{background:var(--sand);border-bottom:1px solid rgba(var(--shade),.12)}
+/* No masthead. The head is the same white as the body, separated by
+   the rule under the stat strip and by nothing else. */
+.sh-head{flex-shrink:0;padding:34px 36px 20px}
+.sh-strip{border-bottom:1px solid var(--rule);padding:0 36px 22px}
 .sh-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .sh-bar{width:22px;height:5px;border-radius:6px;background:var(--accent,var(--sage))}
-.sh-kicker{font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+.sh-kicker{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.18em;
   text-transform:uppercase;color:var(--faint)}
-.sh-title{font-family:var(--display);font-size:clamp(24px,3.2vw,32px);line-height:.98;
+.sh-title{font-family:var(--display);font-size:clamp(26px,4.4vw,40px);line-height:.98;
   letter-spacing:2px;text-transform:uppercase;color:var(--banner)}
 
 .sh-sub{font-size:15px;color:var(--sub);margin-top:14px;letter-spacing:-.01em}
 .sh-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.sh-tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding:4px 10px;border-radius:6px;
+  background:rgba(var(--shade),.06);color:var(--sub)}
+.sh-tag.on{background:var(--sage-a);color:var(--sage-deep)}
+.sh-tag.pend{background:var(--clay-a);color:var(--clay)}
 .sh-close{position:absolute;top:22px;right:24px;z-index:4;width:28px;height:28px;
   border-radius:50%;color:var(--faint);font-size:15px;transition:all .14s}
 .sh-close:hover{background:rgba(var(--shade),.07);color:var(--ink)}
-.sh-body{flex:1;overflow-y:auto;padding:14px 32px 26px;min-height:0}
+.sh-strip{flex-shrink:0;display:flex;padding:0 32px 18px}
+.sh-stat{flex:1;display:flex;flex-direction:column;gap:3px;cursor:default}
+.sh-stat[data-click]{cursor:pointer}
+.sh-stat[data-click]:hover{opacity:.7}
+.sh-stat+.sh-stat{border-left:1px solid var(--line);padding-left:16px}
+.sh-stat-v{font-family:var(--sans);font-size:27px;font-weight:700;line-height:1;
+  letter-spacing:-.025em;color:var(--ink)}
+.sh-stat-l{font-family:var(--mono);font-size:8px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+.sh-tabs{flex-shrink:0;display:flex;gap:2px;padding:0 36px;overflow-x:auto;
+  border-bottom:1px solid var(--line);scrollbar-width:none}
+.sh-tabs::-webkit-scrollbar{display:none}
+.sh-tab{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;
+  padding:11px 14px;color:var(--faint);border-bottom:2px solid transparent;
+  white-space:nowrap;transition:all .13s}
+.sh-tab:hover{color:var(--ink-2)}
+.sh-tab.active{color:var(--ink);border-bottom-color:var(--accent,var(--sage))}
+.sh-body{flex:1;overflow-y:auto;padding:14px 36px 26px;min-height:0}
+.sh-pane{display:none}.sh-pane.active{display:block}
 .sh-sec{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.16em;
   text-transform:uppercase;color:var(--faint);display:flex;align-items:center;
-  gap:10px;margin:18px 0 10px;scroll-margin-top:8px}
-.sh-sec::after{content:'';flex:1;height:1px;background:var(--line);order:1}
+  gap:10px;margin:18px 0 10px}
+.sh-sec::after{content:'';flex:1;height:1px;background:var(--line)}
 .sh-foot{flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:18px 32px;border-top:1px solid var(--rule);background:#fff}
-.sh-btn{font-size:12px;font-weight:600;padding:9px 17px;border-radius:10px;
-  background:rgba(var(--shade),.07);color:var(--ink-2);transition:all .13s}
+  padding:18px 36px;border-top:1px solid var(--rule);background:#fff}
+.sh-btn{font-family:var(--sans);font-size:12px;font-weight:600;padding:9px 17px;
+  border-radius:10px;background:rgba(var(--shade),.07);color:var(--ink-2);transition:all .13s}
 .sh-btn:hover{background:rgba(var(--shade),.12)}
 .sh-btn.primary{background:var(--ink);color:#fff}
 .sh-btn.primary:hover{background:#000}
 .sh-btn.sage{background:var(--sage-a);color:var(--sage-deep)}
-.sh-btn.bad{background:var(--alert-a);color:var(--alert)}
+.sh-btn.sage:hover{background:rgba(111,143,113,.22)}
 .sh-btn:disabled{opacity:.35;cursor:not-allowed}
-.sh-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
-.sh-row:last-child{border-bottom:none}
-.sh-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;
-  align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700}
-.sh-name{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
-.sh-meta{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
-.sh-empty{font-size:13px;color:var(--faint);padding:22px 0;text-align:center}
 .sh-fld{background:rgba(var(--shade),.04);border-radius:6px;padding:10px 12px}
 .sh-fk{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--faint);margin-bottom:4px}
-.sh-fv{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
+.sh-fv{font-family:var(--sans);font-size:14px;font-weight:500;
+  letter-spacing:-.01em;color:var(--ink-2)}
 .sh-g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.sh-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.sh-row{display:flex;align-items:center;gap:12px;padding:9px 0;
+  border-bottom:1px solid var(--line);transition:background .12s}
+.sh-row:last-child{border-bottom:none}
+.sh-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700}
+.sh-name{font-family:var(--sans);font-size:14px;font-weight:500;
+  letter-spacing:-.01em;color:var(--ink-2)}
+.sh-meta{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+.sh-empty{font-size:13px;color:var(--faint);padding:22px 0;text-align:center}
+.inp{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);
+  background:#fff;outline:none;font-size:13px;transition:border-color .13s}
+.inp:focus{border-color:var(--sage-b)}
+textarea.inp{resize:vertical;min-height:84px;line-height:1.6}
+.chip{font-family:var(--mono);font-size:10px;font-weight:600;padding:5px 11px;
+  border-radius:999px;border:1px solid var(--line);color:var(--sub);
+  background:#fff;transition:all .13s}
+.chip:hover{border-color:var(--sage-b)}
+.chip.on{background:var(--sage-a);border-color:var(--sage-b);color:var(--sage-deep)}
 
-/* ══ CANDIDATE ROWS ══════════════════════════════════════════════════
-   A teacher offered for a session. The row states the three facts that
-   decide it: does the language match, is the teacher free at that hour,
-   and how full is their week. A blocked candidate is shown and
-   disabled rather than hidden, because "why is she not in the list"
-   is a worse question than "why is she greyed out". */
-.cand{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;
-  border:1px solid var(--rule);background:#fff;margin-bottom:5px;cursor:pointer;
-  transition:all .13s}
-.cand:hover{border-color:var(--sage-b);background:var(--sage-a)}
-.cand.on{border-color:var(--sage);background:var(--sage-a);}
-.cand.blocked{opacity:.44;cursor:not-allowed;background:var(--alert-a);border-color:rgba(184,64,42,.2)}
-.cand.blocked:hover{border-color:rgba(184,64,42,.2);background:var(--alert-a)}
-.cand-n{flex:1;min-width:0}
-.cand-why{font-family:var(--mono);font-size:9px;color:var(--alert);margin-top:2px}
-.cand-h{font-family:var(--mono);font-size:10px;font-weight:700;flex-shrink:0}
-.mini{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;
-  padding:2px 6px;border-radius:6px;flex-shrink:0}
-.mini.lang{background:var(--sage-a);color:var(--sage-deep)}
-.mini.nat{background:rgba(var(--shade),.08);color:var(--sub)}
-.mini.free{background:var(--clay-a);color:var(--clay)}
+/* ══ LESSON RAIL ══════════════════════════════════════════════════════
+   Every teaching date for this class, in order. The selected date is
+   the record; the number beneath it is a label. Future dates are
+   visible but inert — you cannot mark a lesson that has not happened. */
+.rail{flex-shrink:0;position:relative;height:52px;border-bottom:1px solid var(--line);
+  background:rgba(var(--shade),.03)}
+.rail-track{display:flex;height:100%;overflow-x:auto;scroll-behavior:smooth;
+  scrollbar-width:none;cursor:grab}
+.rail-track::-webkit-scrollbar{display:none}
+.rail-track:active{cursor:grabbing}
+.rc{flex:0 0 58px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;border-right:1px solid var(--line);
+  position:relative;user-select:none;transition:background .12s}
+.rc:hover{background:rgba(var(--shade),.06)}
+.rc-n{font-family:var(--display);font-size:15px;letter-spacing:1px;
+  line-height:1;color:var(--sub)}
+.rc-d{font-family:var(--mono);font-size:8px;color:var(--faint);white-space:nowrap}
+.rc.done .rc-n{color:var(--sage-deep)}
+.rc.done::after{content:'';position:absolute;bottom:5px;width:14px;height:2px;
+  border-radius:6px;background:var(--sage-deep)}
+.rc.today{background:var(--sage-a)}
+.rc.future{opacity:.38;pointer-events:none}
+.rc.sel{background:var(--ink)}
+.rc.sel .rc-n,.rc.sel .rc-d{color:#fff}
+.rc.sel::after{background:#fff}
 
-.checklist{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 14px;
-  padding:10px;border-radius:10px;background:rgba(var(--shade),.05)}
-.chk{flex:1;min-width:130px;display:flex;align-items:center;gap:8px;
-  padding:7px 10px;border-radius:6px;background:#fff;border:1px solid var(--rule);
-  cursor:pointer;transition:all .13s}
-.chk:hover{border-color:var(--sage-b)}
-.chk.done{border-color:var(--sage-b);background:var(--sage-a)}
-.chk-mark{width:17px;height:17px;border-radius:50%;flex-shrink:0;display:flex;
-  align-items:center;justify-content:center;font-size:10px;font-weight:700;
-  background:rgba(var(--shade),.10);color:var(--faint)}
-.chk.done .chk-mark{background:var(--sage-slot);color:#fff}
-.chk-day{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--sub);flex-shrink:0}
-.chk-who{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;min-width:0}
-.chk.done .chk-who{color:var(--sage-deep);font-weight:500}
-.sec-state{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;
-  padding:2px 7px;border-radius:6px;background:var(--clay-a);color:var(--clay);
-  text-transform:uppercase;flex-shrink:0}
-.sec-state.done{background:var(--sage-a);color:var(--sage-deep)}
-.sh-sec::after{order:2}
-.seg{display:flex;gap:2px;padding:2px;border-radius:999px;
-  background:rgba(var(--shade),.06);margin-bottom:10px}
-.seg button{flex:1;font-family:var(--mono);font-size:10px;font-weight:700;
-  letter-spacing:.06em;padding:7px 10px;border-radius:999px;color:var(--sub);transition:all .13s}
-.seg button.on{background:var(--ink);color:#fff}
+/* ══ ATTENDANCE ROWS ══ */
+.att-row{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:10px;
+  background:#fff;border:1px solid var(--rule);margin-bottom:4px;transition:all .13s}
+.att-row.p{background:var(--sage-a);border-color:var(--sage-b)}
+.att-row.l{background:var(--clay-a);border-color:var(--clay-b)}
+.att-row.a{background:var(--alert-a);border-color:rgba(184,64,42,.26)}
+.att-mark{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:14px;font-weight:700;
+  border:1.5px solid var(--line);background:#fff;color:var(--faint);
+  cursor:pointer;transition:all .16s}
+.att-mark:hover{transform:scale(1.1)}
+.att-row.p .att-mark{background:var(--sage-deep);border-color:var(--sage-deep);color:#fff}
+.att-row.l .att-mark{background:var(--clay);border-color:var(--clay);color:#fff}
+.att-row.a .att-mark{background:var(--alert);border-color:var(--alert);color:#fff}
+.att-num{font-family:var(--mono);font-size:10px;color:var(--faint);width:20px;
+  flex-shrink:0;text-align:right}
+.att-mid{flex:1;min-width:0;cursor:pointer}
+.att-st{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
+  flex-shrink:0;min-width:64px;text-align:right;color:var(--faint)}
+.att-row.p .att-st{color:var(--sage-deep)}
+.att-row.l .att-st{color:var(--clay)}
+.att-row.a .att-st{color:var(--alert)}
+.att-flag{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;
+  border-radius:6px;background:var(--alert-a);color:var(--alert);flex-shrink:0}
 
+/* ══ MISC ══ */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(8px);
   padding:9px 20px;border-radius:999px;font-size:12px;font-weight:600;opacity:0;
-  transition:all .2s;z-index:9000;pointer-events:none;max-width:80vw;text-align:center;
+  transition:all .2s;z-index:9000;pointer-events:none;white-space:nowrap;
   background:var(--ink);color:#fff;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.err{background:var(--alert)}.toast.warn{background:var(--clay)}
+.toast.err{background:var(--alert)}
+.toast.warn{background:var(--clay)}
 .spin{width:14px;height:14px;border:2px solid rgba(var(--shade),.12);
   border-top-color:var(--sage);border-radius:50%;animation:spin .7s linear infinite;
   display:inline-block;vertical-align:-2px}
-.notice{padding:13px 15px;border-radius:10px;background:var(--alert-a);
-  border:1px solid rgba(184,64,42,.24);font-size:12px;line-height:1.6;margin-bottom:12px}
-.notice b{color:var(--alert)}
-.loading{padding:40px;text-align:center;color:var(--faint)}
-@media(max-width:900px){.side{display:none}}
+.loading{padding:40px;text-align:center;color:var(--faint);font-size:12px}
+  .notice{padding:11px 14px;border-radius:10px;background:var(--clay-a);
+  border:1px solid var(--clay-b);font-size:12px;color:var(--ink-2);line-height:1.6;margin-bottom:12px}
+.notice b{color:var(--clay)}
+
+/* At 400px the ID band was four columns fighting for 400px and the
+   name collapsed to "A…". Below 620 it stacks: band on one row, the
+   three counts sharing the next. */
+@media(max-width:620px){
+  .idband{flex-wrap:wrap}
+  .idb-photo{width:74px}
+  .idb-who{flex:1 1 100%;order:2;padding:12px 14px}
+  .idb-name{font-size:22px;letter-spacing:2px;white-space:normal}
+  .idb-stat{flex:1;order:3;border-left:none;border-top:1px solid rgba(255,255,255,.18);padding:10px 6px}
+  .idb-stat-v{font-size:24px}
+  .topbar{height:auto;flex-wrap:wrap;padding-bottom:6px}
+  .tb-right{border-left:none;width:100%;justify-content:flex-end}
+}
+@media(max-width:760px){
+  .idband{flex-wrap:wrap}
+  .idb-stat{flex:1;border-left:none;border-top:1px solid rgba(255,255,255,.18);padding:12px}
+  .sh-head{padding:22px 20px 14px}.sh-body{padding:6px 20px 18px}
+  .sh-foot,.sh-tabs,.sh-strip{padding-left:20px;padding-right:20px}
+}
+
+/* ── THE STUDENTS ────────────────────────────────────────────────
+   Given back what the chrome gave up. A student row is the densest,
+   most-read thing on this page and it was set at the same 13px as a
+   form label. Bigger name, bigger avatar, more vertical room, and a
+   wider search field — the list is the point of the portal. */
+#alunos-list .sh-row{padding:13px 15px!important;margin-bottom:6px!important;gap:14px!important}
+#alunos-list .sh-av{width:38px;height:38px;font-size:11px}
+#alunos-list .sh-name{font-size:15px;font-weight:550;letter-spacing:-.01em;color:var(--ink)}
+#alunos-list .sh-meta{font-size:11px;margin-top:3px}
+#stu-search{max-width:440px;padding:11px 14px;font-size:14px}
+#stu-count{font-size:11px}
+
+/* The attendance roster in the lesson sheet is the same content and
+   gets the same treatment — it is where a teacher spends the lesson. */
+.att-row{padding:10px 12px;gap:13px}
+.att-mark{width:38px;height:38px;font-size:15px}
+.att-row .sh-name{font-size:15px;font-weight:550}
+.att-row .sh-meta{font-size:11px}
+.att-st{font-size:9.5px;min-width:70px}
+
+/* ══════════════════════════════════════════════════════════════════
+   THE LESSON PAGE
+   This was a modal: a 36px-padded masthead, a 40px display title, a
+   subtitle, a tag row and four 27px stat blocks — about 330px of
+   chrome standing between the teacher and the first student, inside
+   a card floating on a dimmed copy of the page behind it.
+
+   Marking a register is not a dialog. It is the single most-performed
+   task in the product and it deserves the whole screen. So: a page,
+   and the header IS the instrument. Every control that was scattered
+   down the card — the date rail, the bulk buttons, the tabs, the
+   save — is in one band at the top, and everything below it is
+   students.
+
+   Chrome: ~330px -> ~118px. The counts survive as small chips and
+   stay clickable, because a count is still a door.
+   ══════════════════════════════════════════════════════════════════ */
+.lp-ov{position:fixed;inset:0;z-index:1500;display:none;background:var(--page)}
+.lp-ov.on{display:flex;flex-direction:column}
+.lp{flex:1;display:flex;flex-direction:column;min-height:0}
+
+/* ── ROW 1 · identity and the verb, on one line ── */
+.lp-top{flex-shrink:0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:9px 16px;background:var(--card);border-bottom:1px solid var(--rule)}
+.lp-back{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+  color:var(--sub);padding:6px 11px;border-radius:6px}
+.lp-back:hover{background:rgba(var(--shade),.06);color:var(--ink)}
+.lp-code{font-family:var(--display);font-size:23px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--ink);line-height:1}
+.lp-when{font-family:var(--mono);font-size:11px;color:var(--sub);letter-spacing:-.01em}
+.lp-tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:3px 9px;border-radius:6px;
+  background:rgba(var(--shade),.06);color:var(--sub)}
+.lp-tag.on{background:var(--sage-a);color:var(--sage-deep)}
+.lp-tag.pend{background:var(--clay-a);color:var(--clay)}
+
+/* The four counts, shrunk from stat blocks to chips. Still doors. */
+.lp-counts{display:flex;gap:5px;margin-left:auto;align-items:center}
+.lp-k{display:flex;align-items:baseline;gap:5px;padding:5px 10px;border-radius:6px;
+  background:rgba(var(--shade),.05);cursor:pointer;transition:background .12s}
+.lp-k:hover{background:rgba(var(--shade),.11)}
+.lp-kv{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.lp-kl{font-family:var(--mono);font-size:8px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint)}
+.lp-save{font-size:12px;font-weight:600;padding:8px 18px;border-radius:6px;
+  background:var(--ink);color:#fff}
+.lp-save:disabled{opacity:.35;cursor:not-allowed}
+.lp-dirty{font-family:var(--mono);font-size:10px;color:var(--clay)}
+
+/* ── ROW 2 · the date rail. The wizard: which lesson am I marking. ── */
+.lp-rail{flex-shrink:0;height:44px;background:var(--card);
+  border-bottom:1px solid var(--rule);position:relative}
+.lp-track{display:flex;height:100%;overflow-x:auto;scroll-behavior:smooth;
+  scrollbar-width:none;cursor:grab}
+.lp-track::-webkit-scrollbar{display:none}
+.lp-track:active{cursor:grabbing}
+
+/* ── ROW 3 · tabs and bulk actions share one line ── */
+.lp-bar{flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:0 16px;background:var(--card);border-bottom:1px solid var(--rule)}
+.lp-tab{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;
+  padding:10px 13px;color:var(--faint);border-bottom:2px solid transparent}
+.lp-tab:hover{color:var(--ink-2)}
+.lp-tab.active{color:var(--ink);border-bottom-color:var(--sage-slot)}
+.lp-bulk{margin-left:auto;display:flex;gap:5px;align-items:center;padding:5px 0}
+.lp-b{font-size:11px;font-weight:600;padding:6px 11px;border-radius:6px;
+  background:rgba(var(--shade),.06);color:var(--ink-2)}
+.lp-b:hover{background:rgba(var(--shade),.12)}
+.lp-b.sage{background:var(--sage-a);color:var(--sage-deep)}
+
+/* ── THE BODY · students, and nothing else ── */
+.lp-body{flex:1;overflow-y:auto;padding:12px 16px 28px;min-height:0}
+.lp-body .sh-pane{display:none}
+.lp-body .sh-pane.active{display:block}
+.lp-roster{max-width:920px}
+
+@media(max-width:620px){
+  .lp-top{padding:8px 12px;gap:9px}
+  .lp-code{font-size:19px}
+  .lp-counts{width:100%;margin-left:0;order:9}
+  .lp-bar{padding:0 12px}
+  .lp-body{padding:10px 12px 24px}
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   THE ACTION CLUSTER
+   The old portal put seven emoji on every student row — ficha, notas,
+   secretaria, encarregado, email, sinalizar, nota. The instinct was
+   right and I removed it in the rewrite without replacing it, which
+   was a regression: the register is where a teacher IS when they
+   think "I must call his mother", and making them leave to do it is
+   the expensive click.
+
+   Rebuilt, with three changes:
+   · No emoji. Six emoji at 12px on a cream row is the loudest thing
+     on a page whose whole palette is stone and one sage. Line icons
+     at 15px, in the row's own ink, at 34% until hovered.
+   · Direct where it can be direct. WhatsApp, call, mail are tel:,
+     mailto: and wa.me — one click, no dialog. Only the two that need
+     text open anything.
+   · Always visible, never hover-only. Hover-to-reveal costs a tap on
+     touch and hides the feature from anyone who does not know it is
+     there.
+   ══════════════════════════════════════════════════════════════════ */
+.act{display:flex;align-items:center;gap:1px;flex-shrink:0}
+.act button{width:29px;height:29px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;color:var(--ink-2);opacity:.34;transition:all .12s}
+.act button:hover{opacity:1;background:rgba(var(--shade),.09)}
+.act button:disabled{opacity:.12;cursor:not-allowed}
+.act button.on{opacity:1;color:var(--alert);background:var(--alert-a)}
+.act svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* The two actions that need words open a tooltip card, anchored to
+   the row — not a modal. Nothing is dismissed to keep marking. */
+.tip{position:absolute;z-index:120;width:290px;background:#fff;
+  border:1px solid var(--rule-2);border-radius:10px;overflow:hidden;display:none}
+.tip.on{display:block}
+.tip-h{display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-bottom:1px solid var(--rule)}
+.tip-t{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint)}
+.tip-n{font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.tip-b{padding:11px 12px}
+.tip-b textarea{width:100%;min-height:74px;padding:9px 11px;border-radius:6px;
+  border:1px solid var(--rule);background:#fff;outline:none;font:inherit;
+  font-size:13px;line-height:1.6;resize:vertical}
+.tip-b textarea:focus{border-color:var(--sage-b)}
+.tip-f{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--rule);
+  background:rgba(var(--shade),.025)}
+.tip-f .sh-btn{font-size:11px;padding:7px 13px}
+.att-row{position:relative}
+@media(max-width:620px){ .act button{width:26px;height:26px} .act svg{width:14px;height:14px} }
 </style>
 </head>
 <body>
 
+<!-- ══ TOPBAR ══ -->
 <div class="topbar">
   <div class="tb-brand"><span class="tb-alm">ALM</span><span class="tb-yr" id="tb-yr">—</span></div>
-  <div class="tb-nav" id="nav">
-    <button class="nav-btn active" data-p="grelha">Grelha</button>
-    <button class="nav-btn" data-p="porAtribuir">Por atribuir<span class="nb-n" id="n-open">0</span></button>
-    <button class="nav-btn" data-p="profs">Professores<span class="nb-n" id="n-prof">0</span></button>
-    <button class="nav-btn" data-p="conflitos">Conflitos<span class="nb-n" id="n-conf">0</span></button>
+  <div class="tb-nav" id="tb-nav">
+    <button class="nav-btn active" data-panel="semana">Semana</button>
+    <button class="nav-btn" data-panel="turmas">Turmas<span class="nb-n" id="n-turmas">0</span></button>
+    <button class="nav-btn" data-panel="pauta">Pauta anual</button>
+    <button class="nav-btn" data-panel="alunos">Alunos<span class="nb-n" id="n-alunos">0</span></button>
+    <button class="nav-btn" data-panel="pedidos">Pedidos</button>
   </div>
   <div class="tb-right">
-    <button class="tb-btn" id="btn-undo" disabled>Anular</button>
-    <button class="tb-btn" id="btn-csv">CSV</button>
-    <button class="tb-btn" id="btn-reload">Recarregar</button>
+    <button class="tb-icon" id="btn-notif" title="Avisos">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="bdg" id="notif-n">0</span>
+    </button>
+    <button class="tb-icon" id="btn-reload" title="Recarregar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+    </button>
     <div class="tb-dot" id="conn"></div>
     <span class="tb-msg" id="conn-msg">a ligar…</span>
+    <span class="tb-clock" id="clock">--:--</span>
   </div>
 </div>
 
-<div class="head">
-  <div><div class="head-n" id="h-title">—</div><div class="head-sub" id="h-sub">—</div></div>
-  <div class="kpis">
-    <div class="kpi" id="k-turmas"><div class="kpi-v" id="v-turmas">—</div><div class="kpi-l">Turmas</div></div>
-    <div class="kpi" id="k-com"><div class="kpi-v" id="v-com">—</div><div class="kpi-l">Com professor</div></div>
-    <div class="kpi" id="k-sem"><div class="kpi-v" id="v-sem">—</div><div class="kpi-l">Por atribuir</div></div>
-    <div class="kpi" id="k-alunos"><div class="kpi-v" id="v-alunos">—</div><div class="kpi-l">Alunos</div></div>
-  </div>
+<!-- ══ TEACHER PICKER ══ -->
+<div class="picker" id="picker">
+  <span class="picker-lbl">Professor</span>
+  <select id="picker-sel"><option value="">Seleccionar…</option></select>
 </div>
 
-<div class="body">
-  <div class="side">
-    <div class="side-strip" id="branches"></div>
-    <div class="side-strip" style="border-bottom:none;padding-bottom:4px">
-      <button class="pill on" id="m-level" data-mode="level">Níveis</button>
-      <button class="pill" id="m-teacher" data-mode="teacher">Professores</button>
+<!-- ══ ID BAND ══ -->
+<div class="idband" id="idband">
+  <div class="idb-photo" id="idb-photo" title="Carregar fotografia">
+    <img id="idb-img" style="display:none" alt=""/>
+    <div class="idb-photo-ph" id="idb-ph">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span>Foto</span>
     </div>
-    <div class="side-list" id="side-list"></div>
+    <input type="file" id="idb-file" accept="image/*" style="display:none"/>
   </div>
-  <div class="main" id="main"></div>
+  <div class="idb-who">
+    <div class="idb-name" id="idb-name">A carregar…</div>
+    <div class="idb-tags" id="idb-tags"></div>
+  </div>
+  <div class="idb-stat" id="st-turmas"><div class="idb-stat-v" id="v-turmas">—</div><div class="idb-stat-l">Turmas</div></div>
+  <div class="idb-stat" id="st-alunos"><div class="idb-stat-v" id="v-alunos">—</div><div class="idb-stat-l">Alunos</div></div>
+  <div class="idb-stat" id="st-porMarcar"><div class="idb-stat-v" id="v-porMarcar">—</div><div class="idb-stat-l">Por marcar</div></div>
 </div>
 
-<div class="sh-ov" id="sh-assign"></div>
+<!-- ══ PANELS ══ -->
+<div class="panels">
+
+  <div class="panel on" id="p-semana">
+    <div id="main-empty-host"></div>
+    <div class="strip" id="today-strip"></div>
+    <div class="gridwrap"><div id="grid"></div></div>
+  </div>
+
+  <div class="panel" id="p-turmas"><div id="turmas-list"></div></div>
+
+  <div class="panel" id="p-pauta">
+    <div class="strip"><span class="strip-lbl">Turma</span><div id="pauta-tabs" style="display:flex;gap:5px;flex-wrap:wrap"></div></div>
+    <div id="pauta-body"></div>
+  </div>
+
+  <div class="panel" id="p-alunos">
+    <div class="strip">
+      <input class="inp" id="stu-search" placeholder="Pesquisar aluno por nome ou referência…" style="max-width:360px"/>
+      <span class="strip-lbl" id="stu-count"></span>
+    </div>
+    <div id="alunos-list"></div>
+  </div>
+
+  <div class="panel" id="p-pedidos"><div id="pedidos-body"></div></div>
+
+</div>
+
+<!-- Sheet hosts. One modal language, four users of it. -->
+<div class="lp-ov" id="sh-lesson"></div>
+<div class="sh-ov" id="sh-student"></div>
 <div class="sh-ov" id="sh-roster"></div>
 <div class="toast" id="toast"></div>
 <script src="alm-grid.js"></script>
 <script>
+/* ══════════════════════════════════════════════════════════════════════
+   ALM · PORTAL DO PROFESSOR — engine
+   ══════════════════════════════════════════════════════════════════════ */
+
 const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
-/* return=representation is not decoration. It is what lets a write be
-   verified: PostgREST sends back the rows it actually changed, and this
-   page refuses to call a write successful without counting them. */
-const H = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json',
-           Prefer:'return=representation'};
+const H   = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json'};
 
+/* ── CONSTANTS ── */
 const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB'];
 const DAY_FULL = {SEG:'Segunda',TER:'Terça',QUA:'Quarta',QUI:'Quinta',SEX:'Sexta','SÁB':'Sábado'};
-const HOURS = [8,9,10,11,null,14,15,16,17,18,19,20];
-const DEPT = {kids:{label:'Infantil',band:'#6E8CA8'}, kids_juv:{label:'Juvenil',band:'#6F8F71'},
-              adults:{label:'Geral',band:'#8C7F6A'}, exam:{label:'Exames',band:'#7E7391'}};
-const LEVEL_DEPT = {PI1:'kids',PI2:'kids',PI3:'kids',PI4:'kids',PJ1:'kids_juv',PJ2:'kids_juv',PJ3:'kids_juv',
+const DAY_OF_JS = [null,'SEG','TER','QUA','QUI','SEX','SÁB'];
+const DOW = {SEG:1,TER:2,QUA:3,QUI:4,SEX:5,SAB:6,'SÁB':6,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
+const MORNING = [8,9,10,11], AFTERNOON = [14,15,16,17,18,19,20];
+const HOURS = [...MORNING, null, ...AFTERNOON];
+const DEPT = {
+  kids:     {label:'Infantil', band:'#6E8CA8'},
+  kids_juv: {label:'Juvenil',  band:'#6F8F71'},
+  adults:   {label:'Geral',    band:'#8C7F6A'},
+  exam:     {label:'Exames',   band:'#7E7391'},
+};
+const LEVEL_DEPT = {PI1:'kids',PI2:'kids',PI3:'kids',PI4:'kids',
+  PJ1:'kids_juv',PJ2:'kids_juv',PJ3:'kids_juv',
   '1':'adults','2':'adults','3':'adults','4':'adults','5':'adults',Portugues:'adults',
   '6':'exam','7':'exam','8':'exam'};
 const LEVEL_DISP = {PI1:'PI 1',PI2:'PI 2',PI3:'PI 3',PI4:'PI 4',PJ1:'PJ 1',PJ2:'PJ 2',PJ3:'PJ 3',
   '1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5',Portugues:'Português',
   '6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
-const BRANCH_LABEL = {FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',
-  MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
 const LANG_NAME = {EN:'Inglês',PT:'Português',FR:'Francês',DE:'Alemão',ES:'Espanhol'};
-const MAX_G = 17;
 
-let AY = '2026/2027';
-let CLASSES=[], TEACHERS=[], ENROL={};
-let BRANCH='', MODE='level', SEL_LEVEL=null, SEL_TEACHER=null, PANEL='grelha';
-let UNDO=[];
-let popState=null;
+/* THE ABSENCE THRESHOLDS.
+   Minors are flagged earlier than adults because the school's duty of
+   care differs, not because they miss more. Both are warnings, not
+   verdicts — the register shows the count and the flag; nobody is
+   excluded by this page. */
+const ABS_WARN_MINOR = 2, ABS_WARN_ADULT = 3, ABS_LIMIT = 12;
 
-/* ══ REQUESTS ══════════════════════════════════════════════════════════ */
+/* ── STATE ── */
+let AY='', Y0='', Y1='', CFG_FALLBACK=false, CFG_STATE='ok';
+let HOLIDAYS = new Set(), BREAKS = [];
+let TEACHERS = [], ME = null;
+let CLASSES = [];                 /* my classes, normalised            */
+let SCHED = {};                   /* SCHED[day][hour] = class          */
+let ENROL = {};                   /* ref -> enrolment                  */
+let ATT = {};                     /* ATT[turma][ref][date] = status    */
+let SUMS = {};                    /* SUMS[turma][date] = summary row   */
+let NOTICES = [];
+let MARKS_OK = true;              /* does student_marks exist?         */
+let MARKS = {};                   /* MARKS[ref] = [rows]               */
+
+let sheetLesson = null;           /* {cls, date} — DATE IS THE RECORD  */
+let attDraft = {};                /* ref -> 'present'|'late'|'absent'  */
+let saving = false;
+
+/* ══════════════════════════════════════════════════════════════════════
+   DATA
+   ══════════════════════════════════════════════════════════════════════ */
+/* ASKING FOR A COLUMN THAT DOES NOT EXIST IS A 400, NOT AN EMPTY
+   FIELD. PostgREST rejects the whole request, so one optional column
+   in a select list takes the entire page down — which is exactly what
+   photo_url did here: the teachers query 400'd, boot() threw, and the
+   portal rendered nothing at all for a teacher with no classes.
+   Optional columns are requested separately and dropped on failure. */
+async function sbGetSoft(table, base, optional){
+  try{ return await sbGet(table, `${base},${optional.join(',')}`); }
+  catch(e){
+    console.warn(`${table}: colunas opcionais ignoradas (${optional.join(', ')}) — ${e.message}`);
+    return await sbGet(table, base);
+  }
+}
+
 async function sbGet(table, qs=''){
-  let all=[],page=0,PS=1000;
+  let all=[], page=0, PS=1000;
   while(true){
-    const s=page*PS,e=s+PS-1;
-    const r=await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
-    if(!r.ok){const t=await r.text();throw new Error(`${table} ${r.status}: ${t.slice(0,140)}`);}
-    const d=await r.json();all=all.concat(d);
-    if(d.length<PS)break; if(++page>19)break;
+    const s=page*PS, e=s+PS-1;
+    const r = await fetch(`${SB}/rest/v1/${table}?${qs}`,{headers:{...H,Range:`${s}-${e}`,Prefer:'count=none'}});
+    if(!r.ok){ const t=await r.text(); throw new Error(`${table} ${r.status}: ${t.slice(0,140)}`); }
+    const d = await r.json(); all = all.concat(d);
+    if(d.length < PS) break;
+    if(++page > 19) break;
   }
   return all;
 }
+async function sbUpsert(table, rows, onConflict){
+  const r = await fetch(`${SB}/rest/v1/${table}${onConflict?`?on_conflict=${onConflict}`:''}`,
+    {method:'POST', headers:{...H, Prefer:'resolution=merge-duplicates,return=minimal'},
+     body:JSON.stringify(rows)});
+  if(!r.ok){ const t=await r.text(); throw new Error(`${r.status}: ${t.slice(0,160)}`); }
+}
+async function sbPatch(table, qs, body){
+  const r = await fetch(`${SB}/rest/v1/${table}?${qs}`,{method:'PATCH',headers:{...H,Prefer:'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok){ const t=await r.text(); throw new Error(`${r.status}: ${t.slice(0,160)}`); }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
-   THE WRITE, VERIFIED
+   THE CALENDAR — dates are the record
    ──────────────────────────────────────────────────────────────────────
-   PostgREST answers a PATCH whose filter matches nothing with 200 and
-   [] — a successful request that changed no row. The page this replaces
-   checked only r.ok, so a filter that matched nothing (a null
-   group_code, a mismatched academic_year, a turma_code with different
-   whitespace) printed "Guardado ✓" and the optimistic UI made it look
-   exactly like a real save. It only came apart on reload.
-
-   patchClasses returns the rows it changed and throws when there are
-   none, naming the filter, so the failure is visible at the moment it
-   happens instead of the next time someone opens the page.
+   lessonDates(day) returns every teaching date for a weekday, in order.
+   Position in that array is the lesson NUMBER, which is a label for
+   humans. Nothing is ever looked up by it. The previous portal stored
+   lesson_number and read it back, so adding one holiday re-pointed every
+   record in the year at a different day.
    ══════════════════════════════════════════════════════════════════════ */
-async function patchClasses(filter, payload, expect){
-  const r = await fetch(`${SB}/rest/v1/classes?${filter}`,
-    {method:'PATCH', headers:H, body:JSON.stringify(payload)});
-  const text = await r.text();
-  if(!r.ok) throw new Error(`HTTP ${r.status} · ${text.slice(0,160)}`);
-  let rows=[]; try{ rows = JSON.parse(text||'[]'); }catch{ rows=[]; }
-  if(!Array.isArray(rows) || rows.length===0)
-    throw new Error(`A base de dados não alterou nenhuma linha (filtro: ${decodeURIComponent(filter)})`);
-  if(expect && rows.length !== expect)
-    throw new Error(`Esperadas ${expect} sessões, alteradas ${rows.length}`);
-  setConn(true,'Supabase');
-  return rows;
+const _dateCache = {};
+function isTeachingDay(iso){
+  if(HOLIDAYS.has(iso)) return false;
+  return !BREAKS.some(([a,b]) => iso>=a && iso<=b);
 }
+function lessonDates(day){
+  if(_dateCache[day]) return _dateCache[day];
+  const out=[], target=DOW[(day||'').toUpperCase().trim()];
+  if(!target || !Y0 || !Y1){ return (_dateCache[day]=out); }
+  const d=new Date(Y0+'T12:00:00'), end=new Date(Y1+'T12:00:00');
+  while(d<=end){
+    if(d.getDay()===target){ const iso=isoOf(d); if(isTeachingDay(iso)) out.push(iso); }
+    d.setDate(d.getDate()+1);
+  }
+  return (_dateCache[day]=out);
+}
+/* Local date, not UTC. toISOString() shifts across midnight in any
+   timezone east of Greenwich and would silently move a Monday lesson
+   onto Sunday for part of the year. */
+function isoOf(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayISO(){ return isoOf(new Date()); }
+function lessonNoOf(day, iso){ const i = lessonDates(day).indexOf(iso); return i<0 ? 0 : i+1; }
+function fmtShort(iso){ const d=new Date(iso+'T12:00:00');
+  return d.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtLong(iso){ const d=new Date(iso+'T12:00:00');
+  return d.toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+function weekDates(){
+  const now=new Date(), dow=now.getDay()||7, mon=new Date(now);
+  mon.setDate(now.getDate()-(dow-1));
+  return DAYS.map((_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return isoOf(d); });
+}
+/* This week's date for a weekday — what "the Monday cell" means today. */
+function thisWeek(day){ const i=DAYS.indexOf(day); return i<0?null:weekDates()[i]; }
 
-/* ══ HELPERS ══ */
-const AVP=[{bg:'#E4E6E2',t:'#4E6B50'},{bg:'#EAE4DC',t:'#8A6A4E'},{bg:'#E2E6EA',t:'#4A6478'},
-           {bg:'#E9E4EA',t:'#6B5A76'},{bg:'#E6E9E2',t:'#5E7048'},{bg:'#EDE4E2',t:'#8A5548'}];
-function avCol(n){let h=0;for(let i=0;i<(n||'?').length;i++)h=(h*31+(n||'?').charCodeAt(i))&0xffffffff;
-  return AVP[Math.abs(h)%AVP.length];}
-function avInit(n){return (n||'?').split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function normB(b){return (b||'').toUpperCase().replace(/[\s\-]+/g,'_').trim();}
-function toMins(t){ if(!t) return null; const [h,m]=t.split(':').map(Number);
-  return (isNaN(h)?0:h)*60+(isNaN(m)?0:m); }
-function startOf(c){ return c.start_time?toMins(c.start_time):(c.hour||0)*60; }
-function endOf(c){ return c.end_time?toMins(c.end_time):startOf(c)+(c.duration_min||90); }
-function overlaps(a,b){ return startOf(a)<endOf(b) && startOf(b)<endOf(a); }
-function deptOf(c){ return DEPT[c.department] ? c.department : (LEVEL_DEPT[(c.level_code||'').trim()]||'adults'); }
-function levelOf(c){ return c.level_display || LEVEL_DISP[(c.level_code||'').trim()] || c.level_code || '—'; }
-function setConn(ok,msg){ const d=document.getElementById('conn');
-  d.className='tb-dot'+(ok===true?'':ok==='warn'?' warn':' err');
-  document.getElementById('conn-msg').textContent=msg||(ok===true?'ligado':'sem ligação'); }
-let _tT; function toast(m,t=''){ const el=document.getElementById('toast');
-  el.textContent=m; el.className='toast '+t+' show';
-  clearTimeout(_tT); _tT=setTimeout(()=>el.classList.remove('show'), t==='err'?6000:3000); }
+/* ══════════════════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════════════════ */
+const AV = [{bg:'#E4E6E2',t:'#4E6B50'},{bg:'#EAE4DC',t:'#8A6A4E'},{bg:'#E2E6EA',t:'#4A6478'},
+            {bg:'#E9E4EA',t:'#6B5A76'},{bg:'#E6E9E2',t:'#5E7048'},{bg:'#EDE4E2',t:'#8A5548'}];
+function avCol(n){ let h=0; for(let i=0;i<(n||'?').length;i++) h=(h*31+(n||'?').charCodeAt(i))&0xffffffff;
+  return AV[Math.abs(h)%AV.length]; }
+function avInit(n){ return (n||'?').split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function deptOf(c){
+  if(c.department && DEPT[c.department]) return c.department;
+  return LEVEL_DEPT[(c.level_code||c.levelCode||'').trim()] || 'adults';
+}
+function normStatus(s){
+  if(s==='present'||s==='presente') return 'present';
+  if(s==='late'||s==='atraso') return 'late';
+  if(s==='absent'||s==='falta') return 'absent';
+  return null;
+}
+function setConn(ok,msg){
+  const d=document.getElementById('conn'), m=document.getElementById('conn-msg');
+  d.className = 'tb-dot' + (ok===true?'':ok==='warn'?' warn':' err');
+  m.textContent = msg || (ok===true?'ligado':'sem ligação');
+}
+let _toastT;
+function toast(msg,type=''){ const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type+' show';
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),3000); }
 
-/* ══ SCOPE ══ */
-function scoped(){ const f=CLASSES.filter(c=>c.branch===BRANCH); return f.length?f:CLASSES; }
-function visible(){
-  let l=scoped();
-  if(MODE==='level' && SEL_LEVEL) l=l.filter(c=>(c.level_code||'').trim()===SEL_LEVEL);
-  return l;
-}
-/* Contracted load is measured in real minutes, not in class counts —
-   two 90-minute sessions are not "two hours". */
-function loadOf(tid){
-  const mins = CLASSES.filter(c=>c.teacher_id===tid)
-    .reduce((s,c)=>s+Math.max(0,endOf(c)-startOf(c)),0);
-  return mins/60;
-}
-function conflictsFor(tid, cls){
-  return CLASSES.filter(x => x.teacher_id===tid && x.turma_code!==cls.turma_code
-    && x.day_of_week===cls.day_of_week && overlaps(x,cls));
-}
-/* Every double-booking currently in the data, whatever caused it. */
-function allConflicts(){
-  const out=[], seen=new Set();
-  CLASSES.forEach(a=>{ if(!a.teacher_id) return;
-    CLASSES.forEach(b=>{
-      if(b===a || !b.teacher_id || b.teacher_id!==a.teacher_id) return;
-      if(b.day_of_week!==a.day_of_week || !overlaps(a,b)) return;
-      const k=[a.turma_code,b.turma_code].sort().join('|');
-      if(seen.has(k)) return; seen.add(k);
-      out.push({a,b,teacher:TEACHERS.find(t=>t.id===a.teacher_id)});
-    });
-  });
-  return out;
-}
-function siblingsOf(c){ return CLASSES.filter(x=>x.group_code===c.group_code); }
-
-/* ══ BOOT ══ */
+/* ══════════════════════════════════════════════════════════════════════
+   BOOT
+   ══════════════════════════════════════════════════════════════════════ */
 async function boot(){
   setConn('warn','a carregar');
   try{
     const cfg = await sbGet('school_config','select=key,value&limit=40');
-    const row = cfg.find(r=>r.key==='academic_year');
-    /* Read the year rather than hard-coding it. Every page that hard-codes
-       it is one schema edit away from querying a year that no longer has
-       any rows, and the symptom of that is a blank screen with no error. */
-    if(row && row.value) AY = row.value;
-  }catch(e){ console.warn('school_config', e.message); }
-  document.getElementById('tb-yr').textContent = AY;
+    cfg.forEach(r=>{ if(r.key==='academic_year')AY=r.value;
+      if(r.key==='year_start_date')Y0=r.value; if(r.key==='year_end_date')Y1=r.value; });
+  }catch(e){ console.warn('school_config',e.message); }
+  /* THE YEAR IS 21 SEPTEMBER TO 30 JUNE.
+     school_config stays authoritative, but when it is missing or blank
+     the portal had no Y0/Y1 at all — and with no dates every lesson
+     list is empty, which on screen is indistinguishable from a teacher
+     with no classes. A stated default beats a blank page, and
+     CFG_FALLBACK records that it was used so the year map can say so
+     rather than quietly inventing a calendar. */
+  /* ── THE CALENDAR GUARD ──────────────────────────────────────
+     The first version of this only fired when school_config was
+     EMPTY. It was never empty — it was WRONG: academic_year said
+     2026/2027 while year_end_date still said June 2026. So the
+     fallback never ran, and the portal faithfully announced that the
+     year had ended and asked for 156 registers from a year that had
+     not started.
+
+     A stale config is the common case, not the missing one. This
+     checks the dates against the year they claim to belong to, and
+     when they disagree it says so on screen instead of quietly
+     obeying. */
+  CFG_STATE = 'ok';
+  const _m = (AY||'').match(/^(\d{4})\s*\/\s*(\d{2,4})$/);
+  if(!Y0 || !Y1){
+    CFG_STATE = 'missing';
+  } else if(_m){
+    const _a = +_m[1], _b = _m[2].length===2 ? +('20'+_m[2]) : +_m[2];
+    if(+Y0.slice(0,4)!==_a || +Y1.slice(0,4)!==_b) CFG_STATE = 'mismatch';
+  }
+  if(CFG_STATE!=='ok'){
+    /* Do not guess a calendar on top of a contradictory one — that
+       would replace a visible error with an invisible one. Use the
+       stated year only when there is nothing at all. */
+    if(CFG_STATE==='missing'){ Y0='2026-09-21'; Y1='2027-06-30'; AY=AY||'2026/2027'; }
+  }
+  CFG_FALLBACK = CFG_STATE!=='ok';
+  try{ HOLIDAYS = new Set((await sbGet('school_holidays','select=date&limit=500')).map(r=>r.date)); }catch(e){}
+  try{ BREAKS = (await sbGet('school_breaks','select=start_date,end_date&limit=100')).map(r=>[r.start_date,r.end_date]); }catch(e){}
+  document.getElementById('tb-yr').textContent = AY || '—';
 
   try{
-    const [cls, tea] = await Promise.all([
-      sbGet('classes',`select=turma_code,group_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
-      sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week'),
-    ]);
-    TEACHERS = (tea||[]).map(r=>({id:r.id, code:r.code||'??', name:r.name||'—',
+    const raw = await sbGetSoft('teachers',
+      'select=id,code,name,lang,native,branch_primary,contract_hours_week&limit=300',
+      ['photo_url']);
+    TEACHERS = raw.map(r=>({id:r.id,code:r.code||'??',name:r.name||'—',
       lang:(r.lang||'EN').toUpperCase().slice(0,2), native:!!r.native,
-      contractH:r.contract_hours_week||22, branch:normB(r.branch_primary||''),
-      branches:Array.isArray(r.branches)&&r.branches.length?r.branches.map(normB):[normB(r.branch_primary||'')]}));
-
-    CLASSES = (cls||[]).map(c=>{
-      let refs=[];
-      if(Array.isArray(c.student_refs)) refs=c.student_refs;
-      else if(typeof c.student_refs==='string'&&c.student_refs){ try{refs=JSON.parse(c.student_refs);}catch{} }
-      return {...c,
-        /* dbGroupCode is what the DATABASE holds; group_code is what this
-           page reasons with. They are kept apart on purpose — see the
-           note in openAssign(). Writing by a group code the database
-           does not have is the silent-failure case. */
-        dbGroupCode: c.group_code || null,
-        group_code: c.group_code || (c.turma_code||'').replace(/[A-D]$/,''),
-        hour: typeof c.hour==='number'?c.hour:(parseInt(c.hour,10)||9),
-        day_of_week:(c.day_of_week||'').toUpperCase().replace('SAB','SÁB'),
-        branch: normB(c.branch||''), student_refs:refs};
-    }).filter(c=>DAYS.includes(c.day_of_week));
-
-    const refs=[...new Set(CLASSES.flatMap(c=>c.student_refs))].filter(Boolean);
-    for(let i=0;i<refs.length;i+=200){
-      try{ (await sbGet('enrolments',
-        `ref=in.(${refs.slice(i,i+200).join(',')})&select=ref,name,branch,lang,level_code`))
-        .forEach(e=>{ENROL[e.ref]=e;}); }catch(e){}
-    }
+      branch:r.branch_primary||'Funchal', hours:r.contract_hours_week||22, photo:r.photo_url||null}));
     setConn(true,'Supabase');
-  }catch(e){ setConn(false,'erro'); toast('Erro: '+e.message,'err'); return; }
+  }catch(e){
+    setConn(false,'erro');
+    /* The teacher list is the one query the page genuinely cannot do
+       without, so it says so on the page rather than in a toast that
+       scrolls away after three seconds. */
+    document.getElementById('main-empty-host').innerHTML =
+      `<div class="notice"><b>Não foi possível carregar os professores.</b><br>${esc(e.message)}</div>`;
+    switchPanel('semana');
+    toast('Erro ao carregar professores','err');
+    return;
+  }
 
-  const present = new Set(CLASSES.map(c=>c.branch).filter(Boolean));
-  const order = Object.keys(BRANCH_LABEL).filter(b=>present.has(b));
-  BRANCH = order[0] || 'FUNCHAL';
-  document.getElementById('branches').innerHTML = order.map(b=>
-    `<button class="pill ${b===BRANCH?'on':''}" data-branch="${b}">${BRANCH_LABEL[b]||b}</button>`).join('')
-    || '<span class="meta">sem filiais</span>';
+  const q = new URLSearchParams(location.search).get('teacher');
+  if(q) ME = TEACHERS.find(t=>t.id===q || t.code===q) || null;
+  if(!ME){
+    const sel=document.getElementById('picker-sel');
+    sel.innerHTML = '<option value="">Seleccionar…</option>' +
+      TEACHERS.map(t=>`<option value="${t.id}">${esc(t.code)} · ${esc(t.name)} · ${t.lang}</option>`).join('');
+    sel.onchange = () => { const t=TEACHERS.find(x=>x.id===sel.value); if(t){ ME=t;
+      document.getElementById('picker').classList.remove('on'); loadTeacher(); } };
+    document.getElementById('picker').classList.add('on');
+    setConn('warn','escolha um professor');
+    return;
+  }
+  await loadTeacher();
+}
+
+async function loadTeacher(){
+  CLASSES=[]; SCHED={}; ENROL={}; ATT={}; SUMS={}; MARKS={};
+  renderIdBand();
+  setConn('warn','a carregar turmas');
+
+  /* A TEACHER WITH NO CLASSES IS A NORMAL STATE, NOT A FAILURE.
+     It is September and nothing has been assigned yet — that is most
+     of the staff for several weeks. The page loads, says so, and
+     keeps every panel reachable. Only a genuine query error is an
+     error, and even that does not stop the render. */
+  let rows=[]; let loadErr=null;
+  try{
+    rows = await sbGetSoft('classes',
+      `teacher_id=eq.${encodeURIComponent(ME.id)}${AY?'&academic_year=eq.'+encodeURIComponent(AY):''}` +
+      `&select=turma_code,lang,level_code,level_display,branch,day_of_week,hour,start_time,end_time,student_refs`,
+      ['department','group_key','duration_min','sala']);
+  }catch(e){ loadErr=e; setConn(false,'erro'); }
+
+  CLASSES = rows.map(normaliseClass).filter(Boolean);
+  CLASSES.forEach(c=>{ (SCHED[c.day] = SCHED[c.day]||{})[c.hour] = c; });
+
+  /* Enrolments for every student I teach */
+  const refs = [...new Set(CLASSES.flatMap(c=>c.refs))].filter(Boolean);
+  for(let i=0;i<refs.length;i+=200){
+    try{
+      const chunk = await sbGet('enrolments',
+        `ref=in.(${refs.slice(i,i+200).join(',')})&select=ref,name,age,date_of_birth,phone,email,branch,lang,family,level_code,level_cefr,guardian_name,guardian_phone,guardian_email,school,school_year,notes`);
+      chunk.forEach(e=>{ ENROL[e.ref]=e; });
+    }catch(e){ console.warn('enrolments',e.message); }
+  }
+
+  /* The whole year of attendance, once. Keyed by date throughout. */
+  const codes = CLASSES.map(c=>c.code).filter(Boolean);
+  if(codes.length && Y0 && Y1){
+    try{
+      const att = await sbGet('attendance',
+        `turma_code=in.(${codes.join(',')})&date=gte.${Y0}&date=lte.${Y1}&select=turma_code,student_ref,status,date&limit=100000`);
+      att.forEach(r=>{
+        ((ATT[r.turma_code] = ATT[r.turma_code]||{})[r.student_ref] =
+          ATT[r.turma_code][r.student_ref]||{})[r.date] = normStatus(r.status);
+      });
+    }catch(e){ console.warn('attendance',e.message); }
+    try{
+      const sums = await sbGet('lesson_summaries',
+        `turma_code=in.(${codes.join(',')})&select=turma_code,date,summary_text,book_page,skill,participation,observations,tpc,tpc_ref,tpc_due&limit=20000`);
+      sums.forEach(r=>{ (SUMS[r.turma_code]=SUMS[r.turma_code]||{})[r.date]=r; });
+    }catch(e){ console.warn('lesson_summaries',e.message); }
+  }
+
+  await loadNotices();
+  if(!loadErr) setConn(true, CLASSES.length ? 'Supabase' : 'sem turmas');
   renderAll();
+  if(loadErr) toast('Turmas: '+loadErr.message,'err');
 }
 
-/* ══ RENDER ══ */
-function renderAll(){ renderSide(); renderHead(); renderMain(); }
+/* Day and time are frequently missing or encoded in the group key, so
+   this is the one place that guesses, and it records what it guessed. */
+function normaliseClass(c){
+  let refs=[];
+  if(Array.isArray(c.student_refs)) refs=c.student_refs;
+  else { try{ refs=JSON.parse(c.student_refs||'[]'); }catch{ refs=[]; } }
 
-function renderHead(){
-  const list = visible(), s = scoped();
-  const com = s.filter(c=>c.teacher_id).length;
-  const alunos = new Set(s.flatMap(c=>c.student_refs)).size;
-  document.getElementById('h-title').textContent =
-    MODE==='teacher' && SEL_TEACHER ? (TEACHERS.find(t=>t.id===SEL_TEACHER)?.name||'—')
-    : SEL_LEVEL ? (LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL) : (BRANCH_LABEL[BRANCH]||BRANCH);
-  document.getElementById('h-sub').textContent =
-    `${BRANCH_LABEL[BRANCH]||BRANCH} · ${AY} · ${list.length} sessões em vista`;
-  document.getElementById('v-turmas').textContent = s.length;
-  document.getElementById('v-com').textContent = com;
-  document.getElementById('v-sem').textContent = s.length-com;
-  document.getElementById('v-alunos').textContent = alunos;
-  document.getElementById('n-open').textContent = s.length-com;
-  document.getElementById('n-prof').textContent = TEACHERS.length;
-  document.getElementById('n-conf').textContent = allConflicts().length;
+  let day = (c.day_of_week||'').toUpperCase().replace('SAB','SÁB').trim();
+  const known = new Set([...DAYS,'SAB']);
+  if(!day){
+    const hunt = s => (s||'').toUpperCase()
+      .replace(/\bSAB\b/g,'SÁB').replace(/\bMON\b/g,'SEG').replace(/\bTUE\b/g,'TER')
+      .replace(/\bWED\b/g,'QUA').replace(/\bTHU\b/g,'QUI').replace(/\bFRI\b/g,'SEX')
+      .split(/[-_\s]+/).find(p=>known.has(p));
+    day = hunt(c.group_key) || hunt(c.turma_code) || '';
+  }
+  if(!day) return null;                      /* no day = not placeable  */
+
+  const hour = typeof c.hour==='number' ? c.hour : parseInt(c.hour,10);
+  let start = c.start_time, end = c.end_time;
+  if(!start && hour>0){
+    start = `${String(hour).padStart(2,'0')}:00`;
+    const dur = typeof c.duration_min==='number' ? c.duration_min : 90;
+    const em = hour*60+dur;
+    end = `${String(Math.floor(em/60)).padStart(2,'0')}:${String(em%60).padStart(2,'0')}`;
+  }
+  return {
+    code:c.turma_code, lang:c.lang, levelCode:(c.level_code||'').trim(),
+    level:c.level_display || LEVEL_DISP[(c.level_code||'').trim()] || c.level_code || '—',
+    department:c.department, branch:c.branch, sala:c.sala,
+    day, hour: isNaN(hour)?9:hour, start:(start||'').slice(0,5), end:(end||'').slice(0,5),
+    duration:c.duration_min||90, refs,
+  };
 }
 
-function renderSide(){
-  const host=document.getElementById('side-list');
-  document.getElementById('m-level').classList.toggle('on', MODE==='level');
-  document.getElementById('m-teacher').classList.toggle('on', MODE==='teacher');
-  if(MODE==='level'){
-    const by={};
-    scoped().forEach(c=>{ const k=(c.level_code||'').trim(); (by[k]=by[k]||[]).push(c); });
-    host.innerHTML = Object.keys(by).sort().map(k=>{
-      const l=by[k], open=l.filter(c=>!c.teacher_id).length;
-      const d=DEPT[deptOf(l[0])];
-      return `<div class="srow ${k===SEL_LEVEL?'on':''}" data-level="${esc(k)}">
-        <span style="width:4px;height:22px;border-radius:6px;background:${d.band};flex-shrink:0"></span>
-        <span class="srow-n">${esc(LEVEL_DISP[k]||k||'—')}</span>
-        <span class="srow-m">${l.length}</span>
-        ${open?`<span class="tag pend" style="padding:2px 7px">${open}</span>`
-              :`<span class="tag on" style="padding:2px 7px">✓</span>`}
-      </div>`;
-    }).join('') || '<div class="sh-empty">Sem turmas nesta filial.</div>';
-  }else{
-    host.innerHTML = TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>{
-      const h=loadOf(t.id), pct=Math.min(100,Math.round(h/t.contractH*100));
-      const cls = h>=t.contractH?'over':h>=t.contractH*.8?'warn':'';
-      const av=avCol(t.name);
-      return `<div class="srow ${t.id===SEL_TEACHER?'on':''}" data-teacher="${t.id}">
-        <span class="srow-av" style="background:${av.bg};color:${av.t}">${avInit(t.name)}</span>
-        <span class="srow-n">${esc(t.name)}</span>
-        <span class="load ${cls}"><i style="width:${pct}%"></i></span>
-        <span class="srow-m">${h.toFixed(1)}h</span>
-      </div>`;
-    }).join('');
+async function loadNotices(){
+  if(!ME) return;
+  try{
+    NOTICES = await sbGet('office_notices',
+      `or=(teacher_id.eq.${encodeURIComponent(ME.id)},recipient.eq.all)&order=created_at.desc&limit=60`) || [];
+  }catch(e){ NOTICES=[]; }
+  const n = NOTICES.filter(x=>x.status!=='read').length;
+  const b = document.getElementById('btn-notif');
+  b.classList.toggle('has', n>0);
+  document.getElementById('notif-n').textContent = n>9?'9+':n;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DERIVED FACTS
+   Every number the interface shows comes from one of these, so a count
+   and the list behind it can never disagree.
+   ══════════════════════════════════════════════════════════════════════ */
+function statusOf(code, ref, iso){ return ATT[code]?.[ref]?.[iso] ?? null; }
+function isMarked(code, iso){
+  const t = ATT[code]; if(!t) return false;
+  return Object.values(t).some(byDate => byDate[iso] != null);
+}
+/* ── WHERE WE ARE IN THE YEAR ────────────────────────────────────
+   On 13 September with term starting on the 21st, every lesson in the
+   calendar is in the future. Everything this portal counts — lessons
+   given, marks made, registers outstanding — is defined as "on or
+   before today", so all of it is correctly zero, and a screen full of
+   correct zeros looks exactly like a broken page.
+
+   So the pre-term state is named and handled. The grid still shows
+   the timetable, because the teacher wants to see it. The counts say
+   what they are counting. And nothing pretends there is work waiting
+   that cannot exist yet. */
+function termState(){
+  if(!Y0 || !Y1) return 'unknown';
+  const t = todayISO();
+  if(t < Y0) return 'before';
+  if(t > Y1) return 'after';
+  return 'during';
+}
+function daysUntilTerm(){
+  if(!Y0) return null;
+  const a=new Date(todayISO()+'T12:00:00'), b=new Date(Y0+'T12:00:00');
+  return Math.round((b-a)/86400000);
+}
+function firstLessonOf(cls){ return lessonDates(cls.day)[0] || null; }
+
+function pastDatesFor(cls){ const t=todayISO(); return lessonDates(cls.day).filter(d=>d<=t); }
+function unmarkedFor(cls){ return pastDatesFor(cls).filter(d=>!isMarked(cls.code,d)); }
+function allUnmarked(){ return CLASSES.flatMap(c=>unmarkedFor(c).map(d=>({cls:c,date:d}))); }
+function tallyFor(code, ref, dates){
+  let p=0,a=0,l=0,o=0;
+  dates.forEach(d=>{ const s=statusOf(code,ref,d);
+    if(s==='present')p++; else if(s==='absent')a++; else if(s==='late')l++; else o++; });
+  return {p,a,l,o,total:dates.length,marked:p+a+l};
+}
+function ageOf(ref){
+  const e=ENROL[ref]; if(!e) return null;
+  if(typeof e.age==='number') return e.age;
+  if(!e.date_of_birth) return null;
+  const b=new Date(e.date_of_birth), n=new Date();
+  let y=n.getFullYear()-b.getFullYear();
+  if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate())) y--;
+  return y;
+}
+function absenceFlag(code, ref){
+  const t = tallyFor(code, ref, pastDatesFor(CLASSES.find(c=>c.code===code)||{day:''}));
+  const age = ageOf(ref), minor = age!=null && age<18;
+  const limit = minor ? ABS_WARN_MINOR : ABS_WARN_ADULT;
+  if(t.a >= ABS_LIMIT) return {level:'limit', n:t.a, minor};
+  if(t.a >= limit)     return {level:'warn',  n:t.a, minor};
+  return null;
+}
+function myStudents(){
+  const seen = new Map();
+  CLASSES.forEach(c => c.refs.forEach(r => {
+    if(!seen.has(r)) seen.set(r, {ref:r, name:ENROL[r]?.name||r, classes:[]});
+    seen.get(r).classes.push(c);
+  }));
+  return [...seen.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   RENDER
+   ══════════════════════════════════════════════════════════════════════ */
+function renderAll(){
+  /* Said once, at the top of the week, and only when it is true. */
+  const host = document.getElementById('main-empty-host');
+  const st = termState(), d = daysUntilTerm();
+  let msg = '';
+  if(CFG_STATE==='mismatch'){
+    msg = `<div class="notice"><b>O calendário da escola está incoerente.</b>
+      O ano lectivo diz <b>${esc(AY)}</b> mas as datas gravadas vão de
+      ${fmtShort(Y0)} a ${fmtShort(Y1)}. Enquanto assim estiver, as contagens
+      desta página não são de confiar.
+      <a href="alm-ano-lectivo.html" style="color:var(--ink)">Corrigir o ano lectivo &rarr;</a></div>`;
+  } else if(CFG_STATE==='missing'){
+    msg = `<div class="notice"><b>O calendário da escola não está definido.</b>
+      A usar ${fmtShort(Y0)} &ndash; ${fmtShort(Y1)} por defeito.
+      <a href="alm-ano-lectivo.html" style="color:var(--ink)">Definir o ano lectivo &rarr;</a></div>`;
+  } else if(ME && !CLASSES.length){
+    msg = `<div class="notice"><b>Ainda sem turmas atribuídas.</b> Assim que a direcção
+      atribuir turmas a ${esc(ME.name)}, aparecem aqui na grelha e a pauta anual
+      fica disponível. As restantes secções continuam acessíveis.</div>`;
+  } else if(st==='before'){
+    msg = `<div class="notice"><b>As aulas começam a ${fmtLong(Y0)}.</b>
+      ${d===1?'Falta 1 dia':'Faltam '+d+' dias'} — a grelha abaixo é o horário do ano;
+      as presenças abrem no primeiro dia de aulas. Pode já consultar as turmas e os alunos.</div>`;
+  } else if(st==='after'){
+    msg = `<div class="notice"><b>O ano lectivo terminou a ${fmtLong(Y1)}.</b>
+      A pauta continua disponível para consulta e exportação.</div>`;
+  }
+  if(host) host.innerHTML = msg;
+  renderIdBand(); renderToday(); renderGrid();
+  renderTurmas(); renderPautaTabs(); renderAlunos(); renderPedidos();
+  const un = allUnmarked().length;
+  document.getElementById('v-turmas').textContent = CLASSES.length || '—';
+  document.getElementById('v-alunos').textContent = myStudents().length || '—';
+  document.getElementById('v-porMarcar').textContent = un;
+  document.getElementById('n-turmas').textContent = CLASSES.length;
+  document.getElementById('n-alunos').textContent = myStudents().length;
+}
+
+function renderIdBand(){
+  if(!ME) return;
+  /* The band takes the tint of whatever the teacher mostly teaches. */
+  const tally={};
+  CLASSES.forEach(c=>{ const d=deptOf(c); tally[d]=(tally[d]||0)+1; });
+  const main = Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0] || 'adults';
+  document.getElementById('idband').style.setProperty('--band', DEPT[main].band);
+  document.getElementById('idb-name').textContent = ME.name;
+  document.getElementById('idb-tags').innerHTML =
+    `<span class="idb-tag">${esc(ME.code)}</span>` +
+    `<span class="idb-tag">${LANG_NAME[ME.lang]||ME.lang}</span>` +
+    (ME.native?`<span class="idb-tag">Nativo</span>`:'') +
+    `<span class="idb-tag">${ME.hours}h / semana</span>` +
+    `<span class="idb-tag">${esc(ME.branch)}</span>`;
+  if(ME.photo){
+    const img=document.getElementById('idb-img');
+    img.src=ME.photo; img.style.display='block';
+    document.getElementById('idb-ph').style.display='none';
   }
 }
 
-function renderMain(){
-  const host=document.getElementById('main');
-  if(PANEL==='grelha'){ host.innerHTML = gridHTML(); return; }
-  if(PANEL==='porAtribuir') return host.innerHTML = openHTML();
-  if(PANEL==='profs')       return host.innerHTML = teachersHTML();
-  if(PANEL==='conflitos')   return host.innerHTML = conflictHTML();
+function renderToday(){
+  const host=document.getElementById('today-strip');
+  const day = DAY_OF_JS[new Date().getDay()], iso = todayISO();
+  const mine = day ? HOURS.filter(h=>h!==null && SCHED[day]?.[h]).map(h=>SCHED[day][h]) : [];
+  const now = new Date().getHours()*60 + new Date().getMinutes();
+
+  if(termState()==='before'){
+    const first = CLASSES.map(c=>({c,d:firstLessonOf(c)})).filter(x=>x.d)
+      .sort((a,b)=>a.d.localeCompare(b.d))[0];
+    host.innerHTML = `<span class="strip-lbl">Hoje · ${fmtLong(iso)}</span>` +
+      (first ? `<div class="today-chip" onclick="openLesson('${first.c.code}','${first.d}')">
+          <span class="tc-time">${first.c.start}</span>
+          <span class="tc-meta">Primeira aula · ${esc(first.c.code)} · ${fmtLong(first.d)}</span>
+          <span class="tc-badge pend">${daysUntilTerm()} dias</span></div>`
+        : `<span style="font-size:12px;color:var(--faint)">Sem turmas.</span>`);
+    return;
+  }
+  if(!mine.length){
+    /* Say when the next one is rather than just saying there is none. */
+    let next=null;
+    for(let i=1;i<=7 && !next;i++){
+      const d=new Date(); d.setDate(d.getDate()+i);
+      const k=DAY_OF_JS[d.getDay()];
+      const h=k && HOURS.find(x=>x!==null && SCHED[k]?.[x]);
+      if(h!=null) next={day:k,cls:SCHED[k][h],iso:isoOf(d)};
+    }
+    host.innerHTML = `<span class="strip-lbl">Hoje · ${fmtLong(iso)}</span>` +
+      `<span style="font-size:12px;color:var(--faint)">Sem aulas.</span>` +
+      (next?`<span class="today-chip" onclick="openLesson('${next.cls.code}','${next.iso}')">
+        <span class="tc-time">${next.cls.start}</span>
+        <span class="tc-meta">${DAY_FULL[next.day]} · ${esc(next.cls.code)}</span></span>`:'');
+    return;
+  }
+  host.innerHTML = `<span class="strip-lbl">Hoje · ${fmtLong(iso)}</span>` + mine.map(c=>{
+    const [sh,sm]=(c.start||'09:00').split(':').map(Number), [eh,em]=(c.end||'10:30').split(':').map(Number);
+    const isNow = now>=sh*60+sm && now<eh*60+em;
+    const done = isMarked(c.code, iso);
+    return `<div class="today-chip ${done?'done':''} ${isNow?'now':''}" onclick="openLesson('${c.code}','${iso}')">
+      <span class="tc-time">${c.start}–${c.end}</span>
+      <span class="tc-meta">${esc(c.code)} · ${esc(c.level)}</span>
+      ${isNow?'<span class="tc-badge now">Agora</span>':
+        done?'<span class="tc-badge">Marcada</span>':'<span class="tc-badge pend">Por marcar</span>'}
+    </div>`;
+  }).join('');
 }
 
 /* ── THE GRID ────────────────────────────────────────────────────
-   Was gridHTML() + bandPos() + drawBands(), ~90 lines, and carrying a
-   real bug: bandPos measured x from the first .gcell but drawBands
-   appended the band to .grow, whose box starts at the frozen day
-   column. Every band was therefore 58px too far left — 53 minutes —
-   which is why a 14:00 lesson drew at 11:36.
-
-   The module positions an item INSIDE its first cell, so the offset
-   cannot exist. */
-function gridHTML(){
-  requestAnimationFrame(drawGrid);
-  return `<div class="sec">Grelha semanal${SEL_LEVEL?' · '+esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL):''}</div>
-    <div id="agrid"></div>`;
-}
-
-function drawGrid(){
-  const host = document.getElementById('agrid'); if(!host) return;
-  const focus = MODE==='teacher' ? SEL_TEACHER : null;
-  const open  = popState ? popState.code : null;
-  const sibs  = popState ? popState.sibs.map(s=>s.turma_code) : [];
-  ALMGrid.render(host, {
-    items: visible().map(c=>{
-      const t = c.teacher_id ? TEACHERS.find(x=>x.id===c.teacher_id) : null;
+   Was ~70 lines here: markup, a gap constant, a positioning routine
+   and a resize listener — all of it a copy of what Assign had, and
+   the reason the duration fix had to be made twice. It is now data
+   and a click handler. */
+function renderGrid(){
+  const today = DAY_OF_JS[new Date().getDay()];
+  const now = new Date().getHours()*60 + new Date().getMinutes();
+  ALMGrid.render(document.getElementById('grid'), {
+    today,
+    items: CLASSES.map(c=>{
+      const iso  = thisWeek(c.day);
+      const done = iso && isMarked(c.code, iso);
+      const no   = iso ? lessonNoOf(c.day, iso) : 0;
+      const live = c.day===today && now>=toMins(c.start||'09:00') && now<toMins(c.end||'10:30');
       return {
-        day:c.day_of_week, start:(c.start_time||'').slice(0,5), end:(c.end_time||'').slice(0,5),
-        title:c.turma_code,
-        sub:`${t?t.name:'sem professor'} · ${c.student_refs.length}/${MAX_G}`,
-        badge: t ? avInit(t.name) : '',
-        state: t ? 'done' : 'open',
-        tone: c.group_code,
-        dim: focus && c.teacher_id!==focus,
-        hot: c.turma_code===open,
-        sib: open && c.turma_code!==open && sibs.includes(c.turma_code),
-        code:c.turma_code,
+        day:c.day, start:c.start, end:c.end,
+        title:(c.code||'').replace(/^[^-]+-/,''),
+        sub:`${c.start}–${c.end} · ${c.level} · ${c.refs.length} al${no?` · nº ${String(no).padStart(2,'0')}`:''}`,
+        badge: live ? '•' : done ? '✓' : '',
+        state: done ? 'done' : 'open',
+        /* The pair key: 01A and 01B both reduce to FUN-01, so the two
+           halves of a turma always share a tone. */
+        tone: (c.code||'').replace(/[A-D]$/,''),
+        code:c.code, iso:iso || todayISO(),
       };
     }),
-    onItem: it => openAssign(it.code),
-    legend: [['#2E4A3A','preenchido = com professor'],
-             ['rgba(74,106,86,.28)','esbatido = por atribuir']],
-    hint: 'clique numa sessão para atribuir',
+    onItem: it => openLesson(it.code, it.iso),
+    legend: [['#2E4A3A','preenchido = marcada'],['rgba(74,106,86,.28)','esbatido = por marcar']],
+    hint: 'clique numa aula para abrir a folha de presenças',
   });
 }
 
-function openHTML(){
-  const open = scoped().filter(c=>!c.teacher_id);
-  if(!open.length) return `<div class="sec">Por atribuir</div>
-    <div class="sh-empty">Todas as sessões desta filial têm professor.</div>`;
-  /* Grouped by pair, because a pair is the unit a teacher is offered. */
-  const by={}; open.forEach(c=>{ (by[c.group_code]=by[c.group_code]||[]).push(c); });
-  return `<div class="sec">Por atribuir · ${open.length} sessões</div>` +
-    Object.entries(by).map(([gc,l])=>{
-      const c=l[0], d=DEPT[deptOf(c)];
-      return `<div class="card"><div class="card-head">
-        <span class="card-code">${esc(gc)}</span>
-        <span class="tag">${d.label}</span>
-        <span class="meta">${esc(levelOf(c))} · ${esc(c.lang||'')}</span>
-        <span class="meta">${l.map(x=>`${DAY_FULL[x.day_of_week]} ${(x.start_time||'').slice(0,5)}`).join(' · ')}</span>
-        <span class="tag pend">${l.length} sessão${l.length!==1?'es':''}</span>
-        <span style="margin-left:auto;font-size:20px;font-weight:700;cursor:pointer"
-          data-roster="${esc(c.turma_code)}">${c.student_refs.length}<span style="font-size:11px;color:var(--faint)"> alunos</span></span>
-      </div>
-      <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap">
-        ${l.map(x=>`<button class="sh-btn sage" data-open="${esc(x.turma_code)}">Atribuir ${esc(x.turma_code)}</button>`).join('')}
-      </div></div>`;
+function renderTurmas(){
+  const host=document.getElementById('turmas-list');
+  if(!CLASSES.length){ host.innerHTML=
+    '<div class="sh-empty">Sem turmas atribuídas. Nada a mostrar aqui até haver uma.</div>'; return; }
+  host.innerHTML = CLASSES.slice().sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day)||a.hour-b.hour)
+    .map(c=>{
+      const past=pastDatesFor(c), un=unmarkedFor(c), all=lessonDates(c.day);
+      const d=DEPT[deptOf(c)];
+      return `<div class="lcard">
+        <div class="lc-head">
+          <span class="lc-code">${esc(c.code)}</span>
+          <span class="sh-tag">${d.label}</span>
+          <span class="lc-meta">${DAY_FULL[c.day]} · ${c.start}–${c.end}${c.sala?' · Sala '+esc(c.sala):''}</span>
+          <span class="lc-meta">${past.length} de ${all.length} aulas dadas</span>
+          ${un.length?`<span class="sh-tag pend">${un.length} por marcar</span>`:'<span class="sh-tag on">Em dia</span>'}
+          <span class="lc-n" onclick="rosterClass('${c.code}')">${c.refs.length}<small> alunos</small></span>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:11px;flex-wrap:wrap">
+          <button class="sh-btn sage" onclick="openNextUnmarked('${c.code}')">${un.length?'Marcar a próxima em falta':'Abrir última aula'}</button>
+          <button class="sh-btn" onclick="showPauta('${c.code}')">Pauta anual</button>
+          <button class="sh-btn" onclick="rosterClass('${c.code}')">Ver alunos</button>
+        </div>
+      </div>`;
     }).join('');
 }
 
-function teachersHTML(){
-  return `<div class="sec">Professores · carga real por minutos leccionados</div>` +
-    TEACHERS.slice().sort((a,b)=>loadOf(b.id)-loadOf(a.id)).map(t=>{
-      const mine=CLASSES.filter(c=>c.teacher_id===t.id);
-      const h=loadOf(t.id), pct=Math.min(100,Math.round(h/t.contractH*100));
-      const cls=h>=t.contractH?'over':h>=t.contractH*.8?'warn':'';
-      const av=avCol(t.name);
-      return `<div class="card"><div class="card-head">
-        <span class="sh-av" style="background:${av.bg};color:${av.t}">${avInit(t.name)}</span>
-        <span style="font-size:15px;font-weight:600;color:var(--ink)">${esc(t.name)}</span>
-        <span class="tag">${esc(t.code)}</span>
-        <span class="tag">${LANG_NAME[t.lang]||t.lang}</span>
-        ${t.native?'<span class="tag">Nativo</span>':''}
-        <span class="load ${cls}" style="width:70px"><i style="width:${pct}%"></i></span>
-        <span class="meta">${h.toFixed(1)} / ${t.contractH}h</span>
-        <span style="margin-left:auto" class="tag ${mine.length?'on':'pend'}">${mine.length} sessões</span>
+function renderAlunos(){
+  const q = (document.getElementById('stu-search').value||'').toLowerCase().trim();
+  let list = myStudents();
+  if(q) list = list.filter(s => s.name.toLowerCase().includes(q) || s.ref.toLowerCase().includes(q));
+  document.getElementById('stu-count').textContent = `${list.length} aluno${list.length!==1?'s':''}`;
+  document.getElementById('alunos-list').innerHTML = list.length ? list.map(s=>{
+    const av=avCol(s.name);
+    const flags = s.classes.map(c=>absenceFlag(c.code,s.ref)).filter(Boolean);
+    const worst = flags.sort((a,b)=>b.n-a.n)[0];
+    const age = ageOf(s.ref);
+    return `<div class="sh-row" style="cursor:pointer;padding:11px 14px;background:var(--card);
+        border-radius:10px;margin-bottom:5px;border-bottom:none;border:1px solid var(--rule)"
+        onclick="openStudent('${s.ref}')">
+      <div class="sh-av" style="background:${av.bg};color:${av.t}">${avInit(s.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="sh-name">${esc(s.name)}</div>
+        <div class="sh-meta">${esc(s.ref)}${age!=null?` · ${age} anos`:''} · ${s.classes.map(c=>esc(c.code)).join(' · ')}</div>
       </div>
-      ${mine.length?`<div style="margin-top:10px;display:flex;gap:5px;flex-wrap:wrap">
-        ${mine.map(c=>`<button class="pill" data-open="${esc(c.turma_code)}">${esc(c.turma_code)} · ${DAY_FULL[c.day_of_week].slice(0,3)} ${(c.start_time||'').slice(0,5)}</button>`).join('')}
-      </div>`:''}</div>`;
-    }).join('');
+      ${worst?`<span class="att-flag">${worst.n} falta${worst.n!==1?'s':''}</span>`:''}
+    </div>`;
+  }).join('') : '<div class="sh-empty">Nenhum aluno encontrado.</div>';
 }
 
-function conflictHTML(){
-  const cf = allConflicts();
-  if(!cf.length) return `<div class="sec">Conflitos</div>
-    <div class="sh-empty">Nenhum professor está em duas salas ao mesmo tempo.</div>`;
-  return `<div class="sec">Conflitos · ${cf.length}</div>
-    <div class="notice"><b>Sobreposição de horário.</b> Estas sessões estão atribuídas ao
-      mesmo professor à mesma hora do mesmo dia. A página não impede que existam —
-      podem ter sido criadas noutro lado — mas não permite criar mais.</div>` +
-    cf.map(({a,b,teacher})=>`<div class="card">
-      <div class="card-head">
-        <span class="tag bad">${esc(teacher?.name||'—')}</span>
-        <span class="meta">${DAY_FULL[a.day_of_week]}</span>
-      </div>
-      <div class="sh-g2" style="margin-top:10px">
-        <div class="sh-fld"><div class="sh-fk">${esc(a.turma_code)}</div>
-          <div class="sh-fv">${(a.start_time||'').slice(0,5)}–${(a.end_time||'').slice(0,5)} · ${esc(levelOf(a))}</div></div>
-        <div class="sh-fld"><div class="sh-fk">${esc(b.turma_code)}</div>
-          <div class="sh-fv">${(b.start_time||'').slice(0,5)}–${(b.end_time||'').slice(0,5)} · ${esc(levelOf(b))}</div></div>
-      </div>
-      <div style="margin-top:10px;display:flex;gap:7px">
-        <button class="sh-btn" data-open="${esc(a.turma_code)}">Rever ${esc(a.turma_code)}</button>
-        <button class="sh-btn" data-open="${esc(b.turma_code)}">Rever ${esc(b.turma_code)}</button>
-      </div></div>`).join('');
+function renderPedidos(){
+  const un = allUnmarked();
+  const byClass = {};
+  un.forEach(u => (byClass[u.cls.code]=byClass[u.cls.code]||[]).push(u.date));
+  const host = document.getElementById('pedidos-body');
+  host.innerHTML =
+    `<div class="sec">Aulas por marcar</div>` +
+    (!CLASSES.length ? '<div class="sh-empty">Sem turmas — nada por marcar.</div>'
+      : termState()==='before' ? `<div class="notice">As aulas começam a ${fmtLong(Y0)}.
+          Não há registos em falta porque ainda não houve aulas.</div>` : '') +
+    (un.length ? Object.entries(byClass).map(([code,dates])=>{
+      const c = CLASSES.find(x=>x.code===code);
+      return `<div class="lcard"><div class="lc-head">
+        <span class="lc-code">${esc(code)}</span>
+        <span class="lc-meta">${DAY_FULL[c.day]} · ${c.start}</span>
+        <span class="sh-tag pend">${dates.length} aula${dates.length!==1?'s':''}</span></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">
+        ${dates.slice(-14).map(d=>`<button class="chip" onclick="openLesson('${code}','${d}')">
+          ${String(lessonNoOf(c.day,d)).padStart(2,'0')} · ${fmtShort(d).slice(0,5)}</button>`).join('')}
+        ${dates.length>14?`<span class="sh-meta" style="align-self:center">+${dates.length-14} anteriores</span>`:''}
+        </div></div>`;
+    }).join('') : '<div class="sh-empty">Nada em falta. Todas as aulas dadas estão marcadas.</div>') +
+    `<div class="sec" style="margin-top:20px">Pedido de fotocópias</div>
+     <div class="lcard">
+       <div class="sh-g2">
+         <div><div class="sh-fk">Documento</div><input class="inp" id="rq-doc" placeholder="ex: Grammar test U3"/></div>
+         <div><div class="sh-fk">Turma</div><select class="inp" id="rq-turma">${CLASSES.length?CLASSES.map(c=>`<option>${esc(c.code)}</option>`).join(''):'<option value="">— sem turma —</option>'}</select></div>
+       </div>
+       <div class="sh-g3" style="margin-top:8px">
+         <div><div class="sh-fk">Cópias</div><input class="inp" id="rq-n" type="number" min="1" max="300" value="17"/></div>
+         <div><div class="sh-fk">Frente / verso</div><select class="inp" id="rq-sides"><option>Só frente</option><option>Frente e verso</option></select></div>
+         <div><div class="sh-fk">Urgência</div><select class="inp" id="rq-urg"><option value="normal">Normal (48h)</option><option value="urgent">Urgente (24h)</option><option value="express">Express (hoje)</option></select></div>
+       </div>
+       <div style="margin-top:8px"><div class="sh-fk">Observações</div><textarea class="inp" id="rq-obs" style="min-height:60px"></textarea></div>
+       <div style="margin-top:10px"><button class="sh-btn primary" onclick="sendRequest()">Enviar pedido</button></div>
+     </div>
+     <div class="sec" style="margin-top:20px">Avisos da secretaria</div>
+     ${NOTICES.length ? NOTICES.slice(0,12).map(n=>`
+       <div class="lcard" style="border-left:3px solid ${n.urgency==='urgente'||n.urgency==='cancelamento'?'var(--alert)':'var(--sage)'}">
+         <div style="font-weight:600;color:var(--ink)">${esc(n.subject||'Sem assunto')}</div>
+         <div style="font-size:12px;color:var(--sub);margin-top:4px;line-height:1.6">${esc(n.body||'')}</div>
+         <div class="sh-meta" style="margin-top:6px">${esc(n.urgency||'info')}${n.created_at?' · '+fmtShort(n.created_at.slice(0,10)):''}</div>
+       </div>`).join('') : '<div class="sh-empty">Sem avisos.</div>'}`;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   THE ASSIGN SHEET
-   ══════════════════════════════════════════════════════════════════════ */
-function closeSheet(id){
-  const el=document.getElementById(id); el.classList.remove('on'); el.innerHTML='';
-  if(id==='sh-assign'){ popState=null; document.body.classList.remove('rail-open');
-    if(PANEL==='grelha') drawGrid(); }
-}
-function hostFor(id){const el=document.getElementById(id);
-  el.onclick=e=>{if(e.target===el)closeSheet(id);};return el;}
-
-/* Candidates for ONE session. Every judgement is made against that
-   session's own day and hour — which is the bug that made the old
-   "partilhado" list wrong: it ranked the Wednesday teacher against
-   Monday's timetable, so anyone free on Monday looked free on
-   Wednesday. A session ranks against itself or not at all. */
-function candidatesFor(cls){
-  return TEACHERS.map(t=>{
-    const clash = conflictsFor(t.id, cls);
-    const h = loadOf(t.id);
-    const langOK = !cls.lang || t.lang === (cls.lang||'').toUpperCase().slice(0,2);
-    const branchOK = !cls.branch || t.branches.includes(cls.branch) || t.branch===cls.branch;
-    let block = null;
-    if(clash.length) block = `Já tem ${clash[0].turma_code} às ${(clash[0].start_time||'').slice(0,5)}`;
-    else if(h + (endOf(cls)-startOf(cls))/60 > t.contractH) block = null; /* over-contract warns, never blocks */
-    return {t, clash, h, langOK, branchOK, block,
-      over: h + (endOf(cls)-startOf(cls))/60 > t.contractH};
-  }).sort((a,b)=>
-    (a.block?1:0)-(b.block?1:0) ||
-    (b.langOK?1:0)-(a.langOK?1:0) ||
-    (b.branchOK?1:0)-(a.branchOK?1:0) ||
-    (b.t.native?1:0)-(a.t.native?1:0) ||
-    a.h-b.h);
-}
-
-function candRow(c, cls, sel, slot){
-  const av=avCol(c.t.name);
-  const cls2 = c.block ? 'cand blocked' : (sel===c.t.id ? 'cand on' : 'cand');
-  return `<div class="${cls2}" ${c.block?'':`data-pick="${slot}:${c.t.id}"`}>
-    <span class="sh-av" style="background:${av.bg};color:${av.t}">${avInit(c.t.name)}</span>
-    <div class="cand-n">
-      <div class="sh-name">${esc(c.t.name)}</div>
-      <div class="sh-meta">${esc(c.t.code)} · ${LANG_NAME[c.t.lang]||c.t.lang}</div>
-      ${c.block?`<div class="cand-why">${esc(c.block)}</div>`:''}
-    </div>
-    ${c.langOK?'<span class="mini lang">língua</span>':''}
-    ${c.t.native?'<span class="mini nat">nativo</span>':''}
-    ${!c.branchOK?'<span class="mini free">outra filial</span>':''}
-    <span class="cand-h" style="color:${c.over?'var(--alert)':c.h>=c.t.contractH*.8?'var(--clay)':'var(--sage-deep)'}">${c.h.toFixed(1)}/${c.t.contractH}h</span>
-  </div>`;
-}
-
-function openAssign(turmaCode){
-  const c = CLASSES.find(x=>x.turma_code===turmaCode); if(!c) return;
-  const sibs = siblingsOf(c).sort((a,b)=>DAYS.indexOf(a.day_of_week)-DAYS.indexOf(b.day_of_week));
-  const paired = sibs.length>1;
-  popState = {code:turmaCode, mode: paired?'mesmo':'single', pick:{}, sibs};
-  sibs.forEach(s=>{ popState.pick[s.turma_code] = s.teacher_id || null; });
-  paintAssign();
-}
-
-function paintAssign(){
-  const {code, mode, pick, sibs} = popState;
-  const c = CLASSES.find(x=>x.turma_code===code);
-  const d = DEPT[deptOf(c)];
-  const anyAssigned = sibs.some(s=>s.teacher_id);
-
-  /* WHY THIS WARNING EXISTS.
-     A pair write filters on group_code. If the database column is null
-     for these rows — perfectly possible for classes created before
-     group_code was introduced — the filter matches nothing and the old
-     page called that a success. Now it is checked before the write is
-     offered, and the pair option is withdrawn rather than failing. */
-  const canPairWrite = sibs.every(s=>s.dbGroupCode) &&
-    new Set(sibs.map(s=>s.dbGroupCode)).size===1;
-
-  /* WHY THE BUTTON WAS DEAD AND SAID NOTHING.
-     In "um por sessão" every session needs its own choice, but only
-     the first list fits the rail — the second is below the fold. Pick
-     a teacher for Terça, look at a full-looking panel, press Atribuir,
-     nothing happens. The choice for Quinta was never made and the
-     disabled button gave no reason.
-
-     Three changes, all about telling the truth: a checklist pinned
-     above the lists showing each session and who is on it, a button
-     that names what is missing instead of going grey, and a jump to
-     the next unanswered session the moment one is answered. */
-  const missing = mode==='mesmo'
-    ? (pick[sibs[0].turma_code] ? [] : sibs.slice(0,1))
-    : sibs.filter(s=>!pick[s.turma_code]);
-  const ready = missing.length===0;
-
-  const checklist = sibs.length>1 ? `<div class="checklist">
-    ${sibs.map(s=>{
-      const tid = mode==='mesmo' ? pick[sibs[0].turma_code] : pick[s.turma_code];
-      const t = tid ? TEACHERS.find(x=>x.id===tid) : null;
-      return `<div class="chk ${t?'done':''}" data-jump="${esc(s.turma_code)}">
-        <span class="chk-mark">${t?'&#10003;':'&#183;'}</span>
-        <span class="chk-day">${DAY_FULL[s.day_of_week]}</span>
-        <span class="chk-who">${t?esc(t.name):'por escolher'}</span>
-      </div>`;}).join('')}
-  </div>` : '';
-
-  const body = mode==='mesmo'
-    ? `<div class="sh-sec">Um professor para as ${sibs.length} sessões</div>
-       ${candidatesFor(c).map(x=>candRow(x,c,pick[sibs[0].turma_code],'ALL')).join('')}`
-    : sibs.map(s=>{
-        const tid = pick[s.turma_code];
-        const t = tid ? TEACHERS.find(x=>x.id===tid) : null;
-        return `<div class="sh-sec" id="sec-${esc(s.turma_code)}">
-         ${DAY_FULL[s.day_of_week]} · ${(s.start_time||'').slice(0,5)}–${(s.end_time||'').slice(0,5)} · ${esc(s.turma_code)}
-         <span class="sec-state ${t?'done':''}">${t?esc(t.code):'por escolher'}</span></div>
-       ${candidatesFor(s).map(x=>candRow(x,s,pick[s.turma_code],s.turma_code)).join('')}`;}).join('');
-
-  const host = hostFor('sh-assign');
-  host.innerHTML = `<div class="sh" style="--accent:${anyAssigned?'var(--sage-deep)':'var(--clay)'}">
-    <button class="sh-close" onclick="closeSheet('sh-assign')">✕</button>
-    <div class="sh-head">
-      <div class="sh-eyebrow"><span class="sh-bar"></span>
-        <span class="sh-kicker">${d.label} · ${esc(levelOf(c))} · ${esc(BRANCH_LABEL[c.branch]||c.branch||'')}</span></div>
-      <div class="sh-title">${esc(c.group_code)}</div>
-      <div class="sh-sub">${sibs.map(s=>`${DAY_FULL[s.day_of_week]} ${(s.start_time||'').slice(0,5)}–${(s.end_time||'').slice(0,5)}`).join(' · ')}</div>
-      <div class="sh-tags">
-        <span class="sh-tag tag">${esc(c.lang||'')}</span>
-        <span class="tag" style="cursor:pointer" data-roster="${esc(c.turma_code)}">${c.student_refs.length}/${MAX_G} alunos</span>
-        ${sibs.map(s=>s.teacher_id
-          ? `<span class="tag on">${esc(s.turma_code)} · ${esc(TEACHERS.find(t=>t.id===s.teacher_id)?.code||'—')}</span>`
-          : `<span class="tag pend">${esc(s.turma_code)} · por atribuir</span>`).join('')}
-      </div>
-    </div>
-    <div class="sh-body">
-      ${!canPairWrite && sibs.length>1 ? `<div class="notice">
-        <b>Sem código de grupo na base de dados.</b> Estas sessões não partilham um
-        <code>group_code</code> gravado, por isso só podem ser atribuídas uma a uma —
-        uma escrita em par não encontraria nenhuma linha.</div>`:''}
-      ${sibs.length>1 && canPairWrite ? `<div class="seg">
-        <button data-mode="mesmo" class="${mode==='mesmo'?'on':''}">Mesmo professor</button>
-        <button data-mode="partilhado" class="${mode!=='mesmo'?'on':''}">Um por sessão</button>
-      </div>`:''}
-      ${checklist}
-      ${body}
-    </div>
-    <div class="sh-foot">
-      ${anyAssigned?`<button class="sh-btn bad" id="btn-clear">Remover professor</button>`:''}
-      <button class="sh-btn" onclick="closeSheet('sh-assign')">Cancelar</button>
-      <button class="sh-btn primary" id="btn-save" style="margin-left:auto" ${ready?'':'disabled'}>
-        ${ready
-          ? (mode==='mesmo' ? `Atribuir às ${sibs.length} sessões` : 'Atribuir')
-          : `Falta ${missing.map(s=>DAY_FULL[s.day_of_week]).join(' e ')}`}</button>
-    </div>
-  </div>`;
-  host.classList.add('on');
-  document.body.classList.add('rail-open');
-  /* Re-lay the grid under the narrowed column, then ring the session
-     under assignment and its pair partner. */
-  if(PANEL==='grelha') requestAnimationFrame(drawGrid);
-
-  host.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
-    popState.mode=b.dataset.mode; popState.pick={};
-    sibs.forEach(s=>{popState.pick[s.turma_code]=s.teacher_id||null;});
-    paintAssign();
-  });
-  host.querySelectorAll('[data-pick]').forEach(el=>el.onclick=()=>{
-    const i=el.dataset.pick.indexOf(':');
-    const slot=el.dataset.pick.slice(0,i), tid=el.dataset.pick.slice(i+1);
-    if(slot==='ALL') sibs.forEach(s=>{popState.pick[s.turma_code]=tid;});
-    else popState.pick[slot]=tid;
-    paintAssign();
-    /* Answering one session moves you to the next unanswered one, so
-       the second list is never something you have to discover. */
-    const next = popState.sibs.find(s=>!popState.pick[s.turma_code]);
-    if(next){
-      const sec=document.getElementById('sec-'+next.turma_code);
-      if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
-    }
-  });
-  host.querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{
-    const sec=document.getElementById('sec-'+el.dataset.jump);
-    if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
-  });
-  const clr=host.querySelector('#btn-clear'); if(clr) clr.onclick=()=>commitAssign(true);
-  host.querySelector('#btn-save').onclick=()=>commitAssign(false);
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   THE COMMIT
-   Writes first, then updates the screen — the reverse of what the old
-   page did. An optimistic update that precedes an unverified write is
-   how an assignment came to look saved when it wasn't.
-   ══════════════════════════════════════════════════════════════════════ */
-async function commitAssign(clear){
-  const {code, mode, pick, sibs} = popState;
-  const btn=document.getElementById('btn-save');
-  const prev = sibs.map(s=>({tc:s.turma_code, id:s.teacher_id, code:s.teacher_code, name:s.teacher_name}));
-  btn.disabled=true; btn.textContent='A guardar…';
-
-  const target = {};
-  sibs.forEach(s=>{ target[s.turma_code] = clear ? null : (mode==='mesmo' ? pick[sibs[0].turma_code] : pick[s.turma_code]); });
-
-  /* Never write a double booking. Checked against everything currently
-     in CLASSES, plus the other sessions in this very commit. */
-  for(const s of sibs){
-    const tid = target[s.turma_code]; if(!tid) continue;
-    const clash = conflictsFor(tid, s).filter(x=>!sibs.some(y=>y.turma_code===x.turma_code));
-    const inBatch = sibs.filter(o=>o.turma_code!==s.turma_code
-      && target[o.turma_code]===tid && o.day_of_week===s.day_of_week && overlaps(o,s));
-    if(clash.length || inBatch.length){
-      const t=TEACHERS.find(x=>x.id===tid);
-      toast(`${t?t.code:'—'} já tem aula nesse horário (${(clash[0]||inBatch[0]).turma_code})`,'err');
-      btn.disabled=false; btn.textContent='Atribuir'; return;
-    }
-  }
-
+async function sendRequest(){
+  const doc=document.getElementById('rq-doc').value.trim();
+  if(!doc){ toast('Indique o documento','warn'); return; }
   try{
-    const written=[];
-    for(const s of sibs){
-      const tid=target[s.turma_code];
-      const t = tid ? TEACHERS.find(x=>x.id===tid) : null;
-      const rows = await patchClasses(
-        `turma_code=eq.${encodeURIComponent(s.turma_code)}&academic_year=eq.${encodeURIComponent(AY)}`,
-        {teacher_id:tid||null, teacher_name:t?t.name:null, teacher_code:t?t.code:null}, 1);
-      written.push({tc:s.turma_code, rows:rows.length});
-      /* Only now, and only per row that actually changed. */
-      s.teacher_id = tid||null; s.teacher_name = t?t.name:null; s.teacher_code = t?t.code:null;
-    }
-    UNDO.push(prev);
-    document.getElementById('btn-undo').disabled=false;
-    toast(clear ? `Professor removido · ${written.length} sessões`
-                : `${written.map(w=>w.tc).join(' · ')} guardado`);
-    closeSheet('sh-assign'); renderAll();
-  }catch(e){
-    /* Nothing was applied locally before the write, so there is nothing
-       to roll back — but any session already written in this loop must
-       be undone, or the pair ends up half-assigned. */
-    setConn(false,'erro');
-    toast('Não guardado: '+e.message,'err');
-    try{ await revertTo(prev); }catch(_){}
-    renderAll();
-    const b=document.getElementById('btn-save'); if(b){b.disabled=false;b.textContent='Atribuir';}
+    await sbUpsert('teacher_requests',[{teacher_id:ME.id, teacher_name:ME.name,
+      turma_code:document.getElementById('rq-turma').value, type:'foto', document:doc,
+      copies:parseInt(document.getElementById('rq-n').value)||1,
+      sides:document.getElementById('rq-sides').value,
+      urgency:document.getElementById('rq-urg').value,
+      observations:document.getElementById('rq-obs').value,
+      status:'pending', created_at:new Date().toISOString()}]);
+    toast('Pedido enviado');
+    document.getElementById('rq-doc').value=''; document.getElementById('rq-obs').value='';
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE PAUTA — a year of attendance for one class
+   ══════════════════════════════════════════════════════════════════════ */
+let pautaCode = null;
+function renderPautaTabs(){
+  if(!CLASSES.length){
+    document.getElementById('pauta-tabs').innerHTML='';
+    document.getElementById('pauta-body').innerHTML=
+      '<div class="sh-empty">A pauta anual abre assim que houver uma turma atribuída.</div>';
+    return;
   }
+  document.getElementById('pauta-tabs').innerHTML = CLASSES.map(c=>
+    `<button class="chip ${c.code===pautaCode?'on':''}" onclick="showPauta('${c.code}')">${esc(c.code)}</button>`).join('');
 }
-
-async function revertTo(snapshot){
-  for(const p of snapshot){
-    const s=CLASSES.find(x=>x.turma_code===p.tc); if(!s) continue;
-    if(s.teacher_id===p.id) continue;
-    await patchClasses(`turma_code=eq.${encodeURIComponent(p.tc)}&academic_year=eq.${encodeURIComponent(AY)}`,
-      {teacher_id:p.id||null, teacher_name:p.name||null, teacher_code:p.code||null}, 1);
-    s.teacher_id=p.id||null; s.teacher_name=p.name||null; s.teacher_code=p.code||null;
+function showPauta(code){
+  pautaCode = code;
+  switchPanel('pauta');
+  renderPautaTabs();
+  const c = CLASSES.find(x=>x.code===code);
+  const host = document.getElementById('pauta-body');
+  if(!c){ host.innerHTML='<div class="sh-empty">Turma não encontrada.</div>'; return; }
+  const dates = pastDatesFor(c), today = todayISO();
+  if(!dates.length){
+    const n = lessonDates(c.day).length, first = firstLessonOf(c);
+    host.innerHTML = termState()==='before'
+      ? `<div class="notice"><b>A pauta abre no primeiro dia de aulas.</b>
+          ${esc(code)} tem ${n} aulas marcadas no calendário, a primeira a
+          ${first?fmtLong(first):'—'}.</div>`
+      : '<div class="sh-empty">Ainda não houve aulas nesta turma.</div>';
+    return;
   }
-}
-
-/* Undo restores EVERY session in the pair. The old stack recorded only
-   session A, so undoing a split assignment left B on the new teacher. */
-async function undo(){
-  const snap=UNDO.pop(); if(!snap) return;
-  try{ await revertTo(snap); toast('Anulado'); }
-  catch(e){ toast('Não foi possível anular: '+e.message,'err'); }
-  document.getElementById('btn-undo').disabled = UNDO.length===0;
-  renderAll();
-}
-
-/* ══ ROSTER ══ */
-function openRoster(turmaCode){
-  const c=CLASSES.find(x=>x.turma_code===turmaCode); if(!c) return;
-  const list=c.student_refs.map(r=>({ref:r,name:ENROL[r]?.name||r}))
+  const students = c.refs.map(r=>({ref:r,name:ENROL[r]?.name||r}))
     .sort((a,b)=>a.name.localeCompare(b.name));
-  const host=hostFor('sh-roster');
-  host.innerHTML=`<div class="sh">
-    <button class="sh-close" onclick="closeSheet('sh-roster')">✕</button>
-    <div class="sh-head">
-      <div class="sh-eyebrow"><span class="sh-bar"></span>
-        <span class="sh-kicker">${esc(levelOf(c))} · ${DAY_FULL[c.day_of_week]} ${(c.start_time||'').slice(0,5)}</span></div>
-      <div class="sh-title">${esc(c.turma_code)}</div>
-      <div class="sh-sub">${list.length} de ${MAX_G} lugares</div>
+
+  const head1 = dates.map((d,i)=>`<th class="${d===today?'today-col':''}" title="${fmtLong(d)}">${String(i+1).padStart(2,'0')}</th>`).join('');
+  const head2 = dates.map(d=>{ const dt=new Date(d+'T12:00:00');
+    return `<th class="${d===today?'today-col':''}" style="font-weight:500;color:var(--faint)" title="${fmtLong(d)}">${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</th>`; }).join('');
+
+  const body = students.map(s=>{
+    const t = tallyFor(c.code, s.ref, dates);
+    const pct = t.marked ? Math.round(t.p/t.marked*100) : null;
+    const flag = absenceFlag(c.code, s.ref);
+    const cells = dates.map(d=>{
+      const st = statusOf(c.code,s.ref,d);
+      const m = st==='present'?'<span class="mk m-p">●</span>'
+              : st==='absent'?'<span class="mk m-a">✕</span>'
+              : st==='late'  ?'<span class="mk m-l">▲</span>'
+              :               '<span class="mk m-o">·</span>';
+      return `<td class="${d===today?'today-col':''}" title="${fmtLong(d)} · ${st||'sem registo'}"
+        onclick="openLesson('${c.code}','${d}')" style="cursor:pointer">${m}</td>`;
+    }).join('');
+    return `<tr>
+      <td class="stick-a" style="text-align:center;font-weight:600">${esc(s.ref)}</td>
+      <td class="stick-b"><span class="reg-name" onclick="openStudent('${s.ref}')">${esc(s.name)}</span>
+        ${flag?`<span class="att-flag" style="margin-left:6px">${flag.n}</span>`:''}</td>
+      ${cells}
+      <td class="tot" style="color:var(--sage-deep)">${t.p}</td>
+      <td class="tot" style="color:${t.a?'var(--alert)':'var(--faint)'}">${t.a}</td>
+      <td class="tot" style="color:${t.l?'var(--clay)':'var(--faint)'}">${t.l}</td>
+      <td class="tot" style="color:${pct==null?'var(--faint)':pct>=80?'var(--sage-deep)':pct>=60?'var(--clay)':'var(--alert)'}">${pct==null?'—':pct+'%'}</td>
+    </tr>`;
+  }).join('');
+
+  const foot = dates.map(d=>{
+    let p=0; students.forEach(s=>{ if(statusOf(c.code,s.ref,d)==='present') p++; });
+    return `<td class="${d===today?'today-col':''}" title="${fmtLong(d)} · ${p}/${students.length}">${isMarked(c.code,d)?p:'–'}</td>`;
+  }).join('');
+
+  host.innerHTML = `
+    <div class="strip">
+      <span class="lc-code">${esc(c.code)}</span>
+      <span class="lc-meta">${DAY_FULL[c.day]} · ${c.start}–${c.end} · ${esc(c.level)}</span>
+      <span class="lc-meta">${dates.length} aulas dadas · ${students.length} alunos</span>
+      <button class="sh-btn" style="margin-left:auto" onclick="exportPauta('${c.code}')">Exportar CSV</button>
     </div>
-    <div class="sh-body">${list.length?list.map(s=>{const av=avCol(s.name);
-      return `<div class="sh-row">
-        <span class="sh-av" style="background:${av.bg};color:${av.t}">${avInit(s.name)}</span>
-        <div style="flex:1;min-width:0"><div class="sh-name">${esc(s.name)}</div>
-          <div class="sh-meta">${esc(s.ref)}</div></div></div>`;}).join('')
-      :'<div class="sh-empty">Sem alunos nesta sessão.</div>'}</div>
-    <div class="sh-foot"><button class="sh-btn" style="margin-left:auto"
-      onclick="closeSheet('sh-roster')">Fechar</button></div></div>`;
-  host.classList.add('on');
+    <div class="reg"><table>
+      <thead>
+        <tr><th class="stick-a">Ref</th><th class="stick-b">Nome</th>${head1}
+          <th class="tot">P</th><th class="tot">F</th><th class="tot">A</th><th class="tot">%</th></tr>
+        <tr><th class="stick-a"></th><th class="stick-b"></th>${head2}
+          <th class="tot"></th><th class="tot"></th><th class="tot"></th><th class="tot"></th></tr>
+      </thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td class="stick-a">—</td><td class="stick-b" style="text-align:left">Presentes</td>${foot}
+        <td colspan="4"></td></tr></tfoot>
+    </table></div>
+    <div class="reg-legend">
+      <span style="color:var(--sage-deep)">● Presente</span>
+      <span style="color:var(--alert)">✕ Falta</span>
+      <span style="color:var(--clay)">▲ Atraso</span>
+      <span style="color:var(--faint)">· Sem registo</span>
+      <span style="margin-left:auto">Clique numa coluna para abrir essa aula · clique num nome para o dossier</span>
+    </div>`;
 }
 
-function exportCSV(){
-  const rows=['ALM,Atribuição de turmas,'+AY,'',
-    'Turma,Grupo,Nível,Dia,Início,Fim,Filial,Professor,Código,Alunos'];
-  scoped().forEach(c=>{
-    rows.push([c.turma_code,c.group_code,levelOf(c),c.day_of_week,
-      (c.start_time||'').slice(0,5),(c.end_time||'').slice(0,5),
-      BRANCH_LABEL[c.branch]||c.branch,`"${c.teacher_name||''}"`,c.teacher_code||'',
-      c.student_refs.length].join(','));
-  });
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'}));
-  a.download=`ALM-atribuicao-${BRANCH}.csv`; a.click();
+function exportPauta(code){
+  const c = CLASSES.find(x=>x.code===code); if(!c) return;
+  const dates = pastDatesFor(c);
+  const rows = [`ALM,${code},${AY||''}`, '',
+    ['Ref','Nome',...dates.map(d=>fmtShort(d)),'P','F','A','%'].join(',')];
+  c.refs.map(r=>({ref:r,name:ENROL[r]?.name||r})).sort((a,b)=>a.name.localeCompare(b.name))
+    .forEach(s=>{
+      const t = tallyFor(code,s.ref,dates);
+      const pct = t.marked?Math.round(t.p/t.marked*100):'';
+      rows.push([s.ref,`"${s.name}"`,...dates.map(d=>({present:'P',absent:'F',late:'A'})[statusOf(code,s.ref,d)]||''),
+        t.p,t.a,t.l,pct].join(','));
+    });
+  const blob = new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `ALM-${code}-pauta.csv`; a.click();
   toast('CSV exportado');
 }
 
-/* ══ WIRING ══ */
-document.getElementById('nav').addEventListener('click',e=>{
-  const b=e.target.closest('.nav-btn'); if(!b) return;
-  PANEL=b.dataset.p;
-  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x===b));
-  renderMain();
+/* ══════════════════════════════════════════════════════════════════════
+   THE LESSON SHEET
+   Opened with a turma code and a DATE. Not an index, not a number —
+   the date. Everything inside reads and writes against it.
+   ══════════════════════════════════════════════════════════════════════ */
+function closeSheet(id){ const el=document.getElementById(id); el.classList.remove('on'); el.innerHTML=''; }
+function hostFor(id){ const el=document.getElementById(id);
+  el.onclick = e => { if(e.target===el) closeSheet(id); }; return el; }
+
+function openNextUnmarked(code){
+  const c = CLASSES.find(x=>x.code===code); if(!c) return;
+  const un = unmarkedFor(c);
+  const past = pastDatesFor(c);
+  openLesson(code, un[0] || past[past.length-1] || lessonDates(c.day)[0]);
+}
+
+function openLesson(code, iso){
+  const c = CLASSES.find(x=>x.code===code); if(!c) return;
+  const dates = lessonDates(c.day);
+  /* If the date handed in is not a teaching day for this class — a cell
+     clicked in a holiday week, a stale link — snap to the nearest real
+     lesson on or before it and SAY SO, rather than opening a day that
+     does not exist. */
+  let date = iso, snapped = false;
+  if(!dates.includes(date)){
+    const before = dates.filter(d=>d<=iso);
+    date = before[before.length-1] || dates[0] || null;
+    snapped = !!date;
+  }
+  if(!date){ toast('Esta turma não tem aulas no calendário lectivo','warn'); return; }
+  sheetLesson = {cls:c, date};
+  attDraft = {};
+  c.refs.forEach(r=>{ const s=statusOf(code,r,date); if(s) attDraft[r]=s; });
+  paintLesson();
+  if(snapped){
+    /* Before term there IS no previous lesson — the snap lands on the
+       first one, and saying "a aula anterior" would be a lie. */
+    const first = lessonDates(c.day)[0];
+    toast(date===first && date>todayISO()
+      ? `Sem aula nesse dia — aberta a primeira aula, ${fmtShort(date)}`
+      : `Sem aula nesse dia — aberta a aula de ${fmtShort(date)}`, 'warn');
+  }
+}
+
+function paintLesson(){
+  const {cls:c, date} = sheetLesson;
+  const dates = lessonDates(c.day);
+  const idx   = dates.indexOf(date);
+  const today = todayISO();
+  const marked= isMarked(c.code, date);
+  const sum   = SUMS[c.code]?.[date] || {};
+  const d     = DEPT[deptOf(c)];
+
+  const rail = dates.map((iso,i)=>{
+    const st = ['rc', isMarked(c.code,iso)?'done':'', iso===today?'today':'',
+                iso>today?'future':'', iso===date?'sel':''].filter(Boolean).join(' ');
+    const dt = new Date(iso+'T12:00:00');
+    return `<button class="${st}" data-iso="${iso}" title="${fmtLong(iso)}">
+      <span class="rc-n">${String(i+1).padStart(2,'0')}</span>
+      <span class="rc-d">${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</span>
+    </button>`;
+  }).join('');
+
+  const roster = c.refs.map(r=>({ref:r,name:ENROL[r]?.name||r}))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .map((s,i)=>{
+      const st = attDraft[s.ref] || null;
+      const cl = st==='present'?'p':st==='late'?'l':st==='absent'?'a':'';
+      const ic = st==='present'?'✓':st==='late'?'⏱':st==='absent'?'✕':'·';
+      const lb = st==='present'?'PRESENTE':st==='late'?'ATRASO':st==='absent'?'FALTA':'—';
+      const av = avCol(s.name);
+      const flag = absenceFlag(c.code, s.ref);
+      return `<div class="att-row ${cl}" data-ref="${s.ref}">
+        <button class="att-mark" data-cycle="${s.ref}">${ic}</button>
+        <span class="att-num">${String(i+1).padStart(2,'0')}</span>
+        <div class="sh-av" style="background:${av.bg};color:${av.t};cursor:pointer" data-stu="${s.ref}">${avInit(s.name)}</div>
+        <div class="att-mid" data-cycle="${s.ref}">
+          <div class="sh-name">${esc(s.name)}</div>
+          <div class="sh-meta">${esc(s.ref)}</div>
+        </div>
+        ${flag?`<span class="att-flag" title="${flag.minor?'menor de idade':'adulto'}">${flag.n} faltas</span>`:''}
+        <span class="att-st">${lb}</span>
+        ${actionsFor(s.ref)}
+      </div>`;
+    }).join('');
+
+  const host = document.getElementById('sh-lesson');
+  host.innerHTML = `<div class="lp">
+
+    <div class="lp-top">
+      <button class="lp-back" data-close>&#8592; Semana</button>
+      <span class="lp-code">${esc(c.code)}</span>
+      <span class="lp-when">${fmtLong(date)} &middot; ${c.start}&ndash;${c.end}</span>
+      <span class="lp-tag">${d.label} &middot; ${esc(c.level)}</span>
+      <span class="lp-tag">Aula ${String(idx+1).padStart(2,'0')}/${dates.length}</span>
+      <span class="lp-tag ${marked?'on':'pend'}">${marked?'Marcada':'Por marcar'}</span>
+      ${date>today?'<span class="lp-tag pend">Futura</span>':''}
+      <span class="lp-counts">
+        <span class="lp-k" data-roster="present"><span class="lp-kv" id="k-p">0</span><span class="lp-kl">pres</span></span>
+        <span class="lp-k" data-roster="late"><span class="lp-kv" id="k-l">0</span><span class="lp-kl">atr</span></span>
+        <span class="lp-k" data-roster="absent"><span class="lp-kv" id="k-a">0</span><span class="lp-kl">falt</span></span>
+        <span class="lp-k" data-roster="none"><span class="lp-kv" id="k-o">0</span><span class="lp-kl">s/ marca</span></span>
+        <span class="lp-dirty" id="save-note"></span>
+        <button class="lp-save" id="btn-save">Guardar</button>
+      </span>
+    </div>
+
+    <div class="lp-rail"><div class="lp-track" id="rail">${rail}</div></div>
+
+    <div class="lp-bar">
+      <button class="lp-tab active" data-pane="pres">Presen&ccedil;as</button>
+      <button class="lp-tab" data-pane="sum">Sum&aacute;rio</button>
+      <button class="lp-tab" data-pane="msg">Mensagem</button>
+      <span class="lp-bulk">
+        <button class="lp-b sage" data-all="present">Todos presentes</button>
+        <button class="lp-b" data-all="">Limpar</button>
+        <button class="lp-b" data-all="absent">Todos faltam</button>
+      </span>
+    </div>
+
+    <div class="lp-body">
+      <div class="sh-pane active" id="pane-pres">
+        <div class="lp-roster">${roster || '<div class="sh-empty">Esta turma n&atilde;o tem alunos inscritos.</div>'}</div>
+      </div>
+
+      <div class="sh-pane" id="pane-sum">
+        <div class="lp-roster">
+          <div class="sh-sec">Sum&aacute;rio da aula</div>
+          <textarea class="inp" id="s-text" placeholder="Conte&uacute;dos abordados&hellip;">${esc(sum.summary_text||'')}</textarea>
+          <div class="sh-g2" style="margin-top:8px">
+            <div><div class="sh-fk">Livro / p&aacute;gina</div><input class="inp" id="s-book" value="${esc(sum.book_page||'')}"/></div>
+            <div><div class="sh-fk">Compet&ecirc;ncia</div><select class="inp" id="s-skill">
+              ${['','Speaking','Listening','Reading','Writing','Grammar','Vocabulary','Pronunciation']
+                .map(o=>`<option ${o===(sum.skill||'')?'selected':''}>${o}</option>`).join('')}</select></div>
+            <div><div class="sh-fk">Participa&ccedil;&atilde;o</div><select class="inp" id="s-part">
+              ${['','Excelente','Boa','Satisfat&oacute;ria','Fraca']
+                .map(o=>`<option ${o===(sum.participation||'')?'selected':''}>${o}</option>`).join('')}</select></div>
+            <div><div class="sh-fk">Observa&ccedil;&otilde;es</div><input class="inp" id="s-obs" value="${esc(sum.observations||'')}"/></div>
+          </div>
+          <div class="sh-sec">Trabalho de casa</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="tpc">
+            ${['Exerc&iacute;cios livro','Composi&ccedil;&atilde;o','Leitura','Revis&atilde;o gram&aacute;tica','Vocabul&aacute;rio']
+              .map(t=>`<button class="chip ${(sum.tpc||'').includes(t)?'on':''}">${t}</button>`).join('')}
+          </div>
+          <div class="sh-g2">
+            <div><div class="sh-fk">Refer&ecirc;ncia</div><input class="inp" id="s-tpc-ref" value="${esc(sum.tpc_ref||'')}"/></div>
+            <div><div class="sh-fk">Entregar em</div><input class="inp" id="s-tpc-due" type="date" value="${esc(sum.tpc_due||'')}"/></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sh-pane" id="pane-msg">
+        <div class="lp-roster">
+          <div class="sh-sec">Mensagem interna</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="msg-to">
+            ${['Direc&ccedil;&atilde;o','Secretaria','Operacional'].map(t=>`<button class="chip">${t}</button>`).join('')}
+          </div>
+          <input class="inp" id="m-subj" placeholder="Assunto"/>
+          <textarea class="inp" id="m-body" style="margin-top:8px" placeholder="Mensagem&hellip;"></textarea>
+          <div style="margin-top:10px"><button class="sh-btn primary" onclick="sendMessage()">Enviar</button></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  host.classList.add('on');
+  wireLesson();
+  updateCounts();
+  const sel = host.querySelector('.rc.sel');
+  if(sel) sel.parentElement.scrollLeft = sel.offsetLeft - sel.parentElement.offsetWidth/2 + 29;
+}
+
+/* ── PER-STUDENT ACTIONS ──────────────────────────────────────────
+   Disabled rather than hidden when the contact is missing: "why is
+   there no phone icon" is a worse question than "why is the phone
+   greyed out", and the greyed one tells you the record is incomplete. */
+const ICON = {
+  ficha:'<path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v6h6"/>',
+  wa:   '<path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.2-5.2A8.5 8.5 0 1 1 21 11.5z"/>',
+  ee:   '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/>',
+  mail: '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/>',
+  note: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+  office:'<path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6"/>',
+};
+function ic(k){ return `<svg viewBox="0 0 24 24">${ICON[k]}</svg>`; }
+
+function actionsFor(ref){
+  const e = ENROL[ref] || {};
+  const tel  = (e.phone||'').replace(/\D/g,'');
+  const gtel = (e.guardian_phone||'').replace(/\D/g,'');
+  const mail = e.email || e.guardian_email || '';
+  const b = (k,t,on,dis) =>
+    `<button data-act="${k}" data-ref="${ref}" title="${esc(t)}"${dis?' disabled':''}${on?' class="on"':''}>${ic(k)}</button>`;
+  return `<span class="act">
+    ${b('ficha','Dossier do aluno')}
+    ${b('wa', tel?`WhatsApp · ${e.phone}`:'Sem telefone do aluno', false, !tel)}
+    ${b('ee', gtel?`Ligar ao EE · ${e.guardian_name||''} ${e.guardian_phone}`:'Sem telefone do EE', false, !gtel)}
+    ${b('mail', mail?`Email · ${mail}`:'Sem email', false, !mail)}
+    ${b('note', (e.notes||'').trim()?'Nota interna (tem nota)':'Nota interna', !!(e.notes||'').trim())}
+    ${b('office','Mensagem à secretaria sobre este aluno')}
+  </span>`;
+}
+
+/* Direct where it can be direct; a tooltip only where words are
+   needed. Neither ever leaves the register. */
+function runAction(k, ref, btn){
+  const e = ENROL[ref] || {};
+  const tel  = (e.phone||'').replace(/\D/g,'');
+  const gtel = (e.guardian_phone||'').replace(/\D/g,'');
+  const mail = e.email || e.guardian_email || '';
+  if(k==='ficha')  return openStudent(ref);
+  if(k==='wa')     return tel  && window.open(`https://wa.me/${tel}`,'_blank');
+  if(k==='ee')     return gtel && (window.location.href = `tel:${gtel}`);
+  if(k==='mail')   return mail && (window.location.href =
+      `mailto:${mail}?subject=${encodeURIComponent(`${sheetLesson.cls.code} · ${e.name||ref}`)}`);
+  if(k==='note')   return openTip(btn, ref, 'note');
+  if(k==='office') return openTip(btn, ref, 'office');
+}
+
+let _tip=null;
+function closeTip(){ if(_tip){ _tip.remove(); _tip=null; } }
+function openTip(btn, ref, kind){
+  closeTip();
+  const e = ENROL[ref] || {};
+  const row = btn.closest('.att-row');
+  const t = document.createElement('div');
+  t.className = 'tip on';
+  t.innerHTML = `
+    <div class="tip-h">
+      <div><div class="tip-t">${kind==='note'?'Nota interna':'Para a secretaria'}</div>
+        <div class="tip-n">${esc(e.name||ref)}</div></div>
+    </div>
+    <div class="tip-b"><textarea id="tip-x" placeholder="${
+      kind==='note' ? 'Visível para toda a equipa ALM…'
+                    : 'Assunto para a secretaria ou direcção…'}">${
+      kind==='note' ? esc(e.notes||'') : ''}</textarea></div>
+    <div class="tip-f">
+      <button class="sh-btn" data-x="cancel">Cancelar</button>
+      <button class="sh-btn sage" style="margin-left:auto" data-x="ok">${
+        kind==='note'?'Guardar nota':'Enviar'}</button>
+    </div>`;
+  row.appendChild(t);
+  /* Anchored to the row, flipped up if it would fall off the bottom. */
+  const r = row.getBoundingClientRect();
+  t.style.right = '8px';
+  t.style.top   = (r.bottom + 250 > window.innerHeight) ? 'auto' : '100%';
+  t.style.bottom= (r.bottom + 250 > window.innerHeight) ? '100%' : 'auto';
+  _tip = t;
+  t.querySelector('#tip-x').focus();
+  t.querySelector('[data-x="cancel"]').onclick = closeTip;
+  t.querySelector('[data-x="ok"]').onclick = async () => {
+    const v = t.querySelector('#tip-x').value.trim();
+    if(!v){ closeTip(); return; }
+    try{
+      if(kind==='note'){
+        await sbPatch('enrolments',`ref=eq.${encodeURIComponent(ref)}`,{notes:v});
+        ENROL[ref] = {...e, notes:v};
+        btn.classList.add('on');
+        toast('Nota guardada');
+      } else {
+        await sbUpsert('messages',[{turma_code:sheetLesson.cls.code,
+          lesson_date:sheetLesson.date, academic_year:AY||null,
+          teacher_id:ME.id, teacher_name:ME.name, message_type:'internal_school',
+          section:'internal', to_recipients:'Secretaria',
+          subject:`${sheetLesson.cls.code} · ${e.name||ref}`, body:v,
+          status:'pending', created_at:new Date().toISOString()}]);
+        toast('Enviado à secretaria');
+      }
+      closeTip();
+    }catch(err){ toast('Erro: '+err.message,'err'); }
+  };
+}
+
+function wireLesson(){
+  const host = document.getElementById('sh-lesson');
+  host.querySelectorAll('.lp-tab').forEach(b=>b.onclick=()=>{
+    host.querySelectorAll('.lp-tab').forEach(x=>x.classList.remove('active'));
+    host.querySelectorAll('.sh-pane').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); host.querySelector('#pane-'+b.dataset.pane).classList.add('active');
+  });
+  host.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeSheet('sh-lesson'));
+  host.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>markAll(b.dataset.all||null));
+  host.querySelectorAll('[data-roster]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.roster; rosterAtt(k==='none'?null:k); });
+  host.querySelector('#btn-save').onclick = saveLesson;
+  /* Changing the rail changes the DATE, which is the record. Nothing
+     else is carried across — that is the whole point. */
+  host.querySelectorAll('.rc').forEach(b=>b.onclick=()=>{
+    if(dirty() && !confirm('Há marcações por guardar. Mudar de aula e perdê-las?')) return;
+    openLesson(sheetLesson.cls.code, b.dataset.iso);
+  });
+  host.querySelectorAll('[data-cycle]').forEach(el=>el.onclick=()=>cycle(el.dataset.cycle));
+  host.querySelectorAll('[data-act]').forEach(el=>el.onclick=ev=>{
+    ev.stopPropagation();               /* never toggles the mark */
+    runAction(el.dataset.act, el.dataset.ref, el);
+  });
+  host.addEventListener('click', ev=>{ if(!ev.target.closest('.tip')
+    && !ev.target.closest('[data-act]')) closeTip(); });
+  host.querySelectorAll('[data-stu]').forEach(el=>el.onclick=e=>{
+    e.stopPropagation(); openStudent(el.dataset.stu); });
+  host.querySelectorAll('#tpc .chip, #msg-to .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
+  const track = host.querySelector('#rail');
+  let drag=false,x0=0,s0=0;
+  track.addEventListener('mousedown',e=>{drag=true;x0=e.pageX;s0=track.scrollLeft;});
+  window.addEventListener('mousemove',e=>{ if(drag) track.scrollLeft = s0-(e.pageX-x0); });
+  window.addEventListener('mouseup',()=>{drag=false;});
+}
+
+function cycle(ref){
+  const cur = attDraft[ref] || null;
+  attDraft[ref] = cur===null ? 'present' : cur==='present' ? 'late' : cur==='late' ? 'absent' : null;
+  if(attDraft[ref]===null) delete attDraft[ref];
+  const row = document.querySelector(`.att-row[data-ref="${ref}"]`);
+  const st = attDraft[ref] || null;
+  row.className = 'att-row ' + (st==='present'?'p':st==='late'?'l':st==='absent'?'a':'');
+  row.querySelector('.att-mark').textContent = st==='present'?'✓':st==='late'?'⏱':st==='absent'?'✕':'·';
+  row.querySelector('.att-st').textContent = st==='present'?'PRESENTE':st==='late'?'ATRASO':st==='absent'?'FALTA':'—';
+  updateCounts();
+}
+function markAll(v){
+  sheetLesson.cls.refs.forEach(r=>{ if(v) attDraft[r]=v; else delete attDraft[r]; });
+  paintLesson();
+}
+function updateCounts(){
+  const refs = sheetLesson.cls.refs;
+  const n = s => refs.filter(r=>(attDraft[r]||null)===s).length;
+  document.getElementById('k-p').textContent = n('present');
+  document.getElementById('k-l').textContent = n('late');
+  document.getElementById('k-a').textContent = n('absent');
+  document.getElementById('k-o').textContent = n(null);
+  document.getElementById('save-note').textContent = dirty() ? 'alterações por guardar' : '';
+}
+function dirty(){
+  const {cls,date} = sheetLesson;
+  return cls.refs.some(r => (attDraft[r]||null) !== (statusOf(cls.code,r,date)||null));
+}
+
+async function saveLesson(){
+  if(saving) return;
+  const {cls,date} = sheetLesson;
+  if(date > todayISO()){ toast('Não é possível marcar uma aula futura','warn'); return; }
+  const marked = cls.refs.filter(r=>attDraft[r]);
+  const btn = document.getElementById('btn-save');
+  saving = true; btn.disabled = true; btn.textContent = 'A guardar…';
+  try{
+    if(marked.length){
+      const now = new Date().toISOString();
+      /* lesson_number is written for the register's sake and never read
+         back. The primary key is (turma_code, student_ref, date). */
+      await sbUpsert('attendance', marked.map(r=>({
+        turma_code:cls.code, student_ref:r, student_name:ENROL[r]?.name||r,
+        date, lesson_number:lessonNoOf(cls.day,date), status:attDraft[r],
+        recorded_by:ME.id, recorded_at:now })), 'turma_code,student_ref,date');
+      marked.forEach(r=>{
+        ((ATT[cls.code]=ATT[cls.code]||{})[r] = ATT[cls.code][r]||{})[date] = attDraft[r];
+      });
+    }
+    const text = document.getElementById('s-text')?.value || '';
+    const anySum = text || document.getElementById('s-book')?.value || document.getElementById('s-obs')?.value;
+    if(anySum){
+      const row = {turma_code:cls.code, teacher_id:ME.code||ME.id, date,
+        day:cls.day, hour:cls.hour, lesson_number:lessonNoOf(cls.day,date),
+        summary_text:text, book_page:document.getElementById('s-book').value,
+        skill:document.getElementById('s-skill').value,
+        participation:document.getElementById('s-part').value,
+        observations:document.getElementById('s-obs').value,
+        tpc:[...document.querySelectorAll('#tpc .chip.on')].map(c=>c.textContent).join(', '),
+        tpc_ref:document.getElementById('s-tpc-ref').value,
+        tpc_due:document.getElementById('s-tpc-due').value || null,
+        created_at:new Date().toISOString()};
+      await sbUpsert('lesson_summaries',[row],'turma_code,date');
+      (SUMS[cls.code]=SUMS[cls.code]||{})[date] = row;
+    }
+    setConn(true,'Supabase');
+    toast(`Aula de ${fmtShort(date)} guardada`);
+    paintLesson(); renderAll();
+  }catch(e){
+    setConn(false,'erro'); toast('Erro: '+e.message,'err');
+  }finally{ saving=false; const b=document.getElementById('btn-save'); if(b){b.disabled=false;b.textContent='Guardar';} }
+}
+
+async function sendMessage(){
+  const body = document.getElementById('m-body').value.trim();
+  if(!body){ toast('Escreva a mensagem','warn'); return; }
+  try{
+    await sbUpsert('messages',[{turma_code:sheetLesson.cls.code, lesson_date:sheetLesson.date,
+      academic_year:AY||null, teacher_id:ME.id, teacher_name:ME.name,
+      message_type:'internal_school', section:'internal',
+      to_recipients:[...document.querySelectorAll('#msg-to .chip.on')].map(c=>c.textContent).join(', ')||'Secretaria',
+      subject:document.getElementById('m-subj').value, body, status:'pending',
+      created_at:new Date().toISOString()}]);
+    document.getElementById('m-subj').value=''; document.getElementById('m-body').value='';
+    toast('Mensagem enviada');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE STUDENT SHEET
+   The same card as the lesson, with an ID band at the top — photo well,
+   name on a tinted strip, level mark at the right. A candidate card,
+   because that is what it is.
+   ══════════════════════════════════════════════════════════════════════ */
+async function openStudent(ref){
+  const host = hostFor('sh-student');
+  host.innerHTML = `<div class="sh"><div class="sh-head">
+    <div class="sh-eyebrow"><span class="sh-bar"></span><span class="sh-kicker">A carregar</span></div>
+    <div class="sh-title">${esc(ref)}</div></div>
+    <div class="loading"><span class="spin"></span></div></div>`;
+  host.classList.add('on');
+
+  let e = ENROL[ref] || null, hist = [];
+  if(!e){
+    try{ e = (await sbGet('enrolments',`ref=eq.${encodeURIComponent(ref)}&select=*&limit=1`))[0]||null; }catch(err){}
+  }
+  try{ hist = await sbGet('turma_students',
+    `ref=eq.${encodeURIComponent(ref)}&select=ref,turma_code,academic_year,level_code,outcome,absences,grade_final,notes&order=academic_year.desc`); }catch(err){ hist=[]; }
+
+  const name = e?.name || ref;
+  const dept = e ? (LEVEL_DEPT[(e.level_code||'').trim()]||'adults') : 'adults';
+  const lvl = LEVEL_DISP[(e?.level_code||'').trim()] || e?.level_code || '—';
+  const av = avCol(name);
+  const age = ageOf(ref);
+  const mine = CLASSES.filter(c=>c.refs.includes(ref));
+
+  /* Attendance across every class I teach this student in. The numbers
+     here are the same tallies the register draws — one source. */
+  const att = mine.map(c=>{
+    const dates = pastDatesFor(c);
+    return {c, t:tallyFor(c.code, ref, dates), dates};
+  });
+  const tot = att.reduce((a,x)=>({p:a.p+x.t.p,abs:a.abs+x.t.a,l:a.l+x.t.l,m:a.m+x.t.marked}),{p:0,abs:0,l:0,m:0});
+  const pct = tot.m ? Math.round(tot.p/tot.m*100) : null;
+
+  const fld = (k,v,mono) => v ? `<div class="sh-fld"><div class="sh-fk">${k}</div>
+    <div class="sh-fv"${mono?' style="font-family:var(--mono);font-size:12px"':''}>${esc(v)}</div></div>` : '';
+
+  const identity = `
+    <div class="sh-sec">Inscrição</div>
+    <div class="sh-g2">
+      ${fld('Referência', e?.ref||ref, true)}
+      ${fld('Nível', lvl)}
+      ${age!=null?fld('Idade', age+' anos'+(age<18?' · menor':'')):''}
+      ${fld('Língua', LANG_NAME[(e?.lang||'').toUpperCase().slice(0,2)]||e?.lang)}
+      ${fld('Filial', (e?.branch||'').replace(/_/g,' '))}
+      ${fld('Escola', e?.school)}
+      ${fld('Ano escolar', e?.school_year)}
+    </div>
+    <div class="sh-sec">Contactos</div>
+    <div class="sh-g2">${fld('Telefone', e?.phone, true)}${fld('Email', e?.email)}</div>
+    <div class="sh-sec">Encarregado de educação</div>
+    ${e?.guardian_name||e?.guardian_phone||e?.guardian_email
+      ? `<div class="sh-g2">${fld('Nome',e?.guardian_name)}${fld('Telefone',e?.guardian_phone,true)}${fld('Email',e?.guardian_email)}</div>`
+      : '<div class="sh-empty">Sem dados de EE registados.</div>'}`;
+
+  const attendance = att.length ? att.map(({c,t,dates})=>{
+    const p = t.marked?Math.round(t.p/t.marked*100):null;
+    const flag = absenceFlag(c.code, ref);
+    /* A strip of every lesson so far. Clicking one opens that lesson —
+       the same date the mark belongs to. */
+    const strip = dates.slice(-40).map(d=>{
+      const s = statusOf(c.code,ref,d);
+      const col = s==='present'?'var(--sage-deep)':s==='absent'?'var(--alert)':s==='late'?'var(--clay)':'rgba(0,0,0,.08)';
+      return `<span title="${fmtLong(d)} · ${s||'sem registo'}" onclick="closeSheet('sh-student');openLesson('${c.code}','${d}')"
+        style="width:9px;height:16px;border-radius:6px;background:${col};cursor:pointer;flex-shrink:0"></span>`;
+    }).join('');
+    return `<div class="sh-fld" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-family:var(--mono);font-weight:700;color:var(--ink)">${esc(c.code)}</span>
+        <span class="sh-meta">${DAY_FULL[c.day]} · ${c.start}</span>
+        ${flag?`<span class="att-flag">${flag.n} faltas</span>`:''}
+        <span style="margin-left:auto;font-weight:700;color:${p==null?'var(--faint)':p>=80?'var(--sage-deep)':p>=60?'var(--clay)':'var(--alert)'}">${p==null?'—':p+'%'}</span>
+      </div>
+      <div style="display:flex;gap:2px;margin-top:9px;overflow-x:auto;padding-bottom:2px">${strip||'<span class="sh-meta">ainda sem aulas</span>'}</div>
+      <div class="sh-meta" style="margin-top:7px">${t.p} presenças · ${t.a} faltas · ${t.l} atrasos · ${t.o} por marcar</div>
+    </div>`;
+  }).join('') : '<div class="sh-empty">Sem turmas.</div>';
+
+  const marksPane = `
+    <div class="sh-sec">Avaliações ${AY||''}</div>
+    <div class="notice"><b>Nota.</b> As avaliações são gravadas em <code>student_marks</code>.
+      Se a tabela ainda não existir na base de dados, o registo falha e é avisado aqui —
+      não é guardado em silêncio.</div>
+    <div class="sh-g3">
+      <div><div class="sh-fk">Turma</div><select class="inp" id="mk-turma">${mine.map(c=>`<option>${esc(c.code)}</option>`).join('')}</select></div>
+      <div><div class="sh-fk">Tipo</div><select class="inp" id="mk-type">
+        <option>Teste escrito</option><option>Oral</option><option>Participação</option><option>Projecto</option><option>Exame</option></select></div>
+      <div><div class="sh-fk">Nota (0–100)</div><input class="inp" id="mk-val" type="number" min="0" max="100"/></div>
+    </div>
+    <div style="margin-top:8px"><div class="sh-fk">Comentário</div><input class="inp" id="mk-note"/></div>
+    <div style="margin-top:10px"><button class="sh-btn primary" onclick="saveMark('${ref}')">Registar avaliação</button></div>
+    <div class="sh-sec">Historial ALM</div>
+    ${hist.length ? hist.map(y=>`<div class="sh-fld" style="margin-bottom:6px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-family:var(--mono);font-weight:700">${esc(y.academic_year||'—')}</span>
+          <span class="sh-meta">${esc(y.turma_code||'—')} · ${esc(LEVEL_DISP[(y.level_code||'').trim()]||y.level_code||'—')}</span>
+          <span style="margin-left:auto;font-weight:600;color:${y.outcome==='aprovado'?'var(--sage-deep)':y.outcome==='reprovado'?'var(--alert)':'var(--faint)'}">${esc(y.outcome||'em curso')}</span>
+        </div>
+        <div class="sh-meta" style="margin-top:5px">${y.grade_final!=null?`Nota ${y.grade_final}%`:''}${y.absences!=null?` · ${y.absences} faltas`:''}</div>
+      </div>`).join('') : '<div class="sh-empty">Sem anos anteriores registados.</div>'}`;
+
+  const notes = `
+    <div class="sh-sec">Nota interna</div>
+    <textarea class="inp" id="stu-note" placeholder="Visível para toda a equipa ALM…">${esc(e?.notes||'')}</textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="sh-btn sage" onclick="saveNote('${ref}')">Guardar nota</button></div>`;
+
+  host.innerHTML = `<div class="sh" style="--accent:${DEPT[dept].band}">
+    <button class="sh-close" onclick="closeSheet('sh-student')">✕</button>
+    <div class="sh-head">
+      <div class="sh-eyebrow"><span class="sh-bar"></span>
+        <span class="sh-kicker">${DEPT[dept].label} · ${esc(lvl)} · ${esc((e?.branch||'').replace(/_/g,' '))}</span></div>
+      <div class="idband" style="--band:${DEPT[dept].band};margin:0;border-radius:10px">
+        <div class="idb-photo" style="width:70px;cursor:default">
+          <div class="idb-photo-ph" style="font-family:var(--mono);font-size:17px;font-weight:700;color:#fff">${avInit(name)}</div>
+        </div>
+        <div class="idb-who" style="padding:12px 16px;gap:5px">
+          <div class="idb-name" style="font-size:clamp(19px,3vw,26px);letter-spacing:2px">${esc(name)}</div>
+          <div class="idb-tags"><span class="idb-tag">${esc(ref)}</span>
+            ${age!=null?`<span class="idb-tag">${age} anos</span>`:''}
+            <span class="idb-tag">${esc((e?.lang||'').toUpperCase().slice(0,2))}</span></div>
+        </div>
+        <div class="idb-stat" style="cursor:default;padding:0 18px">
+          <div class="idb-stat-v" style="font-size:24px">${esc(lvl)}</div>
+          <div class="idb-stat-l">Nível</div></div>
+      </div>
+    </div>
+    <div class="sh-strip">
+      <div class="sh-stat"><div class="sh-stat-v" style="color:var(--sage-deep)">${tot.p}</div><div class="sh-stat-l">Presenças</div></div>
+      <div class="sh-stat"><div class="sh-stat-v" style="color:${tot.abs?'var(--alert)':'var(--ink)'}">${tot.abs}</div><div class="sh-stat-l">Faltas</div></div>
+      <div class="sh-stat"><div class="sh-stat-v" style="color:${tot.l?'var(--clay)':'var(--ink)'}">${tot.l}</div><div class="sh-stat-l">Atrasos</div></div>
+      <div class="sh-stat"><div class="sh-stat-v">${pct==null?'—':pct+'%'}</div><div class="sh-stat-l">Assiduidade</div></div>
+    </div>
+    <div class="sh-tabs">
+      <button class="sh-tab active" data-pane="id">Identidade</button>
+      <button class="sh-tab" data-pane="att">Assiduidade</button>
+      <button class="sh-tab" data-pane="mk">Avaliação</button>
+      <button class="sh-tab" data-pane="nt">Notas</button>
+    </div>
+    <div class="sh-body">
+      <div class="sh-pane active" id="pane-id">${identity}</div>
+      <div class="sh-pane" id="pane-att">${attendance}</div>
+      <div class="sh-pane" id="pane-mk">${marksPane}</div>
+      <div class="sh-pane" id="pane-nt">${notes}</div>
+    </div>
+    <div class="sh-foot">
+      ${e?.phone?`<button class="sh-btn" onclick="window.open('https://wa.me/${(e.phone||'').replace(/\D/g,'')}')">WhatsApp</button>`:''}
+      ${e?.guardian_phone?`<button class="sh-btn" onclick="window.open('tel:${esc(e.guardian_phone)}')">Ligar ao EE</button>`:''}
+      <button class="sh-btn" style="margin-left:auto" onclick="closeSheet('sh-student')">Fechar</button>
+    </div>
+  </div>`;
+  host.querySelectorAll('.sh-tab').forEach(b=>b.onclick=()=>{
+    host.querySelectorAll('.sh-tab').forEach(x=>x.classList.remove('active'));
+    host.querySelectorAll('.sh-pane').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); host.querySelector('#pane-'+b.dataset.pane).classList.add('active');
+  });
+}
+
+async function saveMark(ref){
+  const v = parseFloat(document.getElementById('mk-val').value);
+  if(isNaN(v)){ toast('Indique a nota','warn'); return; }
+  try{
+    await sbUpsert('student_marks',[{student_ref:ref, turma_code:document.getElementById('mk-turma').value,
+      academic_year:AY||null, assessment_type:document.getElementById('mk-type').value,
+      mark:v, comment:document.getElementById('mk-note').value,
+      recorded_by:ME.id, date:todayISO(), created_at:new Date().toISOString()}]);
+    toast('Avaliação registada');
+    document.getElementById('mk-val').value=''; document.getElementById('mk-note').value='';
+  }catch(err){
+    /* Say what actually failed. A missing table is a setup problem, not
+       a user error, and it should not look like one. */
+    const missing = /relation|does not exist|404|PGRST205/i.test(err.message);
+    toast(missing ? 'A tabela student_marks não existe na base de dados' : 'Erro: '+err.message,'err');
+  }
+}
+async function saveNote(ref){
+  const txt = document.getElementById('stu-note').value;
+  try{
+    await sbPatch('enrolments',`ref=eq.${encodeURIComponent(ref)}`,{notes:txt});
+    if(ENROL[ref]) ENROL[ref].notes = txt;
+    toast('Nota guardada');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE ROSTER SHEET
+   Any count on this page opens the list it counted. One function, so a
+   figure and its list are produced from the same predicate.
+   ══════════════════════════════════════════════════════════════════════ */
+function openRoster(title, kicker, students){
+  const host = hostFor('sh-roster');
+  const list = students.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  host.innerHTML = `<div class="sh">
+    <button class="sh-close" onclick="closeSheet('sh-roster')">✕</button>
+    <div class="sh-head">
+      <div class="sh-eyebrow"><span class="sh-bar"></span><span class="sh-kicker">${esc(kicker)}</span></div>
+      <div class="sh-title">${esc(title)}</div>
+      <div class="sh-sub">${list.length} aluno${list.length!==1?'s':''}</div>
+    </div>
+    <div class="sh-body">${list.length ? list.map(s=>{
+      const av=avCol(s.name);
+      return `<div class="sh-row" style="cursor:pointer" onclick="closeSheet('sh-roster');openStudent('${s.ref}')">
+        <div class="sh-av" style="background:${av.bg};color:${av.t}">${avInit(s.name)}</div>
+        <div style="flex:1;min-width:0"><div class="sh-name">${esc(s.name)}</div>
+          <div class="sh-meta">${esc(s.ref)}${s.note?' · '+esc(s.note):''}</div></div>
+      </div>`; }).join('') : '<div class="sh-empty">Nenhum aluno nesta contagem.</div>'}</div>
+    <div class="sh-foot"><span class="sh-meta">clique num aluno para o dossier</span></div>
+  </div>`;
+  host.classList.add('on');
+}
+function rosterClass(code){
+  const c = CLASSES.find(x=>x.code===code); if(!c) return;
+  openRoster(code, `${DAY_FULL[c.day]} · ${c.start}–${c.end} · ${c.level}`,
+    c.refs.map(r=>({ref:r, name:ENROL[r]?.name||r})));
+}
+function rosterAtt(status){
+  const {cls,date} = sheetLesson;
+  const lbl = {present:'Presentes', late:'Atrasos', absent:'Faltas'}[status] || 'Sem marca';
+  openRoster(lbl, `${cls.code} · ${fmtLong(date)}`,
+    cls.refs.filter(r=>(attDraft[r]||null)===status).map(r=>({ref:r,name:ENROL[r]?.name||r})));
+}
+function rosterAllStudents(){
+  openRoster('Alunos', `${ME.name} · ${AY||''}`,
+    myStudents().map(s=>({ref:s.ref, name:s.name, note:s.classes.map(c=>c.code).join(' · ')})));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   WIRING
+   ══════════════════════════════════════════════════════════════════════ */
+function switchPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.panel===name));
+  document.getElementById('p-'+name)?.classList.add('on');
+}
+document.getElementById('tb-nav').addEventListener('click', e=>{
+  const b = e.target.closest('.nav-btn'); if(!b) return;
+  switchPanel(b.dataset.panel);
+  if(b.dataset.panel==='pauta' && !pautaCode && CLASSES.length) showPauta(CLASSES[0].code);
 });
-document.getElementById('branches').addEventListener('click',e=>{
-  const b=e.target.closest('[data-branch]'); if(!b) return;
-  BRANCH=b.dataset.branch; SEL_LEVEL=null; SEL_TEACHER=null;
-  document.querySelectorAll('#branches .pill').forEach(x=>x.classList.toggle('on',x===b));
-  renderAll();
-});
-document.getElementById('m-level').onclick=()=>{MODE='level';SEL_TEACHER=null;renderAll();};
-document.getElementById('m-teacher').onclick=()=>{MODE='teacher';SEL_LEVEL=null;renderAll();};
-document.getElementById('side-list').addEventListener('click',e=>{
-  const l=e.target.closest('[data-level]'), t=e.target.closest('[data-teacher]');
-  if(l){ SEL_LEVEL = SEL_LEVEL===l.dataset.level ? null : l.dataset.level; }
-  if(t){ SEL_TEACHER = SEL_TEACHER===t.dataset.teacher ? null : t.dataset.teacher; }
-  renderAll();
-});
-document.body.addEventListener('click',e=>{
-  const o=e.target.closest('[data-open]'); if(o){ openAssign(o.dataset.open); return; }
-  const r=e.target.closest('[data-roster]'); if(r){ e.stopPropagation(); openRoster(r.dataset.roster); }
-});
-document.getElementById('btn-undo').onclick=undo;
-document.getElementById('btn-csv').onclick=exportCSV;
-document.getElementById('btn-reload').onclick=boot;
-document.getElementById('k-sem').onclick=()=>{PANEL='porAtribuir';
-  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='porAtribuir'));renderMain();};
-document.getElementById('k-com').onclick=()=>{PANEL='profs';
-  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='profs'));renderMain();};
-document.getElementById('k-turmas').onclick=()=>{PANEL='grelha';
-  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='grelha'));renderMain();};
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ ['sh-roster','sh-assign'].some(id=>{
-    const el=document.getElementById(id);
-    if(el.classList.contains('on')){closeSheet(id);return true;} }); }
+document.getElementById('st-turmas').onclick = ()=>switchPanel('turmas');
+document.getElementById('st-alunos').onclick = rosterAllStudents;
+document.getElementById('st-porMarcar').onclick = ()=>switchPanel('pedidos');
+document.getElementById('btn-notif').onclick = ()=>switchPanel('pedidos');
+document.getElementById('btn-reload').onclick = ()=>{ if(ME) loadTeacher(); };
+document.getElementById('stu-search').addEventListener('input', renderAlunos);
+
+/* The photo is held in the browser only. Saying so is better than a
+   silent no-op that looks like it worked. */
+document.getElementById('idb-photo').onclick = ()=>document.getElementById('idb-file').click();
+document.getElementById('idb-file').onchange = ev=>{
+  const f = ev.target.files?.[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = x=>{ const img=document.getElementById('idb-img');
+    img.src=x.target.result; img.style.display='block';
+    document.getElementById('idb-ph').style.display='none';
+    toast('Pré-visualização apenas — não guardada no servidor','warn'); };
+  r.readAsDataURL(f);
+};
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    ['sh-roster','sh-student','sh-lesson'].some(id=>{
+      const el=document.getElementById(id);
+      if(el.classList.contains('on')){ closeSheet(id); return true; }
+    });
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter' && document.getElementById('sh-lesson').classList.contains('on')) saveLesson();
 });
 
+function tick(){ const n=new Date(), p=x=>String(x).padStart(2,'0');
+  document.getElementById('clock').textContent = p(n.getHours())+':'+p(n.getMinutes()); }
+tick(); setInterval(tick,15000);
 boot();
 </script>
 </body>
