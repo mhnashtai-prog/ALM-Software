@@ -54,7 +54,15 @@ const debounce = (fn, ms) => {
    lightness, so proposed and certified still read as two steps of
    one system rather than as two unrelated colours. */
 const ST_PROPOSED = '#9A7B62';   /* clay — provisional */
-const ST_CERTIFIED = '#4E6B50';  /* sage deep — written to classes */
+const ST_CERTIFIED = '#4E6B50';  /* sage deep — on warm paper */
+/* ON THE GRID THE SAME TWO STATES ARE DIFFERENT COLOURS.
+   The field is sage now, so sage-on-sage measures 1.6:1 and
+   clay-on-sage 1.05:1 — both invisible. Against #708A81 the plum
+   reads 4.17:1 and the sand 2.51:1, which is what a filled block
+   carrying its own text needs. Cards and chips off the grid keep
+   sage and clay, where they still have the contrast to work. */
+const ST_CERTIFIED_GRID = '#2B2129';   /* plum — settled */
+const ST_PROPOSED_GRID  = '#E5D1B8';   /* sand — open    */
 const ST_FAIL = '#B8402A';
 const ST_WARN = '#8A8A82';
 function statusCol(isCert, isFail, isWarn){
@@ -96,10 +104,10 @@ function pairTone(g) {
    marigold seal in particular sat on warm stone with no hue distance
    from it at all. Sage light to sage deep says "further along". */
 const TIER_COLORS = {
-  forming: {ink:'#B49B85', band:'rgba(180,155,133,.18)', border:'#B49B85'},
-  viable:  {ink:'#9A7B62', band:'rgba(154,123,98,.20)',  border:'#9A7B62'},
-  healthy: {ink:'#6F8F71', band:'rgba(111,143,113,.20)', border:'#6F8F71'},
-  full:    {ink:'#4E6B50', band:'rgba(78,107,80,.22)',   border:'#4E6B50'},
+  forming: {ink:'#E5D1B8', band:'rgba(229,209,184,.24)', border:'#E5D1B8'},
+  viable:  {ink:'#D2B694', band:'rgba(210,182,148,.24)', border:'#D2B694'},
+  healthy: {ink:'#7A6070', band:'rgba(122,96,112,.24)',  border:'#7A6070'},
+  full:    {ink:'#2B2129', band:'rgba(43,33,41,.26)',    border:'#2B2129'},
 };
 function tierSeal(g, ar){
   if(ar && ar.status==='fail') return {ink:'#B8402A', band:'rgba(184,64,42,.18)', border:'#B8402A99', tier:'fail', label:'FALHA'};
@@ -348,14 +356,24 @@ function drawStamps(containerId, levelKey, result) {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar = (_auditResults[levelKey] || {})[i];
   const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
-const tone = pairTone(g);
-const col = isFail ? ST_FAIL : tone.ink;
-const sealInk = col;
-    /* A certified band is filled; a proposal is a wash with a solid
-       left edge. Same hue family, different commitment. */
-    const bandBg = isCert ? col + 'E6' : col + '24';
+    /* pairTone() tinted a stamp by WHICH DAY-PAIR it belongs to, which
+       is the same idea slotCol() carried and the same objection
+       applies: it makes colour describe the timetable rather than the
+       state. On a sage field it also fails outright — every SAGE_TONE
+       is a sage, so a proposed stamp and a certified one were two
+       shades of the field they sat in. pairTone() is left defined and
+       unused; identity-by-day belongs in the availability bands
+       underneath, where telling cohorts apart is the actual job. */
+    const col = isFail ? ST_FAIL : isWarn ? ST_WARN
+              : isCert ? ST_CERTIFIED_GRID : ST_PROPOSED_GRID;
+    const sealInk = col;
+    /* Both states are filled. A 24%-alpha wash of sand on a sage field
+       IS the field — depth of fill can no longer carry the state, so
+       the hue carries it and both bands are solid. */
+    const bandBg = col;
     const borderCol = col;
-    const inkCol = isCert ? '#FFFFFF' : col;
+    /* Sand is a light fill; its text is the plum, not white. */
+    const inkCol = (isCert || isFail || isWarn) ? '#FFFFFF' : '#2B2129';
     const n = g.students.length;
 
   function makeSeal(glyph, fillCol, inkC) {
@@ -375,7 +393,10 @@ const sealInk = col;
       </svg>`;
     }
 
-    const sealSVG = makeSeal(String(i + 1), sealInk, '#FFFFFF');
+    /* The two light steps of the ladder need a dark glyph; the two dark
+       steps need white. Taken from the seal's own fill, not assumed. */
+    const sealSVG = makeSeal(String(i + 1), sealInk,
+      (sealInk === '#E5D1B8' || sealInk === '#D2B694') ? '#2B2129' : '#FFFFFF');
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
 
