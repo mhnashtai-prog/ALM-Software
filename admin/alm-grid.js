@@ -147,6 +147,13 @@ const CSS = `
   cursor:pointer;z-index:5;color:#fff;background:var(--almg-open,#9A7B62);
   transition:opacity .12s}
 .almg-item:hover{opacity:.88}
+/* Evidence, not subject: sits behind, tinted, inert. */
+.almg-under{position:absolute;top:8px;bottom:8px;border-radius:6px;z-index:2;
+  pointer-events:none;background:rgba(94,119,108,.16);
+  border-left:2px solid rgba(94,119,108,.42);overflow:hidden;
+  display:flex;align-items:center;padding:0 6px}
+.almg-under .almg-t{font-size:8px;font-weight:600;color:rgba(20,20,15,.5);letter-spacing:0}
+.almg-under .almg-s{display:none}
 .almg-item.done{background:var(--almg-done,#5E776C)}
 .almg-item.dim{opacity:.3}
 .almg-item.hot{outline:1.5px solid var(--almg-ink,#14140F);outline-offset:1px;z-index:7}
@@ -199,6 +206,13 @@ function render(el, opts) {
   const hours  = o.hours || HOURS;
   const days   = o.days  || DAYS;
   const items  = o.items || [];
+  /* THE LAYER UNDERNEATH.
+     Overview draws two things on one grid: the turma stamps, and the
+     student availability windows they were formed from. The bands are
+     not clickable and not the subject — they are the evidence. So
+     they go behind, translucent, with no pointer events, and the
+     stamps sit on top exactly as before. */
+  const under  = o.under || [];
 
   let html = '<div class="almg"><table><thead><tr>'
     + '<th class="almg-day">Dia</th>';
@@ -243,8 +257,16 @@ function render(el, opts) {
      has resolved, and a lesson that is not a whole number of columns
      is positioned inside the span it covers. */
   const place = () => {
-    root.querySelectorAll('.almg-item').forEach(x => x.remove());
-    items.forEach(it => {
+    root.querySelectorAll('.almg-item,.almg-under').forEach(x => x.remove());
+    under.forEach(it => paint(it, true));
+    items.forEach(it => paint(it, false));
+  };
+
+  /* One placement routine for both layers — an availability band and a
+     turma stamp are the same geometry, and letting them drift apart is
+     how Overview and Assign ended up disagreeing in the first place. */
+  const paint = (it, isUnder) => {
+    {
       const row = root.querySelector(`tr[data-day="${CSS_ESC(it.day)}"]`);
       if (!row) return;
       const cells = [...row.querySelectorAll('td')]
@@ -273,7 +295,7 @@ function render(el, opts) {
       const trail = ((tail - Math.min(e, tail)) / HOUR) * last.offsetWidth;
 
       const node = document.createElement('div');
-      node.className = 'almg-item'
+      node.className = (isUnder ? 'almg-under' : 'almg-item')
         + (it.state === 'done' ? ' done' : ' open')
         + (it.dim ? ' dim' : '') + (it.hot ? ' hot' : '') + (it.sib ? ' sib' : '');
 
@@ -303,26 +325,26 @@ function render(el, opts) {
         `<span class="almg-t">${esc(it.title)}</span>` +
         (it.sub ? `<span class="almg-s">${esc(it.sub)}</span>` : '');
 
-      if (o.onItem) node.addEventListener('click', ev => { ev.stopPropagation(); o.onItem(it, ev); });
+      if (o.onItem && !isUnder) node.addEventListener('click', ev => { ev.stopPropagation(); o.onItem(it, ev); });
 
       /* THE HEADER TINT. The day and the hours this item occupies light
          up on hover, so "when is this" is read rather than traced
          across the grid. Borrowed from the spreadsheet, and the single
          cheapest legibility win on the screen. */
       const hs = Math.floor(s / 60), he = Math.ceil(e / 60);
-      node.addEventListener('mouseenter', () => {
+      if (!isUnder) node.addEventListener('mouseenter', () => {
         row.querySelector('.almg-day').classList.add('on');
         for (let h = hs; h < he; h++)
           root.querySelector(`thead th[data-h="${h}"]`)?.classList.add('on');
       });
-      node.addEventListener('mouseleave', () => {
+      if (!isUnder) node.addEventListener('mouseleave', () => {
         if (it.day !== o.today) row.querySelector('.almg-day').classList.remove('on');
         for (let h = hs; h < he; h++)
           root.querySelector(`thead th[data-h="${h}"]`)?.classList.remove('on');
       });
 
       host.appendChild(node);
-    });
+    }
   };
 
   requestAnimationFrame(() => requestAnimationFrame(place));
