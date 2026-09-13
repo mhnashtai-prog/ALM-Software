@@ -176,6 +176,12 @@
   --well:#E7E8E4;      /* a repeating cell in a grid      */
   --rule:rgba(0,0,0,.07);
   --rule-2:rgba(0,0,0,.13);
+  /* Handed to alm-grid.js. The grid draws itself; the page only says
+     what colour its own paper and its own states are. */
+  --almg-paper:#FFFFFF; --almg-rule:#E4E2DB; --almg-rule-2:#CFCCC2;
+  --almg-head:#F2F1EC; --almg-head-on:#DCE3DE;
+  --almg-ink:#14140F; --almg-sub:#7A7A72; --almg-faint:#A8A69C;
+  --almg-done:#5E776C; --almg-open:#9A7B62;
   --sans:'Geist',system-ui,-apple-system,sans-serif;
   --mono:'Geist Mono',ui-monospace,monospace;
   --display:'Anton',Impact,sans-serif;
@@ -290,52 +296,6 @@ input,select,textarea{font:inherit;color:inherit}
   padding:2px 7px;border-radius:6px;background:var(--sage-a);color:var(--sage-deep)}
 .tc-badge.now{background:var(--sage-deep);color:#fff}
 .tc-badge.pend{background:var(--clay-a);color:var(--clay)}
-
-/* ══ THE WEEK GRID ═════════════════════════════════════════════════════
-   One cool-stone field. Empty hours are pressed into it and recede;
-   a lesson rises out of it. Depth means "there is a class here" — it
-   never means the class went well. */
-.gridwrap{background:var(--field);border-radius:14px;padding:14px 12px 16px;overflow-x:auto}
-.gridhead{display:flex;gap:3px;margin-bottom:5px;padding-left:58px}
-.gh{flex:1;min-width:62px;text-align:center;font-family:var(--mono);font-size:10px;
-  font-weight:600;color:rgba(var(--grid-shade),.52)}
-.gh.gap{flex:0 0 26px;min-width:26px}
-/* The row is the positioning context for the lessons. A lesson is NOT
-   a cell - it is a span of time laid over the cells, from its start
-   minute to its end minute. This was fixed in the assign grid and
-   never carried back here, so a 14:00-15:30 class was still drawn as
-   a block in the 14h well: the grid described the hour a lesson began
-   in rather than the lesson itself. */
-.grow{display:flex;gap:3px;margin-bottom:3px;align-items:stretch;position:relative}
-.gday{width:55px;flex-shrink:0;display:flex;flex-direction:column;
-  align-items:flex-end;justify-content:center;padding-right:9px}
-.gday-s{font-family:var(--sans);font-size:13px;font-weight:600;color:#1B2226;letter-spacing:.04em}
-.gday-f{font-family:var(--mono);font-size:8px;color:rgba(var(--grid-shade),.5);margin-top:2px}
-.gday.today .gday-s{color:var(--sage-deep)}
-.gcell{flex:1;min-width:62px;height:var(--row-h);border-radius:10px;
-  background:var(--field);position:relative;overflow:hidden;}
-.gcell.gap{flex:0 0 26px;min-width:26px;background:transparent}
-.gcell.gap::after{content:'12–14';position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%) rotate(-90deg);font-family:var(--mono);font-size:7px;
-  font-weight:600;letter-spacing:.06em;color:rgba(var(--grid-shade),.30);white-space:nowrap}
-
-/* Clay while unmarked, sage once the register is in. Sage appears on
-   a lesson and on nothing else. Positioned and sized by time - see
-   lessonPos(). */
-.lesson{position:absolute;top:0;height:var(--row-h);border-radius:10px;
-  cursor:pointer;overflow:hidden;
-  display:flex;flex-direction:column;justify-content:center;gap:1px;padding:6px 9px;
-  background:var(--clay);color:#fff;transition:opacity .12s}
-.lesson:hover{opacity:.88}
-.lesson.done{background:var(--sage-slot);color:#fff}
-.l-code{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.04em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-lvl{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.80);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-n{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.68)}
-.l-tick{position:absolute;top:5px;right:6px;font-size:9px;color:rgba(255,255,255,.92)}
-.l-now{position:absolute;top:6px;right:7px;width:6px;height:6px;border-radius:50%;
-  background:currentColor;animation:pulse 1.4s infinite}
 
 /* ══ LIST CARDS ══ */
 .lcard{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;transition:border-color .14s}
@@ -663,6 +623,7 @@ textarea.inp{resize:vertical;min-height:84px;line-height:1.6}
 <div class="sh-ov" id="sh-student"></div>
 <div class="sh-ov" id="sh-roster"></div>
 <div class="toast" id="toast"></div>
+<script src="alm-grid.js"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════
    ALM · PORTAL DO PROFESSOR — engine
@@ -1151,84 +1112,35 @@ function renderToday(){
   }).join('');
 }
 
+/* ── THE GRID ────────────────────────────────────────────────────
+   Was ~70 lines here: markup, a gap constant, a positioning routine
+   and a resize listener — all of it a copy of what Assign had, and
+   the reason the duration fix had to be made twice. It is now data
+   and a click handler. */
 function renderGrid(){
   const today = DAY_OF_JS[new Date().getDay()];
-  const head = '<div class="gridhead">' + HOURS.map(x =>
-    x===null ? '<div class="gh gap"></div>' : `<div class="gh">${x}h</div>`).join('') + '</div>';
-  const rows = DAYS.map(day=>{
-    const cells = HOURS.map(x=>x===null?'<div class="gcell gap"></div>':'<div class="gcell"></div>').join('');
-    return `<div class="grow" data-day="${day}"><div class="gday ${day===today?'today':''}">
-      <span class="gday-s">${day}</span><span class="gday-f">${DAY_FULL[day]}</span></div>${cells}</div>`;
-  }).join('');
-  document.getElementById('grid').innerHTML = head + rows;
-  /* Widths are only known once the flex row has resolved, so the
-     lessons go on after layout and again on resize. */
-  requestAnimationFrame(()=>requestAnimationFrame(drawLessons));
-}
-
-/* WHERE A LESSON SITS, IN PIXELS.
-   Walks the row's own wells accumulating (width + gap) and turns the
-   lesson's start and end MINUTES into offsets inside them. The lunch
-   column is walked like any other, so a span that crosses it still
-   lands correctly on the far side. A 90-minute lesson covers one well
-   and half the next; a 110-minute one runs further. */
-const GRID_GAP = 3;
-function lessonPos(cls, rowEl){
-  const wells = [...rowEl.querySelectorAll('.gcell')];
-  const s = toMins(cls.start || '09:00'), e = toMins(cls.end || '10:30');
-  if(s==null || e==null || e<=s) return null;
-  let x = 0, left = null, right = null;
-  HOURS.forEach((hr,i)=>{
-    const w = wells[i]; if(!w) return;
-    const cw = w.offsetWidth;
-    if(hr===null){ x += cw + GRID_GAP; return; }
-    const a = hr*60, b = a+60;
-    if(s < b && e > a){
-      const os = Math.max(s,a), oe = Math.min(e,b);
-      if(left===null) left = x + ((os-a)/60)*cw;
-      right = x + ((oe-a)/60)*cw;
-    }
-    x += cw + GRID_GAP;
-  });
-  if(left===null) return null;
-  return {left:Math.round(left), width:Math.max(58, Math.round(right-left))};
-}
-
-function drawLessons(){
-  const host = document.getElementById('grid'); if(!host) return;
-  host.querySelectorAll('.lesson').forEach(el=>el.remove());
-  const today = DAY_OF_JS[new Date().getDay()];
   const now = new Date().getHours()*60 + new Date().getMinutes();
-  CLASSES.forEach(c=>{
-    const row = host.querySelector(`.grow[data-day="${c.day}"]`); if(!row) return;
-    const pos = lessonPos(c, row); if(!pos) return;
-    const iso = thisWeek(c.day);
-    const done = iso && isMarked(c.code, iso);
-    const no = iso ? lessonNoOf(c.day, iso) : 0;
-    const isNow = c.day===today && now>=toMins(c.start||'09:00') && now<toMins(c.end||'10:30');
-    const el = document.createElement('div');
-    el.className = 'lesson' + (done?' done':'');
-    el.style.left = pos.left + 'px';
-    el.style.width = pos.width + 'px';
-    el.title = `${c.code} · ${c.start}–${c.end} · ${c.level}`;
-    el.onclick = ()=>openLesson(c.code, iso || todayISO());
-    el.innerHTML =
-      (isNow?'<span class="l-now"></span>':done?'<span class="l-tick">&#10003;</span>':'') +
-      `<span class="l-code">${esc((c.code||'').replace(/^[^-]+-/,''))}</span>` +
-      `<span class="l-lvl">${esc(c.level)}</span>` +
-      `<span class="l-n">${c.start}&ndash;${c.end} &middot; ${c.refs.length} al${no?` &middot; n&ordm; ${String(no).padStart(2,'0')}`:''}</span>`;
-    row.appendChild(el);
+  ALMGrid.render(document.getElementById('grid'), {
+    today,
+    items: CLASSES.map(c=>{
+      const iso  = thisWeek(c.day);
+      const done = iso && isMarked(c.code, iso);
+      const no   = iso ? lessonNoOf(c.day, iso) : 0;
+      const live = c.day===today && now>=toMins(c.start||'09:00') && now<toMins(c.end||'10:30');
+      return {
+        day:c.day, start:c.start, end:c.end,
+        title:(c.code||'').replace(/^[^-]+-/,''),
+        sub:`${c.start}–${c.end} · ${c.level} · ${c.refs.length} al${no?` · nº ${String(no).padStart(2,'0')}`:''}`,
+        badge: live ? '•' : done ? '✓' : '',
+        state: done ? 'done' : 'open',
+        code:c.code, iso:iso || todayISO(),
+      };
+    }),
+    onItem: it => openLesson(it.code, it.iso),
+    legend: [['var(--almg-done)','presenças marcadas'],['var(--almg-open)','por marcar']],
+    hint: 'clique numa aula para abrir a folha de presenças',
   });
 }
-
-let _lessonT;
-window.addEventListener('resize',()=>{
-  clearTimeout(_lessonT);
-  _lessonT=setTimeout(()=>{
-    const p=document.getElementById('p-semana');
-    if(p && p.classList.contains('on')) drawLessons();
-  },160);
-});
 
 function renderTurmas(){
   const host=document.getElementById('turmas-list');
