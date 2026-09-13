@@ -56,13 +56,12 @@ const debounce = (fn, ms) => {
 const ST_PROPOSED = '#9A7B62';   /* clay — provisional */
 const ST_CERTIFIED = '#4E6B50';  /* sage deep — on warm paper */
 /* ON THE GRID THE SAME TWO STATES ARE DIFFERENT COLOURS.
-   The field is sage now, so sage-on-sage measures 1.6:1 and
-   clay-on-sage 1.05:1 — both invisible. Against #708A81 the plum
-   reads 4.17:1 and the sand 2.51:1, which is what a filled block
-   carrying its own text needs. Cards and chips off the grid keep
-   sage and clay, where they still have the contrast to work. */
-const ST_CERTIFIED_GRID = '#2B2129';   /* plum — settled */
-const ST_PROPOSED_GRID  = '#E5D1B8';   /* sand — open    */
+   The field is light stone, so sage marks a slot and nothing else
+   is sage. The grid step is a shade deeper than the warm-paper one
+   because the white turma code on it is 9px: 4.85:1 here against
+   3.72:1 on the lighter sage. */
+const ST_CERTIFIED_GRID = '#5E776C';   /* sage — the slot has a turma */
+const ST_PROPOSED_GRID  = '#9A7B62';   /* clay — provisional          */
 const ST_FAIL = '#B8402A';
 const ST_WARN = '#8A8A82';
 function statusCol(isCert, isFail, isWarn){
@@ -104,10 +103,10 @@ function pairTone(g) {
    marigold seal in particular sat on warm stone with no hue distance
    from it at all. Sage light to sage deep says "further along". */
 const TIER_COLORS = {
-  forming: {ink:'#E5D1B8', band:'rgba(229,209,184,.24)', border:'#E5D1B8'},
-  viable:  {ink:'#D2B694', band:'rgba(210,182,148,.24)', border:'#D2B694'},
-  healthy: {ink:'#7A6070', band:'rgba(122,96,112,.24)',  border:'#7A6070'},
-  full:    {ink:'#2B2129', band:'rgba(43,33,41,.26)',    border:'#2B2129'},
+  forming: {ink:'#B49B85', band:'rgba(180,155,133,.18)', border:'#B49B85'},
+  viable:  {ink:'#9A7B62', band:'rgba(154,123,98,.20)',  border:'#9A7B62'},
+  healthy: {ink:'#708A81', band:'rgba(112,138,129,.20)', border:'#708A81'},
+  full:    {ink:'#5E776C', band:'rgba(94,119,108,.22)',  border:'#5E776C'},
 };
 function tierSeal(g, ar){
   if(ar && ar.status==='fail') return {ink:'#B8402A', band:'rgba(184,64,42,.18)', border:'#B8402A99', tier:'fail', label:'FALHA'};
@@ -367,13 +366,12 @@ function drawStamps(containerId, levelKey, result) {
     const col = isFail ? ST_FAIL : isWarn ? ST_WARN
               : isCert ? ST_CERTIFIED_GRID : ST_PROPOSED_GRID;
     const sealInk = col;
-    /* Both states are filled. A 24%-alpha wash of sand on a sage field
-       IS the field — depth of fill can no longer carry the state, so
-       the hue carries it and both bands are solid. */
-    const bandBg = col;
+    /* Filled once it is certified; a wash with a solid edge while it is
+       still a proposal. On a light field the alpha reads, so depth of
+       fill can carry commitment again and hue carries the state. */
+    const bandBg = isCert ? col + 'E6' : col + '26';
     const borderCol = col;
-    /* Sand is a light fill; its text is the plum, not white. */
-    const inkCol = (isCert || isFail || isWarn) ? '#FFFFFF' : '#2B2129';
+    const inkCol = isCert ? '#FFFFFF' : col;
     const n = g.students.length;
 
   function makeSeal(glyph, fillCol, inkC) {
@@ -396,7 +394,7 @@ function drawStamps(containerId, levelKey, result) {
     /* The two light steps of the ladder need a dark glyph; the two dark
        steps need white. Taken from the seal's own fill, not assumed. */
     const sealSVG = makeSeal(String(i + 1), sealInk,
-      (sealInk === '#E5D1B8' || sealInk === '#D2B694') ? '#2B2129' : '#FFFFFF');
+      (sealInk === '#B49B85') ? '#2B2129' : '#FFFFFF');
     const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
     const dayRows = isSameDay ? [g.dayL_A || g.dayL] : [g.dayL_A || g.dayL, g.dayL_B];
 
