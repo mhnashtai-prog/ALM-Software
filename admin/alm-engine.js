@@ -1036,21 +1036,26 @@ async function runBootAudit(){
       if(!window._dbPlacedByLevel[key])window._dbPlacedByLevel[key]=new Set();
       refs.forEach(r=>window._dbPlacedByLevel[key].add(r));
     });
-    existing.forEach(c=>{
-      const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
-      const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
-      const result=_allResults[key];if(!result)return;
-      const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
-      result.groups.forEach((g,i)=>{
-        if((_groupCodes[key]||{})[i])return;
-        const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
-        if(overlap>=Math.floor(g.students.length*0.7)){
-          if(!_groupCodes[key])_groupCodes[key]={};
-          const codeA=`${gc}A`;
-          _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeA,sentAt:'',status:'pass'};
-        }
-      });
-    });
+ existing.forEach(c=>{
+  const gc=c.group_code||(c.turma_code?(c.turma_code.replace(/[AB]$/,'')):null);if(!gc)return;
+  const key=`${(c.department||c.family||'').toLowerCase()}|${(c.level_code||'').trim()}`;
+  const result=_allResults[key];if(!result)return;
+  const dbRefs=new Set(Array.isArray(c.student_refs)?c.student_refs:[]);
+  const dbDayIdx = DAYS_PT.indexOf((c.day_of_week||'').toUpperCase().trim());
+  const dbStartMins = timeToMins(c.start_time);
+  result.groups.forEach((g,i)=>{
+    if((_groupCodes[key]||{})[i])return;
+    const gDay = g.dayIdx_A ?? g.dayIdx;
+    if(dbDayIdx>=0 && gDay!==dbDayIdx) return;                    // ADD THIS
+    if(dbStartMins!=null && g.startMins!==dbStartMins) return;    // ADD THIS
+    const overlap=g.students.filter(s=>dbRefs.has(s.ref)).length;
+    if(overlap>=Math.floor(g.students.length*0.7)){
+      if(!_groupCodes[key])_groupCodes[key]={};
+      const codeA=`${gc}A`;
+      _groupCodes[key][i]={turmaCode:gc,turmaCodeA:codeA,turmaCodeB:codeA,sentAt:'',status:'pass'};
+    }
+  });
+});
   }catch(dbErr){console.warn('ALM: DB fetch failed',dbErr);}
 
   setBootProgress(85);
