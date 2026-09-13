@@ -64,12 +64,30 @@ function statusCol(isCert, isFail, isWarn){
 }
 
 /* ADD THIS — new function, nothing to replace */
-function groupTone(i) {
-  const hue = (i * 137.508) % 360;
-  const sat = 34, light = 42;
-  const ink    = `hsl(${hue.toFixed(1)},${sat}%,${light}%)`;
-  const border = `hsl(${hue.toFixed(1)},${sat}%,${light - 6}%)`;
-  return { ink, border };
+/* Tone is keyed to the DAY-PAIR, not the group index. Two groups
+   that both meet SEG+QUA must look identical; a group meeting
+   TER+QUI must look different — but still sage, never an
+   unrelated hue. _dayPairFamily finds which entry in ALM_PAIRS a
+   given day belongs to, so every day sharing a pair resolves to
+   the same family id, and SAGE_TONES gives that family a shade. */
+const SAGE_TONES = [
+  { ink: '#6F8F71', border: '#4E6B50' },  // sage
+  { ink: '#8FA89C', border: '#5D7A6E' },  // sage-teal
+  { ink: '#9DB79E', border: '#6F8F71' },  // sage-light
+  { ink: '#5D7A6E', border: '#3E5952' },  // sage-deep
+  { ink: '#7FA88A', border: '#557A63' },  // sage-warm
+];
+function _dayPairFamily(dayIdx) {
+  for (let idx = 0; idx < ALM_PAIRS.length; idx++) {
+    const p = ALM_PAIRS[idx];
+    if (p.a === dayIdx || p.b === dayIdx) return idx;
+  }
+  return dayIdx; // day not in any defined pair — falls back to itself
+}
+function pairTone(g) {
+  const dayA = g.dayIdx_A ?? g.dayIdx;
+  const familyIdx = _dayPairFamily(dayA);
+  return SAGE_TONES[familyIdx % SAGE_TONES.length];
 }
 
 /* Four tiers on ONE hue, stepped by depth. The old set was four
@@ -330,7 +348,7 @@ function drawStamps(containerId, levelKey, result) {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar = (_auditResults[levelKey] || {})[i];
   const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
-const tone = groupTone(i);
+const tone = pairTone(g);
 const col = isFail ? ST_FAIL : tone.ink;
 const sealInk = col;
     /* A certified band is filled; a proposal is a wash with a solid
