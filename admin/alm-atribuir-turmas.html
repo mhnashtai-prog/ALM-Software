@@ -9,6 +9,56 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet"/>
 <style>
 /* ══════════════════════════════════════════════════════════════════════
+   WHY THE COLLOCATIONS MODAL LOOKS CRISP
+   Read from skills/grammar-rules/collocations.html. The surprise is
+   that it is not the blur — the blur is doing nothing. .modal is
+   rgba(28,28,30,0.98), effectively opaque, so its 60px backdrop-filter
+   has almost no surface to act on. Four other things are doing the work:
+
+     1. THE SCRIM IS HEAVY. rgba(0,0,0,0.85). The page behind is gone,
+        not softened. Our sheets sat on .30 — light enough that the
+        grid behind stayed legible and competed with the card. That is
+        what reads as haze, and it is the single biggest factor.
+     2. THE CARD IS OPAQUE AND HAS AN EDGE. A 1px rule at 40% grey
+        gives it a defined boundary instead of bleeding into the scrim.
+     3. AIR. 2.5rem of padding, 2rem under the header. Ours was 24px.
+     4. TIGHT TYPE. -0.02em on the title, -0.01em on the subtitle, at
+        SF-Pro-ish sizes. Negative tracking at display size is most of
+        what makes a card look engineered rather than typed.
+
+   So: heavier scrim, opaque card, defined edge, more air, tighter
+   tracking — and no blur at all, which we do not need and the flat
+   rules forbid.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   FLAT PASS
+   Every box-shadow, every backdrop blur and every decorative gradient
+   has been removed from this file — not softened, removed. Half-flat
+   is worse than either: a page with three shadows on it reads as a
+   page that forgot to finish.
+
+   What replaced them:
+   · DEPTH → NOTHING. The recessed wells came from one reference tile
+     and quietly set the tone for the entire product. A timetable cell
+     does not need to look pressed into anything; it needs an edge and
+     a fill. It now has a flat fill one step off the page and no edge
+     at all, which is how the INTUITY skills screen, the Apple grid
+     and every reference in the brief handle a repeating cell.
+   · ELEVATION → HAIRLINE. A card is white with a 1px rule at 7%
+     black. Where something must sit above something else — the rail,
+     the sheet — it gets one hairline on the meeting edge and nothing
+     more.
+   · SCRIM → FLAT INK. rgba(20,20,15,.30), no blur. Blur is expensive,
+     it smears the type behind it, and it was the single biggest
+     contributor to the screen looking soft.
+   · BANNERS → GONE. The sand mastheads are white. The ONE survivor is
+     the identity strip on a student or teacher card, which is not
+     decoration: it is the only place a block of colour is carrying
+     information (which department this person belongs to).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════
    ALM · ATRIBUIR TURMAS
    Putting a teacher in front of a class.
 
@@ -83,6 +133,14 @@
   --clay:#9A7B62; --clay-a:rgba(154,123,98,.12); --clay-b:rgba(154,123,98,.32);
   --alert:#B8402A; --alert-a:rgba(184,64,42,.10);
   --d-kids:#6E8CA8; --d-juv:#6F8F71; --d-adults:#8C7F6A; --d-exam:#7E7391;
+
+  /* Flat surfaces. Four steps, each one flat, no shadow between them.
+     The separation is value alone, which is all a flat system has. */
+  --page:#F2F1EC;      /* the page                        */
+  --card:#FFFFFF;      /* anything raised, by hairline    */
+  --well:#E7E8E4;      /* a repeating cell in a grid      */
+  --rule:rgba(0,0,0,.07);
+  --rule-2:rgba(0,0,0,.13);
   --sans:'Geist',system-ui,-apple-system,sans-serif;
   --mono:'Geist Mono',ui-monospace,monospace;
   --display:'Anton',Impact,sans-serif;
@@ -96,7 +154,7 @@ body{display:flex;flex-direction:column;overflow:hidden}
 button{font:inherit;border:none;background:none;cursor:pointer;color:inherit}
 input,select,textarea{font:inherit;color:inherit}
 *{scrollbar-width:thin;scrollbar-color:rgba(var(--shade),.16) transparent}
-@keyframes sheetIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:none}}
+@keyframes sheetIn{from{opacity:0;transform:scale(.95) translateY(20px)}to{opacity:1;transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -126,9 +184,9 @@ input,select,textarea{font:inherit;color:inherit}
 .tb-btn:disabled{opacity:.32;cursor:not-allowed}
 
 /* ══ HEADLINE BAR ══ */
-/* The headline bar is a banner: sand ground, plum display type. */
+/* No banner. A rule under the title and nothing else. */
 .head{flex-shrink:0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding:14px 18px 12px;border-bottom:1px solid var(--line);background:var(--sand)}
+  padding:14px 18px 12px;border-bottom:1px solid var(--rule)}
 .head-n{font-family:var(--display);font-size:30px;letter-spacing:4px;
   text-transform:uppercase;color:var(--banner);line-height:1}
 .head-sub{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em}
@@ -154,24 +212,23 @@ input,select,textarea{font:inherit;color:inherit}
 .pill.on{background:var(--ink);border-color:var(--ink);color:#fff}
 
 /* ══ SIDE ROWS ══ */
-.srow{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:11px;
+.srow{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:10px;
   margin-bottom:3px;cursor:pointer;transition:background .12s}
 .srow:hover{background:rgba(var(--shade),.05)}
-.srow.on{background:var(--card);box-shadow:0 1px 3px rgba(var(--shade),.10)}
+.srow.on{background:var(--card);}
 .srow-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;
   align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700}
 .srow-n{font-size:13px;font-weight:500;color:var(--ink-2);flex:1;min-width:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srow.on .srow-n{font-weight:600;color:var(--ink)}
 .srow-m{font-family:var(--mono);font-size:10px;color:var(--faint);flex-shrink:0}
-.load{width:40px;height:4px;border-radius:2px;background:rgba(var(--shade),.10);
+.load{width:40px;height:4px;border-radius:6px;background:rgba(var(--shade),.10);
   overflow:hidden;flex-shrink:0}
-.load i{display:block;height:100%;border-radius:2px;background:var(--sage)}
+.load i{display:block;height:100%;border-radius:6px;background:var(--sage)}
 .load.warn i{background:var(--clay)}.load.over i{background:var(--alert)}
 
 /* ══ THE WEEK GRID ══ */
-.gridwrap{background:var(--field);border-radius:16px;padding:14px 12px 16px;
-  box-shadow:0 1px 3px rgba(var(--grid-shade),.10);overflow-x:auto}
+.gridwrap{background:var(--field);border-radius:14px;padding:14px 12px 16px;overflow-x:auto}
 .ghead{display:flex;gap:3px;margin-bottom:5px;padding-left:58px}
 .gh{flex:1;min-width:78px;text-align:center;font-family:var(--mono);font-size:10px;
   font-weight:600;color:rgba(var(--grid-shade),.52)}
@@ -188,9 +245,8 @@ input,select,textarea{font:inherit;color:inherit}
 .gday-s{font-size:13px;font-weight:600;color:#1B2226;letter-spacing:.04em}
 .gday-f{font-family:var(--mono);font-size:8px;color:rgba(var(--grid-shade),.5);margin-top:2px}
 .gcell{flex:1;min-width:78px;height:var(--row-h);border-radius:10px;background:var(--field);
-  position:relative;box-shadow:inset 2px 3px 6px rgba(var(--grid-shade),.22),
-    inset -2px -2px 5px rgba(255,255,255,.9)}
-.gcell.gap{flex:0 0 26px;min-width:26px;box-shadow:none;background:transparent}
+  position:relative;}
+.gcell.gap{flex:0 0 26px;min-width:26px;background:transparent}
 .gcell.gap::after{content:'12–14';position:absolute;top:50%;left:50%;
   transform:translate(-50%,-50%) rotate(-90deg);font-family:var(--mono);font-size:7px;
   font-weight:600;color:rgba(var(--grid-shade),.30);white-space:nowrap}
@@ -202,16 +258,15 @@ input,select,textarea{font:inherit;color:inherit}
   cursor:pointer;padding:6px 9px;overflow:hidden;
   display:flex;flex-direction:column;justify-content:center;gap:1px;
   background:var(--clay);color:#fff;
-  box-shadow:0 2px 7px rgba(var(--grid-shade),.26),inset 0 1px 0 rgba(255,255,255,.22);
-  transition:transform .12s,box-shadow .12s}
-.klass:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(var(--grid-shade),.32)}
+  transition:opacity .12s}
+.klass:hover{opacity:.88}
 .klass.has{background:var(--sage-slot);color:#fff}
 .klass.dim{opacity:.28}
 /* While the panel is open, the session being assigned and its pair
    partner are both ringed, so the operator can see on the grid what
    the panel is about to change. */
-.klass.hot{outline:2px solid var(--ink);outline-offset:2px;z-index:3}
-.klass.sib{outline:2px dashed rgba(20,20,15,.55);outline-offset:2px;z-index:3}
+.klass.hot{outline:1.5px solid var(--ink);outline-offset:2px;z-index:3}
+.klass.sib{outline:1.5px dashed rgba(20,20,15,.5);outline-offset:2px;z-index:3}
 .k-time{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.70)}
 .k-code{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.03em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -223,8 +278,7 @@ input,select,textarea{font:inherit;color:inherit}
   font-size:7px;font-weight:700;background:rgba(255,255,255,.92);color:var(--sage-slot)}
 
 /* ══ CARDS ══ */
-.card{background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:8px;
-  box-shadow:0 1px 3px rgba(var(--shade),.07)}
+.card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:8px;}
 .card-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .card-code{font-family:var(--display);font-size:21px;letter-spacing:2px;line-height:1;color:var(--banner)}
 .meta{font-family:var(--mono);font-size:10px;color:var(--faint)}
@@ -232,7 +286,7 @@ input,select,textarea{font:inherit;color:inherit}
   align-items:center;gap:10px;margin:0 0 10px}
 .sec::after{content:'';flex:1;height:1px;background:var(--line)}
 .tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;padding:4px 10px;border-radius:3px;
+  text-transform:uppercase;padding:4px 10px;border-radius:6px;
   background:rgba(var(--shade),.06);color:var(--sub)}
 .tag.on{background:var(--sage-a);color:var(--sage-deep)}
 .tag.pend{background:var(--clay-a);color:var(--clay)}
@@ -250,47 +304,46 @@ input,select,textarea{font:inherit;color:inherit}
   width:min(420px,92vw);background:transparent}
 .sh-ov.on{display:block}
 .sh-ov#sh-roster{inset:0;width:auto;display:none;align-items:center;
-  justify-content:center;padding:26px;background:rgba(43,33,41,.42);
-  backdrop-filter:blur(6px) saturate(120%)}
+  justify-content:center;padding:26px;background:rgba(43,33,41,.42);}
 .sh-ov#sh-roster.on{display:flex}
-.sh-ov#sh-roster .sh{width:min(560px,92vw);max-height:88dvh;border-radius:2px;
+.sh-ov#sh-roster .sh{width:min(560px,92vw);max-height:88dvh;border-radius:6px;
   animation:sheetIn .26s cubic-bezier(.2,.9,.3,1)}
 /* The rail's own card fills the rail. */
+/* The rail meets the page on one hairline. That is the whole
+   separation — no shadow falling across the grid. */
 .sh-ov:not(#sh-roster) .sh{width:100%;height:100%;max-height:none;border-radius:0;
-  border-left:1px solid var(--line);box-shadow:-14px 0 44px rgba(var(--shade),.20);
-  animation:railIn .24s cubic-bezier(.2,.9,.3,1)}
+  border:none;border-left:1px solid var(--rule-2);
+  animation:railIn .24s cubic-bezier(.4,0,.2,1)}
 @keyframes railIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 /* The main column gets out of the way rather than being covered. */
 body.rail-open .main{padding-right:min(436px,94vw)}
 .sh{position:relative;width:min(620px,95vw);max-height:90dvh;display:flex;
-  flex-direction:column;overflow:hidden;background:#FAF8F5;border-radius:2px;
-  box-shadow:0 24px 70px rgba(var(--shade),.28);animation:sheetIn .26s cubic-bezier(.2,.9,.3,1)}
-.sh::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:var(--accent,var(--sage));z-index:3}
+  flex-direction:column;overflow:hidden;background:#FAF8F5;border-radius:6px;animation:sheetIn .26s cubic-bezier(.2,.9,.3,1)}
+
 /* Masthead on sand, body on paper. */
-.sh-head{flex-shrink:0;padding:22px 24px 16px;background:var(--sand)}
+/* No masthead. */
+.sh-head{flex-shrink:0;padding:30px 32px 18px;border-bottom:1px solid var(--rule)}
 .sh-strip{background:var(--sand);border-bottom:1px solid rgba(var(--shade),.12)}
 .sh-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.sh-bar{width:22px;height:5px;border-radius:2px;background:var(--accent,var(--sage))}
+.sh-bar{width:22px;height:5px;border-radius:6px;background:var(--accent,var(--sage))}
 .sh-kicker{font-family:var(--mono);font-size:9px;letter-spacing:.18em;
   text-transform:uppercase;color:var(--faint)}
 .sh-title{font-family:var(--display);font-size:clamp(24px,3.2vw,32px);line-height:.98;
   letter-spacing:2px;text-transform:uppercase;color:var(--banner)}
-.sh-title::after{content:'';display:block;width:54px;height:4px;margin-top:12px;
-  border-radius:2px;background:var(--accent,var(--sage))}
-.sh-sub{font-size:13px;color:var(--sub);margin-top:12px}
+
+.sh-sub{font-size:15px;color:var(--sub);margin-top:14px;letter-spacing:-.01em}
 .sh-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-.sh-close{position:absolute;top:18px;right:20px;z-index:4;width:28px;height:28px;
+.sh-close{position:absolute;top:22px;right:24px;z-index:4;width:28px;height:28px;
   border-radius:50%;color:var(--faint);font-size:15px;transition:all .14s}
 .sh-close:hover{background:rgba(var(--shade),.07);color:var(--ink)}
-.sh-body{flex:1;overflow-y:auto;padding:6px 24px 20px;min-height:0}
+.sh-body{flex:1;overflow-y:auto;padding:14px 32px 26px;min-height:0}
 .sh-sec{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.16em;
   text-transform:uppercase;color:var(--faint);display:flex;align-items:center;
-  gap:10px;margin:18px 0 10px}
-.sh-sec::after{content:'';flex:1;height:1px;background:var(--line)}
+  gap:10px;margin:18px 0 10px;scroll-margin-top:8px}
+.sh-sec::after{content:'';flex:1;height:1px;background:var(--line);order:1}
 .sh-foot{flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:14px 24px;border-top:1px solid var(--line);background:var(--stone-warm)}
-.sh-btn{font-size:12px;font-weight:600;padding:9px 17px;border-radius:9px;
+  padding:18px 32px;border-top:1px solid var(--rule);background:#fff}
+.sh-btn{font-size:12px;font-weight:600;padding:9px 17px;border-radius:10px;
   background:rgba(var(--shade),.07);color:var(--ink-2);transition:all .13s}
 .sh-btn:hover{background:rgba(var(--shade),.12)}
 .sh-btn.primary{background:var(--ink);color:#fff}
@@ -302,13 +355,13 @@ body.rail-open .main{padding-right:min(436px,94vw)}
 .sh-row:last-child{border-bottom:none}
 .sh-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;
   align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700}
-.sh-name{font-size:13px;font-weight:500;color:var(--ink-2)}
+.sh-name{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
 .sh-meta{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
 .sh-empty{font-size:13px;color:var(--faint);padding:22px 0;text-align:center}
-.sh-fld{background:rgba(var(--shade),.04);border-radius:8px;padding:10px 12px}
+.sh-fld{background:rgba(var(--shade),.04);border-radius:6px;padding:10px 12px}
 .sh-fk{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--faint);margin-bottom:4px}
-.sh-fv{font-size:13px;font-weight:500;color:var(--ink-2)}
+.sh-fv{font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--ink-2)}
 .sh-g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 
 /* ══ CANDIDATE ROWS ══════════════════════════════════════════════════
@@ -318,21 +371,42 @@ body.rail-open .main{padding-right:min(436px,94vw)}
    disabled rather than hidden, because "why is she not in the list"
    is a worse question than "why is she greyed out". */
 .cand{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;
-  border:1px solid var(--line);background:#fff;margin-bottom:5px;cursor:pointer;
+  border:1px solid var(--rule);background:#fff;margin-bottom:5px;cursor:pointer;
   transition:all .13s}
 .cand:hover{border-color:var(--sage-b);background:var(--sage-a)}
-.cand.on{border-color:var(--sage);background:var(--sage-a);box-shadow:inset 0 0 0 1px var(--sage)}
+.cand.on{border-color:var(--sage);background:var(--sage-a);}
 .cand.blocked{opacity:.44;cursor:not-allowed;background:var(--alert-a);border-color:rgba(184,64,42,.2)}
 .cand.blocked:hover{border-color:rgba(184,64,42,.2);background:var(--alert-a)}
 .cand-n{flex:1;min-width:0}
 .cand-why{font-family:var(--mono);font-size:9px;color:var(--alert);margin-top:2px}
 .cand-h{font-family:var(--mono);font-size:10px;font-weight:700;flex-shrink:0}
 .mini{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;
-  padding:2px 6px;border-radius:3px;flex-shrink:0}
+  padding:2px 6px;border-radius:6px;flex-shrink:0}
 .mini.lang{background:var(--sage-a);color:var(--sage-deep)}
 .mini.nat{background:rgba(var(--shade),.08);color:var(--sub)}
 .mini.free{background:var(--clay-a);color:var(--clay)}
 
+.checklist{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 14px;
+  padding:10px;border-radius:10px;background:rgba(var(--shade),.05)}
+.chk{flex:1;min-width:130px;display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:6px;background:#fff;border:1px solid var(--rule);
+  cursor:pointer;transition:all .13s}
+.chk:hover{border-color:var(--sage-b)}
+.chk.done{border-color:var(--sage-b);background:var(--sage-a)}
+.chk-mark{width:17px;height:17px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  background:rgba(var(--shade),.10);color:var(--faint)}
+.chk.done .chk-mark{background:var(--sage-slot);color:#fff}
+.chk-day{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--sub);flex-shrink:0}
+.chk-who{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;min-width:0}
+.chk.done .chk-who{color:var(--sage-deep);font-weight:500}
+.sec-state{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;
+  padding:2px 7px;border-radius:6px;background:var(--clay-a);color:var(--clay);
+  text-transform:uppercase;flex-shrink:0}
+.sec-state.done{background:var(--sage-a);color:var(--sage-deep)}
+.sh-sec::after{order:2}
 .seg{display:flex;gap:2px;padding:2px;border-radius:999px;
   background:rgba(var(--shade),.06);margin-bottom:10px}
 .seg button{flex:1;font-family:var(--mono);font-size:10px;font-weight:700;
@@ -342,7 +416,7 @@ body.rail-open .main{padding-right:min(436px,94vw)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(8px);
   padding:9px 20px;border-radius:999px;font-size:12px;font-weight:600;opacity:0;
   transition:all .2s;z-index:9000;pointer-events:none;max-width:80vw;text-align:center;
-  background:var(--ink);color:#fff;box-shadow:0 4px 18px rgba(var(--shade),.22)}
+  background:var(--ink);color:#fff;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.err{background:var(--alert)}.toast.warn{background:var(--clay)}
 .spin{width:14px;height:14px;border:2px solid rgba(var(--shade),.12);
@@ -616,7 +690,7 @@ function renderSide(){
       const l=by[k], open=l.filter(c=>!c.teacher_id).length;
       const d=DEPT[deptOf(l[0])];
       return `<div class="srow ${k===SEL_LEVEL?'on':''}" data-level="${esc(k)}">
-        <span style="width:4px;height:22px;border-radius:2px;background:${d.band};flex-shrink:0"></span>
+        <span style="width:4px;height:22px;border-radius:6px;background:${d.band};flex-shrink:0"></span>
         <span class="srow-n">${esc(LEVEL_DISP[k]||k||'—')}</span>
         <span class="srow-m">${l.length}</span>
         ${open?`<span class="tag pend" style="padding:2px 7px">${open}</span>`
@@ -870,16 +944,43 @@ function paintAssign(){
   const canPairWrite = sibs.every(s=>s.dbGroupCode) &&
     new Set(sibs.map(s=>s.dbGroupCode)).size===1;
 
+  /* WHY THE BUTTON WAS DEAD AND SAID NOTHING.
+     In "um por sessão" every session needs its own choice, but only
+     the first list fits the rail — the second is below the fold. Pick
+     a teacher for Terça, look at a full-looking panel, press Atribuir,
+     nothing happens. The choice for Quinta was never made and the
+     disabled button gave no reason.
+
+     Three changes, all about telling the truth: a checklist pinned
+     above the lists showing each session and who is on it, a button
+     that names what is missing instead of going grey, and a jump to
+     the next unanswered session the moment one is answered. */
+  const missing = mode==='mesmo'
+    ? (pick[sibs[0].turma_code] ? [] : sibs.slice(0,1))
+    : sibs.filter(s=>!pick[s.turma_code]);
+  const ready = missing.length===0;
+
+  const checklist = sibs.length>1 ? `<div class="checklist">
+    ${sibs.map(s=>{
+      const tid = mode==='mesmo' ? pick[sibs[0].turma_code] : pick[s.turma_code];
+      const t = tid ? TEACHERS.find(x=>x.id===tid) : null;
+      return `<div class="chk ${t?'done':''}" data-jump="${esc(s.turma_code)}">
+        <span class="chk-mark">${t?'&#10003;':'&#183;'}</span>
+        <span class="chk-day">${DAY_FULL[s.day_of_week]}</span>
+        <span class="chk-who">${t?esc(t.name):'por escolher'}</span>
+      </div>`;}).join('')}
+  </div>` : '';
+
   const body = mode==='mesmo'
     ? `<div class="sh-sec">Um professor para as ${sibs.length} sessões</div>
        ${candidatesFor(c).map(x=>candRow(x,c,pick[sibs[0].turma_code],'ALL')).join('')}`
-    : sibs.map(s=>`
-       <div class="sh-sec">${DAY_FULL[s.day_of_week]} · ${(s.start_time||'').slice(0,5)}–${(s.end_time||'').slice(0,5)} · ${esc(s.turma_code)}</div>
-       ${candidatesFor(s).map(x=>candRow(x,s,pick[s.turma_code],s.turma_code)).join('')}`).join('');
-
-  const ready = mode==='mesmo'
-    ? !!pick[sibs[0].turma_code]
-    : sibs.every(s=>pick[s.turma_code]);
+    : sibs.map(s=>{
+        const tid = pick[s.turma_code];
+        const t = tid ? TEACHERS.find(x=>x.id===tid) : null;
+        return `<div class="sh-sec" id="sec-${esc(s.turma_code)}">
+         ${DAY_FULL[s.day_of_week]} · ${(s.start_time||'').slice(0,5)}–${(s.end_time||'').slice(0,5)} · ${esc(s.turma_code)}
+         <span class="sec-state ${t?'done':''}">${t?esc(t.code):'por escolher'}</span></div>
+       ${candidatesFor(s).map(x=>candRow(x,s,pick[s.turma_code],s.turma_code)).join('')}`;}).join('');
 
   const host = hostFor('sh-assign');
   host.innerHTML = `<div class="sh" style="--accent:${anyAssigned?'var(--sage-deep)':'var(--clay)'}">
@@ -906,13 +1007,16 @@ function paintAssign(){
         <button data-mode="mesmo" class="${mode==='mesmo'?'on':''}">Mesmo professor</button>
         <button data-mode="partilhado" class="${mode!=='mesmo'?'on':''}">Um por sessão</button>
       </div>`:''}
+      ${checklist}
       ${body}
     </div>
     <div class="sh-foot">
       ${anyAssigned?`<button class="sh-btn bad" id="btn-clear">Remover professor</button>`:''}
       <button class="sh-btn" onclick="closeSheet('sh-assign')">Cancelar</button>
       <button class="sh-btn primary" id="btn-save" style="margin-left:auto" ${ready?'':'disabled'}>
-        ${mode==='mesmo'?`Atribuir às ${sibs.length} sessões`:'Atribuir'}</button>
+        ${ready
+          ? (mode==='mesmo' ? `Atribuir às ${sibs.length} sessões` : 'Atribuir')
+          : `Falta ${missing.map(s=>DAY_FULL[s.day_of_week]).join(' e ')}`}</button>
     </div>
   </div>`;
   host.classList.add('on');
@@ -927,10 +1031,22 @@ function paintAssign(){
     paintAssign();
   });
   host.querySelectorAll('[data-pick]').forEach(el=>el.onclick=()=>{
-    const [slot,tid]=el.dataset.pick.split(':');
+    const i=el.dataset.pick.indexOf(':');
+    const slot=el.dataset.pick.slice(0,i), tid=el.dataset.pick.slice(i+1);
     if(slot==='ALL') sibs.forEach(s=>{popState.pick[s.turma_code]=tid;});
     else popState.pick[slot]=tid;
     paintAssign();
+    /* Answering one session moves you to the next unanswered one, so
+       the second list is never something you have to discover. */
+    const next = popState.sibs.find(s=>!popState.pick[s.turma_code]);
+    if(next){
+      const sec=document.getElementById('sec-'+next.turma_code);
+      if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  });
+  host.querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{
+    const sec=document.getElementById('sec-'+el.dataset.jump);
+    if(sec) sec.scrollIntoView({behavior:'smooth', block:'start'});
   });
   const clr=host.querySelector('#btn-clear'); if(clr) clr.onclick=()=>commitAssign(true);
   host.querySelector('#btn-save').onclick=()=>commitAssign(false);
