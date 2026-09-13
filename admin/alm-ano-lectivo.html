@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ALM · Ano lectivo</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Anton&display=swap" rel="stylesheet"/>
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   ALM · ANO LECTIVO
+   The school calendar, in one place, owned by one person.
+
+   WHY THIS PAGE EXISTS
+   The year lives in three disconnected tables — school_config,
+   school_holidays, school_breaks — and nothing showed them together.
+   That is how academic_year came to say 2026/2027 while year_end_date
+   still said 25 June 2026: two halves of one decision, edited months
+   apart, with no screen that would have made the contradiction
+   visible. The portal then did exactly what it was told and announced
+   that the year had ended, with 156 registers outstanding for a year
+   that has not started.
+
+   So this page shows the CONSEQUENCES before the save, not after.
+   Change a date and the lesson counts move under your hand: 41
+   Mondays, 40 Thursdays, first lesson 21/09, last 30/06. A wrong year
+   is visible here rather than discovered in September.
+
+   NOT FOR TEACHERS. school_config is one row set shared by every page
+   and all 21 teachers. One person fixing their own screen would
+   silently rewrite the calendar for everybody and invalidate every
+   lesson number in the system. Teachers see the dates; they never
+   set them.
+   ══════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --page:#F2F1EC; --card:#FFFFFF; --well:#E7E8E4;
+  --rule:rgba(0,0,0,.07); --rule-2:rgba(0,0,0,.13);
+  --ink:#14140F; --ink-2:#3A3A36; --sub:#7A7A72; --faint:#A8A69C;
+  --sage:#5E776C; --sage-a:rgba(94,119,108,.12); --sage-b:rgba(94,119,108,.32);
+  --clay:#9A7B62; --clay-a:rgba(154,123,98,.12);
+  --alert:#B8402A; --alert-a:rgba(184,64,42,.10);
+  --sans:'Geist',system-ui,-apple-system,sans-serif;
+  --mono:'Geist Mono',ui-monospace,monospace;
+  --display:'Anton',Impact,sans-serif;
+}
+html,body{background:var(--page);color:var(--ink-2);font-family:var(--sans);
+  font-size:13px;-webkit-font-smoothing:antialiased}
+button{font:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input,select{font:inherit;color:inherit}
+
+.bar{height:44px;display:flex;align-items:center;background:var(--card);
+  border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:50}
+.bar-b{display:flex;align-items:center;gap:8px;padding:0 14px;height:100%;
+  border-right:1px solid var(--rule)}
+.bar-alm{font-size:14px;font-weight:800;letter-spacing:5px;color:var(--ink)}
+.bar-t{font-family:var(--mono);font-size:9px;color:var(--faint)}
+.bar-r{margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 14px}
+.dot{width:6px;height:6px;border-radius:6px;background:var(--sage)}
+.dot.err{background:var(--alert)} .dot.warn{background:var(--clay)}
+.msg{font-family:var(--mono);font-size:9px;color:var(--faint)}
+
+.wrap{padding:16px 18px 70px;max-width:1080px}
+h1{font-family:var(--display);font-size:26px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--ink);line-height:1}
+.h1s{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:5px}
+.sec{display:flex;align-items:center;gap:10px;margin:24px 0 10px;font-size:13px;
+  font-weight:600;color:var(--ink)}
+.sec::after{content:'';flex:1;height:1px;background:var(--rule)}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fk{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:5px}
+.inp{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--rule);
+  background:#fff;outline:none;font-size:14px;letter-spacing:-.01em}
+.inp:focus{border-color:var(--sage-b)}
+.btn{font-size:12px;font-weight:600;padding:9px 17px;border-radius:10px;
+  background:rgba(56,50,38,.07);color:var(--ink-2)}
+.btn:hover{background:rgba(56,50,38,.12)}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.primary:hover{background:#000}
+.btn.sage{background:var(--sage-a);color:var(--sage)}
+.btn.bad{background:var(--alert-a);color:var(--alert)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── CONSEQUENCES ── */
+.out{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.o{flex:1;min-width:104px;background:var(--well);border-radius:10px;padding:11px 13px}
+.o-v{font-size:23px;font-weight:700;letter-spacing:-.025em;color:var(--ink);line-height:1}
+.o-l{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sub);margin-top:4px}
+.wk{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.wk div{flex:1;min-width:72px;background:var(--well);border-radius:10px;padding:9px 10px;
+  text-align:center}
+.wk b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.wk span{font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--sub)}
+
+.warn{padding:12px 14px;border-radius:10px;font-size:12px;line-height:1.7;margin-bottom:10px}
+.warn.bad{background:var(--alert-a);border:1px solid rgba(184,64,42,.24)}
+.warn.bad b{color:var(--alert)}
+.warn.ok{background:var(--sage-a);border:1px solid var(--sage-b)}
+.warn.ok b{color:var(--sage)}
+.warn.soft{background:var(--clay-a);border:1px solid rgba(154,123,98,.3)}
+.warn.soft b{color:var(--clay)}
+
+/* ── LISTS ── */
+.row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--rule)}
+.row:last-child{border-bottom:none}
+.row-d{font-family:var(--mono);font-size:13px;color:var(--ink);min-width:104px}
+.row-n{flex:1;min-width:0;font-size:13px;letter-spacing:-.01em}
+.x{font-family:var(--mono);font-size:11px;color:var(--faint);padding:4px 9px;border-radius:6px}
+.x:hover{background:var(--alert-a);color:var(--alert)}
+.empty{font-size:13px;color:var(--faint);padding:18px 0;text-align:center}
+.add{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;
+  padding-top:14px;border-top:1px solid var(--rule)}
+.add > div{flex:1;min-width:130px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(8px);
+  padding:10px 20px;border-radius:999px;font-size:12px;font-weight:600;opacity:0;
+  transition:all .2s;z-index:900;pointer-events:none;background:var(--ink);color:#fff;
+  max-width:86vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--alert)}
+.toast.warn{background:var(--clay)}
+@media(max-width:680px){.g3,.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="bar-b"><span class="bar-alm">ALM</span><span class="bar-t">Ano lectivo</span></div>
+  <div class="bar-r">
+    <div class="dot" id="dot"></div><span class="msg" id="msg">a carregar…</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>Ano lectivo</h1>
+  <div class="h1s">school_config · school_holidays · school_breaks</div>
+
+  <div id="warns"></div>
+
+  <div class="sec">Datas</div>
+  <div class="card">
+    <div class="g3">
+      <div><div class="fk">Ano lectivo</div>
+        <input class="inp" id="ay" placeholder="2026/2027"/></div>
+      <div><div class="fk">Primeiro dia de aulas</div>
+        <input class="inp" id="y0" type="date"/></div>
+      <div><div class="fk">Último dia de aulas</div>
+        <input class="inp" id="y1" type="date"/></div>
+    </div>
+
+    <!-- The consequences, live. Move a date and these move with it,
+         before anything is written. -->
+    <div class="out" id="out"></div>
+    <div class="wk" id="wk"></div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;align-items:center;flex-wrap:wrap">
+      <button class="btn primary" id="save">Guardar datas</button>
+      <button class="btn" id="reload">Recarregar</button>
+      <span class="msg" id="dirty" style="margin-left:auto"></span>
+    </div>
+  </div>
+
+  <div class="sec">Feriados e dias sem aulas</div>
+  <div class="card">
+    <div id="hol"></div>
+    <div class="add">
+      <div><div class="fk">Data</div><input class="inp" id="h-d" type="date"/></div>
+      <div style="flex:2"><div class="fk">Motivo</div>
+        <input class="inp" id="h-n" placeholder="ex: Dia da Região"/></div>
+      <button class="btn sage" id="h-add">Adicionar</button>
+    </div>
+  </div>
+
+  <div class="sec">Pausas lectivas</div>
+  <div class="card">
+    <div id="brk"></div>
+    <div class="add">
+      <div><div class="fk">De</div><input class="inp" id="b-a" type="date"/></div>
+      <div><div class="fk">A</div><input class="inp" id="b-b" type="date"/></div>
+      <div style="flex:2"><div class="fk">Nome</div>
+        <input class="inp" id="b-n" placeholder="ex: Natal"/></div>
+      <button class="btn sage" id="b-add">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB  = 'https://oapygbeliocdvitbdjbq.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hcHlnYmVsaW9jZHZpdGJkamJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjQzNjAsImV4cCI6MjA5MjA0MDM2MH0.-9Uj9Bg3q8sIlqzfzw2Sc1JziaueeyYGNwep-qWhWWg';
+const H = {apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json',
+           Prefer:'return=representation'};
+
+const DAYS = [['SEG','Segunda',1],['TER','Terça',2],['QUA','Quarta',3],
+              ['QUI','Quinta',4],['SEX','Sexta',5],['SÁB','Sábado',6]];
+let CFG={}, HOL=[], BRK=[], loaded=false;
+
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today = () => iso(new Date());
+const fmt = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-PT',
+  {weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let _t; function toast(m,k=''){ const e=document.getElementById('toast');
+  e.textContent=m; e.className='toast '+k+' show'; clearTimeout(_t);
+  _t=setTimeout(()=>e.classList.remove('show'), k==='err'?6000:3000); }
+function conn(s,m){ document.getElementById('dot').className='dot'+(s?'':' err');
+  document.getElementById('msg').textContent=m; }
+
+async function get(t,q=''){ const r=await fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H});
+  if(!r.ok) throw new Error(`${t} ${r.status}`); return r.json(); }
+
+/* Same rule as the assign page: PostgREST answers a PATCH that matched
+   nothing with 200 and [], so a write is only a write if rows came
+   back. A calendar that silently failed to save would be worse here
+   than anywhere else in the product. */
+async function write(t,q,body,method='PATCH'){
+  const r=await fetch(`${SB}/rest/v1/${t}${q?'?'+q:''}`,
+    {method,headers:H,body:JSON.stringify(body)});
+  const txt=await r.text();
+  if(!r.ok) throw new Error(`${r.status} · ${txt.slice(0,160)}`);
+  let rows=[]; try{ rows=JSON.parse(txt||'[]'); }catch{}
+  if(!rows.length) throw new Error('a base de dados não alterou nenhuma linha');
+  return rows;
+}
+
+async function load(){
+  conn(true,'a carregar');
+  try{
+    const c = await get('school_config','select=key,value&limit=50');
+    CFG={}; c.forEach(r=>CFG[r.key]=r.value);
+    HOL = await get('school_holidays','select=date,name&order=date').catch(()=>[]);
+    BRK = await get('school_breaks','select=start_date,end_date,name&order=start_date').catch(()=>[]);
+    document.getElementById('ay').value = CFG.academic_year   || '';
+    document.getElementById('y0').value = CFG.year_start_date || '';
+    document.getElementById('y1').value = CFG.year_end_date   || '';
+    loaded=true; conn(true,'Supabase');
+    recalc(); renderHol(); renderBrk();
+  }catch(e){ conn(false,'erro'); toast('Erro: '+e.message,'err'); }
+}
+
+/* ── THE CONSEQUENCES ─────────────────────────────────────────────
+   Everything downstream of these three fields, computed from the form
+   rather than from the database, so it updates as you type. */
+function teaching(d){
+  const s=iso(d);
+  if(HOL.some(h=>h.date===s)) return false;
+  return !BRK.some(b=>s>=b.start_date && s<=b.end_date);
+}
+function counts(y0,y1){
+  const per={}, out={days:0, first:null, last:null};
+  DAYS.forEach(([k])=>per[k]=0);
+  if(!y0||!y1||y1<y0) return {per,...out};
+  const d=new Date(y0+'T12:00:00'), end=new Date(y1+'T12:00:00');
+  while(d<=end){
+    const dow=d.getDay();
+    if(dow>=1 && dow<=6 && teaching(d)){
+      const k=DAYS.find(x=>x[2]===dow)[0];
+      per[k]++; out.days++;
+      if(!out.first) out.first=iso(d);
+      out.last=iso(d);
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return {per,...out};
+}
+
+function recalc(){
+  const ay=document.getElementById('ay').value.trim();
+  const y0=document.getElementById('y0').value;
+  const y1=document.getElementById('y1').value;
+  const c=counts(y0,y1);
+
+  document.getElementById('out').innerHTML = `
+    <div class="o"><div class="o-v">${c.days}</div><div class="o-l">Dias lectivos</div></div>
+    <div class="o"><div class="o-v" style="font-size:15px">${c.first?fmt(c.first).replace(/-feira/,''):'—'}</div><div class="o-l">Primeira aula</div></div>
+    <div class="o"><div class="o-v" style="font-size:15px">${c.last?fmt(c.last).replace(/-feira/,''):'—'}</div><div class="o-l">Última aula</div></div>
+    <div class="o"><div class="o-v">${HOL.length}</div><div class="o-l">Feriados</div></div>
+    <div class="o"><div class="o-v">${BRK.length}</div><div class="o-l">Pausas</div></div>`;
+  document.getElementById('wk').innerHTML = DAYS.map(([k,f])=>
+    `<div><b>${c.per[k]}</b><span>${k}</span></div>`).join('');
+
+  /* ── THE GUARDS ──
+     Each one exists because it has already gone wrong. */
+  const W=[];
+  if(!y0||!y1) W.push(['bad','Datas em falta.',
+    'Sem primeiro e último dia de aulas, todas as páginas ficam sem calendário — '
+    +'e um portal sem calendário parece um professor sem turmas.']);
+  else if(y1<=y0) W.push(['bad','O fim é anterior ao início.','Nenhuma aula seria gerada.']);
+  else{
+    const m=ay.match(/^(\d{4})\s*\/\s*(\d{2,4})$/);
+    if(m){
+      const a=+m[1], b=m[2].length===2?+('20'+m[2]):+m[2];
+      if(+y0.slice(0,4)!==a || +y1.slice(0,4)!==b)
+        W.push(['bad','As datas não correspondem ao ano lectivo.',
+          `“${esc(ay)}” implica ${a}→${b}, mas as datas dizem `
+          +`${y0.slice(0,4)}→${y1.slice(0,4)}. Foi exactamente esta contradição que `
+          +'levou o portal a anunciar que o ano tinha terminado.']);
+    } else if(ay) W.push(['soft','Formato do ano lectivo.','Esperado AAAA/AAAA, ex. 2026/2027.']);
+
+    if(y1<today()) W.push(['soft','O último dia já passou.',
+      'As páginas vão tratar o ano como terminado.']);
+    if(c.days<100) W.push(['soft',`Apenas ${c.days} dias lectivos.`,
+      'Um ano completo costuma ter perto de 200. Verifique as pausas.']);
+  }
+  if(!W.length && loaded) W.push(['ok','Calendário coerente.',
+    `${c.days} dias lectivos, de ${fmt(c.first)} a ${fmt(c.last)}.`]);
+
+  document.getElementById('warns').innerHTML = W.map(([k,t,d])=>
+    `<div class="warn ${k}"><b>${t}</b> ${d}</div>`).join('');
+
+  const dirty = loaded && (ay!==(CFG.academic_year||'') ||
+    y0!==(CFG.year_start_date||'') || y1!==(CFG.year_end_date||''));
+  document.getElementById('dirty').textContent = dirty ? 'alterações por guardar' : '';
+  document.getElementById('save').disabled = !dirty;
+}
+
+async function saveDates(){
+  const b=document.getElementById('save'); b.disabled=true; b.textContent='A guardar…';
+  const pairs=[['academic_year','ay'],['year_start_date','y0'],['year_end_date','y1']];
+  try{
+    for(const [key,id] of pairs){
+      const v=document.getElementById(id).value.trim();
+      if(v===(CFG[key]||'')) continue;
+      /* The key may not exist yet — PATCH would match nothing, which
+         this treats as an error, so fall back to an insert. */
+      try{ await write('school_config',`key=eq.${encodeURIComponent(key)}`,{value:v}); }
+      catch(e){ await write('school_config','',[{key,value:v}],'POST'); }
+      CFG[key]=v;
+    }
+    toast('Calendário guardado'); recalc();
+  }catch(e){ toast('Não guardado: '+e.message,'err'); }
+  finally{ b.disabled=false; b.textContent='Guardar datas'; recalc(); }
+}
+
+/* ── HOLIDAYS ── */
+function renderHol(){
+  const el=document.getElementById('hol');
+  const inYear = HOL.filter(h=>!CFG.year_start_date ||
+    (h.date>=CFG.year_start_date && h.date<=CFG.year_end_date));
+  el.innerHTML = HOL.length ? HOL.map(h=>{
+    const out = CFG.year_start_date && (h.date<CFG.year_start_date || h.date>CFG.year_end_date);
+    return `<div class="row">
+      <span class="row-d">${h.date}</span>
+      <span class="row-n">${esc(h.name||'—')}
+        ${out?'<span style="color:var(--clay);font-family:var(--mono);font-size:10px"> · fora do ano</span>':''}</span>
+      <button class="x" data-h="${h.date}">remover</button></div>`;
+  }).join('') + (inYear.length!==HOL.length
+    ? `<div class="warn soft" style="margin-top:12px"><b>${HOL.length-inYear.length} fora do ano lectivo.</b>
+        Provavelmente do ano anterior — não afectam este calendário, mas convém limpar.</div>` : '')
+    : '<div class="empty">Sem feriados registados.</div>';
+  el.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>delHol(x.dataset.h));
+}
+async function addHol(){
+  const d=document.getElementById('h-d').value, n=document.getElementById('h-n').value.trim();
+  if(!d){ toast('Indique a data','warn'); return; }
+  try{ await write('school_holidays','',[{date:d,name:n||null}],'POST');
+    HOL.push({date:d,name:n}); HOL.sort((a,b)=>a.date.localeCompare(b.date));
+    document.getElementById('h-d').value=''; document.getElementById('h-n').value='';
+    renderHol(); recalc(); toast('Feriado adicionado');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function delHol(d){
+  try{
+    const r=await fetch(`${SB}/rest/v1/school_holidays?date=eq.${d}`,{method:'DELETE',headers:H});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    HOL=HOL.filter(h=>h.date!==d); renderHol(); recalc(); toast('Removido');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+/* ── BREAKS ── */
+function renderBrk(){
+  const el=document.getElementById('brk');
+  el.innerHTML = BRK.length ? BRK.map(b=>{
+    const days=Math.round((new Date(b.end_date)-new Date(b.start_date))/86400000)+1;
+    return `<div class="row">
+      <span class="row-d">${b.start_date}</span>
+      <span class="row-d" style="min-width:auto;color:var(--faint)">→ ${b.end_date}</span>
+      <span class="row-n">${esc(b.name||'—')}
+        <span style="font-family:var(--mono);font-size:10px;color:var(--faint)"> · ${days} dias</span></span>
+      <button class="x" data-b="${b.start_date}">remover</button></div>`;
+  }).join('') : '<div class="empty">Sem pausas registadas.</div>';
+  el.querySelectorAll('[data-b]').forEach(x=>x.onclick=()=>delBrk(x.dataset.b));
+}
+async function addBrk(){
+  const a=document.getElementById('b-a').value, b=document.getElementById('b-b').value;
+  const n=document.getElementById('b-n').value.trim();
+  if(!a||!b){ toast('Indique as duas datas','warn'); return; }
+  if(b<a){ toast('A data final é anterior à inicial','warn'); return; }
+  try{ await write('school_breaks','',[{start_date:a,end_date:b,name:n||null}],'POST');
+    BRK.push({start_date:a,end_date:b,name:n}); BRK.sort((x,y)=>x.start_date.localeCompare(y.start_date));
+    ['b-a','b-b','b-n'].forEach(i=>document.getElementById(i).value='');
+    renderBrk(); recalc(); toast('Pausa adicionada');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+async function delBrk(s){
+  try{
+    const r=await fetch(`${SB}/rest/v1/school_breaks?start_date=eq.${s}`,{method:'DELETE',headers:H});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    BRK=BRK.filter(b=>b.start_date!==s); renderBrk(); recalc(); toast('Removida');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+['ay','y0','y1'].forEach(i=>document.getElementById(i).addEventListener('input',recalc));
+document.getElementById('save').onclick   = saveDates;
+document.getElementById('reload').onclick = load;
+document.getElementById('h-add').onclick  = addHol;
+document.getElementById('b-add').onclick  = addBrk;
+load();
+</script>
+</body>
+</html>
