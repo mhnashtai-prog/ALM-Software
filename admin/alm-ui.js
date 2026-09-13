@@ -63,6 +63,15 @@ function statusCol(isCert, isFail, isWarn){
   return isCert ? ST_CERTIFIED : ST_PROPOSED;
 }
 
+/* ADD THIS — new function, nothing to replace */
+function groupTone(i) {
+  const hue = (i * 137.508) % 360;
+  const sat = 34, light = 42;
+  const ink    = `hsl(${hue.toFixed(1)},${sat}%,${light}%)`;
+  const border = `hsl(${hue.toFixed(1)},${sat}%,${light - 6}%)`;
+  return { ink, border };
+}
+
 /* Four tiers on ONE hue, stepped by depth. The old set was four
    unrelated hues — blue, marigold, mint, gold — so the seal's colour
    read as a category rather than as a position on a scale, and the
@@ -320,10 +329,10 @@ function drawStamps(containerId, levelKey, result) {
   result.groups.forEach((g, i) => {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar = (_auditResults[levelKey] || {})[i];
-    const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
-    const _ts = tierSeal(g, ar);
-    const col = statusCol(isCert, isFail, isWarn);
-    const sealInk = _ts.ink;   // seal carries the four-tier service colour
+  const isCert = !!committed, isFail = ar?.status === 'fail', isWarn = ar?.status === 'warn';
+const tone = groupTone(i);
+const col = isFail ? ST_FAIL : tone.ink;
+const sealInk = col;
     /* A certified band is filled; a proposal is a wash with a solid
        left edge. Same hue family, different commitment. */
     const bandBg = isCert ? col + 'E6' : col + '24';
@@ -368,7 +377,7 @@ function drawStamps(containerId, levelKey, result) {
           ? (isCert ? (committed.turmaCodeA || committed.turmaCode || `T${i + 1}A`) : `T${i + 1}A`)
           : (isCert ? (committed.turmaCodeA || `T${i + 1}A`) : `T${i + 1}A`))
         : (isCert ? (committed.turmaCodeB || `T${i + 1}B`) : `T${i + 1}B`);
-
+      const warnRing = isWarn ? `outline:1.5px solid ${ST_WARN};outline-offset:1px;` : '';
       const band = document.createElement('div');
       band.className = 'sg-stamp';
       band.style.cssText = [
@@ -376,6 +385,7 @@ function drawStamps(containerId, levelKey, result) {
         `height:${rowEl.offsetHeight - 4}px`, `background:${bandBg}`,
         `border-left:3px solid ${borderCol}`, `border-top:.5px solid ${borderCol}`,
         `border-right:.5px solid ${col}22`, `border-bottom:.5px solid ${col}22`,
+          warnRing,
         `opacity:${opacity}`,
       ].join(';');
       band.innerHTML = `<div class="sg-stamp-seal">${sealSVG}</div>${showText ? `<span class="sg-stamp-code" style="color:${inkCol}">${stampCode}</span>` : ''}${showCount ? `<span class="sg-stamp-count" style="color:${inkCol}">${n}<span style="opacity:.4">/${MAX_G}</span></span>` : ''}`;
