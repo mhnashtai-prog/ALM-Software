@@ -325,13 +325,21 @@
       </div>
     </div>
     <div class="tb-sep"></div>
-    <a class="tb-health" href="/command-centre" id="tb-health">
+          <a class="tb-health" href="/command-centre" id="tb-health">
       <div class="tb-health-light"></div>
       <div class="tb-health-text">
         <div class="tb-health-lbl" id="tb-health-lbl">—</div>
         <div class="tb-health-sub">saúde global</div>
       </div>
       <div class="tb-health-tooltip" id="tb-health-tooltip"></div>
+    </a>
+    <a class="tb-health" href="alm-ano-lectivo.html" id="cal-pill">
+      <div class="tb-health-light" id="cal-pill-light"></div>
+      <div class="tb-health-text">
+        <div class="tb-health-lbl" id="cal-pill-lbl">—</div>
+        <div class="tb-health-sub">ano lectivo</div>
+      </div>
+      <div class="tb-health-tooltip" id="cal-pill-tooltip"></div>
     </a>
     <div class="report-pill" id="report-pill-btn" onclick="openReport()">
       <div class="report-pill-dot"></div>
@@ -597,38 +605,46 @@ const FALLBACK_YEAR_START    = '2025-09-29';
 const FALLBACK_YEAR_END      = '2026-06-27';
 const FALLBACK_ACADEMIC_YEAR = '2026/2027';
 
-async function loadSchoolConfig() {
-  try {
-    const r = await fetch(`${SB}/rest/v1/school_config?select=key,value`, { headers: SBH });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const rows = await r.json();
-    if (!rows || rows.length === 0) throw new Error('empty');
-    let foundStart = false, foundEnd = false;
-    rows.forEach(row => {
-      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; foundStart = true; }
-      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; foundEnd   = true; }
-      if (row.key === 'academic_year') {
-        document.getElementById('yearVal').textContent = row.value.replace('/', ' / ');
-        document.querySelectorAll('.year-option').forEach(o => {
-          const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
-          if (m) o.classList.toggle('active', m[1]+'/'+m[2] === row.value);
-        });
-      }
-    });
-    if (!foundStart || !foundEnd) {
-      if (!foundStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
-      if (!foundEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
-      showConfigBanner('Datas lectivas incompletas na base de dados — a usar valores predefinidos.');
-    }
-  } catch(e) {
-    document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
-    document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
-    if (document.getElementById('yearVal').textContent === '—')
-      document.getElementById('yearVal').textContent = FALLBACK_ACADEMIC_YEAR.replace('/', ' / ');
-    showConfigBanner('Datas lectivas não configuradas — a usar valores predefinidos ('+FALLBACK_YEAR_START+' → '+FALLBACK_YEAR_END+').');
-    console.warn('school_config unavailable:', e.message);
-  }
-}
+ async function loadSchoolConfig() {
++  let y0 = null, y1 = null, ay = null, hasStart = false, hasEnd = false, hasAY = false;
+   try {
+     const r = await fetch(`${SB}/rest/v1/school_config?select=key,value`, { headers: SBH });
+     if (!r.ok) throw new Error('HTTP ' + r.status);
+     const rows = await r.json();
+     if (!rows || rows.length === 0) throw new Error('empty');
+-    let foundStart = false, foundEnd = false;
+     rows.forEach(row => {
+-      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; foundStart = true; }
+-      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; foundEnd   = true; }
++      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; y0 = row.value; hasStart = true; }
++      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; y1 = row.value; hasEnd   = true; }
+       if (row.key === 'academic_year') {
++        ay = row.value; hasAY = true;
+         document.getElementById('yearVal').textContent = row.value.replace('/', ' / ');
+         document.querySelectorAll('.year-option').forEach(o => {
+           const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
+           if (m) o.classList.toggle('active', m[1]+'/'+m[2] === row.value);
+         });
+       }
+     });
+-    if (!foundStart || !foundEnd) {
+-      if (!foundStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
+-      if (!foundEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
++    if (!hasStart || !hasEnd) {
++      if (!hasStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
++      if (!hasEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
+       showConfigBanner('Datas lectivas incompletas na base de dados — a usar valores predefinidos.');
+     }
+   } catch(e) {
+     document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
+     document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
+     if (document.getElementById('yearVal').textContent === '—')
+       document.getElementById('yearVal').textContent = FALLBACK_ACADEMIC_YEAR.replace('/', ' / ');
+     showConfigBanner('Datas lectivas não configuradas — a usar valores predefinidos ('+FALLBACK_YEAR_START+' → '+FALLBACK_YEAR_END+').');
+     console.warn('school_config unavailable:', e.message);
+   }
++  updateCalPill(hasStart, hasEnd, hasAY, y0, y1, ay);
+ }
 
 /* ── BRANCH / STATUS HELPERS ── */
 const STATUS_LABEL = { healthy:'Saudável', viable:'Viável', concerning:'Atenção', unviable:'Inviável' };
