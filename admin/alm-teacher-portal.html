@@ -774,9 +774,6 @@ textarea.inp{resize:vertical;min-height:84px;line-height:1.6}
 .reg-h .rh-n{border-right:1px solid #DEDCD4;padding-right:9px}
 .reg-h .rh-s{border-left:1px solid #DEDCD4;padding-left:11px}
 
-/* A student who is also taught by somebody else. */
-.att-share{font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 6px;
-  border-radius:6px;background:#E6EAE7;color:#3F5A4C;flex-shrink:0;cursor:help}
 
 /* Marks are a ledger, so they are ruled like one. */
 .mk-t{border:1px solid #CFCCC2;border-radius:6px;overflow:hidden;background:#fff}
@@ -825,6 +822,37 @@ textarea.inp{resize:vertical;min-height:84px;line-height:1.6}
 .sp{flex:1;min-width:6px;height:100%;display:flex;align-items:flex-end;
   background:#EFEEE9;border-radius:6px;overflow:hidden;cursor:help}
 .sp i{display:block;width:100%;border-radius:6px}
+
+/* ── THE TEACHERS COLUMN ── */
+.att-teach{width:150px;flex-shrink:0;text-align:right;
+  border-left:1px solid #EBE9E1;padding-left:11px}
+.reg-h .rh-t{width:150px;flex-shrink:0;text-align:right;
+  border-left:1px solid #DEDCD4;padding-left:11px}
+.tc{font-size:12px;font-weight:600;color:#000;cursor:pointer;
+  border-bottom:1px dashed #B4B1A6;padding-bottom:1px}
+.tc:hover{border-bottom-color:var(--sage-slot);color:var(--sage-slot)}
+.tc.multi{color:var(--sage-slot)}
+.tc-none{color:#9E9C93}
+
+/* ── THE WEEKLY TIMETABLE TOOLTIP ── */
+.tt-g{padding:9px 12px;border-bottom:1px solid var(--rule)}
+.tt-g:last-of-type{border-bottom:none}
+.tt-n{font-size:13px;font-weight:700;color:#000;margin-bottom:5px}
+.tt-me{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--sage-slot);background:var(--sage-a);
+  padding:1px 6px;border-radius:6px;margin-left:7px}
+.tt-s{display:grid;grid-template-columns:74px 44px 1fr auto;gap:8px;align-items:baseline;
+  padding:3px 0;font-family:var(--mono);font-size:11px}
+.tt-d{color:#000}
+.tt-h{color:#5A5A54}
+.tt-c{color:#000;font-weight:700}
+.tt-l{color:#5A5A54;font-size:10px}
+.tt-f{padding:8px 12px;border-top:1px solid var(--rule);background:rgba(56,50,38,.03);
+  font-family:var(--mono);font-size:10px;color:#5A5A54}
+@media(max-width:760px){
+  .att-teach,.reg-h .rh-t{width:96px}
+  .tc{font-size:11px}
+}
 </style>
 </head>
 <body>
@@ -1950,7 +1978,7 @@ function paintLesson(){
           <div class="sh-meta">${esc(s.ref)}</div>
         </div>
         ${flag?`<span class="att-flag" title="${flag.minor?'menor de idade':'adulto'}">${flag.n} faltas</span>`:''}
-        ${(SHARED[s.ref]||[]).length?`<span class="att-share" title="${esc(SHARED[s.ref].map(x=>`${x.code} · ${x.teacher} · ${DAY_FULL[x.day]||x.day} ${x.time}`).join('\n'))}">+${SHARED[s.ref].length}</span>`:''}
+        <span class="att-teach">${teachersCell(s.ref)}</span>
         <span class="att-st">${lb}</span>
         ${actionsFor(s.ref)}
       </div>`;
@@ -1994,7 +2022,8 @@ function paintLesson(){
       <div class="sh-pane active" id="pane-pres">
         <div class="lp-roster">${roster ? `<div class="reg-h">
             <span class="rh-m">&nbsp;</span><span class="rh-n">N&ordm;</span>
-            <span class="rh-a">Aluno</span><span class="rh-s">Estado</span>
+            <span class="rh-a">Aluno</span><span class="rh-t">Professores</span>
+            <span class="rh-s">Estado</span>
             <span class="rh-x">Ac&ccedil;&otilde;es</span></div>` + roster
           : '<div class="sh-empty">Esta turma n&atilde;o tem alunos inscritos.</div>'}</div>
       </div>
@@ -2059,6 +2088,40 @@ const ICON = {
 };
 function ic(k){ return `<svg viewBox="0 0 24 24">${ICON[k]}</svg>`; }
 
+/* ── WHO TEACHES THIS STUDENT ─────────────────────────────────────
+   SHARED[] already held the other teachers' classes; it was being
+   rendered as a "+2" badge, which tells you there is something to
+   know without telling you it. A name is the answer: "Majid & Sally"
+   is read at a glance, and the days are one click away.
+
+   The current teacher comes first because the list is read from the
+   register — you are looking at your own class, and the useful fact
+   is who ELSE has them. */
+function teachersFor(ref){
+  const out = [];
+  const mineHere = CLASSES.filter(c => c.refs.includes(ref));
+  if(mineHere.length) out.push({
+    name: ME.name, self: true,
+    slots: mineHere.map(c => ({code:c.code, day:c.day, time:c.start, level:c.level})),
+  });
+  const by = {};
+  (SHARED[ref] || []).forEach(s => { (by[s.teacher] = by[s.teacher] || []).push(s); });
+  Object.entries(by).forEach(([name, slots]) => out.push({
+    name, self:false,
+    slots: slots.map(s => ({code:s.code, day:s.day, time:s.time, level:s.level})),
+  }));
+  return out;
+}
+const firstName = n => String(n||'').trim().split(/\s+/)[0] || '—';
+
+function teachersCell(ref){
+  const t = teachersFor(ref);
+  if(!t.length) return '<span class="tc-none">—</span>';
+  const label = t.map(x => firstName(x.name)).join(' & ');
+  return `<span class="tc ${t.length>1?'multi':''}" data-teach="${ref}"
+    title="clique para ver os dias">${esc(label)}</span>`;
+}
+
 function actionsFor(ref){
   const e = ENROL[ref] || {};
   const tel  = (e.phone||'').replace(/\D/g,'');
@@ -2094,6 +2157,41 @@ function runAction(k, ref, btn){
 
 let _tip=null;
 function closeTip(){ if(_tip){ _tip.remove(); _tip=null; } }
+/* Read-only, so no footer and nothing to cancel — it closes on the
+   next click anywhere. Same anchored card as the note tooltip, which
+   is the point: one modal language, two uses. */
+function openTeachTip(el, ref){
+  closeTip();
+  const list = teachersFor(ref);
+  const e = ENROL[ref] || {};
+  const row = el.closest('.att-row');
+  const t = document.createElement('div');
+  t.className = 'tip on';
+  t.innerHTML = `
+    <div class="tip-h"><div>
+      <div class="tip-t">Horário semanal</div>
+      <div class="tip-n">${esc(e.name||ref)}</div></div></div>
+    <div class="tip-b" style="padding:4px 0">
+      ${list.map(x=>`<div class="tt-g">
+        <div class="tt-n">${esc(x.name)}${x.self?'<span class="tt-me">você</span>':''}</div>
+        ${x.slots.sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day))
+          .map(s=>`<div class="tt-s">
+            <span class="tt-d">${esc(DAY_FULL[s.day]||s.day)}</span>
+            <span class="tt-h">${esc(s.time||'')}</span>
+            <span class="tt-c">${esc(s.code)}</span>
+            <span class="tt-l">${esc(s.level||'')}</span></div>`).join('')}
+      </div>`).join('') || '<div class="sh-empty">Sem turmas.</div>'}
+      <div class="tt-f">${list.reduce((n,x)=>n+x.slots.length,0)} aula${
+        list.reduce((n,x)=>n+x.slots.length,0)!==1?'s':''} por semana</div>
+    </div>`;
+  row.appendChild(t);
+  const r = row.getBoundingClientRect();
+  t.style.right = '8px';
+  t.style.top    = (r.bottom + 240 > window.innerHeight) ? 'auto' : '100%';
+  t.style.bottom = (r.bottom + 240 > window.innerHeight) ? '100%' : 'auto';
+  _tip = t;
+}
+
 function openTip(btn, ref, kind){
   closeTip();
   const e = ENROL[ref] || {};
@@ -2165,6 +2263,9 @@ function wireLesson(){
     openLesson(sheetLesson.cls.code, b.dataset.iso);
   });
   host.querySelectorAll('[data-cycle]').forEach(el=>el.onclick=()=>cycle(el.dataset.cycle));
+  host.querySelectorAll('[data-teach]').forEach(el=>el.onclick=ev=>{
+    ev.stopPropagation(); openTeachTip(el, el.dataset.teach);
+  });
   host.querySelectorAll('[data-act]').forEach(el=>el.onclick=ev=>{
     ev.stopPropagation();               /* never toggles the mark */
     runAction(el.dataset.act, el.dataset.ref, el);
