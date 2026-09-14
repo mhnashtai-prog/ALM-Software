@@ -51,7 +51,10 @@
 .tt-bar-fill{height:100%;border-radius:2px;background:var(--gold)}
 .tt-bar-num{font-size:8px;font-weight:600;color:rgba(235,210,155,0.65);min-width:28px;text-align:right;font-family:var(--font-mono)}
 .tt-hint{font-size:8px;color:rgba(210,180,100,0.32);margin-top:8px;padding-top:6px;border-top:0.5px solid rgba(210,180,100,0.08);text-align:center}
-.tb-health{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 8px;border-radius:999px;border:0.5px solid;cursor:pointer;position:relative;transition:all 0.2s;text-decoration:none;}
+.tb-health{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 8px;border-radius:999px;
+  border:0.5px solid rgba(210,180,100,0.18);
+  background:rgba(210,180,100,0.05);
+  cursor:pointer;position:relative;transition:all 0.2s;text-decoration:none;}
 .tb-health.healthy{background:rgba(29,185,84,0.08);border-color:rgba(29,185,84,0.25)}
 .tb-health.viable{background:rgba(46,204,138,0.08);border-color:rgba(46,204,138,0.22)}
 .tb-health.concerning{background:rgba(232,184,75,0.08);border-color:rgba(232,184,75,0.25)}
@@ -605,47 +608,74 @@ const FALLBACK_YEAR_START    = '2025-09-29';
 const FALLBACK_YEAR_END      = '2026-06-27';
 const FALLBACK_ACADEMIC_YEAR = '2026/2027';
 
- async function loadSchoolConfig() {
-+  let y0 = null, y1 = null, ay = null, hasStart = false, hasEnd = false, hasAY = false;
-   try {
-     const r = await fetch(`${SB}/rest/v1/school_config?select=key,value`, { headers: SBH });
-     if (!r.ok) throw new Error('HTTP ' + r.status);
-     const rows = await r.json();
-     if (!rows || rows.length === 0) throw new Error('empty');
--    let foundStart = false, foundEnd = false;
-     rows.forEach(row => {
--      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; foundStart = true; }
--      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; foundEnd   = true; }
-+      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; y0 = row.value; hasStart = true; }
-+      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; y1 = row.value; hasEnd   = true; }
-       if (row.key === 'academic_year') {
-+        ay = row.value; hasAY = true;
-         document.getElementById('yearVal').textContent = row.value.replace('/', ' / ');
-         document.querySelectorAll('.year-option').forEach(o => {
-           const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
-           if (m) o.classList.toggle('active', m[1]+'/'+m[2] === row.value);
-         });
-       }
-     });
--    if (!foundStart || !foundEnd) {
--      if (!foundStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
--      if (!foundEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
-+    if (!hasStart || !hasEnd) {
-+      if (!hasStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
-+      if (!hasEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
-       showConfigBanner('Datas lectivas incompletas na base de dados — a usar valores predefinidos.');
-     }
-   } catch(e) {
-     document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
-     document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
-     if (document.getElementById('yearVal').textContent === '—')
-       document.getElementById('yearVal').textContent = FALLBACK_ACADEMIC_YEAR.replace('/', ' / ');
-     showConfigBanner('Datas lectivas não configuradas — a usar valores predefinidos ('+FALLBACK_YEAR_START+' → '+FALLBACK_YEAR_END+').');
-     console.warn('school_config unavailable:', e.message);
-   }
-+  updateCalPill(hasStart, hasEnd, hasAY, y0, y1, ay);
- }
+async function loadSchoolConfig() {
+  let y0 = null, y1 = null, ay = null, hasStart = false, hasEnd = false, hasAY = false;
+  try {
+    const r = await fetch(`${SB}/rest/v1/school_config?select=key,value`, { headers: SBH });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    if (!rows || rows.length === 0) throw new Error('empty');
+    rows.forEach(row => {
+      if (row.key === 'year_start_date') { document.getElementById('cfg-start').value = row.value; y0 = row.value; hasStart = true; }
+      if (row.key === 'year_end_date')   { document.getElementById('cfg-end').value   = row.value; y1 = row.value; hasEnd   = true; }
+      if (row.key === 'academic_year') {
+        ay = row.value; hasAY = true;
+        document.getElementById('yearVal').textContent = row.value.replace('/', ' / ');
+        document.querySelectorAll('.year-option').forEach(o => {
+          const m = o.textContent.match(/(\d{4})\s*\/\s*(\d{4})/);
+          if (m) o.classList.toggle('active', m[1]+'/'+m[2] === row.value);
+        });
+      }
+    });
+    if (!hasStart || !hasEnd) {
+      if (!hasStart) document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
+      if (!hasEnd)   document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
+      showConfigBanner('Datas lectivas incompletas na base de dados — a usar valores predefinidos.');
+    }
+  } catch(e) {
+    document.getElementById('cfg-start').value = FALLBACK_YEAR_START;
+    document.getElementById('cfg-end').value   = FALLBACK_YEAR_END;
+    if (document.getElementById('yearVal').textContent === '—')
+      document.getElementById('yearVal').textContent = FALLBACK_ACADEMIC_YEAR.replace('/', ' / ');
+    showConfigBanner('Datas lectivas não configuradas — a usar valores predefinidos ('+FALLBACK_YEAR_START+' → '+FALLBACK_YEAR_END+').');
+    console.warn('school_config unavailable:', e.message);
+  }
+  updateCalPill(hasStart, hasEnd, hasAY, y0, y1, ay);
+}
 
+/* ── THE PILL SAYS WHAT THE PORTAL WILL SAY ──────────────────────────
+   Same test as the portal's CFG_STATE: missing dates, or dates whose
+   year doesn't match the stated academic_year. */
+function updateCalPill(hasStart, hasEnd, hasAY, y0, y1, ay) {
+  const pill = document.getElementById('cal-pill');
+  const lbl  = document.getElementById('cal-pill-lbl');
+  const tip  = document.getElementById('cal-pill-tooltip');
+  let state = 'healthy', reason = 'Calendário definido e coerente.';
+
+  if (!hasStart || !hasEnd) {
+    state = 'unviable'; reason = 'Faltam as datas de início e/ou fim do ano lectivo.';
+  } else {
+    const m = (ay || '').match(/^(\d{4})\s*\/\s*(\d{2,4})$/);
+    if (!hasAY) {
+      state = 'unviable'; reason = 'O ano lectivo (ex. 2026/2027) não está definido.';
+    } else if (m) {
+      const a = +m[1], b = m[2].length === 2 ? +('20'+m[2]) : +m[2];
+      if (+y0.slice(0,4) !== a || +y1.slice(0,4) !== b) {
+        state = 'unviable';
+        reason = `"${ay}" implica ${a}→${b}, mas as datas dizem ${y0.slice(0,4)}→${y1.slice(0,4)}.`;
+      }
+    } else {
+      state = 'unviable'; reason = 'Formato do ano lectivo inválido.';
+    }
+  }
+
+  pill.className = 'tb-health ' + state;
+  lbl.textContent = state === 'healthy' ? 'Definido' : 'Incompleto';
+  tip.innerHTML = `
+    <div class="tht-title">Ano Lectivo</div>
+    <div class="tht-row"><span class="tht-key">Estado</span><span class="tht-val">${state==='healthy'?'Coerente':'Por corrigir'}</span></div>
+    <div class="tht-row"><span class="tht-key">Detalhe</span><span class="tht-val" style="white-space:normal;max-width:180px;text-align:right">${reason}</span></div>`;
+}
 /* ── BRANCH / STATUS HELPERS ── */
 const STATUS_LABEL = { healthy:'Saudável', viable:'Viável', concerning:'Atenção', unviable:'Inviável' };
 const STATUS_ORDER = ['healthy','viable','concerning','unviable'];
@@ -1102,6 +1132,11 @@ function closeModal()     { document.getElementById('overlay').classList.remove(
 function handleOverlay(e) { if (e.target===document.getElementById('overlay')) closeModal(); }
 
 /* ── BOOT ── */
+document.getElementById('tb-health-tooltip').innerHTML =
+  '<div class="tht-title">Saúde Global</div><div class="tht-row"><span class="tht-key">Estado</span><span class="tht-val">A carregar…</span></div>';
+document.getElementById('cal-pill-tooltip').innerHTML =
+  '<div class="tht-title">Ano Lectivo</div><div class="tht-row"><span class="tht-key">Estado</span><span class="tht-val">A carregar…</span></div>';
+
 loadSchoolConfig().then(() => loadBranchData());
 </script>
 </body>
