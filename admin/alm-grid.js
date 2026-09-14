@@ -102,6 +102,30 @@ function hexA(hex, a){
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
 }
 
+/* OPACITY IS NOT A COLOUR CHOICE.
+   Lightening an unmarked stamp with opacity:.66 also lightens its
+   text, and the two dark tones fell to 2.89:1 and 3.77:1 against
+   white — below AA on a 10px turma code. So the lighter state is
+   mixed as a real colour against the cell, and the ink is then chosen
+   against that result rather than inherited from the state it came
+   from. Both stamps stay solid; both stay readable. */
+function mix(hex, a, bg){
+  const f = parseInt(hex.slice(1), 16), b = parseInt((bg||'#FFFFFF').slice(1), 16);
+  const c = i => Math.round((((f >> i) & 255) * a) + (((b >> i) & 255) * (1 - a)));
+  return '#' + [16,8,0].map(i => c(i).toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+function lum(hex){
+  const n = parseInt(hex.slice(1), 16);
+  const s = [16,8,0].map(i => ((n >> i) & 255) / 255)
+    .map(x => x <= .03928 ? x/12.92 : Math.pow((x+.055)/1.055, 2.4));
+  return .2126*s[0] + .7152*s[1] + .0722*s[2];
+}
+function inkOn(hex){
+  const L = lum(hex);
+  const white = 1.05 / (L + .05);
+  return white >= 4.5 ? '#FFFFFF' : '#14140F';
+}
+
 /* ── THE STYLESHEET LIVES HERE TOO ──────────────────────────────────
    Injected once. If the grid's appearance were left to each page, the
    four copies would drift the same way the geometry did — and the
@@ -304,14 +328,21 @@ function render(el, opts) {
          page with no pairs wants. */
       if (it.tone) {
         const t = toneFor(it.tone);
-        if (it.state === 'done') {
-          node.style.background = t.fill;
-          node.style.color = t.ink;
-        } else {
-          node.style.background = hexA(t.fill, .14);
-          node.style.color = '#14140F';
-          node.style.borderLeft = '3px solid ' + t.fill;
-        }
+        /* BOTH STATES ARE SOLID.
+           The unmarked state was a 14% wash with a solid left edge.
+           On the assign page, where group_code is often null, items
+           fell back to the stylesheet's solid --almg-done and looked
+           right — which is the version that reads well. On the portal,
+           where every item has a tone and almost nothing is marked
+           yet, the whole grid came out as pale washes.
+
+           So a stamp is always a filled block. The difference between
+           done and open is weight, not substance: the same tone at
+           full strength against 66%, plus the tick. A wash says "not
+           really there"; an unmarked lesson is very much there. */
+        const bg = it.state === 'done' ? t.fill : mix(t.fill, .62, '#FFFFFF');
+        node.style.background = bg;
+        node.style.color = inkOn(bg);
       }
       /* Positioned inside its first cell, never inside the row — the
          row box starts at the frozen day column, and measuring from
