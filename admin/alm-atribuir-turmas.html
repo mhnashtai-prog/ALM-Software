@@ -83,6 +83,16 @@
    CLAY means the slot is still open. Nothing else carries hue, so the
    unassigned classes are the only thing on screen that stands out —
    which is the whole job of this page.
+
+   THE LEFT RAIL IS A CATALOGUE, NOT A GROUP-BY
+   ────────────────────────────────────────────
+   It used to be built from Object.keys of a group-by over the loaded
+   classes, which meant a level with no turma could not appear at all.
+   With four turmas in Funchal, all Ano 4, the rail could only ever
+   draw one row — and that read as a panel that had gone missing.
+   It now walks LEVEL_ORDER, the fixed catalogue, and joins counts
+   onto it. A level with nothing in it is drawn dim and inert. Zero is
+   information: it is the work not yet started.
    ══════════════════════════════════════════════════════════════════════ */
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -188,6 +198,25 @@ input,select,textarea{font:inherit;color:inherit}
 .tb-btn:hover{background:rgba(var(--shade),.12);color:var(--ink)}
 .tb-btn:disabled{opacity:.32;cursor:not-allowed}
 
+/* ── THE LANGUAGE CHIPS ───────────────────────────────────────────
+   The central panel counts students per language: EN 733, SP 188.
+   These count something else and must not be mistaken for the same
+   number — a chip here is SESSIONS STILL WITHOUT A TEACHER. That is
+   the only quantity this page can act on, and it has the useful
+   property of counting down to nothing. A language at 0 is finished
+   work, not an absent language.
+   ──────────────────────────────────────────────────────────────── */
+.tb-langs{display:flex;align-items:center;gap:3px}
+.lang-chip{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;
+  padding:4px 10px;border-radius:999px;border:1px solid var(--line);
+  color:var(--sub);background:var(--card);transition:all .13s;white-space:nowrap}
+.lang-chip:hover{border-color:var(--sage-b);color:var(--ink)}
+.lang-chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.lang-chip .lc-n{margin-left:6px;opacity:.55;font-weight:600}
+.lang-chip.clear .lc-n{color:var(--sage-deep);opacity:.9}
+.lang-chip.on .lc-n{opacity:.6;color:#fff}
+@media(max-width:1180px){.tb-langs,.tb-langs-label{display:none}}
+
 /* ══ HEADLINE BAR ══ */
 /* No banner. A rule under the title and nothing else. */
 .head{flex-shrink:0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
@@ -227,6 +256,12 @@ input,select,textarea{font:inherit;color:inherit}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srow.on .srow-n{font-weight:600;color:var(--ink)}
 .srow-m{font-family:var(--mono);font-size:10px;color:var(--faint);flex-shrink:0}
+/* A level the branch does not run. Drawn so the catalogue stays
+   whole, dimmed so it cannot be confused with work outstanding, and
+   inert because there is nothing behind it to open. */
+.srow.empty{cursor:default;opacity:.42}
+.srow.empty:hover{background:none}
+.srow-band{width:4px;height:22px;border-radius:6px;flex-shrink:0}
 .load{width:40px;height:4px;border-radius:6px;background:rgba(var(--shade),.10);
   overflow:hidden;flex-shrink:0}
 .load i{display:block;height:100%;border-radius:6px;background:var(--sage)}
@@ -410,6 +445,8 @@ body.rail-open .main{padding-right:min(436px,94vw)}
     <button class="nav-btn" data-p="conflitos">Conflitos<span class="nb-n" id="n-conf">0</span></button>
   </div>
   <div class="tb-right">
+    <span class="tb-msg tb-langs-label">Por atribuir</span>
+    <div class="tb-langs" id="langs"></div>
     <button class="tb-btn" id="btn-undo" disabled>Anular</button>
     <button class="tb-btn" id="btn-csv">CSV</button>
     <button class="tb-btn" id="btn-reload">Recarregar</button>
@@ -464,14 +501,24 @@ const LEVEL_DEPT = {PI1:'kids',PI2:'kids',PI3:'kids',PI4:'kids',PJ1:'kids_juv',P
 const LEVEL_DISP = {PI1:'PI 1',PI2:'PI 2',PI3:'PI 3',PI4:'PI 4',PJ1:'PJ 1',PJ2:'PJ 2',PJ3:'PJ 3',
   '1':'Ano 1','2':'Ano 2','3':'Ano 3','4':'Ano 4','5':'Ano 5',Portugues:'Português',
   '6':'Ano 6 FCE','7':'Ano 7 CAE','8':'Ano 8 CPE'};
+/* The rail walks THIS, not Object.keys(LEVEL_DISP). Integer-like string
+   keys are hoisted to the front of a JS object's key order, so the
+   catalogue would come back 1,2,3…,PI1,PI2 — Ano 1 above PI 1, which is
+   backwards for a school that starts at four years old. */
+const LEVEL_ORDER = ['PI1','PI2','PI3','PI4','PJ1','PJ2','PJ3',
+  '1','2','3','4','5','Portugues','6','7','8'];
 const BRANCH_LABEL = {FUNCHAL:'Funchal',CAMARA_LOBOS:'C. Lobos',SANTA_CRUZ:'S. Cruz',
   MACHICO:'Machico',RIBEIRA_BRAVA:'R. Brava',CALHETA:'Calheta'};
 const LANG_NAME = {EN:'Inglês',PT:'Português',FR:'Francês',DE:'Alemão',ES:'Espanhol'};
+/* The short forms match the central panel's chips so the two pages read
+   as one product, even though they count different things. */
+const LANG_ORDER = ['EN','ES','FR','DE','PT'];
+const LANG_SHORT = {EN:'EN',ES:'SP',FR:'FR',DE:'GE',PT:'PT'};
 const MAX_G = 17;
 
 let AY = '2026/2027';
 let CLASSES=[], TEACHERS=[], ENROL={};
-let BRANCH='', MODE='level', SEL_LEVEL=null, SEL_TEACHER=null, PANEL='grelha';
+let BRANCH='', LANG='', MODE='level', SEL_LEVEL=null, SEL_TEACHER=null, PANEL='grelha';
 let UNDO=[];
 let popState=null;
 
@@ -531,6 +578,7 @@ function endOf(c){ return c.end_time?toMins(c.end_time):startOf(c)+(c.duration_m
 function overlaps(a,b){ return startOf(a)<endOf(b) && startOf(b)<endOf(a); }
 function deptOf(c){ return DEPT[c.department] ? c.department : (LEVEL_DEPT[(c.level_code||'').trim()]||'adults'); }
 function levelOf(c){ return c.level_display || LEVEL_DISP[(c.level_code||'').trim()] || c.level_code || '—'; }
+function langOf(c){ return (c.lang||'').toUpperCase().slice(0,2); }
 function setConn(ok,msg){ const d=document.getElementById('conn');
   d.className='tb-dot'+(ok===true?'':ok==='warn'?' warn':' err');
   document.getElementById('conn-msg').textContent=msg||(ok===true?'ligado':'sem ligação'); }
@@ -538,8 +586,21 @@ let _tT; function toast(m,t=''){ const el=document.getElementById('toast');
   el.textContent=m; el.className='toast '+t+' show';
   clearTimeout(_tT); _tT=setTimeout(()=>el.classList.remove('show'), t==='err'?6000:3000); }
 
-/* ══ SCOPE ══ */
-function scoped(){ const f=CLASSES.filter(c=>c.branch===BRANCH); return f.length?f:CLASSES; }
+/* ══ SCOPE ══════════════════════════════════════════════════════════════
+   branchScope is the branch and nothing else — it is what the language
+   chips count against, so selecting EN does not zero every other chip.
+   scoped() is branch AND language, and is what everything downstream
+   sees.
+
+   The old scoped() ended `return f.length ? f : CLASSES` — an empty
+   branch silently showed every branch's classes under that branch's
+   name. Empty now means empty, and the screens below say so.
+   ══════════════════════════════════════════════════════════════════════ */
+function branchScope(){ return CLASSES.filter(c=>c.branch===BRANCH); }
+function scoped(){
+  const l = branchScope();
+  return LANG ? l.filter(c=>langOf(c)===LANG) : l;
+}
 function visible(){
   let l=scoped();
   if(MODE==='level' && SEL_LEVEL) l=l.filter(c=>(c.level_code||'').trim()===SEL_LEVEL);
@@ -630,7 +691,24 @@ async function boot(){
 }
 
 /* ══ RENDER ══ */
-function renderAll(){ renderSide(); renderHead(); renderMain(); }
+function renderAll(){ renderLangs(); renderSide(); renderHead(); renderMain(); }
+
+/* ── DECISIONS OUTSTANDING, BY LANGUAGE ───────────────────────────
+   Counted off branchScope so the chips stay comparable to each other
+   while one of them is selected. The number is sessions without a
+   teacher: it counts down, and a language that reaches zero is
+   finished rather than missing.
+   ──────────────────────────────────────────────────────────────── */
+function renderLangs(){
+  const s = branchScope();
+  const langs = LANG_ORDER.filter(L=>s.some(c=>langOf(c)===L));
+  document.getElementById('langs').innerHTML = langs.map(L=>{
+    const open = s.filter(c=>langOf(c)===L && !c.teacher_id).length;
+    return `<button class="lang-chip ${L===LANG?'on':''} ${open?'':'clear'}"
+      data-lang="${L}" title="${LANG_NAME[L]||L} · ${open} por atribuir">
+      ${LANG_SHORT[L]}<span class="lc-n">${open?open:'✓'}</span></button>`;
+  }).join('');
+}
 
 function renderHead(){
   const list = visible(), s = scoped();
@@ -640,7 +718,7 @@ function renderHead(){
     MODE==='teacher' && SEL_TEACHER ? (TEACHERS.find(t=>t.id===SEL_TEACHER)?.name||'—')
     : SEL_LEVEL ? (LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL) : (BRANCH_LABEL[BRANCH]||BRANCH);
   document.getElementById('h-sub').textContent =
-    `${BRANCH_LABEL[BRANCH]||BRANCH} · ${AY} · ${list.length} sessões em vista`;
+    `${BRANCH_LABEL[BRANCH]||BRANCH}${LANG?' · '+(LANG_NAME[LANG]||LANG):''} · ${AY} · ${list.length} sessões em vista`;
   document.getElementById('v-turmas').textContent = s.length;
   document.getElementById('v-com').textContent = com;
   document.getElementById('v-sem').textContent = s.length-com;
@@ -657,17 +735,26 @@ function renderSide(){
   if(MODE==='level'){
     const by={};
     scoped().forEach(c=>{ const k=(c.level_code||'').trim(); (by[k]=by[k]||[]).push(c); });
-    host.innerHTML = Object.keys(by).sort().map(k=>{
-      const l=by[k], open=l.filter(c=>!c.teacher_id).length;
-      const d=DEPT[deptOf(l[0])];
-      return `<div class="srow ${k===SEL_LEVEL?'on':''}" data-level="${esc(k)}">
-        <span style="width:4px;height:22px;border-radius:6px;background:${d.band};flex-shrink:0"></span>
-        <span class="srow-n">${esc(LEVEL_DISP[k]||k||'—')}</span>
-        <span class="srow-m">${l.length}</span>
-        ${open?`<span class="tag pend" style="padding:2px 7px">${open}</span>`
-              :`<span class="tag on" style="padding:2px 7px">✓</span>`}
+    /* Anything in the data that the catalogue does not know about still
+       has to appear, or a typo'd level_code becomes invisible work. */
+    const extras = Object.keys(by).filter(k=>k && !LEVEL_ORDER.includes(k)).sort();
+    host.innerHTML = LEVEL_ORDER.concat(extras).map(k=>{
+      const l = by[k] || [];
+      const open = l.filter(c=>!c.teacher_id).length;
+      const d = DEPT[LEVEL_DEPT[k] || 'adults'];
+      const pct = l.length ? Math.round((l.length-open)/l.length*100) : 0;
+      return `<div class="srow ${k===SEL_LEVEL?'on':''} ${l.length?'':'empty'}"
+        ${l.length?`data-level="${esc(k)}"`:''}>
+        <span class="srow-band" style="background:${d.band}${l.length?'':';opacity:.28'}"></span>
+        <span class="srow-n">${esc(LEVEL_DISP[k]||k)}</span>
+        ${l.length ? `
+          <span class="load ${open?'warn':''}"><i style="width:${pct}%"></i></span>
+          <span class="srow-m">${l.length}</span>
+          ${open?`<span class="tag pend" style="padding:2px 7px">${open}</span>`
+                :`<span class="tag on" style="padding:2px 7px">✓</span>`}`
+        : `<span class="srow-m" style="margin-left:auto;opacity:.55">—</span>`}
       </div>`;
-    }).join('') || '<div class="sh-empty">Sem turmas nesta filial.</div>';
+    }).join('');
   }else{
     host.innerHTML = TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>{
       const h=loadOf(t.id), pct=Math.min(100,Math.round(h/t.contractH*100));
@@ -701,9 +788,18 @@ function renderMain(){
    The module positions an item INSIDE its first cell, so the offset
    cannot exist. */
 function gridHTML(){
+  const items = visible();
+  const label = `Grelha semanal${SEL_LEVEL?' · '+esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL):''}${LANG?' · '+esc(LANG_NAME[LANG]||LANG):''}`;
+  /* Now that an empty branch is honestly empty, this path can run with
+     nothing in it. Say which filter emptied it rather than drawing a
+     blank week. */
+  if(!items.length){
+    return `<div class="sec">${label}</div>
+      <div class="sh-empty">Sem sessões ${LANG?`de ${esc(LANG_NAME[LANG]||LANG)} `:''}${
+        SEL_LEVEL?`em ${esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL)} `:''}nesta filial.</div>`;
+  }
   requestAnimationFrame(drawGrid);
-  return `<div class="sec">Grelha semanal${SEL_LEVEL?' · '+esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL):''}</div>
-    <div id="agrid"></div>`;
+  return `<div class="sec">${label}</div><div id="agrid"></div>`;
 }
 
 function drawGrid(){
@@ -737,7 +833,7 @@ function drawGrid(){
 function openHTML(){
   const open = scoped().filter(c=>!c.teacher_id);
   if(!open.length) return `<div class="sec">Por atribuir</div>
-    <div class="sh-empty">Todas as sessões desta filial têm professor.</div>`;
+    <div class="sh-empty">Todas as sessões ${LANG?`de ${esc(LANG_NAME[LANG]||LANG)} `:''}desta filial têm professor.</div>`;
   /* Grouped by pair, because a pair is the unit a teacher is offered. */
   const by={}; open.forEach(c=>{ (by[c.group_code]=by[c.group_code]||[]).push(c); });
   return `<div class="sec">Por atribuir · ${open.length} sessões</div>` +
@@ -1104,7 +1200,7 @@ function exportCSV(){
   });
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'}));
-  a.download=`ALM-atribuicao-${BRANCH}.csv`; a.click();
+  a.download=`ALM-atribuicao-${BRANCH}${LANG?'-'+LANG:''}.csv`; a.click();
   toast('CSV exportado');
 }
 
@@ -1118,7 +1214,16 @@ document.getElementById('nav').addEventListener('click',e=>{
 document.getElementById('branches').addEventListener('click',e=>{
   const b=e.target.closest('[data-branch]'); if(!b) return;
   BRANCH=b.dataset.branch; SEL_LEVEL=null; SEL_TEACHER=null;
+  /* Language does not survive a branch change: a branch that runs no
+     German would show an empty screen with a chip still lit. */
+  LANG='';
   document.querySelectorAll('#branches .pill').forEach(x=>x.classList.toggle('on',x===b));
+  renderAll();
+});
+document.getElementById('langs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-lang]'); if(!b) return;
+  LANG = (LANG===b.dataset.lang) ? '' : b.dataset.lang;
+  SEL_LEVEL=null;
   renderAll();
 });
 document.getElementById('m-level').onclick=()=>{MODE='level';SEL_TEACHER=null;renderAll();};
