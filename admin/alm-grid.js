@@ -179,6 +179,9 @@ const CSS = `
 .almg-under .almg-t{font-size:8px;font-weight:600;color:rgba(20,20,15,.5);letter-spacing:0}
 .almg-under .almg-s{display:none}
 .almg-item.done{background:var(--almg-done,#5E776C)}
+/* Pages that pass no tone keep the two stylesheet colours, and get
+   the same dashed treatment so the two vocabularies agree. */
+.almg-item.open{outline:1.5px dashed rgba(255,255,255,.5);outline-offset:-4px}
 .almg-item.dim{opacity:.3}
 .almg-item.hot{outline:1.5px solid var(--almg-ink,#14140F);outline-offset:1px;z-index:7}
 .almg-item.sib{outline:1.5px dashed rgba(20,20,15,.5);outline-offset:1px;z-index:7}
@@ -198,6 +201,7 @@ const CSS = `
   font-family:var(--mono,ui-monospace,monospace);font-size:9px;color:var(--almg-sub,#7A7A72)}
 .almg-sw{width:9px;height:9px;border-radius:6px;display:inline-block;
   vertical-align:-1px;margin-right:5px}
+.almg-sw-d{border:1.5px dashed var(--almg-done,#5E776C);background:transparent}
 `;
 
 let cssDone = false;
@@ -267,9 +271,14 @@ function render(el, opts) {
   html += '</tbody></table></div>';
 
   if (o.legend && o.legend.length) {
+    /* A legend entry is either a filled swatch or a dashed one. The
+       dashed version has to be drawn with a border, not a repeating
+       gradient — the flat rules ban gradients outright and an
+       exception argued for a 9px square is how a rule starts to rot. */
     html += '<div class="almg-legend">'
-      + o.legend.map(([c, t]) =>
-          `<span><i class="almg-sw" style="background:${c}"></i>${esc(t)}</span>`).join('')
+      + o.legend.map(([c, t]) => c === 'dash'
+          ? `<span><i class="almg-sw almg-sw-d"></i>${esc(t)}</span>`
+          : `<span><i class="almg-sw" style="background:${c}"></i>${esc(t)}</span>`).join('')
       + (o.hint ? `<span style="margin-left:auto">${esc(o.hint)}</span>` : '')
       + '</div>';
   }
@@ -340,9 +349,24 @@ function render(el, opts) {
            done and open is weight, not substance: the same tone at
            full strength against 66%, plus the tick. A wash says "not
            really there"; an unmarked lesson is very much there. */
-        const bg = it.state === 'done' ? t.fill : mix(t.fill, .62, '#FFFFFF');
-        node.style.background = bg;
-        node.style.color = inkOn(bg);
+        /* THE TONE IS THE TURMA, AND IT DOES NOT MOVE.
+           Lightening the unmarked state meant FUN-01 was #93AB99 on
+           the assign page and #BCCBC0 on the portal — the same class,
+           two colours, on two screens a teacher moves between. Colour
+           was carrying state at the cost of the identity it was
+           introduced to carry.
+
+           So the fill is now the tone, always, on every page. State is
+           an outline: a settled item is clean, an unsettled one wears
+           a dashed rule in its own ink. Outline is the right channel
+           for it — it reads at a glance, costs no hue, and does not
+           touch the fill the eye is using to recognise the class. */
+        node.style.background = t.fill;
+        node.style.color = t.ink;
+        if (it.state !== 'done'){
+          node.style.outline = '1.5px dashed ' + hexA(t.ink === '#FFFFFF' ? '#FFFFFF' : '#14140F', .5);
+          node.style.outlineOffset = '-4px';
+        }
       }
       /* Positioned inside its first cell, never inside the row — the
          row box starts at the frozen day column, and measuring from
