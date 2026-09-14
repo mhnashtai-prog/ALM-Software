@@ -1242,6 +1242,21 @@ function myStudents(){
 /* ══════════════════════════════════════════════════════════════════════
    RENDER
    ══════════════════════════════════════════════════════════════════════ */
+/* A RENDER MUST NOT BE ABLE TO KILL THE BOOT.
+   renderAll() runs at the end of loadTeacher(), after every fetch has
+   succeeded. A throw anywhere inside it — one undefined name, one
+   malformed class — discards a fully loaded portal and leaves a blank
+   page with a console error. Each panel is now independent: one that
+   fails says so in its own area and the rest still render. */
+function safe(name, fn){
+  try{ fn(); }
+  catch(e){
+    console.error('render:'+name, e);
+    _renderFails.push(name+': '+e.message);
+  }
+}
+let _renderFails = [];
+
 function renderAll(){
   /* Said once, at the top of the week, and only when it is true. */
   const host = document.getElementById('main-empty-host');
@@ -1270,8 +1285,14 @@ function renderAll(){
       A pauta continua disponível para consulta e exportação.</div>`;
   }
   if(host) host.innerHTML = msg;
-  renderIdBand(); renderToday(); renderGrid();
-  renderTurmas(); renderPautaTabs(); renderAlunos(); renderPedidos();
+  _renderFails = [];
+  safe('idband', renderIdBand); safe('hoje', renderToday); safe('grelha', renderGrid);
+  safe('turmas', renderTurmas); safe('pauta', renderPautaTabs);
+  safe('alunos', renderAlunos); safe('pedidos', renderPedidos);
+  if(_renderFails.length && host){
+    host.innerHTML += `<div class="notice"><b>Parte da página não carregou.</b>
+      ${esc(_renderFails.join(' · '))}</div>`;
+  }
   const un = allUnmarked().length;
   document.getElementById('v-turmas').textContent = CLASSES.length || '—';
   document.getElementById('v-alunos').textContent = myStudents().length || '—';
@@ -1361,7 +1382,14 @@ function renderGrid(){
       const iso  = thisWeek(c.day);
       const done = iso && isMarked(c.code, iso);
       const no   = iso ? lessonNoOf(c.day, iso) : 0;
-      const live = c.day===today && now>=toMins(c.start||'09:00') && now<toMins(c.end||'10:30');
+      /* ALMGrid.toMins, not a bare toMins. The portal never had one —
+         I wrote this line during the grid port and reached for a
+         helper that only exists inside the module. It threw on the
+         first class, inside renderGrid, which runs inside renderAll,
+         which runs inside loadTeacher: one undefined name took the
+         whole boot down after the data had already loaded. */
+      const _t = ALMGrid.toMins;
+      const live = c.day===today && now>=_t(c.start||'09:00') && now<_t(c.end||'10:30');
       return {
         day:c.day, start:c.start, end:c.end,
         title:(c.code||'').replace(/^[^-]+-/,''),
