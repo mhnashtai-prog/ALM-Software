@@ -18,8 +18,18 @@ function drawGrid(containerId, withReq, levelKey, result){
   /* UNDER · one band per requested window. Kept even when groups have
      formed: seeing the availability a turma was cut from is how you
      judge whether it was cut well. */
+  /* AVAILABILITY IS SHOWN ONLY BEFORE A GROUP EXISTS.
+     drawAvailBands() used to bail the moment a level had groups —
+     `if (result?.groups?.length) return;` — and I dropped that guard
+     when porting. The bands then drew underneath the stamps that were
+     cut from them, which is the doubled block in the grid: the same
+     slot rendered twice, once as evidence and once as conclusion.
+
+     Once a turma exists, the turma IS the answer; the availability it
+     came from is history. Before it exists, the bands are the whole
+     point of the screen. */
   const under = [];
-  (withReq || []).forEach(e => {
+  if(!(result?.groups || []).length) (withReq || []).forEach(e => {
     const a = analysePrefs(e.ref); if(!a) return;
     a.windows.forEach(w => {
       const day = DAYS_PT[w.dayIdx]; if(!day) return;
