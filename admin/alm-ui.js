@@ -68,8 +68,8 @@ function drawGrid(containerId, withReq, levelKey, result){
   ALMGrid.render(host, {
     under, items,
     onItem: it => openGroupModal(levelKey, it.idx),
-    legend: [['#2E4A3A','preenchido = certificada'],
-             ['rgba(74,106,86,.28)','esbatido = proposta'],
+    legend: [['#4A6A56','contorno liso = certificada'],
+             ['dash','tracejado = proposta'],
              ['rgba(94,119,108,.30)','disponibilidade pedida']],
     hint: 'clique numa turma para ver os alunos',
   });
@@ -1819,7 +1819,7 @@ async function openDossier(ref) {
 
   const phone = (enrol?.phone || '').replace(/\D/g, '');
   host.querySelector('#stu-wa').onclick = () => phone ? window.open(`https://wa.me/${phone}`) : showToast('Sem número', 'warn');
-  host.querySelector('#stu-ficha').onclick = () => window.open(`/admin/alm-edit-enrollment.html?ref=${encodeURIComponent(ref)}`, '_blank');
+  host.querySelector('#stu-ficha').onclick = () => window.open(`alm-edit-enrollment.html?ref=${encodeURIComponent(ref)}`, '_blank');
   host.querySelector('#stu-move').onclick = () => { closeDossier(); setTimeout(() => openMudarTurma(ref), 200); };
 
   window.dsSaveNote = async (r) => {
@@ -2159,7 +2159,7 @@ function openAbacusModal() {
   const ov = document.createElement('div'); ov.id = 'abacus-modal-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
-  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(184,64,42,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center">✕</button><iframe src="/admin/alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:14px;display:block"></iframe></div>`;
+  ov.innerHTML = `<div style="position:relative"><button onclick="document.getElementById('abacus-modal-ov').remove()" style="position:absolute;top:-14px;right:-14px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(184,64,42,.85);border:1.5px solid rgba(255,255,255,.3);cursor:pointer;color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center">✕</button><iframe src="alm-certified-screen.html" style="width:min(1100px,96vw);height:90dvh;border:none;border-radius:14px;display:block"></iframe></div>`;
   document.body.appendChild(ov);
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', esc); } });
 }
