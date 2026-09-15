@@ -1505,21 +1505,45 @@ async function renderDecision() {
         if (!_auditResults[key]) _auditResults[key] = {};
         _auditResults[key][0] = auditGroupSync(_allResults[key].groups[0]);
       }
-      const gc = first.group_code || (first.turma_code?.replace(/[AB]$/i, ''));
+       const gc = first.group_code || (first.turma_code?.replace(/[AB]$/i, ''));
       const result = _allResults[key]; if (!result?.groups) return;
-      const dbRefs = new Set(Array.isArray(first.student_refs) ? first.student_refs : []);
-      result.groups.forEach((g, i) => {
-        const overlap = g.students.filter(s => dbRefs.has(s.ref)).length;
-      if (overlap >= Math.floor(g.students.length * 0.5)) {
-        if (!_groupCodes[key]) _groupCodes[key] = {};
-        const codeA = groupRows.find(r => /A$/i.test(r.turma_code))?.turma_code || null;
-        const codeB = groupRows.find(r => /B$/i.test(r.turma_code))?.turma_code || null;
-        if (codeA || codeB) {
-          _groupCodes[key][i] = { turmaCode: gc, turmaCodeA: codeA, turmaCodeB: codeB, sentAt: '', status: 'pass', locked: true };
-        }
-      }
+
+      /* A ROW MATCHES ONE SESSION, NOT EVERY GROUP ITS STUDENTS ARE IN.
+         Matching on roster overlap alone was the bug behind "certify
+         one and they all go green": a student holds two sessions, so
+         they sit in two groups, and one written row overlaps both.
+         Day and time are what make a session itself — the same guard
+         runBootAudit and reconstructLockedGroups already use. */
+      groupRows.forEach(c => {
+        const rowRefs    = new Set(Array.isArray(c.student_refs) ? c.student_refs : []);
+        const rowDayIdx  = DAYS_PT.indexOf((c.day_of_week || '').toUpperCase().trim());
+        const rowStart   = timeToMins(c.start_time);
+
+        result.groups.forEach((g, i) => {
+          const gDay = g.dayIdx_A ?? g.dayIdx;
+          if (rowDayIdx >= 0 && gDay !== rowDayIdx) return;
+          if (rowStart != null && g.startMins !== rowStart) return;
+          const overlap = g.students.filter(s => rowRefs.has(s.ref)).length;
+          if (overlap < Math.max(1, Math.floor(g.students.length * 0.5))) return;
+
+          if (!_groupCodes[key]) _groupCodes[key] = {};
+          const existing = _groupCodes[key][i] || {};
+          /* The suffix is legacy: the engine writes one row per session
+             and commitGroup aliases turmaCodeB to turmaCodeA. Carry the
+             row's own code into all three so nothing downstream reads a
+             code that belongs to a different session. */
+          _groupCodes[key][i] = {
+            ...existing,
+            turmaCode:  existing.turmaCode  || gc,
+            turmaCodeA: existing.turmaCodeA || c.turma_code,
+            turmaCodeB: existing.turmaCodeB || c.turma_code,
+            sentAt: existing.sentAt || '',
+            status: existing.status || 'pass',
+            locked: true,
+          };
+        });
+      });
     });
-  });
   } catch (e) { console.warn('renderDecision DB fetch failed', e); }
 
   let totalSessions = 0, certifiedSessions = 0;
@@ -2278,12 +2302,6 @@ async function confirmMudarTurma() {
   }
 }
 
-function closeMudarTurma() {
-  document.getElementById('mt-overlay').classList.remove('open');
-  _mtRef = null; _mtSelectedCode = null; _mtSelectedGroupIdx = null; _mtSelectedLevelKey = null;
-  _mtChangeSuffix = null; _mtCurrentSuffixA = null; _mtCurrentSuffixB = null;
-}
-
 /* ── UTILITIES ────────────────────────────────────────────── */
 function almConfirm(opts) {
   return new Promise(resolve => {
@@ -2377,28 +2395,52 @@ async function boot() {
 /* ── AGUARDAR TURMA · badge + inspector (read-only, reuses countAguardarTurma) ── */
 let _aguardarLast = null;
 
+/* THE BADGE COUNTS PEOPLE, NOT GROUPS.
+   It used to count underfilled clusters, which are groups whose
+   students are already placed — a question of whether to open them,
+   not of anyone being stranded. A student the engine could not place
+   appeared nowhere at all: the red ACTUALIZAR count was the only
+   evidence they existed, and a number with no list behind it is not
+   something anyone can act on.
+
+   The two sections differ in what management has to DO about them,
+   which is why they are counted and shown apart:
+     · sem lugar  — a new slot might catch several at once
+     · disponibilidade insuficiente — the parent has to be called */
 function updateAguardarBadge(){
   const btn = document.getElementById('alm-aguardar-btn');
   if (!btn || !_bootComplete) return;
   let r;
-  try { r = underfilledClusters(_ovActiveLoc); }
+  try { r = countAguardarTurma(); }
   catch(e){ console.warn('updateAguardarBadge failed', e); return; }
   _aguardarLast = r;
+
+  const total = (r.basket || 0) + (r.incompleteAddress || 0);
   const dot = document.getElementById('alm-aguardar-dot');
   const inc = document.getElementById('alm-aguardar-inc');
-  if (inc) inc.style.display = 'none';                       // second pill no longer used
+
+  /* The second pill carries the harder half: students whose
+     availability cannot support two sessions however many groups
+     the school opens. */
+  if (inc){
+    if (r.incompleteAddress > 0){
+      inc.textContent = r.incompleteAddress > 99 ? '99+' : r.incompleteAddress;
+      inc.style.display = 'flex';
+    } else inc.style.display = 'none';
+  }
   if (dot){
-    if (r.totalStudents > 0){ dot.textContent = r.totalStudents > 99 ? '99+' : r.totalStudents; dot.style.display = 'flex'; }
+    if (total > 0){ dot.textContent = total > 99 ? '99+' : total; dot.style.display = 'flex'; }
     else dot.style.display = 'none';
   }
-  if (r.totalStudents > 0){
-    btn.style.borderColor = 'rgba(138,138,130,.45)';          // amber — in-progress, not error
-    btn.style.color = '#8A8A82';
-    btn.style.background = 'rgba(138,138,130,.1)';
+
+  if (total > 0){
+    btn.style.borderColor = 'rgba(184,64,42,.45)';
+    btn.style.color = '#B8402A';
+    btn.style.background = 'rgba(184,64,42,.1)';
   } else {
-    btn.style.borderColor = 'rgba(255,255,255,.15)';
-    btn.style.color = 'rgba(255,255,255,.55)';
-    btn.style.background = 'rgba(255,255,255,.04)';
+    btn.style.borderColor = 'rgba(111,143,113,.45)';
+    btn.style.color = '#4E6B50';
+    btn.style.background = 'rgba(111,143,113,.1)';
   }
 }
 
@@ -2454,33 +2496,63 @@ function underfilledClusters(branchLoc){
 
 function _openAguardarList(){
   let r = _aguardarLast;
-  if (!r){ try { r = underfilledClusters(_ovActiveLoc); } catch { r = null; } }
-  if (!r || !r.totalClusters){ showToast('Nada por completar — todos os grupos ≥ 5 ✓','ok'); return; }
-  const scope = _ovActiveLoc === 'all' ? 'Todas as filiais' : (BRANCH_LABELS[_ovActiveLoc] || _ovActiveLoc);
-  const row = c => {
-    const pct = Math.round(c.n / MIN_G * 100);
-    return `<div class="stu-row" style="cursor:pointer" onclick="document.getElementById('alm-aguardar-ov').remove();ovDrillToFormation('${c.key}')">
-      <div class="stu-cell" style="min-width:0"><div style="font-size:10px;font-weight:700;color:${c.color}">${c.label}</div><div style="font-size:7px;color:var(--t3)">${c.slot}${_ovActiveLoc==='all'?' · '+(BRANCH_LABELS[c.branch]||c.branch):''}</div></div>
-      <div class="stu-cell" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
-        <div style="width:54px;height:5px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:#8A8A82"></div></div>
-        <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:#4E6B50">${c.n}<span style="opacity:.4">/${MIN_G}</span></span>
-        <span style="font-size:7px;font-weight:700;color:#8A8A82;padding:1px 6px;border:1px solid rgba(138,138,130,.4);background:rgba(138,138,130,.1);white-space:nowrap">faltam ${c.need}</span>
+  if (!r || r.basket === undefined){
+    try { r = countAguardarTurma(); } catch { r = null; }
+  }
+  const total = r ? (r.basket||0) + (r.incompleteAddress||0) : 0;
+  if (!r || !total){
+    showToast('Ninguém à espera — todos os pedidos foram colocados ✓','ok');
+    return;
+  }
+
+  /* One row per student. The windows are the point: two students who
+     both need Sábado 10:00 are one new slot, not two problems. */
+  const row = (ref, kind) => {
+    const e = allE.find(x => x.ref === ref) || {};
+    const meta = LEVEL_MAP[lk(e)] || {};
+    const a = analysePrefs(ref);
+    const windows = a && a.windows.length
+      ? a.windows.map(w =>
+          `<span class="slot-tag slot-ok">${DAYS_PT[w.dayIdx]||'?'} ${minsToT(w.earliest)}–${minsToT(w.latest)}</span>`
+        ).join(' ')
+      : '<span style="font-size:7px;color:var(--t4)">sem janelas reconhecidas</span>';
+    const days = a ? new Set(a.dayIdxs).size : 0;
+    const tagCol = kind === 'basket' ? '#8A8A82' : '#B8402A';
+    const tagTxt = kind === 'basket' ? `${days} dias` : `só ${days} dia${days!==1?'s':''}`;
+    return `<div class="stu-row" style="cursor:pointer;align-items:flex-start"
+        onclick="document.getElementById('alm-aguardar-ov').remove();openDossier('${ref}')">
+      <div class="stu-cell" style="min-width:0;flex:1">
+        <div style="font-size:10px;font-weight:700;color:${meta.color||'var(--t2)'}">${e.name || ref}</div>
+        <div style="font-size:7px;color:var(--t3);margin-top:1px">${ref} · ${meta.label || '—'} · ${BRANCH_LABELS[normB(e.branch)] || '—'}</div>
+        <div style="margin-top:4px;display:flex;gap:3px;flex-wrap:wrap">${windows}</div>
+      </div>
+      <div class="stu-cell" style="flex-shrink:0">
+        <span style="font-size:7px;font-weight:700;color:${tagCol};padding:1px 6px;border:1px solid ${tagCol}55;background:${tagCol}11;white-space:nowrap">${tagTxt}</span>
       </div>
     </div>`;
   };
+
+  const section = (title, sub, refs, kind) => refs.length ? `
+    <div class="sinal-sub" style="padding:10px 20px 4px">${title}
+      <span style="font-size:7px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t3)">· ${sub}</span>
+    </div>${refs.map(ref => row(ref, kind)).join('')}` : '';
+
   document.getElementById('alm-aguardar-ov')?.remove();
   const ov = document.createElement('div');
   ov.id = 'alm-aguardar-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(20,20,15,.30);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.onclick = e => { if (e.target === ov) ov.remove(); };
-  ov.innerHTML = `<div style="width:min(560px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;background:rgba(0,0,0,.2)">
-      <div style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:#8A8A82">POR COMPLETAR</div>
-      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${r.totalStudents} alunos · ${r.totalClusters} grupo${r.totalClusters!==1?'s':''} < ${MIN_G} · ${scope}</div>
-      <button onclick="document.getElementById('alm-aguardar-ov').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.07);border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px">✕</button>
+  ov.innerHTML = `<div style="width:min(620px,96vw);max-height:85dvh;background:var(--bg2);border-radius:14px;border:.5px solid var(--b2);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--b2);flex-shrink:0">
+      <div style="font-family:var(--display);font-size:20px;letter-spacing:3px;color:#B8402A">SEM LUGAR</div>
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">${total} aluno${total!==1?'s':''} por decidir</div>
+      <button onclick="document.getElementById('alm-aguardar-ov').remove()" style="margin-left:auto;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.06);border:none;cursor:pointer;color:var(--t3);font-size:13px">✕</button>
     </div>
-    <div style="padding:8px 20px 6px;font-size:7.5px;color:var(--t3);letter-spacing:.04em;border-bottom:.5px solid var(--b)">Mais perto de viável primeiro · clique para abrir o grupo · ACTUALIZAR preenche-os</div>
-    <div style="overflow-y:auto;flex:1;padding:6px 0">${r.clusters.map(row).join('')}</div>
+    <div style="padding:8px 20px 6px;font-size:7.5px;color:var(--t3);letter-spacing:.04em;border-bottom:.5px solid var(--b)">Clique num aluno para o dossier · as janelas mostram o que pediram</div>
+    <div style="overflow-y:auto;flex:1;padding:0 0 10px">
+      ${section('Sem lugar', 'têm 2 ou mais dias — um horário novo pode servir vários', r.basketRefs || [], 'basket')}
+      ${section('Disponibilidade insuficiente', 'não chegam para 2 sessões — falar com o encarregado', r.incompleteRefs || [], 'incomplete')}
+    </div>
   </div>`;
   document.body.appendChild(ov);
 }
@@ -2549,7 +2621,7 @@ btn.onclick = async () => {
 
 const aguardar = document.createElement('button');
   aguardar.id = 'alm-aguardar-btn'; aguardar.type = 'button';
-  aguardar.title = 'Alunos à espera de turma · clique para ver';
+  aguardar.title = 'Alunos sem lugar — decisão da direcção · clique para ver';
   aguardar.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:var(--mono,monospace);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer;transition:all .15s';
   aguardar.innerHTML = 'SEM TURMA'
     + '<span id="alm-aguardar-inc" title="Rever disponibilidade" style="display:none;align-items:center;justify-content:center;height:15px;min-width:15px;padding:0 4px;border-radius:999px;background:rgba(138,138,130,.15);border:.5px solid rgba(138,138,130,.4);color:#8A8A82;font-size:8px;font-weight:700"></span>'
