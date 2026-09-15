@@ -236,6 +236,14 @@ input,select,textarea{font:inherit;color:inherit}
   text-transform:uppercase;color:var(--banner);line-height:1}
 .head-sub{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.08em}
 .kpis{margin-left:auto;display:flex}
+/* When a filter is on, the page must say so somewhere the eye lands.
+   The rail alone is not enough — it is 264px away from the grid. */
+.filter-chip{display:inline-flex;align-items:center;gap:7px;margin-left:12px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
+  padding:4px 10px;border-radius:999px;background:var(--ink);color:#fff;
+  cursor:pointer;transition:opacity .13s;vertical-align:2px}
+.filter-chip:hover{opacity:.72}
+.filter-chip .fc-x{opacity:.6;font-size:11px;line-height:1}
 .kpi{display:flex;flex-direction:column;align-items:center;padding:0 16px;
   border-left:1px solid var(--line);cursor:pointer;transition:opacity .13s}
 .kpi:hover{opacity:.65}
@@ -267,6 +275,15 @@ input,select,textarea{font:inherit;color:inherit}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srow.on .srow-n{font-weight:600;color:var(--ink)}
 .srow-m{font-family:var(--mono);font-size:10px;color:var(--faint);flex-shrink:0}
+/* ── SELECTED, NOT MERELY POPULATED ───────────────────────────────
+   The first cut gave a populated row a colour band, a load bar and a
+   ✓, and gave the SELECTED row a white background. On a #F2F1EC page
+   that is a two-percent difference, so the rail read as "Ano 4 is
+   chosen" when nothing was chosen at all and the grid was showing the
+   whole branch. Selection now takes the one thing nothing else uses:
+   the band goes to solid ink and the row gets an edge. */
+.srow.on{background:var(--card);outline:1px solid var(--rule-2);outline-offset:-1px}
+.srow.on .srow-band{background:var(--ink)!important;opacity:1!important}
 /* A level the branch does not run. Drawn so the catalogue stays
    whole, dimmed so it cannot be confused with work outstanding, and
    inert because there is nothing behind it to open. */
@@ -472,6 +489,7 @@ body.rail-open .main{padding-right:min(436px,94vw)}
 
 <div class="head">
   <div><div class="head-n" id="h-title">—</div><div class="head-sub" id="h-sub">—</div></div>
+  <div id="h-filters"></div>
   <div class="kpis">
     <div class="kpi" id="k-turmas"><div class="kpi-v" id="v-turmas">—</div><div class="kpi-l">Turmas</div></div>
     <div class="kpi" id="k-com"><div class="kpi-v" id="v-com">—</div><div class="kpi-l">Com professor</div></div>
@@ -694,6 +712,18 @@ async function boot(){
         .forEach(e=>{ENROL[e.ref]=e;}); }catch(e){}
     }
     setConn(true,'Supabase');
+    /* turma_code is the key every write filters on, and commitAssign
+       asserts exactly one row changed. Two sessions sharing a code
+       would make that assertion throw and roll the pair back, so the
+       collision is reported at load rather than at save. */
+    const seen={}, dupes=[];
+    CLASSES.forEach(c=>{ const k=c.turma_code;
+      if(seen[k]) { if(seen[k]===1) dupes.push(k); seen[k]++; } else seen[k]=1; });
+    if(dupes.length){
+      console.warn('turma_code duplicado:', dupes,
+        CLASSES.filter(c=>dupes.includes(c.turma_code)));
+      toast(`Código repetido: ${dupes.join(', ')} — cada sessão precisa do seu próprio código`,'warn');
+    }
   }catch(e){ setConn(false,'erro'); toast('Erro: '+e.message,'err'); return; }
 
   const present = new Set(CLASSES.map(c=>c.branch).filter(Boolean));
@@ -741,6 +771,16 @@ function renderHead(){
   document.getElementById('n-open').textContent = s.length-com;
   document.getElementById('n-prof').textContent = TEACHERS.length;
   document.getElementById('n-conf').textContent = allConflicts().length;
+  /* The chips are the answer to "why am I seeing five sessions when I
+     picked one level" — and pressing one clears that filter. */
+  const chips=[];
+  if(SEL_LEVEL) chips.push(`<span class="filter-chip" data-clear="level">${
+    esc(LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL)}<span class="fc-x">✕</span></span>`);
+  if(LANG) chips.push(`<span class="filter-chip" data-clear="lang">${
+    esc(LANG_NAME[LANG]||LANG)}<span class="fc-x">✕</span></span>`);
+  if(MODE==='teacher' && SEL_TEACHER) chips.push(`<span class="filter-chip" data-clear="teacher">${
+    esc(TEACHERS.find(t=>t.id===SEL_TEACHER)?.name||'—')}<span class="fc-x">✕</span></span>`);
+  document.getElementById('h-filters').innerHTML = chips.join('');
 }
 
 function renderSide(){
@@ -1241,7 +1281,19 @@ document.getElementById('branches').addEventListener('click',e=>{
 document.getElementById('langs').addEventListener('click',e=>{
   const b=e.target.closest('[data-lang]'); if(!b) return;
   LANG = (LANG===b.dataset.lang) ? '' : b.dataset.lang;
-  SEL_LEVEL=null;
+  /* This used to clear SEL_LEVEL unconditionally, which meant picking
+     a language silently threw away the level you had chosen and the
+     grid quietly widened to the whole branch. The level is only
+     dropped when the new language genuinely has nothing at it. */
+  if(SEL_LEVEL && !scoped().some(c=>(c.level_code||'').trim()===SEL_LEVEL)) SEL_LEVEL=null;
+  renderAll();
+});
+document.getElementById('h-filters').addEventListener('click',e=>{
+  const b=e.target.closest('[data-clear]'); if(!b) return;
+  const w=b.dataset.clear;
+  if(w==='level') SEL_LEVEL=null;
+  if(w==='lang') LANG='';
+  if(w==='teacher') SEL_TEACHER=null;
   renderAll();
 });
 document.getElementById('m-level').onclick=()=>{MODE='level';SEL_TEACHER=null;renderAll();};
