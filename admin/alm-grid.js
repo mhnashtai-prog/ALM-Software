@@ -193,10 +193,11 @@ const CSS = `
 .almg-s{font-family:var(--mono,ui-monospace,monospace);font-size:8.5px;
   opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .almg-badge{position:absolute;top:5px;right:6px;width:17px;height:17px;border-radius:999px;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
   font-family:var(--mono,ui-monospace,monospace);font-size:7px;font-weight:700;
   background:currentColor;color:inherit}
 .almg-item.done .almg-badge{background:rgba(255,255,255,.92);color:var(--almg-done,#5E776C)}
+.almg-badge img{width:100%;height:100%;object-fit:cover;border-radius:999px}
 .almg-legend{display:flex;gap:16px;align-items:center;margin-top:9px;
   font-family:var(--mono,ui-monospace,monospace);font-size:9px;color:var(--almg-sub,#7A7A72)}
 .almg-sw{width:9px;height:9px;border-radius:6px;display:inline-block;
@@ -375,8 +376,17 @@ function render(el, opts) {
       node.style.left  = Math.round(lead) + 'px';
       node.style.width = Math.max(46, Math.round(full - lead - trail) - 2) + 'px';
       node.title = it.title + (it.sub ? ' · ' + it.sub : '');
-      node.innerHTML =
-        (it.badge ? `<span class="almg-badge">${esc(it.badge)}</span>` : '') +
+        /* it.photo, when present, replaces the initials/glyph badge with
+         an actual portrait. Falls back to it.badge (text) automatically
+         if the image 404s, so a teacher with no photo on file never
+         shows a broken image icon. */
+      const badgeHTML = it.badge
+        ? (it.photo
+            ? `<span class="almg-badge"><img src="${esc(it.photo)}" alt=""
+                 onerror="this.parentElement.outerHTML='&lt;span class=&quot;almg-badge&quot;&gt;${esc(it.badge)}&lt;/span&gt;'"></span>`
+            : `<span class="almg-badge">${esc(it.badge)}</span>`)
+        : '';
+      node.innerHTML = badgeHTML +
         `<span class="almg-t">${esc(it.title)}</span>` +
         (it.sub ? `<span class="almg-s">${esc(it.sub)}</span>` : '');
 
