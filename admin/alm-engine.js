@@ -499,7 +499,7 @@ function buildProposals(levelKey, branch){
   });
 
   const SLOTS = []; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP) SLOTS.push(t);
-  const allowedDays = dept==='exam' ? [0,1,2,3,4,5] : [0,1,2,3,4];
+ const allowedDays = [0,1,2,3,4,5];
 
   // coversSession: does student window cover a specific day+startMins?
   const coversSession = (w, dayIdx, startMins) =>
@@ -644,7 +644,7 @@ function planIncremental(levelKey, branch){
   const dept = (levelKey.split('|')[0]||'adults').toLowerCase();
   const STEP = 30;
   const SLOTS = []; for(let t=8*60;t<=20*60-CLASS_DUR;t+=STEP) SLOTS.push(t);
-  const allowedDays = dept==='exam' ? [0,1,2,3,4,5] : [0,1,2,3,4];
+const allowedDays = [0,1,2,3,4,5];
 
   const coversSession = (w, dayIdx, startMins) =>
     w.some(x => x.dayIdx===dayIdx && x.fromMins<=startMins+15 && x.toMins>=startMins+CLASS_DUR-15);
