@@ -188,6 +188,17 @@ input,select,textarea{font:inherit;color:inherit}
 .nav-btn:hover{color:var(--ink);background:rgba(var(--shade),.05)}
 .nav-btn.active{background:var(--ink);color:#fff}
 .nav-btn .nb-n{font-family:var(--mono);font-size:9px;margin-left:6px;opacity:.55}
+/* ── LEAVING THE PAGE vs SWITCHING A PANEL ────────────────────────
+   Overview, Audit and Decision are panels inside alm-painel-central,
+   not pages — they have no URL of their own until that file records
+   one, so these point at its hash. They are set dimmer than the local
+   pills because they are a different kind of action: one navigates
+   away, the other repaints #main. Same shape would imply same cost.
+   ──────────────────────────────────────────────────────────────── */
+.nav-btn.xlink{text-decoration:none;display:inline-flex;align-items:center;
+  color:var(--faint)}
+.nav-btn.xlink:hover{color:var(--ink);background:rgba(var(--shade),.05)}
+.nav-sep{width:1px;height:16px;background:var(--line);flex-shrink:0;margin:0 6px}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 16px;
   height:100%;border-left:1px solid var(--line);flex-shrink:0}
 .tb-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);animation:pulse 2.4s infinite}
@@ -439,6 +450,10 @@ body.rail-open .main{padding-right:min(436px,94vw)}
   <a class="tb-home" href="dashboard.html" title="Dashboard" aria-label="Dashboard"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></a>
   <div class="tb-brand"><span class="tb-alm">ALM</span><span class="tb-yr" id="tb-yr">—</span></div>
   <div class="tb-nav" id="nav">
+    <a class="nav-btn xlink" href="alm-painel-central.html#overview">Overview</a>
+    <a class="nav-btn xlink" href="alm-painel-central.html#audit">Audit</a>
+    <a class="nav-btn xlink" href="alm-painel-central.html#decision">Decision</a>
+    <span class="nav-sep"></span>
     <button class="nav-btn active" data-p="grelha">Grelha</button>
     <button class="nav-btn" data-p="porAtribuir">Por atribuir<span class="nb-n" id="n-open">0</span></button>
     <button class="nav-btn" data-p="profs">Professores<span class="nb-n" id="n-prof">0</span></button>
@@ -1206,7 +1221,10 @@ function exportCSV(){
 
 /* ══ WIRING ══ */
 document.getElementById('nav').addEventListener('click',e=>{
-  const b=e.target.closest('.nav-btn'); if(!b) return;
+  /* The anchors share .nav-btn for styling, so they reach this handler
+     too. Letting them through would set PANEL to undefined and repaint
+     an empty #main a moment before the browser left the page. */
+  const b=e.target.closest('.nav-btn'); if(!b || b.tagName==='A') return;
   PANEL=b.dataset.p;
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x===b));
   renderMain();
