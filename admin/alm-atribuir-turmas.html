@@ -499,11 +499,12 @@ body.rail-open .main{padding-right:min(436px,94vw)}
 <div class="head">
   <div><div class="head-n" id="h-title">—</div><div class="head-sub" id="h-sub">—</div></div>
   <div id="h-filters"></div>
-  <div class="kpis">
-    <div class="kpi" id="k-turmas"><div class="kpi-v" id="v-turmas">—</div><div class="kpi-l">Turmas</div></div>
-    <div class="kpi" id="k-com"><div class="kpi-v" id="v-com">—</div><div class="kpi-l">Com professor</div></div>
-    <div class="kpi" id="k-sem"><div class="kpi-v" id="v-sem">—</div><div class="kpi-l">Por atribuir</div></div>
-    <div class="kpi" id="k-alunos"><div class="kpi-v" id="v-alunos">—</div><div class="kpi-l">Alunos</div></div>
+   <div class="kpis">
+    <div class="kpi" id="k-turmas"><div class="kpi-v" id="v-turmas">—</div><div class="kpi-l">Inscritos</div></div>
+    <div class="kpi" id="k-com"><div class="kpi-v" id="v-com">—</div><div class="kpi-l">Sem pedido</div></div>
+    <div class="kpi" id="k-sem"><div class="kpi-v" id="v-sem">—</div><div class="kpi-l">Certificados</div></div>
+    <div class="kpi" id="k-pend"><div class="kpi-v" id="v-pend">—</div><div class="kpi-l">Pendentes</div></div>
+    <div class="kpi" id="k-alunos"><div class="kpi-v" id="v-alunos">—</div><div class="kpi-l">Colocados</div></div>
   </div>
 </div>
 
@@ -560,6 +561,7 @@ const MAX_G = 17;
 
 let AY = '2026/2027';
 let CLASSES=[], TEACHERS=[], ENROL={};
+let ENROLL_ALL={}, REQ_REFS=new Set();
 let BRANCH='', LANG='', MODE='level', SEL_LEVEL=null, SEL_TEACHER=null, PANEL='grelha';
 let UNDO=[];
 let popState=null;
@@ -648,6 +650,38 @@ function visible(){
   if(MODE==='level' && SEL_LEVEL) l=l.filter(c=>(c.level_code||'').trim()===SEL_LEVEL);
   return l;
 }
+
+   /* THE FIVE NUMBERS.
+   Nothing here is stored anywhere new — enrolled/notSubmitted come from
+   enrolments+timetable_requests, certified/placed/pending are derived
+   from classes. A student is "certified" the moment any row exists for
+   them at this level; "placed" only once every one of their sessions
+   at that level has a teacher_id. Two sessions from one pair, same
+   student, same teacher — one certified student, not two. */
+function levelStats(levelKey){
+  const refs = Object.entries(ENROLL_ALL)
+    .filter(([,e])=>e.branch===BRANCH && e.level===levelKey)
+    .map(([ref])=>ref);
+  const notSubmitted = refs.filter(r=>!REQ_REFS.has(r)).length;
+  const lvlClasses = CLASSES.filter(c=>c.branch===BRANCH && (c.level_code||'').trim()===levelKey);
+  const certifiedRefs = new Set(lvlClasses.flatMap(c=>c.student_refs));
+  let placed=0;
+  certifiedRefs.forEach(ref=>{
+    const rows = lvlClasses.filter(c=>c.student_refs.includes(ref));
+    if(rows.length && rows.every(c=>c.teacher_id)) placed++;
+  });
+  const certified = certifiedRefs.size;
+  return { enrolled: refs.length, notSubmitted, certified, pending: certified-placed, placed };
+}
+function currentStats(){
+  if(SEL_LEVEL) return levelStats(SEL_LEVEL);
+  const keys = [...new Set(Object.values(ENROLL_ALL).filter(e=>e.branch===BRANCH).map(e=>e.level))];
+  const agg = {enrolled:0,notSubmitted:0,certified:0,pending:0,placed:0};
+  keys.forEach(k=>{ const s=levelStats(k);
+    agg.enrolled+=s.enrolled; agg.notSubmitted+=s.notSubmitted;
+    agg.certified+=s.certified; agg.pending+=s.pending; agg.placed+=s.placed; });
+  return agg;
+}
 /* Contracted load is measured in real minutes, not in class counts —
    two 90-minute sessions are not "two hours". */
 function loadOf(tid){
@@ -689,11 +723,19 @@ async function boot(){
   document.getElementById('tb-yr').textContent = AY;
 
   try{
-    const [cls, tea] = await Promise.all([
+      const [cls, tea, enrolAll, reqsAll] = await Promise.all([
       sbGet('classes',`select=turma_code,group_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week'),
+      sbGet('enrolments',`select=ref,branch,level_code,level_cefr&academic_year=eq.${encodeURIComponent(AY)}`),
+      sbGet('timetable_requests',`select=ref&academic_year=eq.${encodeURIComponent(AY)}`),
     ]);
-TEACHERS = (tea||[]).map(r=>({id:r.id, code:r.code||'??', name:r.name||'—',
+    ENROLL_ALL = {};
+    (enrolAll||[]).forEach(e=>{
+      ENROLL_ALL[e.ref] = { branch: normB(e.branch||''), level: (e.level_code||e.level_cefr||'').trim() };
+    });
+    REQ_REFS = new Set((reqsAll||[]).map(r=>r.ref));
+
+    TEACHERS = (tea||[]).map(r=>({id:r.id, code:r.code||'??', name:r.name||'—',
   lang:(r.lang||'EN').toUpperCase().slice(0,2), native:!!r.native,
   contractH:r.contract_hours_week||22, branch:normB(r.branch_primary||''),
   photo:null,
@@ -768,16 +810,17 @@ function renderLangs(){
 function renderHead(){
   const list = visible(), s = scoped();
   const com = s.filter(c=>c.teacher_id).length;
-  const alunos = new Set(s.flatMap(c=>c.student_refs)).size;
+  const stats = currentStats();
   document.getElementById('h-title').textContent =
     MODE==='teacher' && SEL_TEACHER ? (TEACHERS.find(t=>t.id===SEL_TEACHER)?.name||'—')
     : SEL_LEVEL ? (LEVEL_DISP[SEL_LEVEL]||SEL_LEVEL) : (BRANCH_LABEL[BRANCH]||BRANCH);
   document.getElementById('h-sub').textContent =
     `${BRANCH_LABEL[BRANCH]||BRANCH}${LANG?' · '+(LANG_NAME[LANG]||LANG):''} · ${AY} · ${list.length} sessões em vista`;
-  document.getElementById('v-turmas').textContent = s.length;
-  document.getElementById('v-com').textContent = com;
-  document.getElementById('v-sem').textContent = s.length-com;
-  document.getElementById('v-alunos').textContent = alunos;
+  document.getElementById('v-turmas').textContent = stats.enrolled;
+  document.getElementById('v-com').textContent = stats.notSubmitted;
+  document.getElementById('v-sem').textContent = stats.certified;
+  document.getElementById('v-pend').textContent = stats.pending;
+  document.getElementById('v-alunos').textContent = stats.placed;
   document.getElementById('n-open').textContent = s.length-com;
   document.getElementById('n-prof').textContent = TEACHERS.length;
   document.getElementById('n-conf').textContent = allConflicts().length;
@@ -1322,9 +1365,9 @@ document.body.addEventListener('click',e=>{
 document.getElementById('btn-undo').onclick=undo;
 document.getElementById('btn-csv').onclick=exportCSV;
 document.getElementById('btn-reload').onclick=boot;
-document.getElementById('k-sem').onclick=()=>{PANEL='porAtribuir';
+document.getElementById('k-pend').onclick=()=>{PANEL='porAtribuir';
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='porAtribuir'));renderMain();};
-document.getElementById('k-com').onclick=()=>{PANEL='profs';
+document.getElementById('k-alunos').onclick=()=>{PANEL='profs';
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='profs'));renderMain();};
 document.getElementById('k-turmas').onclick=()=>{PANEL='grelha';
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.toggle('active',x.dataset.p==='grelha'));renderMain();};
