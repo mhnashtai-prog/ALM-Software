@@ -1627,8 +1627,9 @@ function decShowLevel(levelKey) {
           ${partial ? `<div style="font-size:7px;color:var(--amber);margin-top:4px;font-style:italic">Par incompleto — falta uma sessão</div>` : ''}
         </div>
         <div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div>
-        <button class="dc-btn dc-btn-create" id="dec-btn-${i}"
-          onclick="event.stopPropagation();decCertifyGroup('${levelKey}',${i},this)">${label}</button>
+             <button class="dc-btn dc-btn-create" id="dec-btn-${i}"
+          onclick="event.stopPropagation();decCertifySession('${levelKey}',${i},'A',this)">${label}</button>
+
       </div>
       <div class="dc-body">
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${decStuChips(g.students, ar)}</div>
