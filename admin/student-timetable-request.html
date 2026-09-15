@@ -7,21 +7,92 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* ── EXACT ALMG REPLICA — same tokens, borders, sizes as alm-grid.js ── */
 :root{
-  --gold:#6F8F71;--gold2:#4E6B50;--gold3:rgba(111,143,113,.12);--gold4:rgba(111,143,113,.06);
-  --green:#4E6B50;--green-a:rgba(111,143,113,.12);--green-b:rgba(111,143,113,.34);
-  --red:#B8402A;--red-a:rgba(184,64,42,.10);--red-b:rgba(184,64,42,.32);
-  --amber:#9A7B62;--amber-a:rgba(154,123,98,.12);--amber-b:rgba(154,123,98,.32);
-  --purple:#7E7391;--purple-a:rgba(126,115,145,.10);--purple-b:rgba(126,115,145,.32);
-  --blue:#6E8CA8;--blue-a:rgba(110,140,168,.10);--blue-b:rgba(110,140,168,.28);
-  --teal:#708A81;
-  --bg:#F2F1EC;--bg2:#FBFAF7;--bg3:#E7E8E4;
-  --b:rgba(0,0,0,.07);--b2:rgba(0,0,0,.13);--b3:rgba(0,0,0,.22);
-  --t:#14140F;--t2:#7A7A72;--t3:#A8A69C;--t4:rgba(0,0,0,.10);
-  --mono:'Geist Mono',ui-monospace,monospace;--body:'Geist',system-ui,sans-serif;--display:'Anton',Impact,sans-serif;
-  /* same six values as alm-painel-central's --dayN-rgb — one instrument, one palette */
-  --day0-rgb:74,143,245; --day1-rgb:140,110,190; --day2-rgb:46,180,120;
-  --day3-rgb:130,130,134; --day4-rgb:100,100,104; --day5-rgb:150,150,154;
+  --almg-paper:#FBFAF7; --almg-rule:#E4E2DB; --almg-rule-2:#CFCCC2;
+  --almg-head:#F2F1EC; --almg-head-on:#DCE3DE;
+  --almg-ink:#14140F; --almg-sub:#7A7A72; --almg-faint:#A8A69C;
+  --almg-done:#5E776C; --almg-open:#9A7B62;
+}
+
+.grid-outer{
+  border:1px solid var(--almg-rule-2);border-radius:10px;
+  overflow:auto;background:var(--almg-paper);
+  -webkit-overflow-scrolling:touch;
+}
+.day-col{
+  position:sticky;left:0;z-index:30;width:74px;flex-shrink:0;
+  padding-top:30px;background:var(--almg-head);
+  border-right:1px solid var(--almg-rule-2);
+}
+.day-lbl{
+  height:52px;padding-right:11px;margin-bottom:0;
+  border-bottom:1px solid var(--almg-rule);
+  transition:background .12s,color .12s;
+}
+.day-lbl-short,.day-lbl span:first-child{
+  font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--almg-ink);
+}
+.day-lbl-full,.day-lbl span:last-child{
+  font-family:var(--mono);font-size:8px;color:var(--almg-faint);margin-top:1px;
+}
+.day-lbl.active{background:var(--almg-head-on)}
+
+.grid-main{min-width:0}
+.time-hdr{
+  position:sticky;top:0;z-index:20;height:30px;
+  background:var(--almg-head);border-bottom:1px solid var(--almg-rule-2);
+  margin-bottom:0;gap:0;
+}
+.time-lbl{
+  min-width:86px;font-family:var(--mono);font-size:10px;font-weight:600;
+  color:var(--almg-sub);border-right:1px solid var(--almg-rule);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s;
+}
+.time-lbl.on{background:var(--almg-head-on);color:var(--almg-ink)}
+.time-gap{
+  flex:0 0 22px;background:#FAFAF7;
+  display:flex;align-items:center;justify-content:center;
+}
+
+.grid-row{gap:0;margin-bottom:0;height:52px}
+.gcell{
+  min-width:86px;height:52px;border-radius:0;
+  border:none;border-right:1px solid var(--almg-rule);
+  border-bottom:1px solid var(--almg-rule);
+  background:var(--almg-paper);
+}
+.gcell:hover:not(.gc-gap):not(.locked){
+  background:#FAFAF7;border-color:var(--almg-rule);
+}
+.gc-gap{
+  flex:0 0 22px;background:#FAFAF7;border-right:1px solid var(--almg-rule-2);
+}
+.gc-gap::after{ /* the 12–14 label, rotated exactly as alm-grid draws it */
+  content:'12–14';position:static;transform:none;
+  font-family:var(--mono);font-size:7px;color:var(--almg-faint);
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  display:block;text-align:center;line-height:22px;
+}
+
+/* THE BAND — same shape/padding/type as .almg-item, still coloured
+   per weekday since a student's own availability has no turma/pair
+   identity to hash a tone from. */
+.sband{
+  top:4px;bottom:4px;border-radius:6px;padding:6px 9px;
+  display:flex;flex-direction:column;justify-content:center;gap:1px;
+  min-width:46px;border:none;
+}
+.sband-lbl{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.03em;
+}
+.sband-del{
+  width:17px;height:17px;border-radius:999px;
+  background:rgba(255,255,255,.25);border:none;color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.sband-del:hover{background:rgba(255,255,255,.45)}
 }
 html,body{min-height:100dvh;background:var(--bg);font-family:var(--body);color:var(--t);-webkit-font-smoothing:antialiased;font-size:14px;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
@@ -191,23 +262,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sband-del:hover{background:rgba(232,69,90,.6)}
 
 /* per-day band colours */
-.grid-row[data-di="0"] .sband{background:rgba(74,143,245,.22);border-color:rgba(74,143,245,.55)}
-.grid-row[data-di="0"] .sband:hover{background:rgba(74,143,245,.38)}
-.grid-row[data-di="0"] .sband-lbl{color:rgba(120,175,255,.9)}
-.grid-row[data-di="1"] .sband{background:rgba(155,110,202,.22);border-color:rgba(155,110,202,.55)}
-.grid-row[data-di="1"] .sband:hover{background:rgba(155,110,202,.38)}
-.grid-row[data-di="1"] .sband-lbl{color:rgba(190,160,240,.9)}
-.grid-row[data-di="2"] .sband{background:rgba(46,204,138,.22);border-color:rgba(46,204,138,.55)}
-.grid-row[data-di="2"] .sband:hover{background:rgba(46,204,138,.38)}
-.grid-row[data-di="3"] .sband{background:rgba(232,184,75,.22);border-color:rgba(232,184,75,.55)}
-.grid-row[data-di="3"] .sband:hover{background:rgba(232,184,75,.38)}
-.grid-row[data-di="3"] .sband-lbl{color:rgba(240,200,100,.9)}
-.grid-row[data-di="4"] .sband{background:rgba(232,69,90,.22);border-color:rgba(232,69,90,.55)}
-.grid-row[data-di="4"] .sband:hover{background:rgba(232,69,90,.38)}
-.grid-row[data-di="4"] .sband-lbl{color:rgba(240,130,140,.9)}
-.grid-row[data-di="5"] .sband{background:rgba(201,168,76,.22);border-color:rgba(201,168,76,.55)}
-.grid-row[data-di="5"] .sband:hover{background:rgba(201,168,76,.38)}
-.grid-row[data-di="5"] .sband-lbl{color:rgba(220,190,110,.9)}
+.grid-row[data-di="0"] .sband{background:rgba(var(--day0-rgb),1)}
+.grid-row[data-di="0"] .sband,.grid-row[data-di="0"] .sband-lbl{color:#fff}
+.grid-row[data-di="1"] .sband{background:rgba(var(--day1-rgb),1)}
+.grid-row[data-di="1"] .sband,.grid-row[data-di="1"] .sband-lbl{color:#fff}
+.grid-row[data-di="2"] .sband{background:rgba(var(--day2-rgb),1)}
+.grid-row[data-di="2"] .sband,.grid-row[data-di="2"] .sband-lbl{color:#fff}
+.grid-row[data-di="3"] .sband{background:rgba(var(--day3-rgb),1)}
+.grid-row[data-di="3"] .sband,.grid-row[data-di="3"] .sband-lbl{color:#fff}
+.grid-row[data-di="4"] .sband{background:rgba(var(--day4-rgb),1)}
+.grid-row[data-di="4"] .sband,.grid-row[data-di="4"] .sband-lbl{color:#fff}
+.grid-row[data-di="5"] .sband{background:rgba(var(--day5-rgb),1)}
+.grid-row[data-di="5"] .sband,.grid-row[data-di="5"] .sband-lbl{color:#fff}
 
 /* COVERAGE + SUMMARY */
 .coverage-row{display:flex;gap:4px;padding:4px 16px 10px;flex-wrap:wrap}
