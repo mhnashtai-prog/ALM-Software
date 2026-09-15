@@ -51,16 +51,27 @@ function drawGrid(containerId, withReq, levelKey, result){
       : `T${i+1}`;
     days.forEach((dayL, di) => {
       if(!dayL) return;
+      /* A SLOT REPORTS ITS OWN STATE, NOT THE GROUP'S.
+         `committed` means "something in this group was written", which
+         is not the same as "this session was written". When only A had
+         been certified, `turmaCodeB || code` relabelled the uncertified
+         Thursday with Tuesday's code and `state:'done'` drew it solid —
+         so a half-finished pair looked exactly like a finished one, on
+         the one screen where you would have caught it. */
+      const slotCode = di === 0
+        ? (isCert ? code : code)
+        : (same ? code : (committed?.turmaCodeB || null));
+      const slotCert = di === 0 ? isCert : (same ? isCert : !!committed?.turmaCodeB);
       items.push({
         day: dayL,
         start: g.startTime || minsToT(g.startMins),
         end:   g.endTime   || minsToT(g.startMins + CLASS_DUR),
-        title: isCert ? (di === 0 ? code : (committed.turmaCodeB || code)) : code,
+        title: slotCode || (isCert ? 'por certificar' : code),
         sub:   `${g.students.length}/${MAX_G}${ar?.status==='warn' ? ' · aviso' : ar?.status==='fail' ? ' · falha' : ''}`,
-        badge: isCert ? '✓' : String(i+1),
-        state: isCert ? 'done' : 'open',
+        badge: slotCert ? '✓' : String(i+1),
+        state: slotCert ? 'done' : 'open',
         tone:  committed?.turmaCode || g.group_code || `T${i+1}`,
-        idx: i,
+       idx: i,
       });
     });
   });
@@ -1474,9 +1485,21 @@ async function renderDecision() {
         const startMins = timeToMins(first.start_time) ?? 8 * 60;
         const dayRaw = (first.day_of_week || '').toUpperCase().trim();
         const dayIdx = DAYS_PT.indexOf(dayRaw); if (dayIdx < 0) return;
+         /* WHERE THE SECOND DAY COMES FROM WHEN THERE IS NO SECOND ROW.
+           Falling back to dayIdx made a half-written pair indistinguishable
+           from a genuine single-session group: isSameDay went true, the
+           session count dropped to 1, and Decision declared the level
+           complete with B never written. The pair definition knows what
+           the partner day is, so use it and leave B outstanding. */
         const rowB = groupRows.find(r => r.turma_code !== first.turma_code);
-        const dayRawB = rowB ? (rowB.day_of_week || '').toUpperCase().trim() : dayRaw;
-        const dayIdxB = rowB ? DAYS_PT.indexOf(dayRawB) : dayIdx;
+        let dayIdxB;
+        if (rowB) {
+          dayIdxB = DAYS_PT.indexOf((rowB.day_of_week || '').toUpperCase().trim());
+          if (dayIdxB < 0) dayIdxB = dayIdx;
+        } else {
+          const p = ALM_PAIRS.find(pp => pp.a === dayIdx || pp.b === dayIdx);
+          dayIdxB = p ? (p.a === dayIdx ? p.b : p.a) : dayIdx;
+        }
         const pairDef = ALM_PAIRS.find(p => p.a === dayIdx && p.b === dayIdxB) || null;
         _allResults[key] = { groups: [{ pairDef, dayIdx_A: dayIdx, dayIdx_B: dayIdxB, dayL_A: DAYS_PT[dayIdx], dayL_B: DAYS_PT[dayIdxB], dayIdx, dayL: DAYS_PT[dayIdx], startMins, startTime: minsToT(startMins), endTime: minsToT(startMins + CLASS_DUR), students, _locked: true }], sinalizados: [], total: students.length, withRequest: students.length, placed: students.length };
         if (!_auditResults[key]) _auditResults[key] = {};
@@ -1550,75 +1573,206 @@ function decShowLevel(levelKey) {
   _decLastLevelKey = levelKey;
   const mainEl = document.getElementById('dec-main');
   const result = _allResults[levelKey];
-  if (!result?.groups?.length) { mainEl.innerHTML = '<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>'; return; }
+  if (!result?.groups?.length) {
+    mainEl.innerHTML = '<div class="placeholder-main"><div class="placeholder-text">Sem grupos</div></div>';
+    return;
+  }
   const meta = LEVEL_MAP[levelKey] || {};
-  const sessionCards = [];
+
+  /* ONE CARD PER GROUP, NOT PER SLOT.
+     Two cards for one pair is what allowed a pair to be half-certified:
+     nothing on screen said the two presses belonged together. The card
+     lists both sessions and marks each one written or outstanding. */
+  const cards = [];
   result.groups.forEach((g, i) => {
     const committed = (_groupCodes[levelKey] || {})[i];
     const ar = (_auditResults[levelKey] || {})[i];
-    const isSameDay = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
-    const slots = isSameDay
-      ? [{ suffix: 'A', dayL: g.dayL_A || g.dayL, dayIdx: g.dayIdx_A ?? g.dayIdx }]
-      : [{ suffix: 'A', dayL: g.dayL_A || g.dayL, dayIdx: g.dayIdx_A ?? g.dayIdx }, { suffix: 'B', dayL: g.dayL_B || g.dayL, dayIdx: g.dayIdx_B ?? g.dayIdx }];
-    slots.forEach(({ suffix, dayL }) => {
-      const alreadyCert = committed && (suffix === 'A' ? !!committed.turmaCodeA : !!committed.turmaCodeB);
-      if (alreadyCert) return;
-      const slotCode = committed ? (suffix === 'A' ? (committed.turmaCodeA || `${committed.turmaCode}A`) : (committed.turmaCodeB || `${committed.turmaCode}B`)) : `T${i + 1}${suffix}`;
-      sessionCards.push({ groupIdx: i, suffix, dayL, slotCode, g, ar });
-    });
+    const same = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+    const slots = (same ? ['A'] : ['A', 'B']).map(suffix => ({
+      suffix,
+      dayL: suffix === 'A' ? (g.dayL_A || g.dayL) : (g.dayL_B || g.dayL),
+      code: suffix === 'A' ? committed?.turmaCodeA : committed?.turmaCodeB,
+    }));
+    const pending = slots.filter(s => !s.code);
+    if (!pending.length) return;          /* fully certified — nothing to do */
+    cards.push({ i, g, ar, slots, pending, committed });
   });
-  const pending = sessionCards.length;
-  let html = `<div class="sec" style="margin-bottom:14px">${meta.label || levelKey} · ${pending} sessão${pending !== 1 ? 'ões' : ''} por certificar</div>`;
-  sessionCards.forEach(({ groupIdx, suffix, dayL, slotCode, g, ar }) => {
+
+  const pendingSessions = cards.reduce((n, c) => n + c.pending.length, 0);
+  let html = `<div class="sec" style="margin-bottom:14px">${meta.label || levelKey} · ${pendingSessions} sessão${pendingSessions !== 1 ? 'ões' : ''} por certificar</div>`;
+
+  cards.forEach(({ i, g, ar, slots, pending, committed }) => {
     const slotC = slotCol(g.dayIdx_A ?? g.dayIdx, g.startMins);
-    const session = `${dayL} · ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
+    const when = `${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
     const auditSummary = ar
       ? `<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 6px;border:1px solid var(--green-b);background:var(--green-a)">✓ ${ar.passCount}</span>`
-      + (ar.warnCount ? `<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>` : '')
-      + (ar.failCount ? `<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>` : '')
+        + (ar.warnCount ? `<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 6px;border:1px solid var(--amber-b);background:var(--amber-a);margin-left:4px">⚠ ${ar.warnCount}</span>` : '')
+        + (ar.failCount ? `<span style="font-size:7px;font-weight:700;color:var(--red);padding:1px 6px;border:1px solid var(--red-b);background:var(--red-a);margin-left:4px">✕ ${ar.failCount}</span>` : '')
       : '';
-    html += `<div class="dec-card" id="dec-card-${groupIdx}-${suffix}" style="border-left-color:${slotC}"><div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')"><span class="dc-arr">›</span><div style="flex:1;min-width:0"><div style="font-size:10px;font-weight:600;color:${slotC}">${slotCode} · ${session}</div><div style="display:flex;align-items:center;gap:6px;margin-top:3px">${auditSummary}</div></div><div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div><button class="dc-btn dc-btn-create" id="dec-btn-${groupIdx}-${suffix}" onclick="event.stopPropagation();decCertifySession('${levelKey}',${groupIdx},'${suffix}',this)">✓ Certificar</button></div><div class="dc-body"><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${decStuChips(g.students, ar)}</div></div></div>`;
+    /* Each session says whether it is written. A pair that was left
+       half-done is now legible as half-done. */
+    const slotRow = slots.map(s => s.code
+      ? `<span style="font-size:7px;font-weight:700;color:var(--green);padding:1px 7px;border:1px solid var(--green-b);background:var(--green-a);margin-right:4px">✓ ${s.code} · ${s.dayL}</span>`
+      : `<span style="font-size:7px;font-weight:700;color:var(--amber);padding:1px 7px;border:1px dashed var(--amber-b);background:var(--amber-a);margin-right:4px">${s.dayL} · por certificar</span>`
+    ).join('');
+    const label = pending.length > 1 ? `✓ Certificar par` : `✓ Certificar ${pending[0].dayL}`;
+    const partial = slots.length > 1 && pending.length === 1;
+
+    html += `<div class="dec-card" id="dec-card-${i}" style="border-left-color:${partial ? 'var(--amber)' : slotC}">
+      <div class="dc-hdr" onclick="this.parentElement.classList.toggle('open')">
+        <span class="dc-arr">›</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:600;color:${slotC}">${committed?.turmaCode || `T${i + 1}`} · ${when}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">${slotRow}${auditSummary}</div>
+          ${partial ? `<div style="font-size:7px;color:var(--amber);margin-top:4px;font-style:italic">Par incompleto — falta uma sessão</div>` : ''}
+        </div>
+        <div style="font-size:22px;font-weight:700;color:${slotC};line-height:1;margin-right:10px">${g.students.length}</div>
+        <button class="dc-btn dc-btn-create" id="dec-btn-${i}"
+          onclick="event.stopPropagation();decCertifyGroup('${levelKey}',${i},this)">${label}</button>
+      </div>
+      <div class="dc-body">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${decStuChips(g.students, ar)}</div>
+      </div>
+    </div>`;
   });
-  if (!sessionCards.length) { html += `<div style="padding:40px;text-align:center;color:var(--green);font-size:9px;letter-spacing:.1em">✓ Todas as sessões deste nível certificadas</div>`; }
+
+  if (!cards.length)
+    html += `<div style="padding:40px;text-align:center;color:var(--green);font-size:9px;letter-spacing:.1em">✓ Todas as sessões deste nível certificadas</div>`;
+
   mainEl.innerHTML = html;
-  // Show the back button (U-04)
   const btn = document.getElementById('dec-back-btn');
   if (btn) btn.style.display = 'block';
 }
-
-async function decCertifySession(levelKey, groupIdx, suffix, btn) {
-  const g = _allResults[levelKey]?.groups[groupIdx]; if (!g) { showToast('Grupo não encontrado', 'err'); return; }
-  const meta = LEVEL_MAP[levelKey] || {};
+/* ONE SESSION, WRITTEN AND COUNTED.
+   No UI in here on purpose: the pair path calls it twice and must not
+   repaint between the two writes. */
+async function _writeSession(levelKey, groupIdx, suffix) {
+  const g = _allResults[levelKey]?.groups[groupIdx];
+  if (!g) throw new Error('Grupo não encontrado');
   const ar = (_auditResults[levelKey] || {})[groupIdx] || {};
+  const dayL = suffix === 'A'
+    ? (g.dayL_A || g.dayL)
+    : (g.dayL_B || g.dayL_A || g.dayL);
+
+  const branch = activeLoc === 'all'
+    ? (normB(g.students[0]?.branch) || 'FUNCHAL')
+    : activeLoc;
+
+  /* Re-read each call: A creates the group code, B must reuse it or the
+     two sessions end up in different groups with the same suffix. */
+  let groupCode = (_groupCodes[levelKey] || {})[groupIdx]?.turmaCode || null;
+  if (!groupCode) groupCode = generateTurmaCodeSync(branch);
+  const sessionCode = `${groupCode}${suffix}`;
+
+  const row = {
+    group_code: groupCode, turma_code: sessionCode, academic_year: AY, branch,
+    lang: ((g.students[0] || {}).lang || 'EN').toUpperCase().slice(0, 2),
+    department: (LEVEL_MAP[levelKey] || {}).dept || 'adults',
+    level_code: (levelKey.split('|')[1] || '').trim(),
+    level_display: (LEVEL_MAP[levelKey] || {}).label || '',
+    day_of_week: dayL, hour: Math.floor(g.startMins / 60),
+    start_time: g.startTime, end_time: g.endTime, duration_min: CLASS_DUR,
+    student_refs: g.students.map(s => s.ref),
+    status: 'confirmed', locked: true, assignment_source: 'decision_panel',
+    audit_log: ar.log || {}, audited_at: new Date().toISOString(),
+    pass_count: ar.passCount || g.students.length,
+    warn_count: ar.warnCount || 0, fail_count: ar.failCount || 0,
+  };
+
+  const r = await fetch(`${SB}/rest/v1/classes`, {
+    method: 'POST',
+    headers: { ...H, 'Content-Type': 'application/json',
+               Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify([row]),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status} · ${text.slice(0, 160)}`);
+  /* THE ROWS, COUNTED. The old version checked r.ok and discarded the
+     body, so a write that changed nothing printed a tick. */
+  let rows = []; try { rows = JSON.parse(text || '[]'); } catch { rows = []; }
+  if (!Array.isArray(rows) || rows.length === 0)
+    throw new Error(`${sessionCode}: a base de dados não escreveu nenhuma linha`);
+
+  _retiredCodes.add(sessionCode);
+  if (!_groupCodes[levelKey]) _groupCodes[levelKey] = {};
+  const existing = _groupCodes[levelKey][groupIdx] || {};
+  _groupCodes[levelKey][groupIdx] = {
+    ...existing, turmaCode: groupCode, [`turmaCode${suffix}`]: sessionCode,
+    sentAt: new Date().toISOString(), status: ar.status || 'pass', locked: true,
+  };
+  return sessionCode;
+}
+
+/* One slot. Kept for any caller that certifies a single session. */
+async function decCertifySession(levelKey, groupIdx, suffix, btn) {
+  const g = _allResults[levelKey]?.groups[groupIdx];
+  if (!g) { showToast('Grupo não encontrado', 'err'); return; }
+  const meta = LEVEL_MAP[levelKey] || {};
   const dayL = suffix === 'A' ? (g.dayL_A || g.dayL) : (g.dayL_B || g.dayL_A || g.dayL);
-  const confirmed = await almConfirm({ title: 'CERTIFICAR SESSÃO', accent: 'var(--green)', okBg: 'rgba(111,143,113,.9)', okLabel: '✓ Certificar', lines: [`${meta.label || levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`, `${g.students.length} alunos`] });
+  const confirmed = await almConfirm({
+    title: 'CERTIFICAR SESSÃO', accent: 'var(--green)',
+    okBg: 'rgba(111,143,113,.9)', okLabel: '✓ Certificar',
+    lines: [`${meta.label || levelKey} · ${dayL} ${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`,
+            `${g.students.length} alunos`],
+  });
   if (!confirmed) return;
-  btn.disabled = true; btn.textContent = '⏳ A certificar…';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ A certificar…'; }
   try {
-    const branch = activeLoc === 'all' ? (normB(g.students[0]?.branch) || 'FUNCHAL') : activeLoc;
-    let groupCode = (_groupCodes[levelKey] || {})[groupIdx]?.turmaCode || null;
-    if (!groupCode) groupCode = generateTurmaCodeSync(branch);
-    const sessionCode = `${groupCode}${suffix}`;
-    const row = { group_code: groupCode, turma_code: sessionCode, academic_year: AY, branch, lang: ((g.students[0] || {}).lang || 'EN').toUpperCase().slice(0, 2), department: (LEVEL_MAP[levelKey] || {}).dept || 'adults', level_code: (levelKey.split('|')[1] || '').trim(), level_display: (LEVEL_MAP[levelKey] || {}).label || '', day_of_week: dayL, hour: Math.floor(g.startMins / 60), start_time: g.startTime, end_time: g.endTime, duration_min: CLASS_DUR, student_refs: g.students.map(s => s.ref), status: 'confirmed', locked: true, assignment_source: 'decision_panel', audit_log: ar.log || {}, audited_at: new Date().toISOString(), pass_count: ar.passCount || g.students.length, warn_count: ar.warnCount || 0, fail_count: ar.failCount || 0 };
-    const r = await fetch(`${SB}/rest/v1/classes`, { method: 'POST', headers: { ...H, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify([row]) });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    _retiredCodes.add(sessionCode);
-    if (!_groupCodes[levelKey]) _groupCodes[levelKey] = {};
-    const existing = _groupCodes[levelKey][groupIdx] || {};
-    _groupCodes[levelKey][groupIdx] = { ...existing, turmaCode: groupCode, [`turmaCode${suffix}`]: sessionCode, sentAt: new Date().toISOString(), status: ar.status || 'pass', locked: true };
-    const card = document.getElementById(`dec-card-${groupIdx}-${suffix}`);
-    if (card) {
-      card.style.borderLeftColor = 'var(--green)'; card.style.background = 'rgba(111,143,113,.04)';
-      btn.textContent = `✓ ${sessionCode}`;
-      btn.style.cssText = 'border-color:var(--green-b);color:var(--green);background:var(--green-a);padding:4px 12px;border:1px solid;font-family:var(--mono);font-size:8px;font-weight:700;cursor:default;letter-spacing:.04em';
-    }
-    // U-06: cross-panel refresh after certification
+    const code = await _writeSession(levelKey, groupIdx, suffix);
+    showToast(`${code} certificada`, 'ok');
     refreshUIAfterCertify(levelKey);
     renderDecision().then(() => decShowLevel(levelKey));
   } catch (e) {
-    btn.disabled = false; btn.textContent = '✓ Certificar';
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Certificar'; }
     showToast('Erro: ' + e.message, 'err');
   }
+}
+
+/* BOTH SLOTS, ONE PRESS.
+   A pair is one decision. Splitting it into two buttons meant a pair
+   could be — and was — left half-written, with every downstream screen
+   reporting it as finished. The loop skips whatever is already written,
+   so pressing again after a partial failure completes the pair rather
+   than duplicating it. */
+async function decCertifyGroup(levelKey, groupIdx, btn) {
+  const g = _allResults[levelKey]?.groups[groupIdx];
+  if (!g) { showToast('Grupo não encontrado', 'err'); return; }
+  const meta = LEVEL_MAP[levelKey] || {};
+  const same = (g.dayIdx_A ?? g.dayIdx) === (g.dayIdx_B ?? g.dayIdx);
+  const done = (_groupCodes[levelKey] || {})[groupIdx] || {};
+  const todo = (same ? ['A'] : ['A', 'B'])
+    .filter(s => !(s === 'A' ? done.turmaCodeA : done.turmaCodeB));
+  if (!todo.length) { showToast('Já certificada', 'ok'); return; }
+
+  const when = `${minsToT(g.startMins)}–${minsToT(g.startMins + CLASS_DUR)}`;
+  const days = same
+    ? (g.dayL_A || g.dayL)
+    : `${g.dayL_A || g.dayL} + ${g.dayL_B}`;
+  const confirmed = await almConfirm({
+    title: todo.length > 1 ? 'CERTIFICAR PAR' : 'CERTIFICAR SESSÃO',
+    accent: 'var(--green)', okBg: 'rgba(111,143,113,.9)',
+    okLabel: `✓ Certificar ${todo.length} sessão${todo.length !== 1 ? 'ões' : ''}`,
+    lines: [`${meta.label || levelKey} · ${days} ${when}`,
+            `${g.students.length} alunos · ${todo.join(' e ')}`],
+  });
+  if (!confirmed) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ A certificar…'; }
+  const written = [];
+  try {
+    for (const suffix of todo) written.push(await _writeSession(levelKey, groupIdx, suffix));
+    showToast(`${written.join(' · ')} certificada${written.length !== 1 ? 's' : ''}`, 'ok');
+  } catch (e) {
+    /* Partial success is reported as partial. Whatever was written
+       stays written — pressing again finishes the pair. */
+    if (written.length)
+      showToast(`${written.join(' · ')} escrita, resto falhou: ${e.message}`, 'warn');
+    else
+      showToast('Erro: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Certificar'; }
+  }
+  refreshUIAfterCertify(levelKey);
+  renderDecision().then(() => decShowLevel(levelKey));
 }
 
 /* ── NAVIGATION ───────────────────────────────────────────── */
