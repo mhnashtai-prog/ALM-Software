@@ -691,11 +691,12 @@ async function boot(){
   try{
     const [cls, tea] = await Promise.all([
       sbGet('classes',`select=turma_code,group_code,teacher_id,teacher_code,teacher_name,lang,level_code,level_display,department,branch,day_of_week,hour,start_time,end_time,duration_min,student_refs&academic_year=eq.${encodeURIComponent(AY)}&order=day_of_week,hour`),
-      sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week'),
+       sbGet('teachers','select=id,code,name,lang,native,branch_primary,branches,contract_hours_week,photo_url'),
     ]);
     TEACHERS = (tea||[]).map(r=>({id:r.id, code:r.code||'??', name:r.name||'—',
       lang:(r.lang||'EN').toUpperCase().slice(0,2), native:!!r.native,
       contractH:r.contract_hours_week||22, branch:normB(r.branch_primary||''),
+      photo:r.photo_url||null,
       branches:Array.isArray(r.branches)&&r.branches.length?r.branches.map(normB):[normB(r.branch_primary||'')]}));
 
     CLASSES = (cls||[]).map(c=>{
@@ -879,6 +880,7 @@ function drawGrid(){
         title:c.turma_code,
         sub:`${t?t.name:'sem professor'} · ${c.student_refs.length}/${MAX_G}`,
         badge: t ? avInit(t.name) : '',
+        photo: t ? t.photo : null,
         state: t ? 'done' : 'open',
         tone: c.group_code,
         dim: focus && c.teacher_id!==focus,
