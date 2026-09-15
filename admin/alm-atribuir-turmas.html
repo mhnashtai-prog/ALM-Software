@@ -316,6 +316,20 @@ input,select,textarea{font:inherit;color:inherit}
    the level-row tags only — other .tag usages on this page (card
    headers, conflict list) keep their existing rounded-rect shape. */
 .srow .tag{border-radius:999px;font-weight:700}
+/* Per-level enrollment stats (Inscritos/Sem pedido/Certificados/
+   Pendentes/Colocados) already live in levelStats() and drive the
+   page header when a level is selected — this adds a compact second
+   line to each row so the same numbers are visible without needing
+   to click into a level first. Only rows with data wrap onto a
+   second line; the header keeps showing full detail for whichever
+   level is currently selected. */
+.srow.lvl{flex-wrap:wrap;align-items:flex-start}
+.srow-stats{flex:0 0 100%;display:flex;gap:4px;margin:4px 0 0 14px}
+.sst{font-family:var(--mono);font-size:8px;font-weight:700;padding:1px 6px;
+  border-radius:999px;background:rgba(var(--shade),.06);color:var(--sub);line-height:1.5}
+.sst.warn{background:var(--alert-a);color:var(--alert)}
+.sst.pend{background:var(--clay-a);color:var(--clay)}
+.sst.ok{background:var(--sage-a);color:var(--sage-deep)}
 
 /* ══ SHEETS ══ */
 /* THE PANEL DOES NOT COVER THE GRID.
@@ -855,7 +869,13 @@ function renderSide(){
       const open = l.filter(c=>!c.teacher_id).length;
       const d = DEPT[LEVEL_DEPT[k] || 'adults'];
       const pct = l.length ? Math.round((l.length-open)/l.length*100) : 0;
-      return `<div class="srow ${k===SEL_LEVEL?'on':''} ${l.length?'':'empty'}"
+      const stats = l.length ? levelStats(k) : null;
+      const statBadges = stats ? [
+        stats.notSubmitted>0 ? `<span class="sst warn" title="${stats.notSubmitted} sem pedido">${stats.notSubmitted}</span>` : '',
+        stats.pending>0      ? `<span class="sst pend" title="${stats.pending} pendentes">${stats.pending}</span>`         : '',
+        stats.placed>0       ? `<span class="sst ok" title="${stats.placed} colocados">✓${stats.placed}</span>`          : '',
+      ].filter(Boolean).join('') : '';
+      return `<div class="srow ${l.length?'lvl':''} ${k===SEL_LEVEL?'on':''} ${l.length?'':'empty'}"
         ${l.length?`data-level="${esc(k)}"`:''}>
         <span class="srow-band" style="background:${d.band}${l.length?'':';opacity:.28'}"></span>
         <span class="srow-n">${esc(LEVEL_DISP[k]||k)}</span>
@@ -865,6 +885,7 @@ function renderSide(){
           ${open?`<span class="tag pend" style="padding:2px 7px">${open}</span>`
                 :`<span class="tag on" style="padding:2px 7px">✓</span>`}`
         : `<span class="srow-m" style="margin-left:auto;opacity:.55">—</span>`}
+        ${statBadges ? `<div class="srow-stats">${statBadges}</div>` : ''}
       </div>`;
     }).join('');
   }else{
